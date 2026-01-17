@@ -163,6 +163,18 @@ class RetellClient {
     });
   }
 
+  async deleteKnowledgeBase(kbId: string): Promise<void> {
+    await this.request(`/delete-knowledge-base/${kbId}`, {
+      method: 'DELETE',
+    });
+  }
+
+  async deleteLLM(llmId: string): Promise<void> {
+    await this.request(`/delete-retell-llm/${llmId}`, {
+      method: 'DELETE',
+    });
+  }
+
   // Call Management (uses /v2 prefix)
   async getCall(callId: string): Promise<{
     call_id: string;

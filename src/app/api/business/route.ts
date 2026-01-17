@@ -37,11 +37,29 @@ export async function POST(request: NextRequest) {
     const supabase = getSupabaseAdmin();
     const retell = getRetellClient();
 
-    // Create Retell LLM with business details
+    // Create knowledge base from website if provided
+    let knowledgeBaseId: string | null = null;
+    if (website) {
+      try {
+        console.log('Creating knowledge base from website:', website);
+        const kb = await retell.createKnowledgeBase({
+          name: `${name} Website`,
+          urls: [website],
+        });
+        knowledgeBaseId = kb.knowledge_base_id;
+        console.log('Knowledge base created:', knowledgeBaseId);
+      } catch (kbError) {
+        // Don't fail if KB creation fails, just log it
+        console.error('Failed to create knowledge base:', kbError);
+      }
+    }
+
+    // Create Retell LLM with business details and knowledge base
     console.log('Creating Retell LLM...');
     const llm = await retell.createLLM({
       generalPrompt: getBusinessPrompt(name, description, business_type),
       beginMessage: `Hello! Thank you for calling ${name}. How can I help you today?`,
+      knowledgeBaseIds: knowledgeBaseId ? [knowledgeBaseId] : undefined,
     });
     const llmId = llm.llm_id;
     console.log('LLM created:', llmId);
@@ -65,6 +83,7 @@ export async function POST(request: NextRequest) {
         name,
         retell_agent_id: agentId,
         retell_llm_id: llmId,
+        knowledge_base_id: knowledgeBaseId,
         settings: {
           voiceId: '11labs-Adrian',
           language: 'en-US',
