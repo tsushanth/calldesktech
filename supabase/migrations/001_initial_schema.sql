@@ -1,6 +1,25 @@
 -- CallDeskTech Database Schema
 -- Run this in your Supabase SQL Editor
 
+-- =============================================
+-- DROP EXISTING SCHEMA (clean slate)
+-- =============================================
+
+-- Drop all tables with CASCADE (this also drops dependent triggers, policies, indexes)
+DROP TABLE IF EXISTS bookings CASCADE;
+DROP TABLE IF EXISTS call_logs CASCADE;
+DROP TABLE IF EXISTS knowledge_items CASCADE;
+DROP TABLE IF EXISTS knowledge_bases CASCADE;
+DROP TABLE IF EXISTS conversation_flows CASCADE;
+DROP TABLE IF EXISTS tenants CASCADE;
+
+-- Drop function (use CASCADE to drop dependent triggers)
+DROP FUNCTION IF EXISTS update_updated_at_column() CASCADE;
+
+-- =============================================
+-- CREATE SCHEMA
+-- =============================================
+
 -- Enable UUID extension
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 

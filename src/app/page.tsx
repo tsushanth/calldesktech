@@ -34,17 +34,17 @@ export default function Home() {
           </p>
           <div className="flex gap-4 justify-center">
             <Link
-              href="/dashboard"
+              href="/demo"
               className="bg-blue-600 hover:bg-blue-700 px-8 py-4 rounded-lg text-lg font-semibold transition"
             >
-              Get Started Free
+              Try Free Demo
             </Link>
-            <a
-              href="#features"
+            <Link
+              href="/dashboard"
               className="border border-gray-600 hover:border-gray-400 px-8 py-4 rounded-lg text-lg font-semibold transition"
             >
-              Learn More
-            </a>
+              Go to Dashboard
+            </Link>
           </div>
         </div>
 

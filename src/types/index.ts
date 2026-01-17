@@ -86,6 +86,41 @@ export interface CallTranscript {
   timestamp: number;
 }
 
+// Transcript page types
+export interface TranscriptTurn {
+  role: 'user' | 'assistant';
+  text: string;
+  timestamp?: string;
+  turn_number?: number;
+}
+
+export interface CallerInsights {
+  sentiment: string;
+  urgency: string;
+  decision_style: string;
+  purchase_intent: string;
+  price_sensitivity: string;
+  key_concerns: string[];
+  upsell_opportunities: string[];
+  follow_up_recommendation: string;
+  caller_profile_summary: string;
+}
+
+export interface TranscriptResponse {
+  call_id: string;
+  tenant_id: string;
+  business_name: string;
+  duration: number;
+  started_at?: string;
+  ended_at?: string;
+  transcript: TranscriptTurn[];
+  summary?: string;
+  caller_intent?: string;
+  actions_demonstrated?: string[];
+  caller_insights?: CallerInsights;
+  turn_count: number;
+}
+
 // Booking Types
 export interface BookingSlot {
   startTime: string;

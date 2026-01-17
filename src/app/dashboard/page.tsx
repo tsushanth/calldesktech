@@ -1,221 +1,109 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
-
-// Mock data for demo
-const mockTenant = {
-  id: '1',
-  name: 'Demo Business',
-  phoneNumber: '+1 (555) 123-4567',
-  isActive: true,
-};
-
-const mockStats = {
-  totalCalls: 127,
-  bookingsToday: 8,
-  avgDuration: '2m 34s',
-  answerRate: '94%',
-};
-
-const mockRecentCalls = [
-  { id: '1', caller: '+1 (555) 987-6543', outcome: 'booked', duration: '3:21', time: '2 min ago' },
-  { id: '2', caller: '+1 (555) 456-7890', outcome: 'answered', duration: '1:45', time: '15 min ago' },
-  { id: '3', caller: '+1 (555) 321-0987', outcome: 'transferred', duration: '0:58', time: '32 min ago' },
-  { id: '4', caller: '+1 (555) 654-3210', outcome: 'booked', duration: '4:12', time: '1 hour ago' },
-];
+import { useOnboarding } from '@/context/OnboardingContext';
+import { api, type CallLog } from '@/lib/api';
+import { formatPhoneDisplay, formatDuration, formatRelativeTime } from '@/lib/utils';
 
 export default function DashboardPage() {
-  const [activeTab, setActiveTab] = useState<'overview' | 'calls' | 'knowledge' | 'settings'>('overview');
+  const { tenantId, isHydrated } = useOnboarding();
+  const [stats, setStats] = useState({ totalCalls: 0, todayCalls: 0, totalBookings: 0, avgDuration: 0 });
+  const [recentCalls, setRecentCalls] = useState<CallLog[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    async function loadData() {
+      if (!tenantId || !isHydrated) return;
+
+      setIsLoading(true);
+      try {
+        const [statsData, callsData] = await Promise.all([
+          api.getCallStats(tenantId),
+          api.getCallLogs(tenantId, 5),
+        ]);
+        setStats(statsData);
+        setRecentCalls(callsData);
+      } catch (err) {
+        console.error('Failed to load dashboard data:', err);
+      } finally {
+        setIsLoading(false);
+      }
+    }
+
+    loadData();
+  }, [tenantId, isHydrated]);
 
   return (
-    <div className="min-h-screen bg-gray-900 text-white">
-      {/* Sidebar */}
-      <aside className="fixed left-0 top-0 h-full w-64 bg-gray-800 border-r border-gray-700 p-6">
-        <Link href="/" className="text-xl font-bold mb-8 block">
-          CallDeskTech
-        </Link>
+    <>
+      <h1 className="text-2xl font-bold mb-8">Dashboard Overview</h1>
 
-        <nav className="space-y-2">
-          <NavItem
-            active={activeTab === 'overview'}
-            onClick={() => setActiveTab('overview')}
-            icon="📊"
-            label="Overview"
-          />
-          <NavItem
-            active={activeTab === 'calls'}
-            onClick={() => setActiveTab('calls')}
-            icon="📞"
-            label="Call Logs"
-          />
-          <NavItem
-            active={activeTab === 'knowledge'}
-            onClick={() => setActiveTab('knowledge')}
-            icon="🧠"
-            label="Knowledge Base"
-          />
-          <NavItem
-            active={activeTab === 'settings'}
-            onClick={() => setActiveTab('settings')}
-            icon="⚙️"
-            label="Settings"
-          />
-        </nav>
+      {/* Stats Grid */}
+      <div className="grid grid-cols-4 gap-6 mb-8">
+        <StatCard label="Total Calls" value={stats.totalCalls.toString()} />
+        <StatCard label="Calls Today" value={stats.todayCalls.toString()} />
+        <StatCard label="Total Bookings" value={stats.totalBookings.toString()} />
+        <StatCard label="Avg Duration" value={formatDuration(stats.avgDuration)} />
+      </div>
 
-        <div className="absolute bottom-6 left-6 right-6">
-          <div className="bg-gray-700/50 rounded-lg p-4">
-            <div className="flex items-center gap-2 mb-2">
-              <span className={`w-2 h-2 rounded-full ${mockTenant.isActive ? 'bg-green-500' : 'bg-red-500'}`} />
-              <span className="text-sm text-gray-400">
-                {mockTenant.isActive ? 'Live' : 'Offline'}
-              </span>
-            </div>
-            <p className="font-medium">{mockTenant.name}</p>
-            <p className="text-sm text-gray-400">{mockTenant.phoneNumber}</p>
-          </div>
+      {/* Recent Calls */}
+      <div className="bg-gray-800 rounded-xl border border-gray-700">
+        <div className="p-4 border-b border-gray-700 flex justify-between items-center">
+          <h2 className="font-semibold">Recent Calls</h2>
+          <Link href="/dashboard/calls" className="text-blue-400 hover:text-blue-300 text-sm">
+            View All
+          </Link>
         </div>
-      </aside>
-
-      {/* Main Content */}
-      <main className="ml-64 p-8">
-        {activeTab === 'overview' && (
-          <>
-            <h1 className="text-2xl font-bold mb-8">Dashboard Overview</h1>
-
-            {/* Stats Grid */}
-            <div className="grid grid-cols-4 gap-6 mb-8">
-              <StatCard label="Total Calls" value={mockStats.totalCalls.toString()} trend="+12%" />
-              <StatCard label="Bookings Today" value={mockStats.bookingsToday.toString()} trend="+3" />
-              <StatCard label="Avg Duration" value={mockStats.avgDuration} />
-              <StatCard label="Answer Rate" value={mockStats.answerRate} trend="+2%" />
-            </div>
-
-            {/* Recent Calls */}
-            <div className="bg-gray-800 rounded-xl border border-gray-700">
-              <div className="p-4 border-b border-gray-700">
-                <h2 className="font-semibold">Recent Calls</h2>
-              </div>
-              <div className="divide-y divide-gray-700">
-                {mockRecentCalls.map((call) => (
-                  <div key={call.id} className="p-4 flex items-center justify-between">
-                    <div>
-                      <p className="font-medium">{call.caller}</p>
-                      <p className="text-sm text-gray-400">{call.time}</p>
-                    </div>
-                    <div className="flex items-center gap-4">
-                      <span className="text-sm text-gray-400">{call.duration}</span>
-                      <OutcomeBadge outcome={call.outcome} />
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </>
-        )}
-
-        {activeTab === 'knowledge' && (
-          <>
-            <div className="flex justify-between items-center mb-8">
-              <h1 className="text-2xl font-bold">Knowledge Base</h1>
-              <button className="bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded-lg transition">
-                + Add Knowledge
-              </button>
-            </div>
-
-            <div className="bg-gray-800 rounded-xl border border-gray-700 p-6">
-              <p className="text-gray-400 text-center py-8">
-                No knowledge base items yet. Add FAQs or connect your website to get started.
-              </p>
-            </div>
-          </>
-        )}
-
-        {activeTab === 'calls' && (
-          <>
-            <h1 className="text-2xl font-bold mb-8">Call Logs</h1>
-            <div className="bg-gray-800 rounded-xl border border-gray-700">
-              <div className="divide-y divide-gray-700">
-                {mockRecentCalls.map((call) => (
-                  <div key={call.id} className="p-4 flex items-center justify-between hover:bg-gray-700/50 cursor-pointer">
-                    <div>
-                      <p className="font-medium">{call.caller}</p>
-                      <p className="text-sm text-gray-400">{call.time}</p>
-                    </div>
-                    <div className="flex items-center gap-4">
-                      <span className="text-sm text-gray-400">{call.duration}</span>
-                      <OutcomeBadge outcome={call.outcome} />
-                      <button className="text-blue-400 hover:text-blue-300 text-sm">
-                        View Transcript
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </>
-        )}
-
-        {activeTab === 'settings' && (
-          <>
-            <h1 className="text-2xl font-bold mb-8">Settings</h1>
-
-            <div className="space-y-6">
-              <SettingsSection title="Business Information">
-                <SettingsField label="Business Name" value={mockTenant.name} />
-                <SettingsField label="Phone Number" value={mockTenant.phoneNumber} />
-              </SettingsSection>
-
-              <SettingsSection title="AI Voice">
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="bg-gray-700 rounded-lg p-4 border-2 border-blue-500">
-                    <p className="font-medium">Adrian (Male)</p>
-                    <p className="text-sm text-gray-400">Professional, friendly</p>
-                  </div>
-                  <div className="bg-gray-700 rounded-lg p-4 border border-gray-600 hover:border-gray-500 cursor-pointer">
-                    <p className="font-medium">Sarah (Female)</p>
-                    <p className="text-sm text-gray-400">Warm, conversational</p>
-                  </div>
+        {isLoading ? (
+          <div className="p-8 text-center text-gray-400">Loading...</div>
+        ) : recentCalls.length === 0 ? (
+          <div className="p-8 text-center text-gray-400">
+            No calls yet. Your AI receptionist is ready to answer!
+          </div>
+        ) : (
+          <div className="divide-y divide-gray-700">
+            {recentCalls.map((call) => (
+              <Link
+                key={call.id}
+                href={`/dashboard/calls/${call.id}`}
+                className="p-4 flex items-center justify-between hover:bg-gray-700/50 block"
+              >
+                <div>
+                  <p className="font-medium">{formatPhoneDisplay(call.caller_phone)}</p>
+                  <p className="text-sm text-gray-400">{formatRelativeTime(call.created_at)}</p>
                 </div>
-              </SettingsSection>
-
-              <SettingsSection title="Calendar Integration">
-                <button className="bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded-lg transition">
-                  Connect Calendar
-                </button>
-                <p className="text-sm text-gray-400 mt-2">
-                  Connect your Google, Outlook, or iCal calendar for real-time availability.
-                </p>
-              </SettingsSection>
-            </div>
-          </>
+                <div className="flex items-center gap-4">
+                  <span className="text-sm text-gray-400">{formatDuration(call.duration_seconds)}</span>
+                  <OutcomeBadge outcome={call.outcome} />
+                </div>
+              </Link>
+            ))}
+          </div>
         )}
-      </main>
-    </div>
-  );
-}
+      </div>
 
-function NavItem({
-  active,
-  onClick,
-  icon,
-  label,
-}: {
-  active: boolean;
-  onClick: () => void;
-  icon: string;
-  label: string;
-}) {
-  return (
-    <button
-      onClick={onClick}
-      className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition ${
-        active ? 'bg-blue-600' : 'hover:bg-gray-700'
-      }`}
-    >
-      <span>{icon}</span>
-      <span>{label}</span>
-    </button>
+      {/* Quick Actions */}
+      <div className="mt-8 grid grid-cols-3 gap-6">
+        <QuickAction
+          href="/dashboard/knowledge"
+          icon="🧠"
+          title="Add Knowledge"
+          description="Help your AI answer customer questions"
+        />
+        <QuickAction
+          href="/dashboard/settings"
+          icon="📅"
+          title="Connect Calendar"
+          description="Enable real-time appointment booking"
+        />
+        <QuickAction
+          href="/demo"
+          icon="📞"
+          title="Test Call"
+          description="Make a test call to your AI receptionist"
+        />
+      </div>
+    </>
   );
 }
 
@@ -247,6 +135,7 @@ function OutcomeBadge({ outcome }: { outcome: string }) {
     answered: 'bg-blue-500/20 text-blue-400',
     transferred: 'bg-yellow-500/20 text-yellow-400',
     voicemail: 'bg-gray-500/20 text-gray-400',
+    abandoned: 'bg-red-500/20 text-red-400',
   };
 
   return (
@@ -256,36 +145,25 @@ function OutcomeBadge({ outcome }: { outcome: string }) {
   );
 }
 
-function SettingsSection({
+function QuickAction({
+  href,
+  icon,
   title,
-  children,
+  description,
 }: {
+  href: string;
+  icon: string;
   title: string;
-  children: React.ReactNode;
+  description: string;
 }) {
   return (
-    <div className="bg-gray-800 rounded-xl border border-gray-700 p-6">
-      <h2 className="font-semibold mb-4">{title}</h2>
-      {children}
-    </div>
-  );
-}
-
-function SettingsField({
-  label,
-  value,
-}: {
-  label: string;
-  value: string;
-}) {
-  return (
-    <div className="mb-4 last:mb-0">
-      <label className="block text-sm text-gray-400 mb-1">{label}</label>
-      <input
-        type="text"
-        defaultValue={value}
-        className="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-2 focus:border-blue-500 focus:outline-none"
-      />
-    </div>
+    <Link
+      href={href}
+      className="bg-gray-800 rounded-xl border border-gray-700 p-6 hover:border-blue-500/50 transition block"
+    >
+      <div className="text-3xl mb-3">{icon}</div>
+      <h3 className="font-semibold mb-1">{title}</h3>
+      <p className="text-sm text-gray-400">{description}</p>
+    </Link>
   );
 }

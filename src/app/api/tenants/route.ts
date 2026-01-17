@@ -37,7 +37,6 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const supabase = getSupabaseAdmin();
-    const retell = getRetellClient();
 
     const userId = request.headers.get('x-user-id');
     if (!userId) {
@@ -54,36 +53,57 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    let llmId: string | null = null;
+    let agentId: string | null = null;
+    let phoneNumber: string | null = null;
+
+    // Create Retell resources - this is required for the AI to work
+    const retell = getRetellClient();
+
     // 1. Create LLM configuration in Retell
+    console.log('Creating Retell LLM...');
     const llm = await retell.createLLM({
       generalPrompt: getDefaultPrompt(name),
       beginMessage: `Hello! Thank you for calling ${name}. How can I help you today?`,
     });
+    llmId = llm.llm_id;
+    console.log('LLM created:', llmId);
 
     // 2. Create Agent in Retell
+    console.log('Creating Retell Agent...');
     const agent = await retell.createAgent({
       agentName: `${name} Receptionist`,
-      voiceId: '11labs-Adrian', // Default voice
+      voiceId: '11labs-Adrian',
       llmId: llm.llm_id,
     });
+    agentId = agent.agent_id;
+    console.log('Agent created:', agentId);
 
-    // 3. Purchase phone number (optional)
-    let phoneNumber = null;
+    // 3. Phone number handling
+    // For demos, we don't purchase a number - we use a shared demo number configured in env
+    // For production tenants, they would purchase their own number
     if (areaCode) {
-      const phoneResult = await retell.purchasePhoneNumber(areaCode);
-      phoneNumber = phoneResult.phone_number;
-      await retell.assignPhoneNumberToAgent(phoneNumber, agent.agent_id);
+      console.log('Purchasing phone number with area code:', areaCode);
+      try {
+        const phoneResult = await retell.purchasePhoneNumber(areaCode);
+        phoneNumber = phoneResult.phone_number;
+        await retell.assignPhoneNumberToAgent(phoneNumber, agent.agent_id);
+        console.log('Phone number assigned:', phoneNumber);
+      } catch (phoneError) {
+        console.error('Failed to purchase phone number:', phoneError);
+      }
     }
 
     // 4. Create tenant in database
+    console.log('Creating tenant in Supabase...');
     const { data: tenant, error } = await supabase
       .from('tenants')
       .insert({
         user_id: userId,
         name,
         phone_number: phoneNumber,
-        retell_agent_id: agent.agent_id,
-        retell_llm_id: llm.llm_id,
+        retell_agent_id: agentId,
+        retell_llm_id: llmId,
         settings: {
           voiceId: '11labs-Adrian',
           language: 'en-US',
@@ -93,26 +113,37 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (error) {
-      throw error;
+      console.error('Supabase error:', error);
+      return NextResponse.json(
+        { error: `Database error: ${error.message}` },
+        { status: 500 }
+      );
     }
 
+    console.log('Tenant created:', tenant.id);
+
     // 5. Create default conversation flow
-    await supabase.from('conversation_flows').insert({
-      tenant_id: tenant.id,
-      name: 'Default Flow',
-      nodes: getDefaultFlowNodes(),
-      global_settings: {
-        allowInterruptions: true,
-        returnToFlow: true,
-      },
-      is_active: true,
-    });
+    try {
+      await supabase.from('conversation_flows').insert({
+        tenant_id: tenant.id,
+        name: 'Default Flow',
+        nodes: getDefaultFlowNodes(),
+        global_settings: {
+          allowInterruptions: true,
+          returnToFlow: true,
+        },
+        is_active: true,
+      });
+    } catch (flowError) {
+      console.error('Error creating default flow (non-fatal):', flowError);
+    }
 
     return NextResponse.json({ tenant }, { status: 201 });
   } catch (error) {
     console.error('Error creating tenant:', error);
+    const message = error instanceof Error ? error.message : 'Failed to create business';
     return NextResponse.json(
-      { error: 'Failed to create business' },
+      { error: message },
       { status: 500 }
     );
   }

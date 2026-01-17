@@ -30,13 +30,13 @@ class RetellClient {
     return response.json();
   }
 
-  // Agent Management
+  // Agent Management (no /v2 prefix)
   async createAgent(config: {
     agentName: string;
     voiceId: string;
     llmId: string;
   }): Promise<RetellAgent> {
-    return this.request<RetellAgent>('/v2/agent', {
+    return this.request<RetellAgent>('/create-agent', {
       method: 'POST',
       body: JSON.stringify({
         agent_name: config.agentName,
@@ -50,7 +50,7 @@ class RetellClient {
   }
 
   async getAgent(agentId: string): Promise<RetellAgent> {
-    return this.request<RetellAgent>(`/v2/agent/${agentId}`);
+    return this.request<RetellAgent>(`/get-agent/${agentId}`);
   }
 
   async updateAgent(
@@ -60,7 +60,7 @@ class RetellClient {
       voiceId: string;
     }>
   ): Promise<RetellAgent> {
-    return this.request<RetellAgent>(`/v2/agent/${agentId}`, {
+    return this.request<RetellAgent>(`/update-agent/${agentId}`, {
       method: 'PATCH',
       body: JSON.stringify({
         agent_name: config.agentName,
@@ -70,18 +70,18 @@ class RetellClient {
   }
 
   async deleteAgent(agentId: string): Promise<void> {
-    await this.request(`/v2/agent/${agentId}`, {
+    await this.request(`/delete-agent/${agentId}`, {
       method: 'DELETE',
     });
   }
 
-  // LLM Configuration
+  // LLM Configuration (no /v2 prefix)
   async createLLM(config: {
     generalPrompt: string;
     beginMessage?: string;
     knowledgeBaseIds?: string[];
   }): Promise<{ llm_id: string }> {
-    return this.request('/v2/llm', {
+    return this.request('/create-retell-llm', {
       method: 'POST',
       body: JSON.stringify({
         general_prompt: config.generalPrompt,
@@ -99,7 +99,7 @@ class RetellClient {
       knowledgeBaseIds?: string[];
     }
   ): Promise<{ llm_id: string }> {
-    return this.request(`/v2/llm/${llmId}`, {
+    return this.request(`/update-retell-llm/${llmId}`, {
       method: 'PATCH',
       body: JSON.stringify({
         general_prompt: config.generalPrompt,
@@ -109,9 +109,9 @@ class RetellClient {
     });
   }
 
-  // Phone Number Management
+  // Phone Number Management (no /v2 prefix)
   async purchasePhoneNumber(areaCode?: string): Promise<{ phone_number: string }> {
-    return this.request('/v2/phone-number', {
+    return this.request('/create-phone-number', {
       method: 'POST',
       body: JSON.stringify({
         area_code: areaCode,
@@ -123,7 +123,7 @@ class RetellClient {
     phoneNumber: string,
     agentId: string
   ): Promise<void> {
-    await this.request(`/v2/phone-number/${phoneNumber}`, {
+    await this.request(`/update-phone-number/${phoneNumber}`, {
       method: 'PATCH',
       body: JSON.stringify({
         inbound_agent_id: agentId,
@@ -131,13 +131,13 @@ class RetellClient {
     });
   }
 
-  // Knowledge Base
+  // Knowledge Base (no /v2 prefix)
   async createKnowledgeBase(config: {
     name: string;
     texts?: string[];
     urls?: string[];
   }): Promise<{ knowledge_base_id: string }> {
-    return this.request('/v2/knowledge-base', {
+    return this.request('/create-knowledge-base', {
       method: 'POST',
       body: JSON.stringify({
         knowledge_base_name: config.name,
@@ -154,7 +154,7 @@ class RetellClient {
       urls?: string[];
     }
   ): Promise<void> {
-    await this.request(`/v2/knowledge-base/${kbId}`, {
+    await this.request(`/update-knowledge-base/${kbId}`, {
       method: 'PATCH',
       body: JSON.stringify({
         knowledge_base_texts: config.texts,
@@ -163,14 +163,14 @@ class RetellClient {
     });
   }
 
-  // Call Management
+  // Call Management (uses /v2 prefix)
   async getCall(callId: string): Promise<{
     call_id: string;
     transcript: string;
     recording_url: string;
     call_analysis: Record<string, unknown>;
   }> {
-    return this.request(`/v2/call/${callId}`);
+    return this.request(`/v2/get-call/${callId}`);
   }
 
   async listCalls(agentId: string, limit = 50): Promise<{
@@ -181,7 +181,30 @@ class RetellClient {
       end_timestamp: number;
     }>;
   }> {
-    return this.request(`/v2/list-calls?agent_id=${agentId}&limit=${limit}`);
+    // list-calls uses POST, not GET with query params
+    return this.request('/v2/list-calls', {
+      method: 'POST',
+      body: JSON.stringify({
+        agent_id: agentId,
+        limit: limit,
+      }),
+    });
+  }
+
+  // Create outbound call (uses /v2 prefix)
+  async createPhoneCall(config: {
+    fromNumber: string;
+    toNumber: string;
+    agentId: string;
+  }): Promise<{ call_id: string }> {
+    return this.request('/v2/create-phone-call', {
+      method: 'POST',
+      body: JSON.stringify({
+        from_number: config.fromNumber,
+        to_number: config.toNumber,
+        override_agent_id: config.agentId,
+      }),
+    });
   }
 }
 

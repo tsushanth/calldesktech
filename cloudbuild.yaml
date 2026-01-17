@@ -20,7 +20,7 @@ steps:
       - 'push'
       - 'gcr.io/$PROJECT_ID/calldesktech:latest'
 
-  # Deploy to Cloud Run
+  # Deploy to Cloud Run (env vars are set separately via gcloud run services update)
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
     entrypoint: gcloud
     args:
@@ -30,14 +30,10 @@ steps:
       - '--image'
       - 'gcr.io/$PROJECT_ID/calldesktech:$COMMIT_SHA'
       - '--region'
-      - '${_REGION}'
+      - 'us-central1'
       - '--platform'
       - 'managed'
       - '--allow-unauthenticated'
-      - '--set-env-vars'
-      - 'NEXT_PUBLIC_SUPABASE_URL=${_SUPABASE_URL},NEXT_PUBLIC_SUPABASE_ANON_KEY=${_SUPABASE_ANON_KEY}'
-      - '--set-secrets'
-      - 'SUPABASE_SERVICE_ROLE_KEY=SUPABASE_SERVICE_ROLE_KEY:latest,RETELL_API_KEY=RETELL_API_KEY:latest,CAL_API_KEY=CAL_API_KEY:latest'
       - '--memory'
       - '512Mi'
       - '--cpu'
@@ -46,11 +42,6 @@ steps:
       - '0'
       - '--max-instances'
       - '10'
-
-substitutions:
-  _REGION: us-central1
-  _SUPABASE_URL: ''
-  _SUPABASE_ANON_KEY: ''
 
 images:
   - 'gcr.io/$PROJECT_ID/calldesktech:$COMMIT_SHA'
