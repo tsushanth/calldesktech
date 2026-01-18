@@ -131,20 +131,38 @@ class RetellClient {
     });
   }
 
-  // Knowledge Base (no /v2 prefix)
+  // Knowledge Base (uses multipart/form-data)
   async createKnowledgeBase(config: {
     name: string;
-    texts?: string[];
+    texts?: Array<{ title: string; text: string }>;
     urls?: string[];
   }): Promise<{ knowledge_base_id: string }> {
-    return this.request('/create-knowledge-base', {
+    const formData = new FormData();
+    formData.append('knowledge_base_name', config.name);
+
+    if (config.texts && config.texts.length > 0) {
+      formData.append('knowledge_base_texts', JSON.stringify(config.texts));
+    }
+
+    if (config.urls && config.urls.length > 0) {
+      formData.append('knowledge_base_urls', JSON.stringify(config.urls));
+    }
+
+    const response = await fetch(`${RETELL_API_URL}/create-knowledge-base`, {
       method: 'POST',
-      body: JSON.stringify({
-        knowledge_base_name: config.name,
-        knowledge_base_texts: config.texts,
-        knowledge_base_urls: config.urls,
-      }),
+      headers: {
+        'Authorization': `Bearer ${this.apiKey}`,
+        // Note: Don't set Content-Type for FormData, browser will set it with boundary
+      },
+      body: formData,
     });
+
+    if (!response.ok) {
+      const error = await response.text();
+      throw new Error(`Retell API Error: ${response.status} - ${error}`);
+    }
+
+    return response.json();
   }
 
   async updateKnowledgeBase(

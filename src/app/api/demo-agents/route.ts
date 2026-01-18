@@ -122,9 +122,14 @@ export async function POST(request: NextRequest) {
         // Create knowledge base with demo business info
         console.log(`Creating knowledge base for ${profile.businessName}...`);
         const kbContent = getDemoKnowledgeBase(profile);
+        // Convert string array to title/text format required by Retell API
+        const kbTexts = kbContent.map((text, index) => ({
+          title: `${profile.businessName} - Section ${index + 1}`,
+          text: text,
+        }));
         const kb = await retell.createKnowledgeBase({
-          name: `Demo - ${profile.businessName}`,
-          texts: kbContent,
+          name: `Demo - ${profile.businessName}`.slice(0, 39), // Max 40 chars
+          texts: kbTexts,
         });
         console.log(`Knowledge base created: ${kb.knowledge_base_id}`);
 
