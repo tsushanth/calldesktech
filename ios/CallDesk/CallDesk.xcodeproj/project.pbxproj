@@ -1,0 +1,552 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		09297DA2F1C2B3FF9D46260A /* CallDeskApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 664723872D011049591050F5 /* CallDeskApp.swift */; };
+		1682220808BD789E677ECEB0 /* PlaceModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = D7FAC628BA12CEB96D17E217 /* PlaceModels.swift */; };
+		2345C680358E7B5269A0CD59 /* OnboardingViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 658742317C58E0A84DB63081 /* OnboardingViewModel.swift */; };
+		25591D400D24565360FF1119 /* KnowledgeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5A581113FE3719AC1D76D8B2 /* KnowledgeView.swift */; };
+		2D03C0CCAE48F001736C28FC /* KnowledgeViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA05166FF3E5C69CE24C5CF8 /* KnowledgeViewModel.swift */; };
+		366C6E1B228A0ABA82ECB9EE /* LoadingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3F8BC0DD26B583A563576F26 /* LoadingView.swift */; };
+		45DE3D9C6CDE45612D7B1CC5 /* DashboardViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = DDAF854D8F10A57149BE44A6 /* DashboardViewModel.swift */; };
+		4A45B77F9D0A89A954E47BA2 /* APIClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB2D4E6DC9C1BF6B8B1E0688 /* APIClient.swift */; };
+		4D028A6908F3EE779FC3D3D9 /* CallDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4DF6F7193305B3576F410B84 /* CallDetailView.swift */; };
+		6B1830B66161577CFEF6E85D /* Environment.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3713C1C47538EE8B2F7545D7 /* Environment.swift */; };
+		70BD5DF22AB6D27D0B1AD381 /* PrimaryButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1BAAD43EADD18FD2C06E0C8F /* PrimaryButton.swift */; };
+		73474E713FFB119D3027A651 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F6A726B84058CC96F1158D7A /* SettingsView.swift */; };
+		74BE308235ED88C32C1085E5 /* ActivationSuccessView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD5B9BAA4053A0EE58A3AA3C /* ActivationSuccessView.swift */; };
+		7C40638A52E4D050AEE088D6 /* Constants.swift in Sources */ = {isa = PBXBuildFile; fileRef = 62E1B1C6889351996522B4E8 /* Constants.swift */; };
+		8DC581A34FF3F821B84E681D /* Color+Extensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2F7824FA7B6CF3736E4C3F5B /* Color+Extensions.swift */; };
+		8F832A63200A9A63361F366B /* CallLog.swift in Sources */ = {isa = PBXBuildFile; fileRef = A875D2B4B71982D091738BE5 /* CallLog.swift */; };
+		AE29685DE8C3B1539C024207 /* OnboardingContainerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 39632573D1E7F4DF00A866A9 /* OnboardingContainerView.swift */; };
+		B07B782489CA59A62756FA30 /* SettingsViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94270C51A0617485E7D0EB92 /* SettingsViewModel.swift */; };
+		B1242FA9D3B2FEC24A1CD84D /* WelcomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AE7138034D14AED0E58E6FD5 /* WelcomeView.swift */; };
+		B1390E712B3F9B9BC3908AEF /* Date+Extensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = E67E66CE9BF2E70AFB69D979 /* Date+Extensions.swift */; };
+		B3D398CEF36BDFFA8D0364DC /* DashboardTabView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AD83CCDEA0125ED96651AC4F /* DashboardTabView.swift */; };
+		B51A480C4918A5AD99BC60C6 /* KeychainService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90260FB4002469D4451DDB09 /* KeychainService.swift */; };
+		BBF5E046527F8809615BDA7D /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D94974946C84C7F0255CDCD6 /* ContentView.swift */; };
+		C13830474EA62A78F83CC747 /* HomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC3CC6E9990F90F5B58FC0E9 /* HomeView.swift */; };
+		CB828673706E8FAEA7DB20E4 /* Tenant.swift in Sources */ = {isa = PBXBuildFile; fileRef = 924E44F05DA156B9600B4F73 /* Tenant.swift */; };
+		CBE63B8F97B9DCBA07830AEC /* CallsListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8AFBBA84700815010DC489FC /* CallsListView.swift */; };
+		CC6D57BB8441E0E65F94A970 /* ReviewAndGoLiveView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B06DD7068103B5EBE6168076 /* ReviewAndGoLiveView.swift */; };
+		EC9B52E0FCEA6DE44CB91281 /* AuthService.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0AF97E4D518B008526CA387 /* AuthService.swift */; };
+		EC9CB215E915552CB1A82352 /* KnowledgeBase.swift in Sources */ = {isa = PBXBuildFile; fileRef = 14AEEF134C1ED3B9971DD914 /* KnowledgeBase.swift */; };
+		ECF399C33D92916F27121DE8 /* LocationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9452344F02CD646C25ECD596 /* LocationService.swift */; };
+		F07AB2A14C932FB4A2CB4AA5 /* CallsViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 66F46A3EB37C7A25A347323D /* CallsViewModel.swift */; };
+		F4574F0A43DC096A3B92AE4C /* User.swift in Sources */ = {isa = PBXBuildFile; fileRef = 398476D478291B4DD9A272A9 /* User.swift */; };
+		F796029B2FF26BF203524193 /* AppState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 38D7ED49F43274E0B5304F27 /* AppState.swift */; };
+		FBABA5C13BBF791C1E699E4E /* FindBusinessView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C930B3645871940D47A68649 /* FindBusinessView.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		14AEEF134C1ED3B9971DD914 /* KnowledgeBase.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KnowledgeBase.swift; sourceTree = "<group>"; };
+		1BAAD43EADD18FD2C06E0C8F /* PrimaryButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PrimaryButton.swift; sourceTree = "<group>"; };
+		2F7824FA7B6CF3736E4C3F5B /* Color+Extensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Color+Extensions.swift"; sourceTree = "<group>"; };
+		3713C1C47538EE8B2F7545D7 /* Environment.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Environment.swift; sourceTree = "<group>"; };
+		38D3E393D2ACF2AE611B53C6 /* CallDesk.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = CallDesk.entitlements; sourceTree = "<group>"; };
+		38D7ED49F43274E0B5304F27 /* AppState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppState.swift; sourceTree = "<group>"; };
+		39632573D1E7F4DF00A866A9 /* OnboardingContainerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingContainerView.swift; sourceTree = "<group>"; };
+		398476D478291B4DD9A272A9 /* User.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = User.swift; sourceTree = "<group>"; };
+		3F8BC0DD26B583A563576F26 /* LoadingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoadingView.swift; sourceTree = "<group>"; };
+		4DF6F7193305B3576F410B84 /* CallDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CallDetailView.swift; sourceTree = "<group>"; };
+		5A581113FE3719AC1D76D8B2 /* KnowledgeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KnowledgeView.swift; sourceTree = "<group>"; };
+		62E1B1C6889351996522B4E8 /* Constants.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Constants.swift; sourceTree = "<group>"; };
+		658742317C58E0A84DB63081 /* OnboardingViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingViewModel.swift; sourceTree = "<group>"; };
+		664723872D011049591050F5 /* CallDeskApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CallDeskApp.swift; sourceTree = "<group>"; };
+		66F46A3EB37C7A25A347323D /* CallsViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CallsViewModel.swift; sourceTree = "<group>"; };
+		6EC6C207E5240D08E5526368 /* CallDesk.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = CallDesk.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		8AFBBA84700815010DC489FC /* CallsListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CallsListView.swift; sourceTree = "<group>"; };
+		90260FB4002469D4451DDB09 /* KeychainService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeychainService.swift; sourceTree = "<group>"; };
+		924E44F05DA156B9600B4F73 /* Tenant.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Tenant.swift; sourceTree = "<group>"; };
+		94270C51A0617485E7D0EB92 /* SettingsViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsViewModel.swift; sourceTree = "<group>"; };
+		9452344F02CD646C25ECD596 /* LocationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocationService.swift; sourceTree = "<group>"; };
+		A875D2B4B71982D091738BE5 /* CallLog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CallLog.swift; sourceTree = "<group>"; };
+		AD83CCDEA0125ED96651AC4F /* DashboardTabView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DashboardTabView.swift; sourceTree = "<group>"; };
+		AE7138034D14AED0E58E6FD5 /* WelcomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WelcomeView.swift; sourceTree = "<group>"; };
+		B06DD7068103B5EBE6168076 /* ReviewAndGoLiveView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReviewAndGoLiveView.swift; sourceTree = "<group>"; };
+		C0AF97E4D518B008526CA387 /* AuthService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthService.swift; sourceTree = "<group>"; };
+		C930B3645871940D47A68649 /* FindBusinessView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FindBusinessView.swift; sourceTree = "<group>"; };
+		CA05166FF3E5C69CE24C5CF8 /* KnowledgeViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KnowledgeViewModel.swift; sourceTree = "<group>"; };
+		CC3CC6E9990F90F5B58FC0E9 /* HomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeView.swift; sourceTree = "<group>"; };
+		D7FAC628BA12CEB96D17E217 /* PlaceModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaceModels.swift; sourceTree = "<group>"; };
+		D94974946C84C7F0255CDCD6 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
+		DD5B9BAA4053A0EE58A3AA3C /* ActivationSuccessView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActivationSuccessView.swift; sourceTree = "<group>"; };
+		DDAF854D8F10A57149BE44A6 /* DashboardViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DashboardViewModel.swift; sourceTree = "<group>"; };
+		E67E66CE9BF2E70AFB69D979 /* Date+Extensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Date+Extensions.swift"; sourceTree = "<group>"; };
+		F6A726B84058CC96F1158D7A /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
+		FB2D4E6DC9C1BF6B8B1E0688 /* APIClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APIClient.swift; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXGroup section */
+		2296B36CA0CC18C55A83361D /* Views */ = {
+			isa = PBXGroup;
+			children = (
+				FD6F2B1C7F0F580092A297B3 /* Auth */,
+				BCFA95533FE30B6E81E58DBB /* Dashboard */,
+				CB19468798AB209E77641AE1 /* Onboarding */,
+				8DC1DDB8618E3C72339FB291 /* Shared */,
+			);
+			path = Views;
+			sourceTree = "<group>";
+		};
+		27FAFE01D4488152462F9C94 /* Knowledge */ = {
+			isa = PBXGroup;
+			children = (
+				5A581113FE3719AC1D76D8B2 /* KnowledgeView.swift */,
+			);
+			path = Knowledge;
+			sourceTree = "<group>";
+		};
+		2B62863CD11567AEC4629DEF /* Calls */ = {
+			isa = PBXGroup;
+			children = (
+				4DF6F7193305B3576F410B84 /* CallDetailView.swift */,
+				8AFBBA84700815010DC489FC /* CallsListView.swift */,
+			);
+			path = Calls;
+			sourceTree = "<group>";
+		};
+		55EAD5E29B7B34E7FA7DB1A3 = {
+			isa = PBXGroup;
+			children = (
+				E7E3DF34937337EF2AB11FFA /* CallDesk */,
+				5919C19C4A2326B2A562D616 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		5919C19C4A2326B2A562D616 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				6EC6C207E5240D08E5526368 /* CallDesk.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		5C7F5F1B577CFF2A51548B95 /* App */ = {
+			isa = PBXGroup;
+			children = (
+				38D7ED49F43274E0B5304F27 /* AppState.swift */,
+				664723872D011049591050F5 /* CallDeskApp.swift */,
+				D94974946C84C7F0255CDCD6 /* ContentView.swift */,
+			);
+			path = App;
+			sourceTree = "<group>";
+		};
+		7CE5B902FC3EBFDC9F6DE001 /* Services */ = {
+			isa = PBXGroup;
+			children = (
+				FB2D4E6DC9C1BF6B8B1E0688 /* APIClient.swift */,
+				C0AF97E4D518B008526CA387 /* AuthService.swift */,
+				90260FB4002469D4451DDB09 /* KeychainService.swift */,
+				9452344F02CD646C25ECD596 /* LocationService.swift */,
+			);
+			path = Services;
+			sourceTree = "<group>";
+		};
+		848776CA3B55044D366A4F03 /* Config */ = {
+			isa = PBXGroup;
+			children = (
+				62E1B1C6889351996522B4E8 /* Constants.swift */,
+				3713C1C47538EE8B2F7545D7 /* Environment.swift */,
+			);
+			path = Config;
+			sourceTree = "<group>";
+		};
+		852FEB336306A3FDE57D3568 /* Home */ = {
+			isa = PBXGroup;
+			children = (
+				CC3CC6E9990F90F5B58FC0E9 /* HomeView.swift */,
+			);
+			path = Home;
+			sourceTree = "<group>";
+		};
+		88646D4532CFF6EF116E0547 /* Settings */ = {
+			isa = PBXGroup;
+			children = (
+				F6A726B84058CC96F1158D7A /* SettingsView.swift */,
+			);
+			path = Settings;
+			sourceTree = "<group>";
+		};
+		8DC1DDB8618E3C72339FB291 /* Shared */ = {
+			isa = PBXGroup;
+			children = (
+				3F8BC0DD26B583A563576F26 /* LoadingView.swift */,
+				1BAAD43EADD18FD2C06E0C8F /* PrimaryButton.swift */,
+			);
+			path = Shared;
+			sourceTree = "<group>";
+		};
+		BCFA95533FE30B6E81E58DBB /* Dashboard */ = {
+			isa = PBXGroup;
+			children = (
+				AD83CCDEA0125ED96651AC4F /* DashboardTabView.swift */,
+				2B62863CD11567AEC4629DEF /* Calls */,
+				852FEB336306A3FDE57D3568 /* Home */,
+				27FAFE01D4488152462F9C94 /* Knowledge */,
+				88646D4532CFF6EF116E0547 /* Settings */,
+			);
+			path = Dashboard;
+			sourceTree = "<group>";
+		};
+		CB19468798AB209E77641AE1 /* Onboarding */ = {
+			isa = PBXGroup;
+			children = (
+				DD5B9BAA4053A0EE58A3AA3C /* ActivationSuccessView.swift */,
+				C930B3645871940D47A68649 /* FindBusinessView.swift */,
+				39632573D1E7F4DF00A866A9 /* OnboardingContainerView.swift */,
+				B06DD7068103B5EBE6168076 /* ReviewAndGoLiveView.swift */,
+			);
+			path = Onboarding;
+			sourceTree = "<group>";
+		};
+		DA7FD30D8B579543A174D8F7 /* Models */ = {
+			isa = PBXGroup;
+			children = (
+				A875D2B4B71982D091738BE5 /* CallLog.swift */,
+				14AEEF134C1ED3B9971DD914 /* KnowledgeBase.swift */,
+				D7FAC628BA12CEB96D17E217 /* PlaceModels.swift */,
+				924E44F05DA156B9600B4F73 /* Tenant.swift */,
+				398476D478291B4DD9A272A9 /* User.swift */,
+			);
+			path = Models;
+			sourceTree = "<group>";
+		};
+		DE7B032EC2071EBE8302C13B /* Extensions */ = {
+			isa = PBXGroup;
+			children = (
+				2F7824FA7B6CF3736E4C3F5B /* Color+Extensions.swift */,
+				E67E66CE9BF2E70AFB69D979 /* Date+Extensions.swift */,
+			);
+			path = Extensions;
+			sourceTree = "<group>";
+		};
+		E7E3DF34937337EF2AB11FFA /* CallDesk */ = {
+			isa = PBXGroup;
+			children = (
+				38D3E393D2ACF2AE611B53C6 /* CallDesk.entitlements */,
+				5C7F5F1B577CFF2A51548B95 /* App */,
+				848776CA3B55044D366A4F03 /* Config */,
+				DE7B032EC2071EBE8302C13B /* Extensions */,
+				DA7FD30D8B579543A174D8F7 /* Models */,
+				7CE5B902FC3EBFDC9F6DE001 /* Services */,
+				FDB390ED19D9F6EE28D92AEF /* ViewModels */,
+				2296B36CA0CC18C55A83361D /* Views */,
+			);
+			path = CallDesk;
+			sourceTree = "<group>";
+		};
+		FD6F2B1C7F0F580092A297B3 /* Auth */ = {
+			isa = PBXGroup;
+			children = (
+				AE7138034D14AED0E58E6FD5 /* WelcomeView.swift */,
+			);
+			path = Auth;
+			sourceTree = "<group>";
+		};
+		FDB390ED19D9F6EE28D92AEF /* ViewModels */ = {
+			isa = PBXGroup;
+			children = (
+				66F46A3EB37C7A25A347323D /* CallsViewModel.swift */,
+				DDAF854D8F10A57149BE44A6 /* DashboardViewModel.swift */,
+				CA05166FF3E5C69CE24C5CF8 /* KnowledgeViewModel.swift */,
+				658742317C58E0A84DB63081 /* OnboardingViewModel.swift */,
+				94270C51A0617485E7D0EB92 /* SettingsViewModel.swift */,
+			);
+			path = ViewModels;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		72CB146955D2F7B1D1930574 /* CallDesk */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = D3E6157E6174EE82A56B93DB /* Build configuration list for PBXNativeTarget "CallDesk" */;
+			buildPhases = (
+				8FB834552ADC78A61A5C3742 /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = CallDesk;
+			packageProductDependencies = (
+			);
+			productName = CallDesk;
+			productReference = 6EC6C207E5240D08E5526368 /* CallDesk.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		E4E852546C7FF57A7B4831BD /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = YES;
+				LastUpgradeCheck = 1600;
+			};
+			buildConfigurationList = 422B423303ADEB7B5158C5CB /* Build configuration list for PBXProject "CallDesk" */;
+			compatibilityVersion = "Xcode 14.0";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				Base,
+				en,
+			);
+			mainGroup = 55EAD5E29B7B34E7FA7DB1A3;
+			minimizedProjectReferenceProxies = 1;
+			preferredProjectObjectVersion = 77;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				72CB146955D2F7B1D1930574 /* CallDesk */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXSourcesBuildPhase section */
+		8FB834552ADC78A61A5C3742 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				4A45B77F9D0A89A954E47BA2 /* APIClient.swift in Sources */,
+				74BE308235ED88C32C1085E5 /* ActivationSuccessView.swift in Sources */,
+				F796029B2FF26BF203524193 /* AppState.swift in Sources */,
+				EC9B52E0FCEA6DE44CB91281 /* AuthService.swift in Sources */,
+				09297DA2F1C2B3FF9D46260A /* CallDeskApp.swift in Sources */,
+				4D028A6908F3EE779FC3D3D9 /* CallDetailView.swift in Sources */,
+				8F832A63200A9A63361F366B /* CallLog.swift in Sources */,
+				CBE63B8F97B9DCBA07830AEC /* CallsListView.swift in Sources */,
+				F07AB2A14C932FB4A2CB4AA5 /* CallsViewModel.swift in Sources */,
+				8DC581A34FF3F821B84E681D /* Color+Extensions.swift in Sources */,
+				7C40638A52E4D050AEE088D6 /* Constants.swift in Sources */,
+				BBF5E046527F8809615BDA7D /* ContentView.swift in Sources */,
+				B3D398CEF36BDFFA8D0364DC /* DashboardTabView.swift in Sources */,
+				45DE3D9C6CDE45612D7B1CC5 /* DashboardViewModel.swift in Sources */,
+				B1390E712B3F9B9BC3908AEF /* Date+Extensions.swift in Sources */,
+				6B1830B66161577CFEF6E85D /* Environment.swift in Sources */,
+				FBABA5C13BBF791C1E699E4E /* FindBusinessView.swift in Sources */,
+				C13830474EA62A78F83CC747 /* HomeView.swift in Sources */,
+				B51A480C4918A5AD99BC60C6 /* KeychainService.swift in Sources */,
+				EC9CB215E915552CB1A82352 /* KnowledgeBase.swift in Sources */,
+				25591D400D24565360FF1119 /* KnowledgeView.swift in Sources */,
+				2D03C0CCAE48F001736C28FC /* KnowledgeViewModel.swift in Sources */,
+				366C6E1B228A0ABA82ECB9EE /* LoadingView.swift in Sources */,
+				ECF399C33D92916F27121DE8 /* LocationService.swift in Sources */,
+				AE29685DE8C3B1539C024207 /* OnboardingContainerView.swift in Sources */,
+				2345C680358E7B5269A0CD59 /* OnboardingViewModel.swift in Sources */,
+				1682220808BD789E677ECEB0 /* PlaceModels.swift in Sources */,
+				70BD5DF22AB6D27D0B1AD381 /* PrimaryButton.swift in Sources */,
+				CC6D57BB8441E0E65F94A970 /* ReviewAndGoLiveView.swift in Sources */,
+				73474E713FFB119D3027A651 /* SettingsView.swift in Sources */,
+				B07B782489CA59A62756FA30 /* SettingsViewModel.swift in Sources */,
+				CB828673706E8FAEA7DB20E4 /* Tenant.swift in Sources */,
+				F4574F0A43DC096A3B92AE4C /* User.swift in Sources */,
+				B1242FA9D3B2FEC24A1CD84D /* WelcomeView.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		51BE7283985561A009E2A770 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 1;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MARKETING_VERSION = 1.0.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 5.10;
+			};
+			name = Release;
+		};
+		A3079042BC0D834AF10B5F47 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = CallDesk/CallDesk.entitlements;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = CallDesk;
+				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "CallDesk uses your location to find nearby businesses during setup.";
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = UIInterfaceOrientationPortrait;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.calldesk.CallDesk;
+				SDKROOT = iphoneos;
+				SWIFT_STRICT_CONCURRENCY = targeted;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		F9A6ECDE4BBAC345DFCD48D7 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = CallDesk/CallDesk.entitlements;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = CallDesk;
+				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "CallDesk uses your location to find nearby businesses during setup.";
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = UIInterfaceOrientationPortrait;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.calldesk.CallDesk;
+				SDKROOT = iphoneos;
+				SWIFT_STRICT_CONCURRENCY = targeted;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		FD9C62A7E1DBED3F0CD589B2 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 1;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+					"DEBUG=1",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MARKETING_VERSION = 1.0.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.10;
+			};
+			name = Debug;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		422B423303ADEB7B5158C5CB /* Build configuration list for PBXProject "CallDesk" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				FD9C62A7E1DBED3F0CD589B2 /* Debug */,
+				51BE7283985561A009E2A770 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		D3E6157E6174EE82A56B93DB /* Build configuration list for PBXNativeTarget "CallDesk" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A3079042BC0D834AF10B5F47 /* Debug */,
+				F9A6ECDE4BBAC345DFCD48D7 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = E4E852546C7FF57A7B4831BD /* Project object */;
+}

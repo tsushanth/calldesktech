@@ -3,12 +3,22 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { getSupabaseAdmin } from '@/lib/supabase';
 import { getRetellClient } from '@/lib/retell';
+import { getMobileUser } from '@/lib/mobile-auth';
 
 export async function POST(request: NextRequest) {
   try {
+    // Dual auth: try NextAuth session first, fall back to mobile Bearer token
     const session = await getServerSession(authOptions);
+    let userId = session?.user?.id;
+    let userEmail = session?.user?.email;
 
-    if (!session?.user?.id) {
+    if (!userId) {
+      const mobileUser = await getMobileUser(request);
+      userId = mobileUser?.id;
+      userEmail = mobileUser?.email;
+    }
+
+    if (!userId) {
       return NextResponse.json(
         { error: 'Unauthorized. Please sign in.' },
         { status: 401 }
@@ -79,7 +89,7 @@ export async function POST(request: NextRequest) {
     const { data: tenant, error: createError } = await supabase
       .from('tenants')
       .insert({
-        user_id: session.user.id,
+        user_id: userId,
         name,
         retell_agent_id: agentId,
         retell_llm_id: llmId,
@@ -93,7 +103,7 @@ export async function POST(request: NextRequest) {
           address,
           phone,
           hours,
-          email: email || session.user.email,
+          email: email || userEmail,
         },
       })
       .select()
@@ -125,9 +135,16 @@ export async function POST(request: NextRequest) {
 
 export async function GET(request: NextRequest) {
   try {
+    // Dual auth: try NextAuth session first, fall back to mobile Bearer token
     const session = await getServerSession(authOptions);
+    let userId = session?.user?.id;
 
-    if (!session?.user?.id) {
+    if (!userId) {
+      const mobileUser = await getMobileUser(request);
+      userId = mobileUser?.id;
+    }
+
+    if (!userId) {
       return NextResponse.json(
         { error: 'Unauthorized. Please sign in.' },
         { status: 401 }
@@ -140,7 +157,7 @@ export async function GET(request: NextRequest) {
     const { data: businesses, error } = await supabase
       .from('tenants')
       .select('*')
-      .eq('user_id', session.user.id)
+      .eq('user_id', userId)
       .order('created_at', { ascending: false });
 
     if (error) {

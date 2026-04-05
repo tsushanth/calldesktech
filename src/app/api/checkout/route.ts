@@ -3,12 +3,22 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { getStripe, STRIPE_CONFIG } from '@/lib/stripe';
 import { getSupabaseAdmin } from '@/lib/supabase';
+import { getMobileUser } from '@/lib/mobile-auth';
 
 export async function POST(request: NextRequest) {
   try {
+    // Dual auth: try NextAuth session first, fall back to mobile Bearer token
     const session = await getServerSession(authOptions);
+    let userEmail = session?.user?.email;
+    let userId = session?.user?.id;
 
-    if (!session?.user?.email) {
+    if (!userEmail) {
+      const mobileUser = await getMobileUser(request);
+      userEmail = mobileUser?.email;
+      userId = mobileUser?.id;
+    }
+
+    if (!userEmail) {
       return NextResponse.json(
         { error: 'Unauthorized. Please sign in.' },
         { status: 401 }
@@ -53,15 +63,15 @@ export async function POST(request: NextRequest) {
       ],
       success_url: STRIPE_CONFIG.successUrl,
       cancel_url: STRIPE_CONFIG.cancelUrl,
-      customer_email: session.user.email,
+      customer_email: userEmail,
       metadata: {
         business_id,
-        user_id: session.user.id,
+        user_id: userId || '',
       },
       subscription_data: {
         metadata: {
           business_id,
-          user_id: session.user.id,
+          user_id: userId || '',
         },
       },
     });

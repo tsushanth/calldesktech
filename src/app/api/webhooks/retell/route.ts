@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/supabase';
+import { getRetellClient } from '@/lib/retell';
 import type { RetellWebhookEvent } from '@/types';
 
 export async function POST(request: NextRequest) {
@@ -10,7 +11,7 @@ export async function POST(request: NextRequest) {
     // Find tenant by agent ID
     const { data: tenant } = await supabase
       .from('tenants')
-      .select('id')
+      .select('id, user_id, retell_agent_id, retell_llm_id, knowledge_base_id')
       .eq('retell_agent_id', event.call.agent_id)
       .single();
 
@@ -49,6 +50,12 @@ export async function POST(request: NextRequest) {
       case 'call_analyzed':
         // Update with analysis results and extracted data
         // This is where booking data would be extracted
+
+        // Clean up demo tenants after call is complete
+        if (tenant.user_id?.startsWith('demo_')) {
+          console.log(`Cleaning up demo tenant: ${tenant.id}`);
+          await cleanupDemoTenant(tenant);
+        }
         break;
     }
 
@@ -59,5 +66,42 @@ export async function POST(request: NextRequest) {
       { error: 'Internal server error' },
       { status: 500 }
     );
+  }
+}
+
+// Clean up demo tenant resources from Retell and database
+async function cleanupDemoTenant(tenant: {
+  id: string;
+  user_id: string;
+  retell_agent_id: string | null;
+  retell_llm_id: string | null;
+  knowledge_base_id: string | null;
+}) {
+  const retell = getRetellClient();
+  const supabase = getSupabaseAdmin();
+
+  try {
+    // Delete Retell resources in order: agent -> LLM -> KB
+    if (tenant.retell_agent_id) {
+      await retell.deleteAgent(tenant.retell_agent_id);
+      console.log(`Deleted Retell agent: ${tenant.retell_agent_id}`);
+    }
+
+    if (tenant.retell_llm_id) {
+      await retell.deleteLLM(tenant.retell_llm_id);
+      console.log(`Deleted Retell LLM: ${tenant.retell_llm_id}`);
+    }
+
+    if (tenant.knowledge_base_id) {
+      await retell.deleteKnowledgeBase(tenant.knowledge_base_id);
+      console.log(`Deleted Retell KB: ${tenant.knowledge_base_id}`);
+    }
+
+    // Delete tenant from database (cascades to call_logs, bookings, etc.)
+    await supabase.from('tenants').delete().eq('id', tenant.id);
+    console.log(`Deleted demo tenant from database: ${tenant.id}`);
+  } catch (error) {
+    console.error('Error cleaning up demo tenant:', error);
+    // Don't throw - we don't want to fail the webhook response
   }
 }

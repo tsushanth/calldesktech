@@ -2,15 +2,23 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { getSupabaseAdmin } from '@/lib/supabase';
+import { getMobileUser } from '@/lib/mobile-auth';
 
 // Valid coupon codes for activation
 const VALID_COUPONS = ['SUSH', 'BETA', 'EARLY'];
 
 export async function POST(request: NextRequest) {
   try {
+    // Dual auth: try NextAuth session first, fall back to mobile Bearer token
     const session = await getServerSession(authOptions);
+    let userId = session?.user?.id;
 
-    if (!session?.user?.id) {
+    if (!userId) {
+      const mobileUser = await getMobileUser(request);
+      userId = mobileUser?.id;
+    }
+
+    if (!userId) {
       return NextResponse.json(
         { error: 'Unauthorized. Please sign in.' },
         { status: 401 }
@@ -34,7 +42,7 @@ export async function POST(request: NextRequest) {
       .from('tenants')
       .select('*')
       .eq('id', business_id)
-      .eq('user_id', session.user.id)
+      .eq('user_id', userId)
       .single();
 
     if (fetchError || !tenant) {
