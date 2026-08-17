@@ -5,7 +5,6 @@ import { useRouter } from 'next/navigation';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
-import { BusinessLookup, type PlaceDetails } from '@/components/onboarding/BusinessLookup';
 import { useOnboarding } from '@/context/OnboardingContext';
 import { isValidEmail } from '@/lib/utils';
 import { BUSINESS_TYPES } from '@/lib/constants';
@@ -19,40 +18,11 @@ export default function FocusedDemoPage() {
     setOwnerEmail,
     businessDescription,
     setBusinessDescription,
-    businessWebsite,
-    setBusinessWebsite,
-    businessAddress,
-    setBusinessAddress,
-    businessPhone,
-    setBusinessPhone,
-    businessHours,
-    setBusinessHours,
     setDemoType,
   } = useOnboarding();
 
   const [businessType, setBusinessType] = useState('');
   const [errors, setErrors] = useState<Record<string, string>>({});
-  const [useGoogleLookup, setUseGoogleLookup] = useState(true);
-
-  const handleBusinessSelect = (details: PlaceDetails) => {
-    setBusinessName(details.name);
-    if (details.address) setBusinessAddress(details.address);
-    if (details.phone) setBusinessPhone(details.phone);
-    if (details.website) setBusinessWebsite(details.website);
-    if (details.business_hours) setBusinessHours(details.business_hours);
-    if (details.business_type) {
-      // Try to match to our business types
-      const matchedType = BUSINESS_TYPES.find(
-        t => t.label.toLowerCase() === details.business_type?.toLowerCase()
-      );
-      if (matchedType) {
-        setBusinessType(matchedType.id);
-      }
-    }
-    if (details.services && details.services.length > 0) {
-      setBusinessDescription(details.services.join(', '));
-    }
-  };
 
   const validate = () => {
     const newErrors: Record<string, string> = {};
@@ -105,65 +75,15 @@ export default function FocusedDemoPage() {
         {/* Form */}
         <Card>
           <div className="space-y-5">
-            {/* Google Business Lookup */}
-            {useGoogleLookup ? (
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Find Your Business
-                </label>
-                <BusinessLookup
-                  onSelect={handleBusinessSelect}
-                  placeholder="Search for your business on Google..."
-                />
-                <button
-                  type="button"
-                  onClick={() => setUseGoogleLookup(false)}
-                  className="mt-2 text-sm text-primary-600 hover:text-primary-700"
-                >
-                  Or enter details manually
-                </button>
-              </div>
-            ) : (
-              <div>
-                <Input
-                  label="Business Name"
-                  placeholder="e.g., Mike's Plumbing"
-                  value={businessName}
-                  onChange={(e) => setBusinessName(e.target.value)}
-                  error={errors.businessName}
-                />
-                <button
-                  type="button"
-                  onClick={() => setUseGoogleLookup(true)}
-                  className="mt-2 text-sm text-primary-600 hover:text-primary-700"
-                >
-                  Search for business on Google instead
-                </button>
-              </div>
-            )}
-
-            {/* Show business name if selected from Google */}
-            {useGoogleLookup && businessName && (
-              <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-                <div className="flex items-start gap-3">
-                  <svg className="w-5 h-5 text-green-600 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                  </svg>
-                  <div>
-                    <p className="font-medium text-green-900">{businessName}</p>
-                    {businessAddress && (
-                      <p className="text-sm text-green-700">{businessAddress}</p>
-                    )}
-                    {businessPhone && (
-                      <p className="text-sm text-green-700">{businessPhone}</p>
-                    )}
-                    {businessWebsite && (
-                      <p className="text-sm text-green-700 truncate">{businessWebsite}</p>
-                    )}
-                  </div>
-                </div>
-              </div>
-            )}
+            <div>
+              <Input
+                label="Business Name"
+                placeholder="e.g., Mike's Plumbing"
+                value={businessName}
+                onChange={(e) => setBusinessName(e.target.value)}
+                error={errors.businessName}
+              />
+            </div>
 
             <Input
               label="Your Email"
