@@ -87,7 +87,7 @@ export async function POST(request: NextRequest) {
     // Create tenant (business) in database using the existing tenants table
     console.log('Creating tenant in Supabase...');
     const { data: tenant, error: createError } = await supabase
-      .from('tenants')
+      .from('calldesk_tenants')
       .insert({
         user_id: userId,
         name,
@@ -155,7 +155,7 @@ export async function GET(request: NextRequest) {
 
     // Get user's businesses (tenants)
     const { data: businesses, error } = await supabase
-      .from('tenants')
+      .from('calldesk_tenants')
       .select('*')
       .eq('user_id', userId)
       .order('created_at', { ascending: false });

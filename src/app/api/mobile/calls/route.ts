@@ -29,7 +29,7 @@ export async function GET(request: NextRequest) {
 
     // Verify ownership
     const { data: tenant } = await supabase
-      .from('tenants')
+      .from('calldesk_tenants')
       .select('id')
       .eq('id', tenantId)
       .eq('user_id', mobileUser.id)
@@ -41,7 +41,7 @@ export async function GET(request: NextRequest) {
 
     // Build query
     let query = supabase
-      .from('call_logs')
+      .from('calldesk_call_logs')
       .select('*', { count: 'exact' })
       .eq('tenant_id', tenantId)
       .order('created_at', { ascending: false })

@@ -19,7 +19,7 @@ export const authOptions: NextAuthOptions = {
         try {
           // Sync user to Supabase
           const supabase = getSupabaseAdmin();
-          const { error } = await supabase.from('users').upsert(
+          const { error } = await supabase.from('calldesk_users').upsert(
             {
               id: user.id,
               email: user.email,

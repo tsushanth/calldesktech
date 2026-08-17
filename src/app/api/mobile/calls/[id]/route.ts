@@ -22,7 +22,7 @@ export async function GET(
 
     // Get call log
     const { data: call, error } = await supabase
-      .from('call_logs')
+      .from('calldesk_call_logs')
       .select('*')
       .eq('id', id)
       .single();
@@ -33,7 +33,7 @@ export async function GET(
 
     // Verify ownership through tenant
     const { data: tenant } = await supabase
-      .from('tenants')
+      .from('calldesk_tenants')
       .select('id')
       .eq('id', call.tenant_id)
       .eq('user_id', mobileUser.id)

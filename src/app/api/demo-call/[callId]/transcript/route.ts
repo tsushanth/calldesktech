@@ -54,7 +54,7 @@ export async function GET(
     // Get tenant info from our database
     const supabase = getSupabaseAdmin();
     const { data: callLog } = await supabase
-      .from('call_logs')
+      .from('calldesk_call_logs')
       .select('*, tenants(name)')
       .eq('retell_call_id', callId)
       .single();

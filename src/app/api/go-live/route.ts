@@ -39,7 +39,7 @@ export async function POST(request: NextRequest) {
 
     // Verify business ownership (using tenants table)
     const { data: tenant, error: fetchError } = await supabase
-      .from('tenants')
+      .from('calldesk_tenants')
       .select('*')
       .eq('id', business_id)
       .eq('user_id', userId)
@@ -127,7 +127,7 @@ export async function POST(request: NextRequest) {
     };
 
     const { error: updateError } = await supabase
-      .from('tenants')
+      .from('calldesk_tenants')
       .update({
         phone_number: phoneNumber,
         settings: updatedSettings,

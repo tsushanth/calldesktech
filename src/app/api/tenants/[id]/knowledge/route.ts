@@ -12,7 +12,7 @@ export async function GET(
     const supabase = getSupabaseAdmin();
 
     const { data: knowledgeBases, error } = await supabase
-      .from('knowledge_bases')
+      .from('calldesk_knowledge_bases')
       .select(`
         *,
         knowledge_items (*)
@@ -72,7 +72,7 @@ export async function POST(
 
     // Save to database
     const { data: knowledgeBase, error } = await supabase
-      .from('knowledge_bases')
+      .from('calldesk_knowledge_bases')
       .insert({
         tenant_id: tenantId,
         name,
@@ -89,7 +89,7 @@ export async function POST(
 
     // Save knowledge items if manual
     if (sourceType === 'manual' && items?.length > 0) {
-      await supabase.from('knowledge_items').insert(
+      await supabase.from('calldesk_knowledge_items').insert(
         items.map((item: { question: string; answer: string }) => ({
           knowledge_base_id: knowledgeBase.id,
           question: item.question,
@@ -101,7 +101,7 @@ export async function POST(
     // Update tenant with knowledge base ID
     if (retellKbId) {
       await supabase
-        .from('tenants')
+        .from('calldesk_tenants')
         .update({ knowledge_base_id: retellKbId })
         .eq('id', tenantId);
     }
@@ -131,7 +131,7 @@ export async function PUT(
 
     // Get existing knowledge base
     const { data: kb, error: kbError } = await supabase
-      .from('knowledge_bases')
+      .from('calldesk_knowledge_bases')
       .select('*')
       .eq('id', knowledgeBaseId)
       .eq('tenant_id', tenantId)
@@ -145,7 +145,7 @@ export async function PUT(
     }
 
     // Add items to database
-    await supabase.from('knowledge_items').insert(
+    await supabase.from('calldesk_knowledge_items').insert(
       items.map((item: { question: string; answer: string }) => ({
         knowledge_base_id: knowledgeBaseId,
         question: item.question,
@@ -156,7 +156,7 @@ export async function PUT(
     // Update Retell knowledge base
     if (kb.retell_kb_id) {
       const { data: allItems } = await supabase
-        .from('knowledge_items')
+        .from('calldesk_knowledge_items')
         .select('*')
         .eq('knowledge_base_id', knowledgeBaseId);
 

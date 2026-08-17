@@ -126,7 +126,7 @@ class ApiClient {
   async getTenants(userId: string): Promise<Tenant[]> {
     const supabase = this.getSupabaseClient();
     const { data, error } = await supabase
-      .from('tenants')
+      .from('calldesk_tenants')
       .select('*')
       .eq('user_id', userId)
       .order('created_at', { ascending: false });
@@ -138,7 +138,7 @@ class ApiClient {
   async getTenant(tenantId: string): Promise<Tenant | null> {
     const supabase = this.getSupabaseClient();
     const { data, error } = await supabase
-      .from('tenants')
+      .from('calldesk_tenants')
       .select('*')
       .eq('id', tenantId)
       .single();
@@ -153,7 +153,7 @@ class ApiClient {
   async updateTenant(tenantId: string, updates: TenantUpdate): Promise<Tenant> {
     const supabase = this.getSupabaseClient();
     const { data, error } = await supabase
-      .from('tenants')
+      .from('calldesk_tenants')
       .update(updates)
       .eq('id', tenantId)
       .select()
@@ -167,7 +167,7 @@ class ApiClient {
   async getKnowledgeBases(tenantId: string): Promise<KnowledgeBase[]> {
     const supabase = this.getSupabaseClient();
     const { data, error } = await supabase
-      .from('knowledge_bases')
+      .from('calldesk_knowledge_bases')
       .select('*')
       .eq('tenant_id', tenantId)
       .order('created_at', { ascending: false });
@@ -179,7 +179,7 @@ class ApiClient {
   async createKnowledgeBase(data: KnowledgeBaseInsert): Promise<KnowledgeBase> {
     const supabase = this.getSupabaseClient();
     const { data: kb, error } = await supabase
-      .from('knowledge_bases')
+      .from('calldesk_knowledge_bases')
       .insert(data)
       .select()
       .single();
@@ -191,7 +191,7 @@ class ApiClient {
   async getKnowledgeItems(knowledgeBaseId: string): Promise<KnowledgeItem[]> {
     const supabase = this.getSupabaseClient();
     const { data, error } = await supabase
-      .from('knowledge_items')
+      .from('calldesk_knowledge_items')
       .select('*')
       .eq('knowledge_base_id', knowledgeBaseId)
       .order('created_at', { ascending: false });
@@ -203,7 +203,7 @@ class ApiClient {
   async addKnowledgeItems(items: KnowledgeItemInsert[]): Promise<KnowledgeItem[]> {
     const supabase = this.getSupabaseClient();
     const { data, error } = await supabase
-      .from('knowledge_items')
+      .from('calldesk_knowledge_items')
       .insert(items)
       .select();
 
@@ -215,7 +215,7 @@ class ApiClient {
   async getFlows(tenantId: string): Promise<ConversationFlow[]> {
     const supabase = this.getSupabaseClient();
     const { data, error } = await supabase
-      .from('conversation_flows')
+      .from('calldesk_conversation_flows')
       .select('*')
       .eq('tenant_id', tenantId)
       .order('created_at', { ascending: false });
@@ -227,7 +227,7 @@ class ApiClient {
   async getActiveFlow(tenantId: string): Promise<ConversationFlow | null> {
     const supabase = this.getSupabaseClient();
     const { data, error } = await supabase
-      .from('conversation_flows')
+      .from('calldesk_conversation_flows')
       .select('*')
       .eq('tenant_id', tenantId)
       .eq('is_active', true)
@@ -244,7 +244,7 @@ class ApiClient {
   async getCallLogs(tenantId: string, limit = 50): Promise<CallLog[]> {
     const supabase = this.getSupabaseClient();
     const { data, error } = await supabase
-      .from('call_logs')
+      .from('calldesk_call_logs')
       .select('*')
       .eq('tenant_id', tenantId)
       .order('created_at', { ascending: false })
@@ -257,7 +257,7 @@ class ApiClient {
   async getCallLog(callLogId: string): Promise<CallLog | null> {
     const supabase = this.getSupabaseClient();
     const { data, error } = await supabase
-      .from('call_logs')
+      .from('calldesk_call_logs')
       .select('*')
       .eq('id', callLogId)
       .single();
@@ -273,7 +273,7 @@ class ApiClient {
   async getBookings(tenantId: string, limit = 50): Promise<Booking[]> {
     const supabase = this.getSupabaseClient();
     const { data, error } = await supabase
-      .from('bookings')
+      .from('calldesk_bookings')
       .select('*')
       .eq('tenant_id', tenantId)
       .order('scheduled_time', { ascending: true })
@@ -286,7 +286,7 @@ class ApiClient {
   async getUpcomingBookings(tenantId: string): Promise<Booking[]> {
     const supabase = this.getSupabaseClient();
     const { data, error } = await supabase
-      .from('bookings')
+      .from('calldesk_bookings')
       .select('*')
       .eq('tenant_id', tenantId)
       .gte('scheduled_time', new Date().toISOString())
@@ -347,26 +347,26 @@ class ApiClient {
 
     // Get total calls
     const { count: totalCalls } = await supabase
-      .from('call_logs')
+      .from('calldesk_call_logs')
       .select('*', { count: 'exact', head: true })
       .eq('tenant_id', tenantId);
 
     // Get today's calls
     const { count: todayCalls } = await supabase
-      .from('call_logs')
+      .from('calldesk_call_logs')
       .select('*', { count: 'exact', head: true })
       .eq('tenant_id', tenantId)
       .gte('created_at', today.toISOString());
 
     // Get total bookings
     const { count: totalBookings } = await supabase
-      .from('bookings')
+      .from('calldesk_bookings')
       .select('*', { count: 'exact', head: true })
       .eq('tenant_id', tenantId);
 
     // Get average duration
     const { data: durationData } = await supabase
-      .from('call_logs')
+      .from('calldesk_call_logs')
       .select('duration_seconds')
       .eq('tenant_id', tenantId);
 

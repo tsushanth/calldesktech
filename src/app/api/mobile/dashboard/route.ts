@@ -24,7 +24,7 @@ export async function GET(request: NextRequest) {
 
     // Verify tenant ownership
     const { data: tenant, error: tenantError } = await supabase
-      .from('tenants')
+      .from('calldesk_tenants')
       .select('id')
       .eq('id', tenantId)
       .eq('user_id', mobileUser.id)
@@ -46,24 +46,24 @@ export async function GET(request: NextRequest) {
       recentCallsResult,
     ] = await Promise.all([
       supabase
-        .from('call_logs')
+        .from('calldesk_call_logs')
         .select('*', { count: 'exact', head: true })
         .eq('tenant_id', tenantId),
       supabase
-        .from('call_logs')
+        .from('calldesk_call_logs')
         .select('*', { count: 'exact', head: true })
         .eq('tenant_id', tenantId)
         .gte('created_at', today.toISOString()),
       supabase
-        .from('bookings')
+        .from('calldesk_bookings')
         .select('*', { count: 'exact', head: true })
         .eq('tenant_id', tenantId),
       supabase
-        .from('call_logs')
+        .from('calldesk_call_logs')
         .select('duration_seconds')
         .eq('tenant_id', tenantId),
       supabase
-        .from('call_logs')
+        .from('calldesk_call_logs')
         .select('*')
         .eq('tenant_id', tenantId)
         .order('created_at', { ascending: false })

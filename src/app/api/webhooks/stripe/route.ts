@@ -41,7 +41,7 @@ export async function POST(request: NextRequest) {
         if (businessId) {
           // Update business subscription status
           await supabase
-            .from('businesses')
+            .from('calldesk_businesses')
             .update({
               subscription_status: 'active',
               stripe_customer_id: session.customer as string,
@@ -53,7 +53,7 @@ export async function POST(request: NextRequest) {
           // Update user's default business
           if (userId) {
             await supabase
-              .from('users')
+              .from('calldesk_users')
               .update({
                 default_business_id: businessId,
                 updated_at: new Date().toISOString(),
@@ -70,7 +70,7 @@ export async function POST(request: NextRequest) {
 
         if (businessId) {
           await supabase
-            .from('businesses')
+            .from('calldesk_businesses')
             .update({
               subscription_status: subscription.status,
               updated_at: new Date().toISOString(),
@@ -86,7 +86,7 @@ export async function POST(request: NextRequest) {
 
         if (businessId) {
           await supabase
-            .from('businesses')
+            .from('calldesk_businesses')
             .update({
               subscription_status: 'canceled',
               updated_at: new Date().toISOString(),

@@ -22,7 +22,7 @@ export async function GET(request: NextRequest) {
     const supabase = getSupabaseAdmin();
 
     const { data: tenant, error } = await supabase
-      .from('tenants')
+      .from('calldesk_tenants')
       .select('*')
       .eq('id', tenantId)
       .eq('user_id', mobileUser.id)
@@ -62,7 +62,7 @@ export async function PUT(request: NextRequest) {
 
     // Verify ownership
     const { data: existing } = await supabase
-      .from('tenants')
+      .from('calldesk_tenants')
       .select('id, settings')
       .eq('id', tenant_id)
       .eq('user_id', mobileUser.id)
@@ -88,7 +88,7 @@ export async function PUT(request: NextRequest) {
     }
 
     const { data: updated, error } = await supabase
-      .from('tenants')
+      .from('calldesk_tenants')
       .update(updateData)
       .eq('id', tenant_id)
       .select()

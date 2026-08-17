@@ -9,7 +9,7 @@ export async function GET() {
     const supabase = getSupabaseAdmin();
 
     const { data: agents, error } = await supabase
-      .from('demo_agents')
+      .from('calldesk_demo_agents')
       .select('*')
       .order('created_at', { ascending: true });
 
@@ -41,7 +41,7 @@ export async function DELETE(request: NextRequest) {
 
     // Get all demo agents
     const { data: agents, error: fetchError } = await supabase
-      .from('demo_agents')
+      .from('calldesk_demo_agents')
       .select('*');
 
     if (fetchError) {
@@ -65,7 +65,7 @@ export async function DELETE(request: NextRequest) {
         }
 
         // Delete from database
-        await supabase.from('demo_agents').delete().eq('id', agent.id);
+        await supabase.from('calldesk_demo_agents').delete().eq('id', agent.id);
 
         results.push({ profile: agent.profile_id, success: true });
       } catch (err) {
@@ -109,7 +109,7 @@ export async function POST(request: NextRequest) {
       try {
         // Check if already exists
         const { data: existing } = await supabase
-          .from('demo_agents')
+          .from('calldesk_demo_agents')
           .select('id')
           .eq('profile_id', profileId)
           .single();
@@ -151,7 +151,7 @@ export async function POST(request: NextRequest) {
 
         // Save to database
         const { error: insertError } = await supabase
-          .from('demo_agents')
+          .from('calldesk_demo_agents')
           .insert({
             profile_id: profileId,
             business_name: profile.businessName,

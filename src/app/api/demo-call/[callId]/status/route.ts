@@ -82,7 +82,7 @@ export async function GET(
     if (status === 'completed') {
       const supabase = getSupabaseAdmin();
       await supabase
-        .from('call_logs')
+        .from('calldesk_call_logs')
         .update({
           duration_seconds: duration,
           transcript: transcript,

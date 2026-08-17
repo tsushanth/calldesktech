@@ -14,7 +14,7 @@ export async function GET(request: NextRequest) {
     }
 
     const { data: tenants, error } = await supabase
-      .from('tenants')
+      .from('calldesk_tenants')
       .select('*')
       .eq('user_id', userId)
       .order('created_at', { ascending: false });
@@ -97,7 +97,7 @@ export async function POST(request: NextRequest) {
     // 4. Create tenant in database
     console.log('Creating tenant in Supabase...');
     const { data: tenant, error } = await supabase
-      .from('tenants')
+      .from('calldesk_tenants')
       .insert({
         user_id: userId,
         name,
@@ -124,7 +124,7 @@ export async function POST(request: NextRequest) {
 
     // 5. Create default conversation flow
     try {
-      await supabase.from('conversation_flows').insert({
+      await supabase.from('calldesk_conversation_flows').insert({
         tenant_id: tenant.id,
         name: 'Default Flow',
         nodes: getDefaultFlowNodes(),

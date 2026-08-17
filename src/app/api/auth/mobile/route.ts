@@ -80,7 +80,7 @@ export async function POST(request: NextRequest) {
 
     // Upsert user in Supabase (same pattern as NextAuth callback in auth.ts)
     const supabase = getSupabaseAdmin();
-    const { error: upsertError } = await supabase.from('users').upsert(
+    const { error: upsertError } = await supabase.from('calldesk_users').upsert(
       {
         id: userId,
         email,
@@ -97,7 +97,7 @@ export async function POST(request: NextRequest) {
 
     // Check if user has an existing tenant
     const { data: tenants } = await supabase
-      .from('tenants')
+      .from('calldesk_tenants')
       .select('id, name, phone_number, settings')
       .eq('user_id', userId)
       .order('created_at', { ascending: false })

@@ -31,7 +31,7 @@ export async function POST(request: NextRequest) {
     // If profile_id is provided, use the static demo agent
     if (profile_id) {
       const { data: demoAgent, error: demoAgentError } = await supabase
-        .from('demo_agents')
+        .from('calldesk_demo_agents')
         .select('*')
         .eq('profile_id', profile_id)
         .single();
@@ -48,7 +48,7 @@ export async function POST(request: NextRequest) {
     } else if (tenant_id) {
       // Use the tenant's agent
       const { data: tenant, error: tenantError } = await supabase
-        .from('tenants')
+        .from('calldesk_tenants')
         .select('*')
         .eq('id', tenant_id)
         .single();
@@ -127,7 +127,7 @@ export async function POST(request: NextRequest) {
 
     // Log the call in our database (only if we have a tenant_id)
     if (tenant_id) {
-      await supabase.from('call_logs').insert({
+      await supabase.from('calldesk_call_logs').insert({
         tenant_id: tenant_id,
         retell_call_id: callData.call_id,
         caller_phone: phone_number,

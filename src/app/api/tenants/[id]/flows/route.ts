@@ -12,7 +12,7 @@ export async function GET(
     const supabase = getSupabaseAdmin();
 
     const { data: flows, error } = await supabase
-      .from('conversation_flows')
+      .from('calldesk_conversation_flows')
       .select('*')
       .eq('tenant_id', tenantId)
       .order('created_at', { ascending: false });
@@ -44,7 +44,7 @@ export async function POST(
     const { name, nodes, globalSettings } = body;
 
     const { data: flow, error } = await supabase
-      .from('conversation_flows')
+      .from('calldesk_conversation_flows')
       .insert({
         tenant_id: tenantId,
         name,
@@ -87,8 +87,8 @@ export async function PUT(
 
     // Get tenant and flow
     const [tenantResult, flowResult] = await Promise.all([
-      supabase.from('tenants').select('*').eq('id', tenantId).single(),
-      supabase.from('conversation_flows').select('*').eq('id', flowId).single(),
+      supabase.from('calldesk_tenants').select('*').eq('id', tenantId).single(),
+      supabase.from('calldesk_conversation_flows').select('*').eq('id', flowId).single(),
     ]);
 
     if (tenantResult.error || !tenantResult.data) {
@@ -125,12 +125,12 @@ export async function PUT(
 
     // Deactivate all other flows and activate this one
     await supabase
-      .from('conversation_flows')
+      .from('calldesk_conversation_flows')
       .update({ is_active: false })
       .eq('tenant_id', tenantId);
 
     await supabase
-      .from('conversation_flows')
+      .from('calldesk_conversation_flows')
       .update({ is_active: true, version: flow.version + 1 })
       .eq('id', flowId);
 

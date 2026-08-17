@@ -10,7 +10,7 @@ export async function POST(request: NextRequest) {
 
     // Find tenant by agent ID
     const { data: tenant } = await supabase
-      .from('tenants')
+      .from('calldesk_tenants')
       .select('id, user_id, retell_agent_id, retell_llm_id, knowledge_base_id')
       .eq('retell_agent_id', event.call.agent_id)
       .single();
@@ -23,7 +23,7 @@ export async function POST(request: NextRequest) {
     switch (event.event) {
       case 'call_started':
         // Log call start
-        await supabase.from('call_logs').insert({
+        await supabase.from('calldesk_call_logs').insert({
           tenant_id: tenant.id,
           retell_call_id: event.call.call_id,
           caller_phone: event.call.from_number,
@@ -39,7 +39,7 @@ export async function POST(request: NextRequest) {
           : 0;
 
         await supabase
-          .from('call_logs')
+          .from('calldesk_call_logs')
           .update({
             duration_seconds: duration,
             transcript: event.call.transcript ? [{ role: 'system', content: event.call.transcript }] : null,
@@ -98,7 +98,7 @@ async function cleanupDemoTenant(tenant: {
     }
 
     // Delete tenant from database (cascades to call_logs, bookings, etc.)
-    await supabase.from('tenants').delete().eq('id', tenant.id);
+    await supabase.from('calldesk_tenants').delete().eq('id', tenant.id);
     console.log(`Deleted demo tenant from database: ${tenant.id}`);
   } catch (error) {
     console.error('Error cleaning up demo tenant:', error);

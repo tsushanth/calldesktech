@@ -38,7 +38,7 @@ export async function POST(request: NextRequest) {
     // Get business details from database (using tenants table)
     const supabase = getSupabaseAdmin();
     const { data: tenant, error: dbError } = await supabase
-      .from('tenants')
+      .from('calldesk_tenants')
       .select('*')
       .eq('id', business_id)
       .single();
