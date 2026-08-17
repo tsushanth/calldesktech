@@ -1,0 +1,30 @@
+# CallDeskTech
+
+> CallDeskTech (calldesk.tech) is an AI receptionist for small and local businesses. It deploys a low-latency AI phone assistant, powered by Retell AI, that answers incoming calls, books appointments, and answers customer questions in under 500ms.
+
+## What it does
+
+- Answers business phone calls with an AI voice agent (Retell AI, sub-500ms latency, semantic turn detection)
+- Books appointments via calendar integration (Google, Outlook, iCal, through Cal.com)
+- Answers caller questions from a business-specific knowledge base (uploaded FAQs or a scraped website)
+- Lets businesses design conversation flows with a no-code flow builder
+- Provides call analytics: call volume, booking rates, common questions
+- Provides a dedicated phone number, or supports using an existing number, worldwide
+- Sends SMS confirmations for booked appointments
+
+## Who it's for
+
+Local service businesses that take phone calls for appointments and customer questions, e.g. plumbers, salons, medical/dental clinics, restaurants, and auto repair shops.
+
+## Key pages
+
+- https://calldesk.tech/ - homepage and product overview
+- https://calldesk.tech/demo - try a free interactive demo
+- https://calldesk.tech/pricing - pricing and subscription checkout
+- https://calldesk.tech/dashboard - business dashboard (calls, knowledge base, settings) for signed-in users
+- https://calldesk.tech/onboarding - business setup flow (business profile, knowledge base, calendar, go-live)
+
+## Pricing
+
+- $49/month flat plan, includes: dedicated phone number, 100 minutes/month, custom knowledge base, appointment booking, call transcripts & analytics, SMS confirmations
+- Overage: $0.10/minute, $0.05/SMS
