@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { api, type TranscriptResponse } from '@/lib/api';
 import { formatPhoneE164 } from '@/lib/utils';
@@ -171,6 +171,20 @@ export function OnboardingProvider({ children }: { children: React.ReactNode }) 
   const [callStatus, setCallStatus] = useState('');
   const [callDuration, setCallDuration] = useState(0);
   const [isCallInProgress, setIsCallInProgress] = useState(false);
+
+  // The polling interval (below) is created once and lives for the interval's
+  // whole lifetime, closing over whatever `checkCallStatus` reference existed
+  // at creation time. If that happens on a render where `callId` is still
+  // null (a real race — the "Call Me Now" flow sets callId and starts polling
+  // in quick succession), the interval keeps calling a stale, permanently-null
+  // callId forever, silently no-oping every tick — the call finishes on
+  // Retell's side but the UI never advances. Mirroring callId into a ref that
+  // checkCallStatus reads from sidesteps the closure entirely: the interval
+  // always sees whatever callId is current, regardless of when it was created.
+  const callIdRef = useRef<string | null>(null);
+  useEffect(() => {
+    callIdRef.current = callId;
+  }, [callId]);
 
   const [transcript, setTranscript] = useState<TranscriptResponse | null>(null);
 
@@ -422,12 +436,14 @@ export function OnboardingProvider({ children }: { children: React.ReactNode }) 
     setIsCallInProgress(false);
   }, []);
 
-  // Check call status
+  // Check call status. Reads callIdRef.current rather than closing over the
+  // callId state value directly — see the ref's own comment above for why.
   const checkCallStatus = useCallback(async () => {
-    if (!callId) return;
+    const currentCallId = callIdRef.current;
+    if (!currentCallId) return;
 
     try {
-      const status = await api.getCallStatus(callId);
+      const status = await api.getCallStatus(currentCallId);
       setCallStatus(status.status);
       setCallDuration(status.duration);
 
@@ -440,7 +456,7 @@ export function OnboardingProvider({ children }: { children: React.ReactNode }) 
     } catch (err) {
       console.error('Failed to check call status:', err);
     }
-  }, [callId, stopCallPolling]);
+  }, [stopCallPolling]);
 
   // Start polling for call status
   const startCallPolling = useCallback(() => {
