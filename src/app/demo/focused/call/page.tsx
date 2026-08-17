@@ -16,6 +16,7 @@ export default function FocusedDemoCallPage() {
     ownerPhone,
     callStatus,
     callDuration,
+    isCallInProgress,
     startCallPolling,
     stopCallPolling,
     retryDemoCall,
@@ -41,8 +42,21 @@ export default function FocusedDemoCallPage() {
     }
   }, [callStatus, router]);
 
-  if (!businessName) {
-    router.push('/demo/focused');
+  // Redirect back only if we land here with no business name AND no call
+  // already in flight. Checking `!businessName` alone during render bounced
+  // users back to the business-details step even after a successful call:
+  // createTenantAndStartDemo sets isCallInProgress and calls router.push in
+  // the same async function, but this page's first render can commit before
+  // that context update has propagated, so businessName reads as empty for
+  // one frame. Doing this in an effect (not during render) and gating on
+  // isCallInProgress avoids bouncing away from a call that's already underway.
+  useEffect(() => {
+    if (!businessName && !isCallInProgress && !callStatus) {
+      router.push('/demo/focused');
+    }
+  }, [businessName, isCallInProgress, callStatus, router]);
+
+  if (!businessName && !isCallInProgress && !callStatus) {
     return null;
   }
 

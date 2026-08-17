@@ -43,8 +43,21 @@ export default function SampleDemoCallPage() {
     }
   }, [callStatus, router]);
 
-  if (!profile) {
-    router.push('/demo/sample');
+  // Redirect back only if we land here with no profile AND no call already
+  // in flight. Checking `!profile` alone during render bounced users back
+  // to the profile picker even after a successful call: createTenantAndStartDemo
+  // sets selectedProfileId/isCallInProgress and calls router.push in the same
+  // async function, but this page's first render can commit before that
+  // context update has propagated, so `profile` reads as null for one frame.
+  // Doing this in an effect (not during render) and gating on isCallInProgress
+  // avoids bouncing away from a call that's actually already underway.
+  useEffect(() => {
+    if (!profile && !isCallInProgress && !callStatus) {
+      router.push('/demo/sample');
+    }
+  }, [profile, isCallInProgress, callStatus, router]);
+
+  if (!profile && !isCallInProgress && !callStatus) {
     return null;
   }
 
@@ -78,12 +91,12 @@ export default function SampleDemoCallPage() {
         {/* Call status card */}
         <Card className="text-center">
           {/* Profile icon */}
-          <div className={`w-20 h-20 ${profile.color} rounded-full flex items-center justify-center text-4xl mx-auto mb-4`}>
-            {profile.icon}
+          <div className={`w-20 h-20 ${profile?.color ?? 'bg-gray-200'} rounded-full flex items-center justify-center text-4xl mx-auto mb-4`}>
+            {profile?.icon}
           </div>
 
           <h2 className="text-xl font-semibold text-gray-900 mb-1">
-            {profile.businessName}
+            {profile?.businessName ?? 'Your demo'}
           </h2>
           <p className="text-gray-500 mb-6">
             Calling {formatPhoneDisplay(ownerPhone)}
