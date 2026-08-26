@@ -44,13 +44,43 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { name, areaCode } = body;
+    const { name, areaCode, voiceEngine } = body;
 
     if (!name) {
       return NextResponse.json(
         { error: 'Business name is required' },
         { status: 400 }
       );
+    }
+
+    // A tenant created for the in-house "poc" engine never places a real
+    // Retell call, so provisioning Retell's LLM/Agent/phone-number resources
+    // for it would just be wasted API calls (and, for a purchased number,
+    // real cost) — skip straight to a bare tenant row instead. This is what
+    // lets voiceEngine be known and persisted before the tenant's very first
+    // demo call, rather than only after a later Settings-page edit.
+    if (voiceEngine === 'poc') {
+      console.log('Creating poc-engine tenant (no Retell resources)...');
+      const { data: tenant, error } = await supabase
+        .from('calldesk_tenants')
+        .insert({
+          user_id: userId,
+          name,
+          settings: { voice_engine: 'poc' },
+        })
+        .select()
+        .single();
+
+      if (error) {
+        console.error('Supabase error:', error);
+        return NextResponse.json(
+          { error: `Database error: ${error.message}` },
+          { status: 500 }
+        );
+      }
+
+      console.log('Tenant created:', tenant.id);
+      return NextResponse.json({ tenant }, { status: 201 });
     }
 
     let llmId: string | null = null;
@@ -107,6 +137,7 @@ export async function POST(request: NextRequest) {
         settings: {
           voiceId: '11labs-Adrian',
           language: 'en-US',
+          voice_engine: 'retell',
         },
       })
       .select()

@@ -1,64 +1,64 @@
-// Demo profiles for quick onboarding demos
-export const DEMO_PROFILES = {
-  plumber: {
-    id: 'plumber',
-    businessName: "Mike's Plumbing",
-    businessType: 'plumbing',
-    displayName: 'Blue Collar Pro',
-    voiceId: '11labs-Adrian',
-    voiceStyle: 'Warm, trustworthy male voice',
-    greeting: "Hey there! Thanks for calling Mike's Plumbing. How can I help you today?",
-    icon: '🔧',
-    color: 'bg-blue-500',
-  },
-  salon: {
-    id: 'salon',
-    businessName: "Bella's Hair Studio",
-    businessType: 'salon',
-    displayName: 'Chic & Friendly',
-    voiceId: '11labs-Marissa',
-    voiceStyle: 'Friendly, upbeat female voice',
-    greeting: "Hi there! Welcome to Bella's Hair Studio. I'd love to help you book your next appointment!",
-    icon: '💇‍♀️',
-    color: 'bg-pink-500',
-  },
-  medical: {
-    id: 'medical',
-    businessName: 'Sunrise Family Clinic',
-    businessType: 'medical',
-    displayName: 'Calm & Professional',
+// Capability demos — each showcases exactly ONE building block (see
+// src/lib/flowBuilder.ts) in isolation, rather than a whole business
+// persona. Replaces the old business-type demos (plumber/salon/medical/
+// restaurant/auto) per the product decision 2026-08-26: a prospect should
+// see what a specific capability does before choosing which ones to buy for
+// their own business on /demo/focused/blocks, not just "a demo of a plumber."
+// `block` maps each demo onto flowBuilder's WizardBlocks keys — 'faq' has no
+// corresponding key because it's the always-on baseline itself.
+export const CAPABILITY_DEMOS = {
+  faq: {
+    id: 'faq',
+    businessName: 'Golden Gate Dental',
+    businessType: 'dental',
+    displayName: 'Answers FAQs',
+    block: null,
     voiceId: '11labs-Adrian',
     voiceStyle: 'Calm, professional voice',
-    greeting: 'Hello, thank you for calling Sunrise Family Clinic. How may I assist you today?',
-    icon: '🏥',
+    greeting: 'Hello, thank you for calling Golden Gate Dental. How can I help you today?',
+    icon: '💬',
+    color: 'bg-blue-500',
+  },
+  booking: {
+    id: 'booking',
+    businessName: 'Riverside Fitness',
+    businessType: 'fitness',
+    displayName: 'Books appointments',
+    block: 'booking',
+    voiceId: '11labs-Marissa',
+    voiceStyle: 'Friendly, upbeat female voice',
+    greeting: "Hi there! Welcome to Riverside Fitness — I'd love to help you book a session!",
+    icon: '📅',
     color: 'bg-green-500',
   },
-  restaurant: {
-    id: 'restaurant',
-    businessName: "Mama Rosa's Kitchen",
-    businessType: 'restaurant',
-    displayName: 'Warm & Inviting',
-    voiceId: '11labs-Marissa',
-    voiceStyle: 'Warm, motherly voice',
-    greeting: "Ciao! Welcome to Mama Rosa's Kitchen. Are you looking to make a reservation, dear?",
-    icon: '🍝',
-    color: 'bg-orange-500',
-  },
-  auto: {
-    id: 'auto',
-    businessName: "Joe's Auto Repair",
-    businessType: 'auto_repair',
-    displayName: 'Mechanic Expert',
+  transfer: {
+    id: 'transfer',
+    businessName: 'Summit Legal Group',
+    businessType: 'legal',
+    displayName: 'Transfers to a human',
+    block: 'transfer',
     voiceId: '11labs-Adrian',
-    voiceStyle: 'Knowledgeable, friendly voice',
-    greeting: "Thanks for calling Joe's Auto Repair! How can we help with your vehicle today?",
-    icon: '🚗',
-    color: 'bg-gray-500',
+    voiceStyle: 'Calm, professional voice',
+    greeting: 'Thank you for calling Summit Legal Group. How may I direct your call?',
+    icon: '📞',
+    color: 'bg-purple-500',
+  },
+  message: {
+    id: 'message',
+    businessName: 'Bay Area Realty',
+    businessType: 'real_estate',
+    displayName: 'Takes a message',
+    block: 'takeMessage',
+    voiceId: '11labs-Marissa',
+    voiceStyle: 'Warm, friendly voice',
+    greeting: "Hi! You've reached Bay Area Realty — how can I help you today?",
+    icon: '📝',
+    color: 'bg-orange-500',
   },
 } as const;
 
-export type DemoProfileId = keyof typeof DEMO_PROFILES;
-export type DemoProfile = (typeof DEMO_PROFILES)[DemoProfileId];
+export type DemoProfileId = keyof typeof CAPABILITY_DEMOS;
+export type DemoProfile = (typeof CAPABILITY_DEMOS)[DemoProfileId];
 
 // Call status states
 export const CALL_STATUSES = {
@@ -73,6 +73,17 @@ export const CALL_STATUSES = {
 } as const;
 
 export type CallStatus = keyof typeof CALL_STATUSES;
+
+// Per-block add-on prices for the à la carte building-block picker
+// (onboarding + dashboard settings). PLACEHOLDER VALUES — not wired to
+// Stripe yet, deliberately, per product decision 2026-08-26: build the
+// selection mechanism now, price it for real later. FAQ/KB has no entry
+// because it's the always-on baseline, not a paid add-on.
+export const BLOCK_PRICES = {
+  booking: 15,
+  transfer: 20,
+  takeMessage: 10,
+} as const;
 
 // Pricing info
 export const PRICING = {

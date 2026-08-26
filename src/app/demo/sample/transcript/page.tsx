@@ -8,7 +8,7 @@ import { Card } from '@/components/ui/Card';
 import { TranscriptViewer } from '@/components/onboarding/TranscriptViewer';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 import { useOnboarding } from '@/context/OnboardingContext';
-import { DEMO_PROFILES } from '@/lib/constants';
+import { CAPABILITY_DEMOS } from '@/lib/constants';
 import type { CallerInsights } from '@/lib/api';
 
 // Helper to get badge color based on value
@@ -91,7 +91,7 @@ export default function SampleTranscriptPage() {
     reset,
   } = useOnboarding();
 
-  const profile = selectedProfileId ? DEMO_PROFILES[selectedProfileId] : null;
+  const profile = selectedProfileId ? CAPABILITY_DEMOS[selectedProfileId] : null;
 
   useEffect(() => {
     if (!transcript) {

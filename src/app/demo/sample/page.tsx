@@ -4,17 +4,22 @@ import { useRouter } from 'next/navigation';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { useOnboarding } from '@/context/OnboardingContext';
-import { DEMO_PROFILES, type DemoProfileId } from '@/lib/constants';
+import { CAPABILITY_DEMOS, type DemoProfileId } from '@/lib/constants';
 
 export default function SampleDemoProfilesPage() {
   const router = useRouter();
-  const { selectedProfileId, selectProfile } = useOnboarding();
+  const { selectedProfileId, selectProfile, demoMechanism, setDemoMechanism, createTenantAndStartDemo, isLoading } = useOnboarding();
 
-  const profiles = Object.entries(DEMO_PROFILES) as [DemoProfileId, typeof DEMO_PROFILES[DemoProfileId]][];
+  const profiles = Object.entries(CAPABILITY_DEMOS) as [DemoProfileId, typeof CAPABILITY_DEMOS[DemoProfileId]][];
 
-  const handleContinue = () => {
-    if (selectedProfileId) {
+  const handleContinue = async () => {
+    if (!selectedProfileId) return;
+    if (demoMechanism === 'phone') {
       router.push('/demo/sample/phone');
+    } else {
+      // Browser mechanism places no real call — nothing more to collect,
+      // go straight to the in-browser call.
+      await createTenantAndStartDemo();
     }
   };
 
@@ -35,10 +40,10 @@ export default function SampleDemoProfilesPage() {
         {/* Header */}
         <div className="text-center mb-8">
           <h1 className="text-2xl font-bold text-gray-900 mb-2">
-            Choose a Business Type
+            See What It Can Do
           </h1>
           <p className="text-gray-600">
-            Select a profile to hear how the AI receptionist handles calls
+            Pick a capability to hear it in action — you&apos;ll choose which ones you want for your own business later
           </p>
         </div>
 
@@ -84,6 +89,30 @@ export default function SampleDemoProfilesPage() {
           ))}
         </div>
 
+        {/* Mechanism choice */}
+        {selectedProfileId && (
+          <div className="flex justify-center mb-6">
+            <div className="inline-flex bg-gray-100 rounded-lg p-1">
+              <button
+                onClick={() => setDemoMechanism('phone')}
+                className={`px-4 py-2 rounded-md text-sm font-medium transition ${
+                  demoMechanism === 'phone' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                📞 Call my phone
+              </button>
+              <button
+                onClick={() => setDemoMechanism('browser')}
+                className={`px-4 py-2 rounded-md text-sm font-medium transition ${
+                  demoMechanism === 'browser' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                🎧 Try in browser
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* Actions */}
         <div className="flex justify-between items-center">
           <button
@@ -95,6 +124,7 @@ export default function SampleDemoProfilesPage() {
           <Button
             onClick={handleContinue}
             disabled={!selectedProfileId}
+            isLoading={demoMechanism === 'browser' && isLoading}
           >
             Continue
           </Button>

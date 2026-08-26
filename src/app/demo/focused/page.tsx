@@ -44,7 +44,7 @@ export default function FocusedDemoPage() {
   const handleContinue = () => {
     if (validate()) {
       setDemoType('focused');
-      router.push('/demo/focused/phone');
+      router.push('/demo/focused/blocks');
     }
   };
 

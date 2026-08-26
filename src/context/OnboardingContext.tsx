@@ -4,7 +4,10 @@ import React, { createContext, useContext, useState, useEffect, useCallback, use
 import { useRouter } from 'next/navigation';
 import { api, type TranscriptResponse } from '@/lib/api';
 import { formatPhoneE164 } from '@/lib/utils';
-import { type DemoProfileId, DEMO_PROFILES } from '@/lib/constants';
+import { type DemoProfileId, CAPABILITY_DEMOS } from '@/lib/constants';
+import { getVoiceEngine, isPocEngine } from '@/lib/voiceEngine';
+import { buildWizardFlow, buildSingleBlockDemoFlow, DEFAULT_WIZARD_BLOCKS, type WizardBlocks } from '@/lib/flowBuilder';
+import type { FlowNode } from '@/types';
 
 // Demo type
 type DemoType = 'sample' | 'focused' | null;
@@ -39,6 +42,21 @@ interface OnboardingState {
   // Voice/persona configuration
   selectedVoice: string;
   selectedTone: string;
+
+  // Building-block toggles (see src/lib/flowBuilder.ts) — which optional
+  // capabilities a focused-demo business wants, chosen on /demo/focused/blocks
+  // and used to synthesize their real agent's first version.
+  wizardBlocks: WizardBlocks;
+  transferToNumber: string;
+  agentFlow: { startNodeId: string; nodes: FlowNode[] } | null;
+
+  // Which mechanism a capability demo (sample/*) should use — chosen on the
+  // capability picker itself, not the global NEXT_PUBLIC_VOICE_ENGINE env
+  // var (that still governs the focused-business path). 'phone' places a
+  // real Retell call via that capability's provisioned demo agent; 'browser'
+  // runs the capability's synthesized single-block flow through
+  // call-loop-poc in-browser, same as agentFlow does for focused demos.
+  demoMechanism: 'phone' | 'browser';
 
   // Onboarding progress
   onboardingStep: number;
@@ -85,6 +103,11 @@ interface OnboardingActions {
   // Voice/persona setters
   setSelectedVoice: (voice: string) => void;
   setSelectedTone: (tone: string) => void;
+
+  // Building-block setters
+  setWizardBlocks: (blocks: WizardBlocks) => void;
+  setTransferToNumber: (number: string) => void;
+  setDemoMechanism: (mechanism: 'phone' | 'browser') => void;
 
   // Subscription setters
   setAssignedPhoneNumber: (phone: string | null) => void;
@@ -162,6 +185,21 @@ export function OnboardingProvider({ children }: { children: React.ReactNode }) 
   // Voice/persona
   const [selectedVoice, setSelectedVoice] = useState('11labs-Adrian');
   const [selectedTone, setSelectedTone] = useState('professional');
+
+  // Building blocks — in-memory only (not persisted to localStorage like
+  // the fields above): the /demo/focused/blocks step is short-lived within
+  // one sitting, and defaulting back to DEFAULT_WIZARD_BLOCKS on an
+  // unlikely mid-flow reload is an acceptable simplification here.
+  const [wizardBlocks, setWizardBlocks] = useState<WizardBlocks>(DEFAULT_WIZARD_BLOCKS);
+  const [transferToNumber, setTransferToNumber] = useState('');
+  // The flow actually created for this session's agent version — set by
+  // createTenantAndStartDemo right after create_agent_version, and read by
+  // /demo/poc/call so a poc-engine demo call runs the REAL synthesized flow
+  // (booking/transfer/take-message included per what was toggled) instead
+  // of the old generic single-prompt behavior. Null for sample demos, which
+  // have no tenant/agent at all.
+  const [agentFlow, setAgentFlow] = useState<{ startNodeId: string; nodes: FlowNode[] } | null>(null);
+  const [demoMechanism, setDemoMechanism] = useState<'phone' | 'browser'>('phone');
 
   // Onboarding progress
   const [onboardingStep, setOnboardingStep] = useState(0);
@@ -307,7 +345,7 @@ export function OnboardingProvider({ children }: { children: React.ReactNode }) 
   const selectProfile = useCallback((profileId: DemoProfileId) => {
     setSelectedProfileId(profileId);
     setDemoType('sample');
-    const profile = DEMO_PROFILES[profileId];
+    const profile = CAPABILITY_DEMOS[profileId];
     if (profile) {
       setBusinessName(profile.businessName);
     }
@@ -323,8 +361,14 @@ export function OnboardingProvider({ children }: { children: React.ReactNode }) 
         return;
       }
     } else {
-      if (!selectedProfileId || !ownerPhone) {
-        setError('Please select a business type and enter your phone number');
+      // A browser-mechanism capability demo places no real call, so there's
+      // nothing to dial a phone number for.
+      if (!selectedProfileId || (demoMechanism === 'phone' && !ownerPhone)) {
+        setError(
+          demoMechanism === 'phone'
+            ? 'Please select a capability and enter your phone number'
+            : 'Please select a capability to try'
+        );
         return;
       }
     }
@@ -339,18 +383,79 @@ export function OnboardingProvider({ children }: { children: React.ReactNode }) 
 
     try {
       if (isFocusedDemo) {
-        // For focused demos, create a new tenant with the user's business info
+        // For focused demos, create a new tenant with the user's business info.
+        // The engine choice is decided (from NEXT_PUBLIC_VOICE_ENGINE, since no
+        // tenant exists yet to have a per-tenant setting) and persisted onto the
+        // tenant row AT CREATION TIME — the route skips Retell provisioning
+        // entirely for a poc-engine tenant (see src/app/api/tenants/route.ts)
+        // so this costs nothing extra for that branch. The immediate branch
+        // below then reads that same persisted value back via isPocEngine(),
+        // instead of re-deciding from the env var, so this tenant's very first
+        // call and every future Settings-page/retry read of it agree with each
+        // other from birth.
         const demoUserId = `demo_${Date.now()}_${Math.random().toString(36).substring(7)}`;
 
         const tenantResponse = await api.createTenant({
           name: businessName,
           userId: demoUserId,
           areaCode: undefined,
+          voiceEngine: getVoiceEngine(),
         });
 
         setTenantId(tenantResponse.id);
         if (tenantResponse.phone_number) {
           setAssignedPhoneNumber(tenantResponse.phone_number);
+        }
+
+        // Create the real agent + its first version from whatever building
+        // blocks were chosen on /demo/focused/blocks — this is what actually
+        // makes the toggle selection real, rather than just cosmetic. Kept
+        // best-effort (logged, not fatal): a demo call should still proceed
+        // even if this write hiccups, since the call itself doesn't strictly
+        // require the agent row for the poc branch below (it uses the
+        // synthesized flow directly), and for the retell branch the demo
+        // call already goes through the older initiateDemoCall path either way.
+        let flow: { startNodeId: string; nodes: FlowNode[] } | null = null;
+        try {
+          const agentRes = await fetch(`/api/tenants/${tenantResponse.id}/agents`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name: businessName }),
+          });
+          const agentBody = await agentRes.json();
+          if (!agentRes.ok) throw new Error(agentBody.error);
+
+          const synthesized = buildWizardFlow(
+            { businessName, transferToNumber },
+            wizardBlocks
+          );
+          const versionRes = await fetch(`/api/agents/${agentBody.agent.id}/versions`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              flowName: 'v1',
+              startNodeId: synthesized.startNodeId,
+              nodes: synthesized.nodes,
+              voiceEngine: getVoiceEngine(),
+              retellAgentId: tenantResponse.retell_agent_id || undefined,
+              retellLlmId: tenantResponse.retell_llm_id || undefined,
+              wizardConfig: wizardBlocks,
+            }),
+          });
+          const versionBody = await versionRes.json();
+          if (!versionRes.ok) throw new Error(versionBody.error);
+          flow = { startNodeId: synthesized.startNodeId, nodes: synthesized.nodes };
+          setAgentFlow(flow);
+        } catch (agentErr) {
+          console.error('Failed to create agent/version from wizard blocks (non-fatal):', agentErr);
+        }
+
+        if (isPocEngine({ voice_engine: getVoiceEngine() })) {
+          setIsCallInProgress(true);
+          setCallStatus('in-progress');
+          setIsLoading(false);
+          router.push('/demo/poc/call');
+          return;
         }
 
         // Start demo call with the new tenant
@@ -364,7 +469,30 @@ export function OnboardingProvider({ children }: { children: React.ReactNode }) 
         setIsCallInProgress(true);
         router.push('/demo/focused/call');
       } else {
-        // For sample demos, use the pre-configured static demo agent
+        // Sample (capability) demos have no tenant row at all — there's
+        // nothing to persist a per-tenant engine onto. Which mechanism runs
+        // is chosen per-demo on the capability picker (demoMechanism), not
+        // the global NEXT_PUBLIC_VOICE_ENGINE env var — that only governs
+        // the focused-business path, which has a real tenant to read/write.
+        if (demoMechanism === 'browser') {
+          const profile = CAPABILITY_DEMOS[selectedProfileId!];
+          const synthesized = profile.block
+            ? buildSingleBlockDemoFlow(
+                { businessName: profile.businessName, greeting: profile.greeting },
+                profile.block as keyof WizardBlocks
+              )
+            : buildWizardFlow(
+                { businessName: profile.businessName, greeting: profile.greeting },
+                { booking: false, transfer: false, takeMessage: false }
+              );
+          setAgentFlow(synthesized);
+          setIsCallInProgress(true);
+          setCallStatus('in-progress');
+          setIsLoading(false);
+          router.push('/demo/poc/call');
+          return;
+        }
+
         const callResponse = await api.initiateDemoCall({
           profile_id: selectedProfileId!,
           phone_number: formatPhoneE164(ownerPhone),
@@ -380,7 +508,7 @@ export function OnboardingProvider({ children }: { children: React.ReactNode }) 
     } finally {
       setIsLoading(false);
     }
-  }, [selectedProfileId, ownerPhone, businessName, demoType, router]);
+  }, [selectedProfileId, ownerPhone, businessName, demoType, router, wizardBlocks, transferToNumber, demoMechanism]);
 
   // Retry demo call
   const retryDemoCall = useCallback(async () => {
@@ -409,6 +537,20 @@ export function OnboardingProvider({ children }: { children: React.ReactNode }) 
     setCallDuration(0);
 
     try {
+      // A focused-demo tenant may have since flipped its call engine in
+      // Settings — re-check the tenant row rather than trusting whatever
+      // engine the original "Start Demo" click used.
+      if (isFocusedDemo) {
+        const tenant = await api.getTenant(tenantId!);
+        if (isPocEngine(tenant?.settings as { voice_engine?: string } | null)) {
+          setIsCallInProgress(true);
+          setCallStatus('in-progress');
+          setIsLoading(false);
+          router.push('/demo/poc/call');
+          return;
+        }
+      }
+
       const callResponse = await api.initiateDemoCall({
         tenant_id: isFocusedDemo ? tenantId! : undefined,
         profile_id: !isFocusedDemo ? selectedProfileId! : undefined,
@@ -423,7 +565,7 @@ export function OnboardingProvider({ children }: { children: React.ReactNode }) 
     } finally {
       setIsLoading(false);
     }
-  }, [tenantId, ownerPhone, demoType, selectedProfileId]);
+  }, [tenantId, ownerPhone, demoType, selectedProfileId, router]);
 
   // Stop polling
   const stopCallPolling = useCallback(() => {
@@ -622,6 +764,12 @@ export function OnboardingProvider({ children }: { children: React.ReactNode }) 
     selectedVoice,
     selectedTone,
 
+    // Building blocks
+    wizardBlocks,
+    transferToNumber,
+    agentFlow,
+    demoMechanism,
+
     // Onboarding progress
     onboardingStep,
     onboardingComplete,
@@ -657,6 +805,11 @@ export function OnboardingProvider({ children }: { children: React.ReactNode }) 
     // Voice/persona setters
     setSelectedVoice,
     setSelectedTone,
+
+    // Building-block setters
+    setWizardBlocks,
+    setTransferToNumber,
+    setDemoMechanism,
 
     // Subscription setters
     setAssignedPhoneNumber,

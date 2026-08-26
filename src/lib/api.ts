@@ -20,6 +20,7 @@ export interface CreateTenantRequest {
   name: string;
   userId: string;
   areaCode?: string;
+  voiceEngine?: string;
 }
 
 export interface CreateTenantResponse {
@@ -102,6 +103,7 @@ class ApiClient {
       body: JSON.stringify({
         name: data.name,
         areaCode: data.areaCode,
+        voiceEngine: data.voiceEngine,
       }),
     });
 

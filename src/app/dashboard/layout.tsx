@@ -24,6 +24,8 @@ export default function DashboardLayout({
     { href: '/dashboard', icon: '📊', label: 'Overview', exact: true },
     { href: '/dashboard/calls', icon: '📞', label: 'Call Logs' },
     { href: '/dashboard/knowledge', icon: '🧠', label: 'Knowledge Base' },
+    { href: '/dashboard/agents', icon: '🤖', label: 'Agents' },
+    { href: '/dashboard/numbers', icon: '📱', label: 'Phone Numbers' },
     { href: '/dashboard/settings', icon: '⚙️', label: 'Settings' },
   ];
 

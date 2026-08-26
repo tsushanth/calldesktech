@@ -1,0 +1,18 @@
+{
+  "name": "@calldesktech/flow-mcp",
+  "version": "0.1.0",
+  "description": "MCP server for building and testing calldesktech's node-based conversation flows headlessly, before any dashboard UI touches them.",
+  "type": "module",
+  "main": "index.js",
+  "bin": {
+    "calldesktech-flow-mcp": "index.js"
+  },
+  "license": "UNLICENSED",
+  "private": true,
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.30.0",
+    "@supabase/supabase-js": "^2.45.0",
+    "ws": "^8.18.0",
+    "zod": "^3.25.0"
+  }
+}

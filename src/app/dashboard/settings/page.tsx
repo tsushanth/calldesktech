@@ -5,6 +5,10 @@ import { useOnboarding } from '@/context/OnboardingContext';
 import { api, type Tenant } from '@/lib/api';
 import { formatPhoneDisplay } from '@/lib/utils';
 import { VOICE_OPTIONS, TONE_OPTIONS } from '@/lib/constants';
+import type { VoiceEngine } from '@/lib/voiceEngine';
+import { WizardBlocksPicker } from '@/components/flow-builder/WizardBlocksPicker';
+import { buildWizardFlow, DEFAULT_WIZARD_BLOCKS, type WizardBlocks } from '@/lib/flowBuilder';
+import type { Agent, AgentVersion } from '@/types';
 
 export default function SettingsPage() {
   const { tenantId, businessName, assignedPhoneNumber, isHydrated } = useOnboarding();
@@ -19,6 +23,19 @@ export default function SettingsPage() {
   const [selectedTone, setSelectedTone] = useState('professional');
   const [calApiKey, setCalApiKey] = useState('');
   const [calEventTypeId, setCalEventTypeId] = useState('');
+  const [voiceEngine, setVoiceEngine] = useState<VoiceEngine>('retell');
+  const [ttsBackend, setTtsBackend] = useState<'kokoro' | 'elevenlabs'>('kokoro');
+
+  // Building blocks — backed by the tenant's default "simple" agent (see
+  // src/lib/flowBuilder.ts / the "Two-Tier Onboarding" design doc). This is
+  // the ongoing-edit half of the wizard; the onboarding half creates this
+  // same agent's version 1 on signup (see OnboardingContext).
+  const [simpleAgent, setSimpleAgent] = useState<Agent | null>(null);
+  const [latestVersion, setLatestVersion] = useState<AgentVersion | null>(null);
+  const [wizardBlocks, setWizardBlocks] = useState<WizardBlocks>(DEFAULT_WIZARD_BLOCKS);
+  const [transferToNumber, setTransferToNumber] = useState('');
+  const [showGoLiveConfirm, setShowGoLiveConfirm] = useState(false);
+  const [isSavingBlocks, setIsSavingBlocks] = useState(false);
 
   useEffect(() => {
     async function loadTenant() {
@@ -34,9 +51,30 @@ export default function SettingsPage() {
           if (settings) {
             setSelectedVoice(settings.voice || 'eleven_turbo_v2');
             setSelectedTone(settings.tone || 'professional');
+            setVoiceEngine(settings.voice_engine === 'poc' ? 'poc' : 'retell');
+            setTtsBackend(settings.tts_backend === 'elevenlabs' ? 'elevenlabs' : 'kokoro');
           }
           setCalApiKey(data.cal_api_key || '');
           setCalEventTypeId(data.cal_event_type_id || '');
+        }
+
+        const agentsRes = await fetch(`/api/tenants/${tenantId}/agents`);
+        const agentsBody = await agentsRes.json();
+        const agent: Agent | undefined = agentsRes.ok
+          ? agentsBody.agents.find((a: Agent) => a.mode === 'simple')
+          : undefined;
+        setSimpleAgent(agent || null);
+
+        if (agent) {
+          const versionsRes = await fetch(`/api/agents/${agent.id}/versions`);
+          const versionsBody = await versionsRes.json();
+          const latest: AgentVersion | undefined = versionsRes.ok ? versionsBody.versions[0] : undefined;
+          setLatestVersion(latest || null);
+          const savedBlocks = latest?.wizard_config as (WizardBlocks & { transferToNumber?: string }) | null | undefined;
+          if (savedBlocks) {
+            setWizardBlocks({ booking: !!savedBlocks.booking, transfer: !!savedBlocks.transfer, takeMessage: !!savedBlocks.takeMessage });
+            setTransferToNumber(savedBlocks.transferToNumber || '');
+          }
         }
       } catch (err) {
         console.error('Failed to load tenant:', err);
@@ -47,6 +85,70 @@ export default function SettingsPage() {
 
     loadTenant();
   }, [tenantId, isHydrated]);
+
+  const handleSaveBlocks = async () => {
+    if (!tenantId) return;
+    setIsSavingBlocks(true);
+    setMessage(null);
+    try {
+      let agentId = simpleAgent?.id;
+      if (!agentId) {
+        const res = await fetch(`/api/tenants/${tenantId}/agents`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name: name || 'Front Desk' }),
+        });
+        const body = await res.json();
+        if (!res.ok) throw new Error(body.error);
+        setSimpleAgent(body.agent);
+        agentId = body.agent.id;
+      }
+
+      const synthesized = buildWizardFlow({ businessName: name, transferToNumber }, wizardBlocks);
+      const versionRes = await fetch(`/api/agents/${agentId}/versions`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          flowName: `v${(latestVersion?.version_number || 0) + 1}`,
+          startNodeId: synthesized.startNodeId,
+          nodes: synthesized.nodes,
+          voiceEngine,
+          ttsBackend: voiceEngine === 'poc' ? ttsBackend : undefined,
+          wizardConfig: { ...wizardBlocks, transferToNumber },
+        }),
+      });
+      const versionBody = await versionRes.json();
+      if (!versionRes.ok) throw new Error(versionBody.error);
+      setLatestVersion(versionBody.version);
+
+      // Go live now: route every phone number already pointing at the
+      // previous version's inbound slot to this new one. A tenant with no
+      // number yet (nothing to route) still gets the version saved above —
+      // it'll be there to route to once a number exists.
+      const numbersRes = await fetch(`/api/tenants/${tenantId}/phone-numbers`);
+      const numbersBody = await numbersRes.json();
+      if (numbersRes.ok) {
+        await Promise.all(
+          numbersBody.phoneNumbers
+            .filter((n: { inbound_agent_version_id: string | null }) => !latestVersion || n.inbound_agent_version_id === latestVersion.id || n.inbound_agent_version_id === null)
+            .map((n: { id: string }) =>
+              fetch(`/api/phone-numbers/${n.id}/routing`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ direction: 'inbound', agentVersionId: versionBody.version.id }),
+              })
+            )
+        );
+      }
+
+      setShowGoLiveConfirm(false);
+      setMessage({ type: 'success', text: 'Your changes are live.' });
+    } catch (err) {
+      setMessage({ type: 'error', text: err instanceof Error ? err.message : 'Failed to save changes' });
+    } finally {
+      setIsSavingBlocks(false);
+    }
+  };
 
   const handleSave = async () => {
     if (!tenantId) return;
@@ -60,6 +162,8 @@ export default function SettingsPage() {
         settings: {
           voice: selectedVoice,
           tone: selectedTone,
+          voice_engine: voiceEngine,
+          tts_backend: ttsBackend,
         },
         cal_api_key: calApiKey || null,
         cal_event_type_id: calEventTypeId || null,
@@ -170,6 +274,125 @@ export default function SettingsPage() {
               ))}
             </div>
           </div>
+        </SettingsSection>
+
+        {/* Voice Engine */}
+        <SettingsSection title="Call Engine" icon="🔌">
+          <p className="text-gray-400 mb-4">
+            Which pipeline handles this tenant&apos;s demo calls. Retell places a real outbound
+            phone call; our in-house engine runs entirely in-browser with no telephony involved.
+          </p>
+          <div className="grid grid-cols-2 gap-3 max-w-md">
+            <button
+              type="button"
+              onClick={() => setVoiceEngine('retell')}
+              className={`p-4 rounded-lg border text-left transition ${
+                voiceEngine === 'retell'
+                  ? 'bg-blue-600/20 border-blue-500'
+                  : 'bg-gray-700 border-gray-600 hover:border-gray-500'
+              }`}
+            >
+              <p className="font-medium">Retell</p>
+              <p className="text-sm text-gray-400">Real outbound PSTN call</p>
+            </button>
+            <button
+              type="button"
+              onClick={() => setVoiceEngine('poc')}
+              className={`p-4 rounded-lg border text-left transition ${
+                voiceEngine === 'poc'
+                  ? 'bg-blue-600/20 border-blue-500'
+                  : 'bg-gray-700 border-gray-600 hover:border-gray-500'
+              }`}
+            >
+              <p className="font-medium">In-house (beta)</p>
+              <p className="text-sm text-gray-400">In-browser, no phone number</p>
+            </button>
+          </div>
+
+          {voiceEngine === 'poc' && (
+            <div className="mt-6">
+              <label className="block text-sm text-gray-400 mb-2">TTS Backend</label>
+              <div className="grid grid-cols-2 gap-3 max-w-md">
+                <button
+                  type="button"
+                  onClick={() => setTtsBackend('kokoro')}
+                  className={`p-4 rounded-lg border text-left transition ${
+                    ttsBackend === 'kokoro'
+                      ? 'bg-blue-600/20 border-blue-500'
+                      : 'bg-gray-700 border-gray-600 hover:border-gray-500'
+                  }`}
+                >
+                  <p className="font-medium">Kokoro</p>
+                  <p className="text-sm text-gray-400">Self-hosted, lowest cost</p>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setTtsBackend('elevenlabs')}
+                  className={`p-4 rounded-lg border text-left transition ${
+                    ttsBackend === 'elevenlabs'
+                      ? 'bg-blue-600/20 border-blue-500'
+                      : 'bg-gray-700 border-gray-600 hover:border-gray-500'
+                  }`}
+                >
+                  <p className="font-medium">ElevenLabs</p>
+                  <p className="text-sm text-gray-400">Higher quality, per-char cost</p>
+                </button>
+              </div>
+            </div>
+          )}
+        </SettingsSection>
+
+        {/* Building Blocks */}
+        <SettingsSection title="What your receptionist can do" icon="🧩">
+          {simpleAgent?.mode === 'advanced' ? (
+            <p className="text-gray-400">
+              This agent has been moved to advanced mode — edit it in the{' '}
+              <a href={`/dashboard/agents/${simpleAgent.id}`} className="text-blue-400 hover:text-blue-300">
+                Agents console
+              </a>{' '}
+              instead. The building-block wizard no longer applies here.
+            </p>
+          ) : (
+            <>
+              <WizardBlocksPicker
+                blocks={wizardBlocks}
+                onChange={setWizardBlocks}
+                transferToNumber={transferToNumber}
+                onTransferToNumberChange={setTransferToNumber}
+                dark
+              />
+              {message && message.text === 'Your changes are live.' && (
+                <p className="text-sm text-green-400 mt-3">{message.text}</p>
+              )}
+              <div className="mt-4 pt-4 border-t border-gray-700 flex justify-end">
+                {showGoLiveConfirm ? (
+                  <div className="flex items-center gap-3">
+                    <p className="text-sm text-amber-300">This goes live on real calls immediately.</p>
+                    <button
+                      onClick={handleSaveBlocks}
+                      disabled={isSavingBlocks}
+                      className="bg-amber-600 hover:bg-amber-700 disabled:opacity-50 px-4 py-2 rounded-lg text-sm font-medium transition"
+                    >
+                      {isSavingBlocks ? 'Saving...' : 'Yes, make it live'}
+                    </button>
+                    <button
+                      onClick={() => setShowGoLiveConfirm(false)}
+                      className="border border-gray-600 hover:border-gray-400 px-4 py-2 rounded-lg text-sm transition"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => setShowGoLiveConfirm(true)}
+                    className="bg-blue-600 hover:bg-blue-700 px-5 py-2 rounded-lg text-sm font-medium transition"
+                  >
+                    Save &amp; go live
+                  </button>
+                )}
+              </div>
+            </>
+          )}
         </SettingsSection>
 
         {/* Calendar Integration */}

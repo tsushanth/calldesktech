@@ -47,6 +47,48 @@ export interface GlobalSettings {
   knowledgeBaseId?: string;
   voiceId?: string;
   language?: string;
+  // Not a real column — folded in here so a flow's start node round-trips
+  // through the existing global_settings JSONB without a schema change.
+  startNodeId?: string;
+}
+
+// Agent / Version / Phone Number Types
+// Raw snake_case shapes matching calldesk_agents/calldesk_agent_versions/
+// calldesk_phone_numbers directly (see supabase/migrations/
+// 005_agents_and_versions.sql) — kept snake_case rather than mapped to
+// camelCase to match how the rest of this API layer already returns
+// Supabase rows as-is (see src/lib/api.ts's Tenant/Flow types).
+export interface Agent {
+  id: string;
+  tenant_id: string;
+  name: string;
+  mode: 'simple' | 'advanced';
+  created_at: string;
+  updated_at: string;
+}
+
+export interface AgentVersion {
+  id: string;
+  agent_id: string;
+  version_number: number;
+  voice_engine: 'retell' | 'poc';
+  flow_id: string | null;
+  retell_agent_id: string | null;
+  retell_llm_id: string | null;
+  voice_id: string | null;
+  tts_backend: 'kokoro' | 'elevenlabs' | null;
+  wizard_config: Record<string, unknown> | null;
+  created_at: string;
+}
+
+export interface PhoneNumber {
+  id: string;
+  tenant_id: string;
+  number: string;
+  inbound_agent_version_id: string | null;
+  outbound_agent_version_id: string | null;
+  created_at: string;
+  updated_at: string;
 }
 
 // Knowledge Base Types

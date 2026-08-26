@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/Button';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 import { useOnboarding } from '@/context/OnboardingContext';
 import { formatDuration, formatPhoneDisplay } from '@/lib/utils';
-import { DEMO_PROFILES, CALL_STATUSES } from '@/lib/constants';
+import { CAPABILITY_DEMOS, CALL_STATUSES } from '@/lib/constants';
 
 export default function SampleDemoCallPage() {
   const router = useRouter();
@@ -24,7 +24,7 @@ export default function SampleDemoCallPage() {
     error,
   } = useOnboarding();
 
-  const profile = selectedProfileId ? DEMO_PROFILES[selectedProfileId] : null;
+  const profile = selectedProfileId ? CAPABILITY_DEMOS[selectedProfileId] : null;
   const statusInfo = CALL_STATUSES[callStatus as keyof typeof CALL_STATUSES] || { label: callStatus, color: 'text-gray-500' };
 
   // Start polling when component mounts

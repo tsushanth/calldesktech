@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/Button';
 import { PhoneInput } from '@/components/ui/PhoneInput';
 import { useOnboarding } from '@/context/OnboardingContext';
 import { isValidUSPhone } from '@/lib/utils';
-import { DEMO_PROFILES } from '@/lib/constants';
+import { CAPABILITY_DEMOS } from '@/lib/constants';
 
 export default function SampleDemoPhonePage() {
   const router = useRouter();
@@ -23,7 +23,7 @@ export default function SampleDemoPhonePage() {
 
   const [localError, setLocalError] = useState('');
 
-  const profile = selectedProfileId ? DEMO_PROFILES[selectedProfileId] : null;
+  const profile = selectedProfileId ? CAPABILITY_DEMOS[selectedProfileId] : null;
   const isPhoneValid = isValidUSPhone(ownerPhone);
 
   const handleSubmit = async (e: React.FormEvent) => {
