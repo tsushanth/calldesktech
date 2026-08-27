@@ -86,9 +86,16 @@ export const BLOCK_PRICES = {
 } as const;
 
 // Pricing info
+// NOTE 2026-08-26: this flat-plan display was showing $49 while the actual
+// live Stripe price customers get charged (STRIPE_PRICE_ID,
+// price_1SekfDKFBTQTkmzt9Qx2rYWY) is $39 — fixed to match. This whole flat
+// plan is also slated for replacement by usage-based metered pricing (see
+// the new "CallDeskTech Usage" product / calldesktech_* meters created the
+// same day) — the checkout/dashboard billing UI has NOT been migrated to
+// that yet, so this flat price is still what /pricing actually charges.
 export const PRICING = {
   monthly: {
-    price: 49,
+    price: 39,
     features: [
       'Dedicated phone number',
       '100 minutes/month included',
