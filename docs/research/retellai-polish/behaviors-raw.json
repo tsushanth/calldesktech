@@ -1,0 +1,40 @@
+{
+  "at0": {
+    "bg": "rgba(0, 0, 0, 0)",
+    "blur": "none",
+    "h": 72,
+    "pad": "12px 10px",
+    "border": "0px none rgb(51, 51, 51)",
+    "shadow": "none",
+    "transform": "none",
+    "transition": "all",
+    "position": "fixed"
+  },
+  "at600": {
+    "bg": "rgba(0, 0, 0, 0)",
+    "blur": "none",
+    "h": 72,
+    "pad": "12px 10px",
+    "border": "0px none rgb(51, 51, 51)",
+    "shadow": "none",
+    "transform": "none",
+    "transition": "all",
+    "position": "fixed"
+  },
+  "at2000": {
+    "bg": "rgba(0, 0, 0, 0)",
+    "blur": "none",
+    "h": 72,
+    "pad": "12px 10px",
+    "border": "0px none rgb(51, 51, 51)",
+    "shadow": "none",
+    "transform": "none",
+    "transition": "all",
+    "position": "fixed"
+  },
+  "animAttrs": {
+    "style": 25,
+    "data-animate-text": 2,
+    "data-animate-logo": 1
+  }
+}
