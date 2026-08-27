@@ -26,17 +26,20 @@ export function Reveal({
   as?: 'div' | 'section' | 'li';
 }) {
   const ref = useRef<HTMLDivElement>(null);
-  const [shown, setShown] = useState(false);
+  // Respect reduced-motion via the state initializer rather than a
+  // synchronous setState in the effect body below (React's set-state-in-
+  // effect lint rule flags the latter as a cascading-render anti-pattern).
+  // `useState` runs its initializer only on mount, so this is a one-time
+  // check, not a per-render matchMedia call.
+  const [shown, setShown] = useState(
+    () =>
+      typeof window !== 'undefined' &&
+      window.matchMedia('(prefers-reduced-motion: reduce)').matches
+  );
 
   useEffect(() => {
     const el = ref.current;
-    if (!el) return;
-
-    // Respect reduced-motion: show immediately, never animate.
-    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
-      setShown(true);
-      return;
-    }
+    if (!el || shown) return;
 
     const io = new IntersectionObserver(
       (entries) => {
@@ -54,7 +57,7 @@ export function Reveal({
 
     io.observe(el);
     return () => io.disconnect();
-  }, []);
+  }, [shown]);
 
   return (
     <Tag
