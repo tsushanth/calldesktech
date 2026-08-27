@@ -86,28 +86,45 @@ export const BLOCK_PRICES = {
 } as const;
 
 // Pricing info
-// NOTE 2026-08-26: this flat-plan display was showing $49 while the actual
-// live Stripe price customers get charged (STRIPE_PRICE_ID,
-// price_1SekfDKFBTQTkmzt9Qx2rYWY) is $39 — fixed to match. This whole flat
-// plan is also slated for replacement by usage-based metered pricing (see
-// the new "CallDeskTech Usage" product / calldesktech_* meters created the
-// same day) — the checkout/dashboard billing UI has NOT been migrated to
-// that yet, so this flat price is still what /pricing actually charges.
+// 2026-08-26: replaced the old flat $39/mo plan with real usage-based
+// pricing — $0 base, pay only for what's used, undercutting Retell's
+// effective $0.07-0.31/min by 4-30x on our actual measured infra cost (see
+// costTracker.js). Mirrors Retell's own "$0 base + stacked per-minute"
+// model rather than a flat-plan-plus-overage. Backed by 5 live metered
+// Stripe prices on product "CallDeskTech Usage" (voice priced per backend,
+// since kokoro/elevenlabs share one meter but can't both be attached to the
+// same subscription — see checkout/route.ts):
+//   price_1U8tJeKFBTQTkmztTPNMcLKe  kokoro_voice_seconds     $0.02/min
+//   price_1U8tJfKFBTQTkmztIu8fXDxa  elevenlabs_voice_seconds $0.08/min
+//   price_1U8tJtKFBTQTkmzt8CqFVIDs  booking_completed        $0.007/event
+//   price_1U8tJtKFBTQTkmztdgtdAu8n  transfer_completed       $0.01/event
+//   price_1U8tJuKFBTQTkmztzhIqUrg3  message_taken            $0.004/event
+// The old flat plan (price_1SekfDKFBTQTkmzt9Qx2rYWY, prod_TbyctCCfmAN34Q)
+// stays live only for whoever already subscribed to it before this switch —
+// new checkouts go on the usage-based plan below.
+export const USAGE_PRICES = {
+  voice: {
+    kokoro: 'price_1U8tJeKFBTQTkmztTPNMcLKe',
+    elevenlabs: 'price_1U8tJfKFBTQTkmztIu8fXDxa',
+  },
+  booking: 'price_1U8tJtKFBTQTkmzt8CqFVIDs',
+  transfer: 'price_1U8tJtKFBTQTkmztdgtdAu8n',
+  message: 'price_1U8tJuKFBTQTkmztzhIqUrg3',
+} as const;
+
 export const PRICING = {
-  monthly: {
-    price: 39,
+  usage: {
+    voicePerMinute: { kokoro: 0.02, elevenlabs: 0.08 },
+    perBookingEvent: 0.007,
+    perTransferEvent: 0.01,
+    perMessageEvent: 0.004,
     features: [
       'Dedicated phone number',
-      '100 minutes/month included',
+      'Pay only for call minutes and completed actions — no monthly minimum',
       'Custom knowledge base',
-      'Appointment booking',
+      'Appointment booking, live transfer, and message-taking add-ons',
       'Call transcripts & analytics',
-      'SMS confirmations',
     ],
-  },
-  overage: {
-    perMinute: 0.10,
-    perSms: 0.05,
   },
 } as const;
 

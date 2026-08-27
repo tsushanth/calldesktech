@@ -90,10 +90,10 @@ export default function PricingPage() {
         {/* Header */}
         <div className="text-center mb-12">
           <h1 className="text-4xl font-bold text-white mb-4">
-            Simple, Transparent Pricing
+            Simple, Usage-Based Pricing
           </h1>
           <p className="text-xl text-white/80">
-            One plan, everything included. No hidden fees.
+            No monthly minimum. Pay only for talk time and completed actions.
           </p>
         </div>
 

@@ -15,15 +15,16 @@ export function PricingCard({ onSubscribe, loading }: PricingCardProps) {
       <div className="text-center mb-6">
         <h2 className="text-2xl font-bold text-gray-900">AI Receptionist</h2>
         <div className="mt-4">
-          <span className="text-5xl font-bold text-gray-900">
-            ${PRICING.monthly.price}
-          </span>
-          <span className="text-gray-500">/month</span>
+          <span className="text-5xl font-bold text-gray-900">$0</span>
+          <span className="text-gray-500"> base — pay only for usage</span>
         </div>
+        <p className="mt-2 text-sm text-gray-500">
+          ${PRICING.usage.voicePerMinute.kokoro.toFixed(2)}/min talk time, plus a small fee only when the call actually books, transfers, or takes a message
+        </p>
       </div>
 
       <ul className="space-y-4 mb-8">
-        {PRICING.monthly.features.map((feature, index) => (
+        {PRICING.usage.features.map((feature, index) => (
           <li key={index} className="flex items-center gap-3">
             <svg
               className="w-5 h-5 text-green-500 flex-shrink-0"
@@ -45,7 +46,7 @@ export function PricingCard({ onSubscribe, loading }: PricingCardProps) {
 
       <div className="border-t border-gray-100 pt-4 mb-6">
         <p className="text-sm text-gray-500 text-center">
-          Additional usage: ${PRICING.overage.perMinute}/min, ${PRICING.overage.perSms}/SMS
+          Booking ${PRICING.usage.perBookingEvent.toFixed(3)} · Transfer ${PRICING.usage.perTransferEvent.toFixed(3)} · Message ${PRICING.usage.perMessageEvent.toFixed(3)} — billed per completed action, not per attempt
         </p>
       </div>
 
