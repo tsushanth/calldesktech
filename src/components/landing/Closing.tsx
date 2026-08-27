@@ -104,8 +104,12 @@ export function FinalCTA() {
             aria-hidden
             className="pointer-events-none absolute inset-0"
             style={{
+              // Centered at 50% 45% (not 50% 0%) with a large enough radius
+              // to reach every corner — the original was anchored to the
+              // top edge, so the ellipse's lower lobe never reached the
+              // card's bottom half, leaving it visibly dead/flat.
               background:
-                'radial-gradient(70% 120% at 50% 0%, rgba(37,99,235,0.22) 0%, rgba(37,99,235,0.05) 45%, transparent 75%)',
+                'radial-gradient(120% 140% at 50% 45%, rgba(37,99,235,0.22) 0%, rgba(37,99,235,0.09) 40%, rgba(37,99,235,0.02) 70%, transparent 100%)',
             }}
           />
           <div className="relative">
