@@ -80,6 +80,7 @@ class RetellClient {
     generalPrompt: string;
     beginMessage?: string;
     knowledgeBaseIds?: string[];
+    generalTools?: RetellGeneralTool[];
   }): Promise<{ llm_id: string }> {
     return this.request('/create-retell-llm', {
       method: 'POST',
@@ -87,6 +88,7 @@ class RetellClient {
         general_prompt: config.generalPrompt,
         begin_message: config.beginMessage,
         knowledge_base_ids: config.knowledgeBaseIds,
+        general_tools: config.generalTools,
       }),
     });
   }
@@ -97,6 +99,7 @@ class RetellClient {
       generalPrompt?: string;
       beginMessage?: string;
       knowledgeBaseIds?: string[];
+      generalTools?: RetellGeneralTool[];
     }
   ): Promise<{ llm_id: string }> {
     return this.request(`/update-retell-llm/${llmId}`, {
@@ -105,6 +108,7 @@ class RetellClient {
         general_prompt: config.generalPrompt,
         begin_message: config.beginMessage,
         knowledge_base_ids: config.knowledgeBaseIds,
+        general_tools: config.generalTools,
       }),
     });
   }
@@ -238,6 +242,17 @@ class RetellClient {
   }
 }
 
+// Retell's own general_tools schema for a transfer_call entry — see
+// https://docs.retellai.com/api-references/create-retell-llm. Only the
+// fields this codebase actually sets are typed; Retell accepts more.
+export interface RetellGeneralTool {
+  type: 'transfer_call';
+  name: string;
+  description: string;
+  transfer_destination: { type: 'predefined'; number: string };
+  transfer_option: { type: 'cold_transfer' };
+}
+
 // Convert our flow format to Retell's prompt format
 export function flowToRetellPrompt(flow: ConversationFlow): string {
   const nodeDescriptions = flow.nodes.map((node) => {
@@ -257,6 +272,27 @@ Global Rules:
 `;
 }
 
+// Was previously a Retell-parity gap: a 'transfer' node only ever narrated
+// "transferring you now" in the prompt with nothing behind it — the model
+// had no actual mechanism to move the call off itself, so the call just
+// kept talking. Retell's real transfer mechanism is a general_tools entry
+// the model calls, not prose; this builds one tool per transfer node that
+// has a real destination number, keyed by node id so the prompt (below) can
+// tell the model exactly which tool to invoke for which node.
+export function flowToRetellTools(flow: ConversationFlow): RetellGeneralTool[] {
+  return flow.nodes
+    .filter((node): node is FlowNode & { params: { transferTo: string } } =>
+      node.type === 'transfer' && Boolean(node.params?.transferTo?.trim())
+    )
+    .map((node) => ({
+      type: 'transfer_call' as const,
+      name: `transfer_call_${node.id}`,
+      description: `Transfer the call — used when reaching the "${node.id}" step of the flow: ${node.prompt}`,
+      transfer_destination: { type: 'predefined' as const, number: node.params.transferTo.trim() },
+      transfer_option: { type: 'cold_transfer' as const },
+    }));
+}
+
 function formatNodeForPrompt(node: FlowNode): string {
   let description = `## ${node.id.toUpperCase()}\n`;
   description += `Type: ${node.type}\n`;
@@ -264,6 +300,10 @@ function formatNodeForPrompt(node: FlowNode): string {
 
   if (node.extract) {
     description += `Data to collect: ${Object.keys(node.extract).join(', ')}\n`;
+  }
+
+  if (node.type === 'transfer' && node.params?.transferTo?.trim()) {
+    description += `To perform this step, call the "transfer_call_${node.id}" tool — do not just say you're transferring without calling it.\n`;
   }
 
   if (node.edges.length > 0) {

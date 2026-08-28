@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/supabase';
-import { getRetellClient, flowToRetellPrompt } from '@/lib/retell';
+import { getRetellClient, flowToRetellPrompt, flowToRetellTools } from '@/lib/retell';
 import { CAPABILITY_DEMOS, type DemoProfileId } from '@/lib/constants';
 import { buildWizardFlow, buildSingleBlockDemoFlow, type WizardBlocks } from '@/lib/flowBuilder';
 
@@ -138,7 +138,7 @@ export async function POST(request: NextRequest) {
           ? buildSingleBlockDemoFlow(demoInfo, block)
           : buildWizardFlow(demoInfo, { booking: false, transfer: false, takeMessage: false });
 
-        const prompt = flowToRetellPrompt({
+        const demoFlow = {
           id: 'demo',
           tenantId: 'demo',
           name: `Demo - ${profile.businessName}`,
@@ -148,7 +148,9 @@ export async function POST(request: NextRequest) {
           version: 1,
           createdAt: new Date(0),
           updatedAt: new Date(0),
-        });
+        };
+        const prompt = flowToRetellPrompt(demoFlow);
+        const generalTools = flowToRetellTools(demoFlow);
 
         // Create LLM with the capability-specific prompt (no separate
         // Retell knowledge base — the FAQ capability demos answering from
@@ -158,6 +160,7 @@ export async function POST(request: NextRequest) {
         const llm = await retell.createLLM({
           generalPrompt: prompt,
           beginMessage: profile.greeting,
+          generalTools: generalTools.length > 0 ? generalTools : undefined,
         });
 
         // Create Agent with profile's voice

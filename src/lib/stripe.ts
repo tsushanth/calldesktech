@@ -32,3 +32,33 @@ export const STRIPE_CONFIG = {
   successUrl: `${process.env.NEXT_PUBLIC_APP_URL}/onboarding?session_id={CHECKOUT_SESSION_ID}`,
   cancelUrl: `${process.env.NEXT_PUBLIC_APP_URL}/pricing`,
 };
+
+// Checkout only ever attaches the kokoro voice price (see checkout/route.ts
+// — a tenant can't pick elevenlabs until an agent exists, which is after
+// checkout). This was a disclosed gap: if a tenant later creates a 'poc'
+// version with tts_backend: 'elevenlabs', their subscription kept billing
+// the kokoro rate regardless. Called from agents/[id]/versions/route.ts
+// whenever a poc-engine version sets a tts_backend, so the subscription's
+// voice line item always matches what's actually configured.
+export async function syncVoicePriceForTenant(tenantId: string, ttsBackend: 'kokoro' | 'elevenlabs') {
+  const { USAGE_PRICES } = await import('./constants');
+  const { getSupabaseAdmin } = await import('./supabase');
+  const supabase = getSupabaseAdmin();
+  const { data: business } = await supabase
+    .from('calldesk_businesses')
+    .select('stripe_subscription_id')
+    .eq('tenant_id', tenantId)
+    .maybeSingle();
+  if (!business?.stripe_subscription_id) return; // no active subscription yet — nothing to sync
+
+  const stripe = getStripe();
+  const subscription = await stripe.subscriptions.retrieve(business.stripe_subscription_id);
+  const voicePriceIds: string[] = [USAGE_PRICES.voice.kokoro, USAGE_PRICES.voice.elevenlabs];
+  const currentVoiceItem = subscription.items.data.find((item) => voicePriceIds.includes(item.price.id));
+  const targetPriceId = USAGE_PRICES.voice[ttsBackend];
+  // No existing voice line item to swap (e.g. subscription predates this
+  // pricing model) — don't guess at inserting one, just leave it alone.
+  if (!currentVoiceItem || currentVoiceItem.price.id === targetPriceId) return;
+
+  await stripe.subscriptionItems.update(currentVoiceItem.id, { price: targetPriceId });
+}

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/supabase';
-import { getRetellClient, flowToRetellPrompt } from '@/lib/retell';
+import { getRetellClient, flowToRetellPrompt, flowToRetellTools } from '@/lib/retell';
 import type { FlowNode, GlobalSettings } from '@/types';
 
 // POST /api/agent-versions/[id]/sync-retell — pushes an agent version's flow
@@ -61,7 +61,7 @@ export async function POST(
       .map((kb) => kb.retell_kb_id as string | null)
       .filter((id): id is string => Boolean(id));
 
-    const prompt = flowToRetellPrompt({
+    const flowObj = {
       id: flow.id,
       tenantId: flow.tenant_id,
       name: flow.name,
@@ -71,12 +71,15 @@ export async function POST(
       version: flow.version,
       createdAt: new Date(flow.created_at),
       updatedAt: new Date(flow.updated_at),
-    });
+    };
+    const prompt = flowToRetellPrompt(flowObj);
+    const generalTools = flowToRetellTools(flowObj);
 
     const retell = getRetellClient();
     await retell.updateLLM(version.retell_llm_id, {
       generalPrompt: prompt,
       knowledgeBaseIds: knowledgeBaseIds.length > 0 ? knowledgeBaseIds : undefined,
+      generalTools: generalTools.length > 0 ? generalTools : undefined,
     });
 
     return NextResponse.json({ synced: true });

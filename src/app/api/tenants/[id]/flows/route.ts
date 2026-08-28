@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/supabase';
-import { getRetellClient, flowToRetellPrompt } from '@/lib/retell';
+import { getRetellClient, flowToRetellPrompt, flowToRetellTools } from '@/lib/retell';
 
 // GET /api/tenants/[id]/flows - Get flows for a tenant
 export async function GET(
@@ -103,7 +103,7 @@ export async function PUT(
     const flow = flowResult.data;
 
     // Convert flow to Retell prompt format
-    const prompt = flowToRetellPrompt({
+    const flowObj = {
       id: flow.id,
       tenantId: flow.tenant_id,
       name: flow.name,
@@ -113,13 +113,16 @@ export async function PUT(
       version: flow.version,
       createdAt: new Date(flow.created_at),
       updatedAt: new Date(flow.updated_at),
-    });
+    };
+    const prompt = flowToRetellPrompt(flowObj);
+    const generalTools = flowToRetellTools(flowObj);
 
     // Update Retell LLM with new prompt
     if (tenant.retell_llm_id) {
       await retell.updateLLM(tenant.retell_llm_id, {
         generalPrompt: prompt,
         knowledgeBaseIds: tenant.knowledge_base_id ? [tenant.knowledge_base_id] : undefined,
+        generalTools: generalTools.length > 0 ? generalTools : undefined,
       });
     }
 
