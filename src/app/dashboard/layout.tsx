@@ -15,7 +15,28 @@ export default function DashboardLayout({
 }) {
   const { data: session } = useSession();
   const pathname = usePathname();
-  const { businessName, assignedPhoneNumber, tenantId } = useOnboarding();
+  const { businessName, assignedPhoneNumber, tenantId, setTenantId } = useOnboarding();
+
+  // tenantId only ever got set client-side, during onboarding — a fresh
+  // sign-in (or a tenant created directly rather than through the wizard,
+  // like the ones seeded for testing) had no way to become "your" active
+  // tenant just from logging in. /api/tenants now resolves the real session
+  // server-side (previously trusted a spoofable client header), so this
+  // looks up your tenant the moment login is the only thing you've done.
+  useEffect(() => {
+    if (!session?.user || tenantId) return;
+    let cancelled = false;
+    fetch('/api/tenants')
+      .then((res) => (res.ok ? res.json() : null))
+      .then((body) => {
+        if (cancelled || !body?.tenants?.length) return;
+        setTenantId(body.tenants[0].id);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [session, tenantId, setTenantId]);
   // The sidebar was a fixed 256px column with no breakpoint at all — on a
   // 375px phone it just overflowed the viewport instead of collapsing
   // (found during a mobile-viewport pass that had never been done before).

@@ -1,14 +1,22 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/auth';
 import { getSupabaseAdmin } from '@/lib/supabase';
 import { getRetellClient } from '@/lib/retell';
 
-// GET /api/tenants - List all tenants for the current user
-export async function GET(request: NextRequest) {
+// GET /api/tenants - List all tenants for the current user.
+// Was previously trusting a client-supplied `x-user-id` header — any caller
+// could pass any user's id and list their tenants. Uses the real session
+// now; this is also what lets the dashboard find "your" tenant just from
+// being logged in, instead of only from a localStorage value stamped
+// during onboarding (which a fresh sign-in, or a tenant created directly in
+// Supabase, would never have).
+export async function GET() {
   try {
     const supabase = getSupabaseAdmin();
 
-    // Get user ID from auth header (you'll need to implement proper auth)
-    const userId = request.headers.get('x-user-id');
+    const session = await getServerSession(authOptions);
+    const userId = session?.user?.id;
     if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
