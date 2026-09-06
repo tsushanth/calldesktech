@@ -91,6 +91,31 @@ export interface PhoneNumber {
   updated_at: string;
 }
 
+// Batch Call Types — see supabase/migrations/007_batch_calls.sql. A batch
+// dials a list of numbers with one agent version; each target tracks its own
+// dial state and links back to the call log it produced.
+export interface BatchCall {
+  id: string;
+  tenant_id: string;
+  agent_version_id: string | null;
+  status: 'pending' | 'running' | 'completed' | 'failed';
+  created_at: string;
+  updated_at: string;
+  // Attached by the list endpoint, not columns on the row itself.
+  target_count?: number;
+  called_count?: number;
+  failed_count?: number;
+}
+
+export interface BatchCallTarget {
+  id: string;
+  batch_id: string;
+  phone_number: string;
+  status: 'pending' | 'calling' | 'failed';
+  call_log_id: string | null;
+  created_at: string;
+}
+
 // Knowledge Base Types
 export interface KnowledgeBase {
   id: string;
