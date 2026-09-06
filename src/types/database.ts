@@ -151,6 +151,12 @@ export interface Database {
           transcript: Json | null
           extracted_data: Json | null
           created_at: string
+          qa_status: 'pending' | 'completed' | 'failed' | 'skipped'
+          qa_sentiment: 'positive' | 'neutral' | 'negative' | null
+          qa_score: number | null
+          qa_critique: string | null
+          qa_model: string | null
+          qa_analyzed_at: string | null
         }
         Insert: {
           id?: string
@@ -162,6 +168,12 @@ export interface Database {
           transcript?: Json | null
           extracted_data?: Json | null
           created_at?: string
+          qa_status?: 'pending' | 'completed' | 'failed' | 'skipped'
+          qa_sentiment?: 'positive' | 'neutral' | 'negative' | null
+          qa_score?: number | null
+          qa_critique?: string | null
+          qa_model?: string | null
+          qa_analyzed_at?: string | null
         }
         Update: {
           id?: string
@@ -173,6 +185,12 @@ export interface Database {
           transcript?: Json | null
           extracted_data?: Json | null
           created_at?: string
+          qa_status?: 'pending' | 'completed' | 'failed' | 'skipped'
+          qa_sentiment?: 'positive' | 'neutral' | 'negative' | null
+          qa_score?: number | null
+          qa_critique?: string | null
+          qa_model?: string | null
+          qa_analyzed_at?: string | null
         }
       }
       bookings: {

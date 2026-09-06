@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/supabase';
 import { getRetellClient } from '@/lib/retell';
+import { runAndStoreCallQa } from '@/lib/callQa';
 import type { RetellWebhookEvent } from '@/types';
 
 export async function POST(request: NextRequest) {
@@ -45,6 +46,20 @@ export async function POST(request: NextRequest) {
             transcript: event.call.transcript ? [{ role: 'system', content: event.call.transcript }] : null,
           })
           .eq('retell_call_id', event.call.call_id);
+
+        // AI Quality Assurance: score the just-saved transcript with Claude and
+        // store sentiment/quality/critique on the same row. Run inline (not
+        // fire-and-forget) so it actually executes in a serverless runtime;
+        // runAndStoreCallQa never throws, so it can't break the webhook. Skip
+        // entirely when there's no transcript to score.
+        if (event.call.transcript) {
+          await runAndStoreCallQa({
+            supabase,
+            retellCallId: event.call.call_id,
+            transcript: event.call.transcript,
+            agentInstructions: await getAgentInstructions(tenant.retell_llm_id),
+          });
+        }
         break;
 
       case 'call_analyzed':
@@ -66,6 +81,20 @@ export async function POST(request: NextRequest) {
       { error: 'Internal server error' },
       { status: 500 }
     );
+  }
+}
+
+// Best-effort fetch of the agent's own instructions (the Retell LLM's
+// general_prompt) so QA can judge whether the agent followed them. Returns null
+// on any failure — QA still runs, just against general best practices.
+async function getAgentInstructions(retellLlmId: string | null): Promise<string | null> {
+  if (!retellLlmId) return null;
+  try {
+    const llm = await getRetellClient().getLLM(retellLlmId);
+    return llm.general_prompt?.trim() || null;
+  } catch (error) {
+    console.error('Could not fetch agent instructions for QA:', error);
+    return null;
   }
 }
 
