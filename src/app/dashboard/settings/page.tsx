@@ -178,176 +178,105 @@ export default function SettingsPage() {
   };
 
   if (isLoading) {
-    return <div className="p-8 text-center text-gray-400">Loading settings...</div>;
+    return <div className="p-10 text-center text-[13.5px] text-gray-400">Loading settings…</div>;
   }
 
   return (
     <>
-      <div className="flex justify-between items-center mb-8">
-        <h1 className="text-2xl font-bold">Settings</h1>
+      <div className="mb-6 flex items-center justify-between">
+        <h1 className="text-[22px] font-semibold text-[#1a1d29]">Settings</h1>
         <button
           onClick={handleSave}
           disabled={isSaving}
-          className="bg-blue-600 hover:bg-blue-700 disabled:bg-blue-800 px-6 py-2 rounded-lg transition"
+          className="rounded-lg bg-[#1a1d29] px-5 py-2 text-[13.5px] font-medium text-white transition hover:bg-[#2a2e3d] disabled:opacity-50"
         >
-          {isSaving ? 'Saving...' : 'Save Changes'}
+          {isSaving ? 'Saving…' : 'Save Changes'}
         </button>
       </div>
 
       {message && (
         <div
-          className={`mb-6 p-4 rounded-lg ${
-            message.type === 'success'
-              ? 'bg-green-500/20 text-green-400'
-              : 'bg-red-500/20 text-red-400'
+          className={`mb-5 rounded-lg px-4 py-3 text-[13.5px] ${
+            message.type === 'success' ? 'border border-green-200 bg-green-50 text-green-700' : 'border border-red-200 bg-red-50 text-red-700'
           }`}
         >
           {message.text}
         </div>
       )}
 
-      <div className="space-y-6">
+      <div className="space-y-5">
         {/* Business Information */}
-        <SettingsSection title="Business Information" icon="🏢">
-          <div className="grid grid-cols-2 gap-4">
+        <SettingsSection title="Business Information" icon={<IconBuilding />}>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div>
-              <label className="block text-sm text-gray-400 mb-1">Business Name</label>
+              <label className="mb-1 block text-[12.5px] font-medium text-gray-500">Business Name</label>
               <input
                 type="text"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                className="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-2 focus:border-blue-500 focus:outline-none"
+                className="w-full rounded-lg border border-gray-200 px-3.5 py-2.5 text-[13.5px] focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100"
               />
             </div>
             <div>
-              <label className="block text-sm text-gray-400 mb-1">Phone Number</label>
+              <label className="mb-1 block text-[12.5px] font-medium text-gray-500">Phone Number</label>
               <input
                 type="text"
                 value={assignedPhoneNumber ? formatPhoneDisplay(assignedPhoneNumber) : 'Not assigned'}
                 disabled
-                className="w-full bg-gray-600 border border-gray-600 rounded-lg px-4 py-2 text-gray-400 cursor-not-allowed"
+                className="w-full cursor-not-allowed rounded-lg border border-gray-200 bg-gray-50 px-3.5 py-2.5 text-[13.5px] text-gray-400"
               />
             </div>
           </div>
         </SettingsSection>
 
         {/* AI Voice Settings */}
-        <SettingsSection title="AI Voice" icon="🎙️">
+        <SettingsSection title="AI Voice" icon={<IconMic />}>
           <div className="mb-4">
-            <label className="block text-sm text-gray-400 mb-2">Voice</label>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <label className="mb-2 block text-[12.5px] font-medium text-gray-500">Voice</label>
+            <div className="grid grid-cols-2 gap-2.5 md:grid-cols-4">
               {VOICE_OPTIONS.map((voice) => (
-                <button
-                  key={voice.id}
-                  type="button"
-                  onClick={() => setSelectedVoice(voice.id)}
-                  className={`p-4 rounded-lg border text-left transition ${
-                    selectedVoice === voice.id
-                      ? 'bg-blue-600/20 border-blue-500'
-                      : 'bg-gray-700 border-gray-600 hover:border-gray-500'
-                  }`}
-                >
-                  <p className="font-medium">{voice.name}</p>
-                  <p className="text-sm text-gray-400">{voice.description}</p>
-                </button>
+                <OptionCard key={voice.id} selected={selectedVoice === voice.id} onClick={() => setSelectedVoice(voice.id)} title={voice.name} description={voice.description} />
               ))}
             </div>
           </div>
 
           <div>
-            <label className="block text-sm text-gray-400 mb-2">Tone</label>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <label className="mb-2 block text-[12.5px] font-medium text-gray-500">Tone</label>
+            <div className="grid grid-cols-2 gap-2.5 md:grid-cols-4">
               {TONE_OPTIONS.map((tone) => (
-                <button
-                  key={tone.id}
-                  type="button"
-                  onClick={() => setSelectedTone(tone.id)}
-                  className={`p-4 rounded-lg border text-left transition ${
-                    selectedTone === tone.id
-                      ? 'bg-blue-600/20 border-blue-500'
-                      : 'bg-gray-700 border-gray-600 hover:border-gray-500'
-                  }`}
-                >
-                  <p className="font-medium">{tone.label}</p>
-                  <p className="text-sm text-gray-400">{tone.description}</p>
-                </button>
+                <OptionCard key={tone.id} selected={selectedTone === tone.id} onClick={() => setSelectedTone(tone.id)} title={tone.label} description={tone.description} />
               ))}
             </div>
           </div>
         </SettingsSection>
 
         {/* Voice Engine */}
-        <SettingsSection title="Call Engine" icon="🔌">
-          <p className="text-gray-400 mb-4">
-            Which pipeline handles this tenant&apos;s demo calls. Retell places a real outbound
-            phone call; our in-house engine runs entirely in-browser with no telephony involved.
+        <SettingsSection title="Call Engine" icon={<IconPlug />}>
+          <p className="mb-4 text-[13.5px] text-gray-500">
+            Which pipeline handles this tenant&apos;s demo calls. Retell places a real outbound phone call; our in-house engine runs entirely in-browser with no telephony involved.
           </p>
-          <div className="grid grid-cols-2 gap-3 max-w-md">
-            <button
-              type="button"
-              onClick={() => setVoiceEngine('retell')}
-              className={`p-4 rounded-lg border text-left transition ${
-                voiceEngine === 'retell'
-                  ? 'bg-blue-600/20 border-blue-500'
-                  : 'bg-gray-700 border-gray-600 hover:border-gray-500'
-              }`}
-            >
-              <p className="font-medium">Retell</p>
-              <p className="text-sm text-gray-400">Real outbound PSTN call</p>
-            </button>
-            <button
-              type="button"
-              onClick={() => setVoiceEngine('poc')}
-              className={`p-4 rounded-lg border text-left transition ${
-                voiceEngine === 'poc'
-                  ? 'bg-blue-600/20 border-blue-500'
-                  : 'bg-gray-700 border-gray-600 hover:border-gray-500'
-              }`}
-            >
-              <p className="font-medium">In-house (beta)</p>
-              <p className="text-sm text-gray-400">In-browser, no phone number</p>
-            </button>
+          <div className="grid max-w-md grid-cols-2 gap-2.5">
+            <OptionCard selected={voiceEngine === 'retell'} onClick={() => setVoiceEngine('retell')} title="Retell" description="Real outbound PSTN call" />
+            <OptionCard selected={voiceEngine === 'poc'} onClick={() => setVoiceEngine('poc')} title="In-house (beta)" description="In-browser, no phone number" />
           </div>
 
           {voiceEngine === 'poc' && (
-            <div className="mt-6">
-              <label className="block text-sm text-gray-400 mb-2">TTS Backend</label>
-              <div className="grid grid-cols-2 gap-3 max-w-md">
-                <button
-                  type="button"
-                  onClick={() => setTtsBackend('kokoro')}
-                  className={`p-4 rounded-lg border text-left transition ${
-                    ttsBackend === 'kokoro'
-                      ? 'bg-blue-600/20 border-blue-500'
-                      : 'bg-gray-700 border-gray-600 hover:border-gray-500'
-                  }`}
-                >
-                  <p className="font-medium">Kokoro</p>
-                  <p className="text-sm text-gray-400">Self-hosted, lowest cost</p>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setTtsBackend('elevenlabs')}
-                  className={`p-4 rounded-lg border text-left transition ${
-                    ttsBackend === 'elevenlabs'
-                      ? 'bg-blue-600/20 border-blue-500'
-                      : 'bg-gray-700 border-gray-600 hover:border-gray-500'
-                  }`}
-                >
-                  <p className="font-medium">ElevenLabs</p>
-                  <p className="text-sm text-gray-400">Higher quality, per-char cost</p>
-                </button>
+            <div className="mt-5">
+              <label className="mb-2 block text-[12.5px] font-medium text-gray-500">TTS Backend</label>
+              <div className="grid max-w-md grid-cols-2 gap-2.5">
+                <OptionCard selected={ttsBackend === 'kokoro'} onClick={() => setTtsBackend('kokoro')} title="Kokoro" description="Self-hosted, lowest cost" />
+                <OptionCard selected={ttsBackend === 'elevenlabs'} onClick={() => setTtsBackend('elevenlabs')} title="ElevenLabs" description="Higher quality, per-char cost" />
               </div>
             </div>
           )}
         </SettingsSection>
 
         {/* Building Blocks */}
-        <SettingsSection title="What your receptionist can do" icon="🧩">
+        <SettingsSection title="What your receptionist can do" icon={<IconPuzzle />}>
           {simpleAgent?.mode === 'advanced' ? (
-            <p className="text-gray-400">
+            <p className="text-[13.5px] text-gray-500">
               This agent has been moved to advanced mode — edit it in the{' '}
-              <a href={`/dashboard/agents/${simpleAgent.id}`} className="text-blue-400 hover:text-blue-300">
+              <a href={`/dashboard/agents/${simpleAgent.id}`} className="font-medium text-blue-600 hover:text-blue-700">
                 Agents console
               </a>{' '}
               instead. The building-block wizard no longer applies here.
@@ -359,25 +288,24 @@ export default function SettingsPage() {
                 onChange={setWizardBlocks}
                 transferToNumber={transferToNumber}
                 onTransferToNumberChange={setTransferToNumber}
-                dark
               />
               {message && message.text === 'Your changes are live.' && (
-                <p className="text-sm text-green-400 mt-3">{message.text}</p>
+                <p className="mt-3 text-[13px] text-green-600">{message.text}</p>
               )}
-              <div className="mt-4 pt-4 border-t border-gray-700 flex justify-end">
+              <div className="mt-4 flex justify-end border-t border-gray-100 pt-4">
                 {showGoLiveConfirm ? (
                   <div className="flex items-center gap-3">
-                    <p className="text-sm text-amber-300">This goes live on real calls immediately.</p>
+                    <p className="text-[13px] text-amber-600">This goes live on real calls immediately.</p>
                     <button
                       onClick={handleSaveBlocks}
                       disabled={isSavingBlocks}
-                      className="bg-amber-600 hover:bg-amber-700 disabled:opacity-50 px-4 py-2 rounded-lg text-sm font-medium transition"
+                      className="rounded-lg bg-amber-500 px-4 py-2 text-[13px] font-medium text-white transition hover:bg-amber-600 disabled:opacity-50"
                     >
-                      {isSavingBlocks ? 'Saving...' : 'Yes, make it live'}
+                      {isSavingBlocks ? 'Saving…' : 'Yes, make it live'}
                     </button>
                     <button
                       onClick={() => setShowGoLiveConfirm(false)}
-                      className="border border-gray-600 hover:border-gray-400 px-4 py-2 rounded-lg text-sm transition"
+                      className="rounded-lg border border-gray-200 px-4 py-2 text-[13px] text-gray-600 transition hover:bg-gray-50"
                     >
                       Cancel
                     </button>
@@ -385,7 +313,7 @@ export default function SettingsPage() {
                 ) : (
                   <button
                     onClick={() => setShowGoLiveConfirm(true)}
-                    className="bg-blue-600 hover:bg-blue-700 px-5 py-2 rounded-lg text-sm font-medium transition"
+                    className="rounded-lg bg-blue-600 px-5 py-2 text-[13px] font-medium text-white transition hover:bg-blue-700"
                   >
                     Save &amp; go live
                   </button>
@@ -396,61 +324,67 @@ export default function SettingsPage() {
         </SettingsSection>
 
         {/* Calendar Integration */}
-        <SettingsSection title="Calendar Integration" icon="📅">
-          <p className="text-gray-400 mb-4">
+        <SettingsSection title="Calendar Integration" icon={<IconCalendar />}>
+          <p className="mb-4 text-[13.5px] text-gray-500">
             Connect your Cal.com calendar to enable real-time appointment booking during calls.
           </p>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div>
-              <label className="block text-sm text-gray-400 mb-1">Cal.com API Key</label>
+              <label className="mb-1 block text-[12.5px] font-medium text-gray-500">Cal.com API Key</label>
               <input
                 type="password"
                 value={calApiKey}
                 onChange={(e) => setCalApiKey(e.target.value)}
                 placeholder="cal_live_..."
-                className="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-2 focus:border-blue-500 focus:outline-none"
+                className="w-full rounded-lg border border-gray-200 px-3.5 py-2.5 text-[13.5px] focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100"
               />
             </div>
             <div>
-              <label className="block text-sm text-gray-400 mb-1">Event Type ID</label>
+              <label className="mb-1 block text-[12.5px] font-medium text-gray-500">Event Type ID</label>
               <input
                 type="text"
                 value={calEventTypeId}
                 onChange={(e) => setCalEventTypeId(e.target.value)}
                 placeholder="123456"
-                className="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-2 focus:border-blue-500 focus:outline-none"
+                className="w-full rounded-lg border border-gray-200 px-3.5 py-2.5 text-[13.5px] focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100"
               />
             </div>
           </div>
-          <p className="text-sm text-gray-500 mt-2">
+          <p className="mt-2 text-[12.5px] text-gray-400">
             Find your API key at{' '}
-            <a
-              href="https://cal.com/settings/developer/api-keys"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-blue-400 hover:text-blue-300"
-            >
+            <a href="https://cal.com/settings/developer/api-keys" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:text-blue-700">
               cal.com/settings/developer/api-keys
             </a>
           </p>
         </SettingsSection>
 
         {/* Danger Zone */}
-        <SettingsSection title="Danger Zone" icon="⚠️" danger>
-          <p className="text-gray-400 mb-4">
-            These actions are destructive and cannot be undone.
-          </p>
-          <div className="flex gap-4">
-            <button className="bg-red-600/20 text-red-400 hover:bg-red-600/30 px-4 py-2 rounded-lg transition border border-red-600/50">
+        <SettingsSection title="Danger Zone" icon={<IconWarning />} danger>
+          <p className="mb-4 text-[13.5px] text-gray-500">These actions are destructive and cannot be undone.</p>
+          <div className="flex flex-wrap gap-3">
+            <button className="rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-[13px] font-medium text-red-600 transition hover:bg-red-100">
               Delete All Call Logs
             </button>
-            <button className="bg-red-600/20 text-red-400 hover:bg-red-600/30 px-4 py-2 rounded-lg transition border border-red-600/50">
+            <button className="rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-[13px] font-medium text-red-600 transition hover:bg-red-100">
               Delete Account
             </button>
           </div>
         </SettingsSection>
       </div>
     </>
+  );
+}
+
+function OptionCard({ selected, onClick, title, description }: { selected: boolean; onClick: () => void; title: string; description: string }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`rounded-lg border p-3.5 text-left transition ${selected ? 'border-blue-400 bg-blue-50' : 'border-gray-200 bg-white hover:border-gray-300'}`}
+    >
+      <p className="text-[13px] font-medium text-[#1a1d29]">{title}</p>
+      <p className="mt-0.5 text-[12px] text-gray-500">{description}</p>
+    </button>
   );
 }
 
@@ -461,23 +395,24 @@ function SettingsSection({
   danger,
 }: {
   title: string;
-  icon: string;
+  icon: React.ReactNode;
   children: React.ReactNode;
   danger?: boolean;
 }) {
   return (
-    <div
-      className={`rounded-xl border p-6 ${
-        danger
-          ? 'bg-red-500/5 border-red-500/20'
-          : 'bg-gray-800 border-gray-700'
-      }`}
-    >
-      <h2 className="font-semibold mb-4 flex items-center gap-2">
-        <span>{icon}</span>
+    <div className={`rounded-xl border p-5 ${danger ? 'border-red-200 bg-red-50/40' : 'border-gray-200 bg-white'}`}>
+      <h2 className="mb-4 flex items-center gap-2 text-[14px] font-semibold text-[#1a1d29]">
+        <span className={danger ? 'text-red-500' : 'text-gray-400'}>{icon}</span>
         <span>{title}</span>
       </h2>
       {children}
     </div>
   );
 }
+
+function IconBuilding() { return <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="4" y="3" width="16" height="18" rx="1" /><path d="M9 8h1M14 8h1M9 12h1M14 12h1M9 16h1M14 16h1" /></svg>; }
+function IconMic() { return <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="3" width="6" height="11" rx="3" /><path d="M5 11a7 7 0 0 0 14 0M12 18v3" /></svg>; }
+function IconPlug() { return <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M9 3v5M15 3v5M6 8h12l-1 5a5 5 0 0 1-10 0L6 8Z" /><path d="M12 16v5" /></svg>; }
+function IconPuzzle() { return <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M9 4h3.5a1.5 1.5 0 0 1 1.4 2A1.5 1.5 0 0 0 15.3 8H19a1 1 0 0 1 1 1v3.7a1.5 1.5 0 0 0-2 1.4 1.5 1.5 0 0 0 2 1.4V19a1 1 0 0 1-1 1h-3.7a1.5 1.5 0 0 0 .1-.6 1.5 1.5 0 0 0-3 0 1.5 1.5 0 0 0 .1.6H9a1 1 0 0 1-1-1v-3.5a1.5 1.5 0 0 0-2-1.4A1.5 1.5 0 0 1 4.6 12 1.5 1.5 0 0 1 6 10.5a1.5 1.5 0 0 0 2-1.4V5a1 1 0 0 1 1-1Z" /></svg>; }
+function IconCalendar() { return <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="3.5" y="5" width="17" height="16" rx="2" /><path d="M8 3v4M16 3v4M3.5 10h17" /></svg>; }
+function IconWarning() { return <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M12 3 2 20h20L12 3Z" /><path d="M12 10v4M12 17h.01" /></svg>; }

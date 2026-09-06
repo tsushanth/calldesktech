@@ -2,6 +2,21 @@
 app = 'calldesk-tech'
 primary_region = 'iad'
 
+# NEXT_PUBLIC_* vars get inlined into the client JS bundle at build time —
+# they were previously only set as Fly *secrets*, which only exist at
+# container runtime and never reach `npm run build`, so the browser bundle
+# shipped with them undefined since this app's first deploy (found
+# 2026-09-06: Overview/Call Logs/Knowledge Base/Settings all silently failed
+# every direct-Supabase client call in production). These four are meant to
+# be public by design (that's what NEXT_PUBLIC_ means) — real values here,
+# not secrets.
+[build.args]
+  NEXT_PUBLIC_SUPABASE_URL = "https://uazpbuvqisbpykiuebbn.supabase.co"
+  NEXT_PUBLIC_SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVhenBidXZxaXNicHlraXVlYmJuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU0MTUzNzEsImV4cCI6MjA5MDk5MTM3MX0.K7ZFs7WKYuHHLIj3HCnZD8mbc9cJU-BvypkQZyo0NdY"
+  NEXT_PUBLIC_APP_URL = "https://calldesk.tech"
+  NEXT_PUBLIC_CALL_LOOP_WS_URL = "wss://call-loop-poc.fly.dev/call"
+  NEXT_PUBLIC_VOICE_ENGINE = "poc"
+
 [build]
 
 [env]

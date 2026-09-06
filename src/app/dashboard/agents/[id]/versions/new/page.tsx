@@ -138,35 +138,35 @@ export default function NewAgentVersionPage() {
   return (
     <>
       <div className="mb-8">
-        <Link href={`/dashboard/agents/${agentId}`} className="text-sm text-gray-400 hover:text-white">
+        <Link href={`/dashboard/agents/${agentId}`} className="text-[12.5px] text-gray-400 hover:text-[#1a1d29]">
           ← Back to agent
         </Link>
-        <h1 className="text-2xl font-bold mt-2">New version</h1>
-        <p className="text-gray-400 text-sm mt-1">
+        <h1 className="text-[22px] font-semibold text-[#1a1d29] mt-1.5">New version</h1>
+        <p className="text-gray-500 text-[13px] mt-1">
           Versions are immutable — this creates a new one, it never edits an existing version. Route a phone
           number to it afterward to make it live.
         </p>
       </div>
 
-      {error && <div className="mb-6 p-4 rounded-lg bg-red-500/20 text-red-400">{error}</div>}
+      {error && <div className="mb-5 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-[13.5px] text-red-700">{error}</div>}
 
-      <div className="bg-gray-800 border border-gray-700 rounded-xl p-6 mb-6 space-y-4">
-        <h2 className="font-semibold">Version settings</h2>
+      <div className="bg-white border border-gray-200 rounded-xl p-6 mb-6 space-y-4">
+        <h2 className="text-[14px] font-semibold text-[#1a1d29]">Version settings</h2>
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <label className="block text-sm text-gray-400 mb-1">Version name</label>
+            <label className="block text-[12.5px] font-medium text-gray-500 mb-1">Version name</label>
             <input
               value={flowName}
               onChange={(e) => setFlowName(e.target.value)}
-              className="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-2 focus:border-blue-500 focus:outline-none"
+              className="w-full bg-white border border-gray-200 rounded-lg px-3.5 py-2.5 text-[13.5px] focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100"
             />
           </div>
           <div>
-            <label className="block text-sm text-gray-400 mb-1">Start node</label>
+            <label className="block text-[12.5px] font-medium text-gray-500 mb-1">Start node</label>
             <select
               value={startNodeId}
               onChange={(e) => setStartNodeId(e.target.value)}
-              className="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-2 focus:border-blue-500 focus:outline-none"
+              className="w-full bg-white border border-gray-200 rounded-lg px-3.5 py-2.5 text-[13.5px] focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100"
             >
               <option value="">Select a node…</option>
               {nodes.filter((n) => n.id).map((n) => (
@@ -175,11 +175,11 @@ export default function NewAgentVersionPage() {
             </select>
           </div>
           <div>
-            <label className="block text-sm text-gray-400 mb-1">Call engine</label>
+            <label className="block text-[12.5px] font-medium text-gray-500 mb-1">Call engine</label>
             <select
               value={voiceEngine}
               onChange={(e) => setVoiceEngine(e.target.value as 'retell' | 'poc')}
-              className="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-2 focus:border-blue-500 focus:outline-none"
+              className="w-full bg-white border border-gray-200 rounded-lg px-3.5 py-2.5 text-[13.5px] focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100"
             >
               <option value="poc">In-house (poc)</option>
               <option value="retell">Retell</option>
@@ -187,11 +187,11 @@ export default function NewAgentVersionPage() {
           </div>
           {voiceEngine === 'poc' ? (
             <div>
-              <label className="block text-sm text-gray-400 mb-1">TTS backend</label>
+              <label className="block text-[12.5px] font-medium text-gray-500 mb-1">TTS backend</label>
               <select
                 value={ttsBackend}
                 onChange={(e) => setTtsBackend(e.target.value as '' | 'kokoro' | 'elevenlabs')}
-                className="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-2 focus:border-blue-500 focus:outline-none"
+                className="w-full bg-white border border-gray-200 rounded-lg px-3.5 py-2.5 text-[13.5px] focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100"
               >
                 <option value="">Default (kokoro)</option>
                 <option value="kokoro">Kokoro</option>
@@ -201,42 +201,42 @@ export default function NewAgentVersionPage() {
           ) : (
             <>
               <div>
-                <label className="block text-sm text-gray-400 mb-1">Retell agent ID</label>
+                <label className="block text-[12.5px] font-medium text-gray-500 mb-1">Retell agent ID</label>
                 <input
                   value={retellAgentId}
                   onChange={(e) => setRetellAgentId(e.target.value)}
                   placeholder="agent_..."
-                  className="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-2 focus:border-blue-500 focus:outline-none font-mono text-sm"
+                  className="w-full bg-white border border-gray-200 rounded-lg px-3.5 py-2.5 text-[13.5px] focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100 font-mono text-sm"
                 />
               </div>
               <div>
-                <label className="block text-sm text-gray-400 mb-1">Retell LLM ID</label>
+                <label className="block text-[12.5px] font-medium text-gray-500 mb-1">Retell LLM ID</label>
                 <input
                   value={retellLlmId}
                   onChange={(e) => setRetellLlmId(e.target.value)}
                   placeholder="llm_..."
-                  className="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-2 focus:border-blue-500 focus:outline-none font-mono text-sm"
+                  className="w-full bg-white border border-gray-200 rounded-lg px-3.5 py-2.5 text-[13.5px] focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100 font-mono text-sm"
                 />
               </div>
             </>
           )}
           <div>
-            <label className="block text-sm text-gray-400 mb-1">Voice ID</label>
+            <label className="block text-[12.5px] font-medium text-gray-500 mb-1">Voice ID</label>
             <input
               value={voiceId}
               onChange={(e) => setVoiceId(e.target.value)}
               placeholder="e.g. af_heart or 11labs-Adrian"
-              className="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-2 focus:border-blue-500 focus:outline-none"
+              className="w-full bg-white border border-gray-200 rounded-lg px-3.5 py-2.5 text-[13.5px] focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100"
             />
           </div>
         </div>
       </div>
 
       <div className="flex items-center justify-between mb-4">
-        <h2 className="font-semibold">Nodes</h2>
+        <h2 className="text-[15px] font-semibold text-[#1a1d29]">Nodes</h2>
         <button
           onClick={addNode}
-          className="text-sm border border-gray-600 hover:border-gray-400 px-4 py-2 rounded-lg transition"
+          className="text-[13px] border border-gray-200 text-gray-600 hover:bg-gray-50 px-4 py-2 rounded-lg transition"
         >
           + Add node
         </button>
@@ -244,23 +244,23 @@ export default function NewAgentVersionPage() {
 
       <div className="space-y-4 mb-8">
         {nodes.map((node) => (
-          <div key={node._key} className="bg-gray-800 border border-gray-700 rounded-xl p-6">
+          <div key={node._key} className="bg-white border border-gray-200 rounded-xl p-6">
             <div className="grid grid-cols-2 gap-4 mb-4">
               <div>
-                <label className="block text-sm text-gray-400 mb-1">Node id</label>
+                <label className="block text-[12.5px] font-medium text-gray-500 mb-1">Node id</label>
                 <input
                   value={node.id}
                   onChange={(e) => updateNode(node._key, { id: e.target.value })}
                   placeholder="e.g. greeting"
-                  className="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-2 font-mono text-sm focus:border-blue-500 focus:outline-none"
+                  className="w-full bg-white border border-gray-200 rounded-lg px-3.5 py-2.5 font-mono text-[13px] focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100"
                 />
               </div>
               <div>
-                <label className="block text-sm text-gray-400 mb-1">Type</label>
+                <label className="block text-[12.5px] font-medium text-gray-500 mb-1">Type</label>
                 <select
                   value={node.type}
                   onChange={(e) => updateNode(node._key, { type: e.target.value as FlowNode['type'] })}
-                  className="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-2 focus:border-blue-500 focus:outline-none"
+                  className="w-full bg-white border border-gray-200 rounded-lg px-3.5 py-2.5 text-[13.5px] focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100"
                 >
                   {NODE_TYPES.map((t) => (
                     <option key={t} value={t}>{t}</option>
@@ -270,21 +270,21 @@ export default function NewAgentVersionPage() {
             </div>
 
             <div className="mb-4">
-              <label className="block text-sm text-gray-400 mb-1">Instructions</label>
+              <label className="block text-[12.5px] font-medium text-gray-500 mb-1">Instructions</label>
               <textarea
                 value={node.prompt}
                 onChange={(e) => updateNode(node._key, { prompt: e.target.value })}
                 rows={2}
                 placeholder="What should the assistant do at this step?"
-                className="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-2 focus:border-blue-500 focus:outline-none resize-none"
+                className="w-full bg-white border border-gray-200 rounded-lg px-3.5 py-2.5 text-[13.5px] focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100 resize-none"
               />
             </div>
 
             {node.type === 'extraction' && (
               <div className="mb-4">
                 <div className="flex items-center justify-between mb-2">
-                  <label className="text-sm text-gray-400">Fields to collect</label>
-                  <button onClick={() => addExtractField(node._key)} className="text-xs text-blue-400 hover:text-blue-300">
+                  <label className="text-[12.5px] font-medium text-gray-500">Fields to collect</label>
+                  <button onClick={() => addExtractField(node._key)} className="text-[12px] font-medium text-blue-600 hover:text-blue-700">
                     + Add field
                   </button>
                 </div>
@@ -295,9 +295,9 @@ export default function NewAgentVersionPage() {
                         defaultValue={key}
                         onBlur={(e) => updateExtractField(node._key, key, e.target.value, node.extract![key])}
                         placeholder="field name"
-                        className="flex-1 bg-gray-700 border border-gray-600 rounded-lg px-3 py-1.5 text-sm font-mono focus:border-blue-500 focus:outline-none"
+                        className="flex-1 bg-white border border-gray-200 rounded-lg px-3 py-1.5 text-[13px] font-mono focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100"
                       />
-                      <button onClick={() => removeExtractField(node._key, key)} className="text-gray-500 hover:text-red-400 px-2">
+                      <button onClick={() => removeExtractField(node._key, key)} className="text-gray-400 hover:text-red-500 px-2">
                         ✕
                       </button>
                     </div>
@@ -309,21 +309,21 @@ export default function NewAgentVersionPage() {
             {node.type === 'function' && (
               <div className="grid grid-cols-2 gap-4 mb-4">
                 <div>
-                  <label className="block text-sm text-gray-400 mb-1">Function name</label>
+                  <label className="block text-[12.5px] font-medium text-gray-500 mb-1">Function name</label>
                   <input
                     value={node.function || ''}
                     onChange={(e) => updateNode(node._key, { function: e.target.value })}
                     placeholder="check_availability"
-                    className="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-2 font-mono text-sm focus:border-blue-500 focus:outline-none"
+                    className="w-full bg-white border border-gray-200 rounded-lg px-3.5 py-2.5 font-mono text-[13px] focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm text-gray-400 mb-1">Webhook URL</label>
+                  <label className="block text-[12.5px] font-medium text-gray-500 mb-1">Webhook URL</label>
                   <input
                     value={node.params?.webhookUrl || ''}
                     onChange={(e) => updateNode(node._key, { params: { ...node.params, webhookUrl: e.target.value } })}
                     placeholder="https://..."
-                    className="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-2 font-mono text-sm focus:border-blue-500 focus:outline-none"
+                    className="w-full bg-white border border-gray-200 rounded-lg px-3.5 py-2.5 font-mono text-[13px] focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100"
                   />
                 </div>
               </div>
@@ -331,20 +331,20 @@ export default function NewAgentVersionPage() {
 
             {node.type === 'transfer' && (
               <div className="mb-4">
-                <label className="block text-sm text-gray-400 mb-1">Transfer to</label>
+                <label className="block text-[12.5px] font-medium text-gray-500 mb-1">Transfer to</label>
                 <input
                   value={node.params?.transferTo || ''}
                   onChange={(e) => updateNode(node._key, { params: { ...node.params, transferTo: e.target.value } })}
                   placeholder="+1..."
-                  className="w-full max-w-xs bg-gray-700 border border-gray-600 rounded-lg px-4 py-2 font-mono text-sm focus:border-blue-500 focus:outline-none"
+                  className="w-full max-w-xs bg-white border border-gray-200 rounded-lg px-3.5 py-2.5 font-mono text-[13px] focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100"
                 />
               </div>
             )}
 
             <div>
               <div className="flex items-center justify-between mb-2">
-                <label className="text-sm text-gray-400">Edges (evaluated by the model, not string-matched)</label>
-                <button onClick={() => addEdge(node._key)} className="text-xs text-blue-400 hover:text-blue-300">
+                <label className="text-[12.5px] font-medium text-gray-500">Edges (evaluated by the model, not string-matched)</label>
+                <button onClick={() => addEdge(node._key)} className="text-[12px] font-medium text-blue-600 hover:text-blue-700">
                   + Add edge
                 </button>
               </div>
@@ -355,32 +355,32 @@ export default function NewAgentVersionPage() {
                       value={edge.condition}
                       onChange={(e) => updateEdge(node._key, i, { condition: e.target.value })}
                       placeholder="condition, e.g. caller wants to book an appointment"
-                      className="flex-1 bg-gray-700 border border-gray-600 rounded-lg px-3 py-1.5 text-sm focus:border-blue-500 focus:outline-none"
+                      className="flex-1 bg-white border border-gray-200 rounded-lg px-3 py-1.5 text-[13px] focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100"
                     />
-                    <span className="text-gray-500 text-sm">→</span>
+                    <span className="text-gray-400 text-[13px]">→</span>
                     <select
                       value={edge.target}
                       onChange={(e) => updateEdge(node._key, i, { target: e.target.value })}
-                      className="bg-gray-700 border border-gray-600 rounded-lg px-3 py-1.5 text-sm font-mono focus:border-blue-500 focus:outline-none"
+                      className="bg-white border border-gray-200 rounded-lg px-3 py-1.5 text-[13px] font-mono focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100"
                     >
                       <option value="">target…</option>
                       {nodes.filter((n) => n.id && n._key !== node._key).map((n) => (
                         <option key={n._key} value={n.id}>{n.id}</option>
                       ))}
                     </select>
-                    <button onClick={() => removeEdge(node._key, i)} className="text-gray-500 hover:text-red-400 px-2">
+                    <button onClick={() => removeEdge(node._key, i)} className="text-gray-400 hover:text-red-500 px-2">
                       ✕
                     </button>
                   </div>
                 ))}
                 {node.edges.length === 0 && (
-                  <p className="text-xs text-gray-500">No edges — this is a terminal node (like goodbye or transfer usually is).</p>
+                  <p className="text-[12px] text-gray-400">No edges — this is a terminal node (like goodbye or transfer usually is).</p>
                 )}
               </div>
             </div>
 
-            <div className="mt-4 pt-4 border-t border-gray-700 flex justify-end">
-              <button onClick={() => removeNode(node._key)} className="text-sm text-red-400 hover:text-red-300">
+            <div className="mt-4 pt-4 border-t border-gray-100 flex justify-end">
+              <button onClick={() => removeNode(node._key)} className="text-[12.5px] font-medium text-red-500 hover:text-red-600">
                 Remove node
               </button>
             </div>
@@ -392,13 +392,13 @@ export default function NewAgentVersionPage() {
         <button
           onClick={handleSave}
           disabled={isSaving}
-          className="bg-blue-600 hover:bg-blue-700 disabled:opacity-50 px-6 py-3 rounded-lg font-medium transition"
+          className="bg-blue-600 hover:bg-blue-700 disabled:opacity-50 px-6 py-2.5 rounded-lg text-[13.5px] font-medium text-white transition"
         >
           {isSaving ? 'Saving...' : 'Save version'}
         </button>
         <Link
           href={`/dashboard/agents/${agentId}`}
-          className="border border-gray-600 hover:border-gray-400 px-6 py-3 rounded-lg transition"
+          className="border border-gray-200 hover:bg-gray-50 px-6 py-2.5 rounded-lg text-[13.5px] text-gray-600 transition"
         >
           Cancel
         </Link>

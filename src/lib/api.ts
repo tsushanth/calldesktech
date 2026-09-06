@@ -137,80 +137,69 @@ class ApiClient {
     return data || [];
   }
 
+  // The methods below used to query calldesk_* tables directly from the
+  // browser with the anon key. RLS on those tables checks
+  // `auth.uid()::text = user_id`, but this app authenticates via NextAuth
+  // (Google), not Supabase Auth — auth.uid() is always NULL for an anon-key
+  // request here, so every one of these silently returned nothing (or
+  // errored) in production since the app's first deploy. Routed through
+  // server-side API routes (service role key) instead, the same pattern
+  // already used everywhere else in this API surface.
   async getTenant(tenantId: string): Promise<Tenant | null> {
-    const supabase = this.getSupabaseClient();
-    const { data, error } = await supabase
-      .from('calldesk_tenants')
-      .select('*')
-      .eq('id', tenantId)
-      .single();
-
-    if (error) {
-      if (error.code === 'PGRST116') return null; // Not found
-      throw new ApiError(error.message);
-    }
-    return data;
+    const res = await fetch(`/api/tenants/${tenantId}`);
+    const body = await res.json();
+    if (!res.ok) throw new ApiError(body.error || 'Failed to load tenant');
+    return body.tenant;
   }
 
   async updateTenant(tenantId: string, updates: TenantUpdate): Promise<Tenant> {
-    const supabase = this.getSupabaseClient();
-    const { data, error } = await supabase
-      .from('calldesk_tenants')
-      .update(updates)
-      .eq('id', tenantId)
-      .select()
-      .single();
-
-    if (error) throw new ApiError(error.message);
-    return data as Tenant;
+    const res = await fetch(`/api/tenants/${tenantId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(updates),
+    });
+    const body = await res.json();
+    if (!res.ok) throw new ApiError(body.error || 'Failed to update tenant');
+    return body.tenant;
   }
 
-  // Knowledge base operations - Direct Supabase queries
+  // Knowledge base operations
   async getKnowledgeBases(tenantId: string): Promise<KnowledgeBase[]> {
-    const supabase = this.getSupabaseClient();
-    const { data, error } = await supabase
-      .from('calldesk_knowledge_bases')
-      .select('*')
-      .eq('tenant_id', tenantId)
-      .order('created_at', { ascending: false });
-
-    if (error) throw new ApiError(error.message);
-    return data || [];
+    const res = await fetch(`/api/tenants/${tenantId}/knowledge-bases`);
+    const body = await res.json();
+    if (!res.ok) throw new ApiError(body.error || 'Failed to load knowledge bases');
+    return body.knowledgeBases || [];
   }
 
   async createKnowledgeBase(data: KnowledgeBaseInsert): Promise<KnowledgeBase> {
-    const supabase = this.getSupabaseClient();
-    const { data: kb, error } = await supabase
-      .from('calldesk_knowledge_bases')
-      .insert(data)
-      .select()
-      .single();
-
-    if (error) throw new ApiError(error.message);
-    return kb;
+    const { tenant_id, ...rest } = data as KnowledgeBaseInsert & { tenant_id: string };
+    const res = await fetch(`/api/tenants/${tenant_id}/knowledge-bases`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(rest),
+    });
+    const body = await res.json();
+    if (!res.ok) throw new ApiError(body.error || 'Failed to create knowledge base');
+    return body.knowledgeBase;
   }
 
   async getKnowledgeItems(knowledgeBaseId: string): Promise<KnowledgeItem[]> {
-    const supabase = this.getSupabaseClient();
-    const { data, error } = await supabase
-      .from('calldesk_knowledge_items')
-      .select('*')
-      .eq('knowledge_base_id', knowledgeBaseId)
-      .order('created_at', { ascending: false });
-
-    if (error) throw new ApiError(error.message);
-    return data || [];
+    const res = await fetch(`/api/knowledge-bases/${knowledgeBaseId}/items`);
+    const body = await res.json();
+    if (!res.ok) throw new ApiError(body.error || 'Failed to load knowledge items');
+    return body.items || [];
   }
 
   async addKnowledgeItems(items: KnowledgeItemInsert[]): Promise<KnowledgeItem[]> {
-    const supabase = this.getSupabaseClient();
-    const { data, error } = await supabase
-      .from('calldesk_knowledge_items')
-      .insert(items)
-      .select();
-
-    if (error) throw new ApiError(error.message);
-    return data || [];
+    const knowledgeBaseId = (items[0] as KnowledgeItemInsert & { knowledge_base_id: string })?.knowledge_base_id;
+    const res = await fetch(`/api/knowledge-bases/${knowledgeBaseId}/items`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ items }),
+    });
+    const body = await res.json();
+    if (!res.ok) throw new ApiError(body.error || 'Failed to add knowledge items');
+    return body.items || [];
   }
 
   // Conversation flow operations - Direct Supabase queries
@@ -242,33 +231,19 @@ class ApiClient {
     return data;
   }
 
-  // Call logs - Direct Supabase queries
+  // Call logs
   async getCallLogs(tenantId: string, limit = 50): Promise<CallLog[]> {
-    const supabase = this.getSupabaseClient();
-    const { data, error } = await supabase
-      .from('calldesk_call_logs')
-      .select('*')
-      .eq('tenant_id', tenantId)
-      .order('created_at', { ascending: false })
-      .limit(limit);
-
-    if (error) throw new ApiError(error.message);
-    return data || [];
+    const res = await fetch(`/api/tenants/${tenantId}/calls?limit=${limit}`);
+    const body = await res.json();
+    if (!res.ok) throw new ApiError(body.error || 'Failed to load call logs');
+    return body.callLogs || [];
   }
 
   async getCallLog(callLogId: string): Promise<CallLog | null> {
-    const supabase = this.getSupabaseClient();
-    const { data, error } = await supabase
-      .from('calldesk_call_logs')
-      .select('*')
-      .eq('id', callLogId)
-      .single();
-
-    if (error) {
-      if (error.code === 'PGRST116') return null;
-      throw new ApiError(error.message);
-    }
-    return data;
+    const res = await fetch(`/api/calls/${callLogId}`);
+    const body = await res.json();
+    if (!res.ok) throw new ApiError(body.error || 'Failed to load call log');
+    return body.callLog;
   }
 
   // Bookings - Direct Supabase queries
@@ -336,52 +311,17 @@ class ApiClient {
     return response.json();
   }
 
-  // Analytics/Stats - Direct Supabase queries
+  // Analytics/Stats
   async getCallStats(tenantId: string): Promise<{
     totalCalls: number;
     todayCalls: number;
     totalBookings: number;
     avgDuration: number;
   }> {
-    const supabase = this.getSupabaseClient();
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-
-    // Get total calls
-    const { count: totalCalls } = await supabase
-      .from('calldesk_call_logs')
-      .select('*', { count: 'exact', head: true })
-      .eq('tenant_id', tenantId);
-
-    // Get today's calls
-    const { count: todayCalls } = await supabase
-      .from('calldesk_call_logs')
-      .select('*', { count: 'exact', head: true })
-      .eq('tenant_id', tenantId)
-      .gte('created_at', today.toISOString());
-
-    // Get total bookings
-    const { count: totalBookings } = await supabase
-      .from('calldesk_bookings')
-      .select('*', { count: 'exact', head: true })
-      .eq('tenant_id', tenantId);
-
-    // Get average duration
-    const { data: durationData } = await supabase
-      .from('calldesk_call_logs')
-      .select('duration_seconds')
-      .eq('tenant_id', tenantId);
-
-    const avgDuration = durationData && durationData.length > 0
-      ? durationData.reduce((sum, call) => sum + (call.duration_seconds || 0), 0) / durationData.length
-      : 0;
-
-    return {
-      totalCalls: totalCalls || 0,
-      todayCalls: todayCalls || 0,
-      totalBookings: totalBookings || 0,
-      avgDuration: Math.round(avgDuration),
-    };
+    const res = await fetch(`/api/tenants/${tenantId}/stats`);
+    const body = await res.json();
+    if (!res.ok) throw new ApiError(body.error || 'Failed to load stats');
+    return body;
   }
 }
 

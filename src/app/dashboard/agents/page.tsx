@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import Link from 'next/link';
 import { useOnboarding } from '@/context/OnboardingContext';
 import type { Agent } from '@/types';
@@ -11,6 +11,8 @@ export default function AgentsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [newName, setNewName] = useState('');
   const [isCreating, setIsCreating] = useState(false);
+  const [showCreate, setShowCreate] = useState(false);
+  const [search, setSearch] = useState('');
   const [error, setError] = useState<string | null>(null);
 
   const loadAgents = useCallback(async () => {
@@ -45,6 +47,7 @@ export default function AgentsPage() {
       const body = await res.json();
       if (!res.ok) throw new Error(body.error);
       setNewName('');
+      setShowCreate(false);
       setAgents((prev) => [body.agent, ...prev]);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to create agent');
@@ -53,79 +56,140 @@ export default function AgentsPage() {
     }
   };
 
+  const filtered = useMemo(
+    () => agents.filter((a) => a.name.toLowerCase().includes(search.toLowerCase())),
+    [agents, search]
+  );
+
   if (!isHydrated || isLoading) {
-    return <div className="p-8 text-center text-gray-400">Loading agents...</div>;
+    return <PageSkeleton />;
   }
 
   return (
     <>
-      <div className="flex justify-between items-center mb-8">
+      <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold">Agents</h1>
-          <p className="text-gray-400 text-sm mt-1">
+          <h1 className="text-[22px] font-semibold text-[#1a1d29]">Agents</h1>
+          <p className="mt-0.5 text-[13px] text-gray-500">
             Each agent is a named line of versions — create one per line of business, or per experiment.
           </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <div className="relative">
+            <SearchIcon className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search..."
+              className="w-56 rounded-lg border border-gray-200 bg-white py-2 pl-9 pr-3 text-[13.5px] text-[#1a1d29] placeholder:text-gray-400 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100"
+            />
+          </div>
+          <button
+            onClick={() => setShowCreate((v) => !v)}
+            className="whitespace-nowrap rounded-lg bg-[#1a1d29] px-4 py-2 text-[13.5px] font-medium text-white transition hover:bg-[#2a2e3d]"
+          >
+            + Create an Agent
+          </button>
         </div>
       </div>
 
       {error && (
-        <div className="mb-6 p-4 rounded-lg bg-red-500/20 text-red-400">{error}</div>
+        <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-[13.5px] text-red-700">{error}</div>
       )}
 
-      <div className="bg-gray-800 border border-gray-700 rounded-xl p-6 mb-6">
-        <h2 className="font-semibold mb-4">New agent</h2>
-        <div className="flex gap-3">
+      {showCreate && (
+        <div className="mb-4 flex items-center gap-2 rounded-xl border border-gray-200 bg-white p-3">
           <input
             type="text"
+            autoFocus
             value={newName}
             onChange={(e) => setNewName(e.target.value)}
             placeholder="e.g. Front Desk, Sales Line"
-            className="flex-1 bg-gray-700 border border-gray-600 rounded-lg px-4 py-2 focus:border-blue-500 focus:outline-none"
+            className="flex-1 rounded-lg border border-gray-200 px-3 py-2 text-[13.5px] focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100"
             onKeyDown={(e) => e.key === 'Enter' && handleCreate()}
           />
           <button
             onClick={handleCreate}
             disabled={isCreating || !newName.trim()}
-            className="bg-blue-600 hover:bg-blue-700 disabled:bg-blue-800 disabled:opacity-50 px-6 py-2 rounded-lg transition whitespace-nowrap"
+            className="whitespace-nowrap rounded-lg bg-blue-600 px-4 py-2 text-[13.5px] font-medium text-white transition hover:bg-blue-700 disabled:opacity-40"
           >
-            {isCreating ? 'Creating...' : 'Create agent'}
+            {isCreating ? 'Creating…' : 'Create'}
           </button>
         </div>
-      </div>
-
-      {agents.length === 0 ? (
-        <div className="text-center text-gray-400 py-12 border border-dashed border-gray-700 rounded-xl">
-          No agents yet — create one above to start building a version.
-        </div>
-      ) : (
-        <div className="space-y-3">
-          {agents.map((agent) => (
-            <Link
-              key={agent.id}
-              href={`/dashboard/agents/${agent.id}`}
-              className="block bg-gray-800 border border-gray-700 hover:border-gray-500 rounded-xl p-5 transition"
-            >
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="font-medium">{agent.name}</p>
-                  <p className="text-sm text-gray-400 mt-1">
-                    Created {new Date(agent.created_at).toLocaleDateString()}
-                  </p>
-                </div>
-                <span
-                  className={`text-xs font-medium px-2.5 py-1 rounded-full ${
-                    agent.mode === 'advanced'
-                      ? 'bg-purple-500/20 text-purple-300'
-                      : 'bg-green-500/20 text-green-300'
-                  }`}
-                >
-                  {agent.mode === 'advanced' ? 'Advanced' : 'Simple (wizard-owned)'}
-                </span>
-              </div>
-            </Link>
-          ))}
-        </div>
       )}
+
+      <div className="overflow-hidden rounded-xl border border-gray-200 bg-white">
+        <table className="w-full text-left text-[13.5px]">
+          <thead>
+            <tr className="border-b border-gray-100 bg-gray-50/60 text-[11.5px] uppercase tracking-wide text-gray-400">
+              <th className="px-5 py-3 font-medium">Agent Name</th>
+              <th className="px-5 py-3 font-medium">Mode</th>
+              <th className="px-5 py-3 font-medium">Created</th>
+            </tr>
+          </thead>
+          <tbody>
+            {filtered.length === 0 ? (
+              <tr>
+                <td colSpan={3} className="px-5 py-14 text-center text-gray-400">
+                  {agents.length === 0 ? 'No agents yet — create one to start building a version.' : 'No agents match your search.'}
+                </td>
+              </tr>
+            ) : (
+              filtered.map((agent) => (
+                <tr key={agent.id} className="border-b border-gray-50 last:border-0 hover:bg-gray-50/70">
+                  <td className="px-5 py-3.5">
+                    <Link href={`/dashboard/agents/${agent.id}`} className="flex items-center gap-2.5 font-medium text-[#1a1d29] hover:text-blue-600">
+                      <span className="flex h-7 w-7 flex-none items-center justify-center rounded-lg bg-blue-50 text-blue-500">
+                        <AgentIcon />
+                      </span>
+                      {agent.name}
+                    </Link>
+                  </td>
+                  <td className="px-5 py-3.5">
+                    <span
+                      className={`inline-flex rounded-full px-2.5 py-0.5 text-[11.5px] font-medium ${
+                        agent.mode === 'advanced' ? 'bg-purple-50 text-purple-600' : 'bg-gray-100 text-gray-600'
+                      }`}
+                    >
+                      {agent.mode === 'advanced' ? 'Advanced' : 'Simple (wizard-owned)'}
+                    </span>
+                  </td>
+                  <td className="px-5 py-3.5 text-gray-500">{new Date(agent.created_at).toLocaleDateString()}</td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
+      </div>
     </>
+  );
+}
+
+function PageSkeleton() {
+  return (
+    <div className="space-y-4">
+      <div className="h-8 w-40 animate-pulse rounded-lg bg-gray-200" />
+      <div className="h-64 animate-pulse rounded-xl bg-gray-100" />
+    </div>
+  );
+}
+
+function SearchIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+      <circle cx="11" cy="11" r="7" />
+      <path d="m20 20-3.5-3.5" />
+    </svg>
+  );
+}
+
+function AgentIcon() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="4" y="8" width="16" height="11" rx="2" />
+      <path d="M9 8V6a3 3 0 0 1 6 0v2" />
+      <circle cx="9" cy="13.5" r="1" fill="currentColor" />
+      <circle cx="15" cy="13.5" r="1" fill="currentColor" />
+    </svg>
   );
 }

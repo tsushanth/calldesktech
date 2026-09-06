@@ -88,74 +88,70 @@ export default function KnowledgePage() {
 
   return (
     <>
-      <div className="flex justify-between items-center mb-8">
-        <h1 className="text-2xl font-bold">Knowledge Base</h1>
+      <div className="mb-6 flex items-center justify-between">
+        <h1 className="text-[22px] font-semibold text-[#1a1d29]">Knowledge Base</h1>
         <button
           onClick={() => setShowAddModal(true)}
-          className="bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded-lg transition flex items-center gap-2"
+          className="flex items-center gap-1.5 rounded-lg bg-[#1a1d29] px-4 py-2 text-[13.5px] font-medium text-white transition hover:bg-[#2a2e3d]"
         >
-          <span>+</span>
-          <span>New Knowledge Base</span>
+          + New Knowledge Base
         </button>
       </div>
 
       {isLoading ? (
-        <div className="p-8 text-center text-gray-400">Loading...</div>
+        <div className="p-10 text-center text-[13.5px] text-gray-400">Loading…</div>
       ) : knowledgeBases.length === 0 ? (
         <EmptyState onAdd={() => setShowAddModal(true)} />
       ) : (
-        <div className="grid grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 gap-5 lg:grid-cols-4">
           {/* Knowledge Base List */}
-          <div className="col-span-1 space-y-2">
+          <div className="col-span-1 space-y-1.5">
             {knowledgeBases.map((kb) => (
               <button
                 key={kb.id}
                 onClick={() => setSelectedKB(kb.id)}
-                className={`w-full text-left p-4 rounded-lg transition ${
-                  selectedKB === kb.id
-                    ? 'bg-blue-600'
-                    : 'bg-gray-800 border border-gray-700 hover:bg-gray-700'
+                className={`flex w-full items-center gap-2.5 rounded-lg p-3 text-left transition ${
+                  selectedKB === kb.id ? 'bg-blue-50' : 'border border-gray-200 bg-white hover:bg-gray-50'
                 }`}
               >
-                <p className="font-medium">{kb.name}</p>
-                <p className="text-sm text-gray-400 capitalize">{kb.source_type}</p>
+                <span className={`flex h-7 w-7 flex-none items-center justify-center rounded-lg ${selectedKB === kb.id ? 'bg-blue-100 text-blue-600' : 'bg-gray-100 text-gray-400'}`}>
+                  <BookIcon />
+                </span>
+                <div className="min-w-0">
+                  <p className={`truncate text-[13.5px] font-medium ${selectedKB === kb.id ? 'text-blue-700' : 'text-[#1a1d29]'}`}>{kb.name}</p>
+                  <p className="text-[11.5px] capitalize text-gray-400">{kb.source_type}</p>
+                </div>
               </button>
             ))}
           </div>
 
           {/* Knowledge Items */}
-          <div className="col-span-3">
-            <div className="bg-gray-800 rounded-xl border border-gray-700">
-              <div className="p-4 border-b border-gray-700 flex justify-between items-center">
-                <h2 className="font-semibold">
-                  {knowledgeBases.find(kb => kb.id === selectedKB)?.name || 'Select a knowledge base'}
+          <div className="col-span-1 lg:col-span-3">
+            <div className="overflow-hidden rounded-xl border border-gray-200 bg-white">
+              <div className="flex items-center justify-between border-b border-gray-100 px-5 py-3.5">
+                <h2 className="text-[14px] font-semibold text-[#1a1d29]">
+                  {knowledgeBases.find((kb) => kb.id === selectedKB)?.name || 'Select a knowledge base'}
                 </h2>
                 {selectedKB && (
-                  <button
-                    onClick={() => setShowAddItemModal(true)}
-                    className="text-blue-400 hover:text-blue-300 text-sm"
-                  >
+                  <button onClick={() => setShowAddItemModal(true)} className="text-[13px] font-medium text-blue-600 hover:text-blue-700">
                     + Add FAQ
                   </button>
                 )}
               </div>
 
               {items.length === 0 ? (
-                <div className="p-8 text-center text-gray-400">
-                  <p className="mb-4">No items in this knowledge base yet.</p>
-                  <button
-                    onClick={() => setShowAddItemModal(true)}
-                    className="text-blue-400 hover:text-blue-300"
-                  >
+                <div className="p-10 text-center text-[13.5px] text-gray-400">
+                  <p className="mb-3">No items in this knowledge base yet.</p>
+                  <button onClick={() => setShowAddItemModal(true)} className="font-medium text-blue-600 hover:text-blue-700">
                     Add your first FAQ
                   </button>
                 </div>
               ) : (
-                <div className="divide-y divide-gray-700">
+                <div className="divide-y divide-gray-50">
                   {items.map((item) => (
-                    <div key={item.id} className="p-4">
-                      <p className="font-medium text-blue-400 mb-2">Q: {item.question}</p>
-                      <p className="text-gray-300">A: {item.answer}</p>
+                    <div key={item.id} className="px-5 py-4">
+                      <p className="mb-1.5 text-[13.5px] font-medium text-[#1a1d29]">Q: {item.question}</p>
+                      <p className="text-[13.5px] text-gray-500">A: {item.answer}</p>
                     </div>
                   ))}
                 </div>
@@ -186,17 +182,15 @@ export default function KnowledgePage() {
 
 function EmptyState({ onAdd }: { onAdd: () => void }) {
   return (
-    <div className="bg-gray-800 rounded-xl border border-gray-700 p-12 text-center">
-      <div className="text-5xl mb-4">🧠</div>
-      <h2 className="text-xl font-semibold mb-2">No Knowledge Base Yet</h2>
-      <p className="text-gray-400 mb-6 max-w-md mx-auto">
-        Help your AI receptionist answer questions accurately by adding FAQs,
-        service information, and common customer questions.
+    <div className="rounded-xl border border-dashed border-gray-200 bg-white p-14 text-center">
+      <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-blue-50 text-blue-500">
+        <BookIcon large />
+      </div>
+      <h2 className="text-[16px] font-semibold text-[#1a1d29]">No Knowledge Base Yet</h2>
+      <p className="mx-auto mt-1.5 max-w-md text-[13.5px] text-gray-500">
+        Help your AI receptionist answer questions accurately by adding FAQs, service information, and common customer questions.
       </p>
-      <button
-        onClick={onAdd}
-        className="bg-blue-600 hover:bg-blue-700 px-6 py-3 rounded-lg transition"
-      >
+      <button onClick={onAdd} className="mt-5 rounded-lg bg-[#1a1d29] px-5 py-2.5 text-[13.5px] font-medium text-white transition hover:bg-[#2a2e3d]">
         Create Knowledge Base
       </button>
     </div>
@@ -220,34 +214,32 @@ function AddKnowledgeBaseModal({
   };
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-      <div className="bg-gray-800 rounded-xl border border-gray-700 p-6 w-full max-w-md">
-        <h2 className="text-xl font-bold mb-4">Create Knowledge Base</h2>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4">
+      <div className="w-full max-w-md rounded-xl border border-gray-200 bg-white p-6 shadow-xl">
+        <h2 className="mb-4 text-[17px] font-semibold text-[#1a1d29]">Create Knowledge Base</h2>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-sm text-gray-400 mb-1">Name</label>
+            <label className="mb-1 block text-[12.5px] font-medium text-gray-500">Name</label>
             <input
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="e.g., FAQs, Services, Pricing"
-              className="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-2 focus:border-blue-500 focus:outline-none"
+              className="w-full rounded-lg border border-gray-200 px-3.5 py-2.5 text-[13.5px] focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100"
               required
             />
           </div>
 
           <div>
-            <label className="block text-sm text-gray-400 mb-1">Source Type</label>
+            <label className="mb-1 block text-[12.5px] font-medium text-gray-500">Source Type</label>
             <div className="grid grid-cols-3 gap-2">
               {(['manual', 'website', 'pdf'] as const).map((type) => (
                 <button
                   key={type}
                   type="button"
                   onClick={() => setSourceType(type)}
-                  className={`p-3 rounded-lg border text-sm capitalize transition ${
-                    sourceType === type
-                      ? 'bg-blue-600 border-blue-500'
-                      : 'bg-gray-700 border-gray-600 hover:border-gray-500'
+                  className={`rounded-lg border p-2.5 text-[12.5px] capitalize transition ${
+                    sourceType === type ? 'border-blue-400 bg-blue-50 text-blue-700' : 'border-gray-200 text-gray-600 hover:border-gray-300'
                   }`}
                 >
                   {type}
@@ -258,29 +250,22 @@ function AddKnowledgeBaseModal({
 
           {sourceType === 'website' && (
             <div>
-              <label className="block text-sm text-gray-400 mb-1">Website URL</label>
+              <label className="mb-1 block text-[12.5px] font-medium text-gray-500">Website URL</label>
               <input
                 type="url"
                 value={sourceUrl}
                 onChange={(e) => setSourceUrl(e.target.value)}
                 placeholder="https://example.com"
-                className="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-2 focus:border-blue-500 focus:outline-none"
+                className="w-full rounded-lg border border-gray-200 px-3.5 py-2.5 text-[13.5px] focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100"
               />
             </div>
           )}
 
-          <div className="flex gap-3 pt-4">
-            <button
-              type="button"
-              onClick={onClose}
-              className="flex-1 bg-gray-700 hover:bg-gray-600 px-4 py-2 rounded-lg transition"
-            >
+          <div className="flex gap-2.5 pt-2">
+            <button type="button" onClick={onClose} className="flex-1 rounded-lg border border-gray-200 px-4 py-2.5 text-[13.5px] font-medium text-gray-600 transition hover:bg-gray-50">
               Cancel
             </button>
-            <button
-              type="submit"
-              className="flex-1 bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded-lg transition"
-            >
+            <button type="submit" className="flex-1 rounded-lg bg-blue-600 px-4 py-2.5 text-[13.5px] font-medium text-white transition hover:bg-blue-700">
               Create
             </button>
           </div>
@@ -306,51 +291,54 @@ function AddItemModal({
   };
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-      <div className="bg-gray-800 rounded-xl border border-gray-700 p-6 w-full max-w-lg">
-        <h2 className="text-xl font-bold mb-4">Add FAQ</h2>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4">
+      <div className="w-full max-w-lg rounded-xl border border-gray-200 bg-white p-6 shadow-xl">
+        <h2 className="mb-4 text-[17px] font-semibold text-[#1a1d29]">Add FAQ</h2>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-sm text-gray-400 mb-1">Question</label>
+            <label className="mb-1 block text-[12.5px] font-medium text-gray-500">Question</label>
             <input
               type="text"
               value={question}
               onChange={(e) => setQuestion(e.target.value)}
               placeholder="What are your hours of operation?"
-              className="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-2 focus:border-blue-500 focus:outline-none"
+              className="w-full rounded-lg border border-gray-200 px-3.5 py-2.5 text-[13.5px] focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100"
               required
             />
           </div>
 
           <div>
-            <label className="block text-sm text-gray-400 mb-1">Answer</label>
+            <label className="mb-1 block text-[12.5px] font-medium text-gray-500">Answer</label>
             <textarea
               value={answer}
               onChange={(e) => setAnswer(e.target.value)}
               placeholder="We're open Monday through Friday, 9 AM to 5 PM."
               rows={4}
-              className="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-2 focus:border-blue-500 focus:outline-none resize-none"
+              className="w-full resize-none rounded-lg border border-gray-200 px-3.5 py-2.5 text-[13.5px] focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100"
               required
             />
           </div>
 
-          <div className="flex gap-3 pt-4">
-            <button
-              type="button"
-              onClick={onClose}
-              className="flex-1 bg-gray-700 hover:bg-gray-600 px-4 py-2 rounded-lg transition"
-            >
+          <div className="flex gap-2.5 pt-2">
+            <button type="button" onClick={onClose} className="flex-1 rounded-lg border border-gray-200 px-4 py-2.5 text-[13.5px] font-medium text-gray-600 transition hover:bg-gray-50">
               Cancel
             </button>
-            <button
-              type="submit"
-              className="flex-1 bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded-lg transition"
-            >
+            <button type="submit" className="flex-1 rounded-lg bg-blue-600 px-4 py-2.5 text-[13.5px] font-medium text-white transition hover:bg-blue-700">
               Add FAQ
             </button>
           </div>
         </form>
       </div>
     </div>
+  );
+}
+
+function BookIcon({ large }: { large?: boolean }) {
+  const size = large ? 22 : 15;
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M4 5.5A1.5 1.5 0 0 1 5.5 4H12v16H5.5A1.5 1.5 0 0 1 4 18.5v-13Z" />
+      <path d="M20 5.5A1.5 1.5 0 0 0 18.5 4H12v16h6.5a1.5 1.5 0 0 0 1.5-1.5v-13Z" />
+    </svg>
   );
 }
