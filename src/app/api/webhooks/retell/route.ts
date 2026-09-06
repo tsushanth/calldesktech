@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/supabase';
 import { getRetellClient } from '@/lib/retell';
+import { dispatchWebhookEvent } from '@/lib/webhooks';
 import type { RetellWebhookEvent } from '@/types';
 
 export async function POST(request: NextRequest) {
@@ -32,20 +33,56 @@ export async function POST(request: NextRequest) {
         });
         break;
 
-      case 'call_ended':
+      case 'call_ended': {
         // Update call log with duration
         const duration = event.call.end_timestamp && event.call.start_timestamp
           ? Math.floor((event.call.end_timestamp - event.call.start_timestamp) / 1000)
           : 0;
 
+        // Finalize the call's outcome. call_started seeds it as 'answered';
+        // a transfer hand-off (Retell's disconnection_reason) is the one
+        // terminal state we can distinguish here, and it drives both the
+        // stored outcome and which outbound webhook event fires below.
+        const reason = event.call.disconnection_reason ?? '';
+        const transferred = /transfer/i.test(reason);
+        const outcome = transferred ? 'transferred' : 'answered';
+
         await supabase
           .from('calldesk_call_logs')
           .update({
             duration_seconds: duration,
+            outcome,
             transcript: event.call.transcript ? [{ role: 'system', content: event.call.transcript }] : null,
           })
           .eq('retell_call_id', event.call.call_id);
+
+        // Notify the tenant's registered outbound webhooks. Best-effort:
+        // dispatchWebhookEvent never throws, so a slow/failing customer
+        // endpoint can't fail our response back to Retell.
+        const webhookData = {
+          call_id: event.call.call_id,
+          tenant_id: tenant.id,
+          caller_phone: event.call.from_number,
+          to_number: event.call.to_number,
+          direction: event.call.direction,
+          duration_seconds: duration,
+          outcome,
+          disconnection_reason: reason || null,
+          transcript: event.call.transcript ?? null,
+          recording_url: event.call.recording_url ?? null,
+          started_at: event.call.start_timestamp
+            ? new Date(event.call.start_timestamp).toISOString()
+            : null,
+          ended_at: event.call.end_timestamp
+            ? new Date(event.call.end_timestamp).toISOString()
+            : null,
+        };
+        await dispatchWebhookEvent(tenant.id, 'call.completed', webhookData);
+        if (transferred) {
+          await dispatchWebhookEvent(tenant.id, 'call.transferred', webhookData);
+        }
         break;
+      }
 
       case 'call_analyzed':
         // Update with analysis results and extracted data

@@ -209,4 +209,8 @@ export interface RetellCallData {
   end_timestamp?: number;
   transcript?: string;
   recording_url?: string;
+  // Retell's reason the call ended. Values like 'agent_transfer' /
+  // 'transfer' mark a hand-off to a human; used to finalize the call's
+  // outcome as 'transferred' and to fire the 'call.transferred' webhook.
+  disconnection_reason?: string;
 }
