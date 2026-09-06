@@ -128,7 +128,11 @@ export const PRICING = {
   },
 } as const;
 
-// Voice options for Retell AI
+// Fallback voice options — only shown if GET /api/retell/voices (Retell's
+// real multi-provider catalog: elevenlabs, openai, cartesia, minimax,
+// fish_audio, platform — see src/lib/retell.ts's listVoices) fails to load.
+// Not "the" voice list; Retell isn't tied to ElevenLabs and neither is this
+// app anymore.
 export const VOICE_OPTIONS = [
   { id: '11labs-Adrian', name: 'Adrian', description: 'Professional male voice', gender: 'male' },
   { id: '11labs-Marissa', name: 'Marissa', description: 'Friendly female voice', gender: 'female' },

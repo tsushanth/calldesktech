@@ -5,6 +5,7 @@ import { useOnboarding } from '@/context/OnboardingContext';
 import { api, type Tenant } from '@/lib/api';
 import { formatPhoneDisplay } from '@/lib/utils';
 import { VOICE_OPTIONS, TONE_OPTIONS } from '@/lib/constants';
+import type { RetellVoice } from '@/lib/retell';
 import type { VoiceEngine } from '@/lib/voiceEngine';
 import { WizardBlocksPicker } from '@/components/flow-builder/WizardBlocksPicker';
 import { buildWizardFlow, DEFAULT_WIZARD_BLOCKS, type WizardBlocks } from '@/lib/flowBuilder';
@@ -19,8 +20,17 @@ export default function SettingsPage() {
 
   // Form state
   const [name, setName] = useState('');
-  const [selectedVoice, setSelectedVoice] = useState('eleven_turbo_v2');
+  // Was defaulting to 'eleven_turbo_v2' — an ElevenLabs TTS *model* id, not a
+  // valid Retell voice_id, so it never matched any real voice option and got
+  // silently persisted as garbage if a tenant saved before picking a voice.
+  const [selectedVoice, setSelectedVoice] = useState('');
   const [selectedTone, setSelectedTone] = useState('professional');
+  // Retell's real multi-provider voice catalog (elevenlabs, openai, cartesia,
+  // minimax, fish_audio, platform) — replaces the old hardcoded two-voice,
+  // ElevenLabs-only VOICE_OPTIONS list. Falls back to VOICE_OPTIONS if the
+  // fetch fails, so the picker never shows zero choices.
+  const [voices, setVoices] = useState<RetellVoice[]>([]);
+  const [providerFilter, setProviderFilter] = useState<'all' | RetellVoice['provider']>('all');
   const [calApiKey, setCalApiKey] = useState('');
   const [calEventTypeId, setCalEventTypeId] = useState('');
   const [voiceEngine, setVoiceEngine] = useState<VoiceEngine>('retell');
@@ -85,6 +95,19 @@ export default function SettingsPage() {
 
     loadTenant();
   }, [tenantId, isHydrated]);
+
+  useEffect(() => {
+    let cancelled = false;
+    api
+      .getRetellVoices()
+      .then((v) => {
+        if (!cancelled && v.length > 0) setVoices(v);
+      })
+      .catch((err) => console.error('Failed to load Retell voices, falling back to static list:', err));
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const handleSaveBlocks = async () => {
     if (!tenantId) return;
@@ -232,11 +255,45 @@ export default function SettingsPage() {
         {/* AI Voice Settings */}
         <SettingsSection title="AI Voice" icon={<IconMic />}>
           <div className="mb-4">
-            <label className="mb-2 block text-[12.5px] font-medium text-gray-500">Voice</label>
-            <div className="grid grid-cols-2 gap-2.5 md:grid-cols-4">
-              {VOICE_OPTIONS.map((voice) => (
-                <OptionCard key={voice.id} selected={selectedVoice === voice.id} onClick={() => setSelectedVoice(voice.id)} title={voice.name} description={voice.description} />
-              ))}
+            <div className="mb-2 flex items-center justify-between">
+              <label className="block text-[12.5px] font-medium text-gray-500">Voice</label>
+              <p className="text-[11.5px] text-gray-400">
+                {voices.length > 0 ? `${voices.length} voices across every provider Retell supports` : 'Loading full voice catalog…'}
+              </p>
+            </div>
+            {voices.length > 0 && (
+              <div className="mb-3 flex flex-wrap gap-1.5">
+                {(['all', ...Array.from(new Set(voices.map((v) => v.provider)))] as const).map((p) => (
+                  <button
+                    key={p}
+                    type="button"
+                    onClick={() => setProviderFilter(p)}
+                    className={`rounded-full border px-2.5 py-1 text-[11.5px] font-medium capitalize transition ${
+                      providerFilter === p
+                        ? 'border-blue-400 bg-blue-50 text-blue-700'
+                        : 'border-gray-200 text-gray-500 hover:border-gray-300'
+                    }`}
+                  >
+                    {p === 'fish_audio' ? 'Fish Audio' : p}
+                  </button>
+                ))}
+              </div>
+            )}
+            <div className="grid max-h-80 grid-cols-2 gap-2.5 overflow-y-auto md:grid-cols-4">
+              {(voices.length > 0
+                ? voices.filter((v) => providerFilter === 'all' || v.provider === providerFilter)
+                : VOICE_OPTIONS
+              ).map((voice) => {
+                const id = 'voice_id' in voice ? voice.voice_id : voice.id;
+                const name = 'voice_name' in voice ? voice.voice_name : voice.name;
+                const description =
+                  'provider' in voice
+                    ? [voice.provider === 'fish_audio' ? 'Fish Audio' : voice.provider, voice.gender, voice.accent].filter(Boolean).join(' · ')
+                    : voice.description;
+                return (
+                  <OptionCard key={id} selected={selectedVoice === id} onClick={() => setSelectedVoice(id)} title={name} description={description} />
+                );
+              })}
             </div>
           </div>
 

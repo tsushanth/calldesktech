@@ -1,8 +1,10 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { api } from '@/lib/api';
+import type { RetellVoice } from '@/lib/retell';
 import type { FlowNode, FlowEdge } from '@/types';
 
 type DraftNode = FlowNode & { _key: string };
@@ -34,6 +36,15 @@ export default function NewAgentVersionPage() {
   const [nodes, setNodes] = useState<DraftNode[]>([emptyNode()]);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Retell's real multi-provider voice catalog (elevenlabs, openai, cartesia,
+  // minimax, fish_audio, platform) — replaces a plain text input that only
+  // ever hinted at an ElevenLabs-shaped id ("e.g. ... 11labs-Adrian").
+  const [retellVoices, setRetellVoices] = useState<RetellVoice[]>([]);
+
+  useEffect(() => {
+    if (voiceEngine !== 'retell' || retellVoices.length > 0) return;
+    api.getRetellVoices().then(setRetellVoices).catch((err) => console.error('Failed to load Retell voices:', err));
+  }, [voiceEngine, retellVoices.length]);
 
   const updateNode = (key: string, patch: Partial<DraftNode>) => {
     setNodes((prev) => prev.map((n) => (n._key === key ? { ...n, ...patch } : n)));
@@ -221,13 +232,30 @@ export default function NewAgentVersionPage() {
             </>
           )}
           <div>
-            <label className="block text-[12.5px] font-medium text-gray-500 mb-1">Voice ID</label>
-            <input
-              value={voiceId}
-              onChange={(e) => setVoiceId(e.target.value)}
-              placeholder="e.g. af_heart or 11labs-Adrian"
-              className="w-full bg-white border border-gray-200 rounded-lg px-3.5 py-2.5 text-[13.5px] focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100"
-            />
+            <label className="block text-[12.5px] font-medium text-gray-500 mb-1">Voice</label>
+            {voiceEngine === 'retell' ? (
+              <select
+                value={voiceId}
+                onChange={(e) => setVoiceId(e.target.value)}
+                className="w-full bg-white border border-gray-200 rounded-lg px-3.5 py-2.5 text-[13.5px] focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100"
+              >
+                <option value="">
+                  {retellVoices.length === 0 ? 'Loading voices…' : 'Select a voice…'}
+                </option>
+                {retellVoices.map((v) => (
+                  <option key={v.voice_id} value={v.voice_id}>
+                    {v.voice_name} — {v.provider === 'fish_audio' ? 'Fish Audio' : v.provider} · {v.gender}
+                  </option>
+                ))}
+              </select>
+            ) : (
+              <input
+                value={voiceId}
+                onChange={(e) => setVoiceId(e.target.value)}
+                placeholder="e.g. af_heart"
+                className="w-full bg-white border border-gray-200 rounded-lg px-3.5 py-2.5 text-[13.5px] focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100"
+              />
+            )}
           </div>
         </div>
       </div>

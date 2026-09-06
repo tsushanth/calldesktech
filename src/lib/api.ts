@@ -3,6 +3,7 @@
 
 import { getSupabase } from './supabase';
 import type { Database } from '@/types/database';
+import type { RetellVoice } from './retell';
 
 type Tables = Database['public']['Tables'];
 type Tenant = Tables['tenants']['Row'];
@@ -284,6 +285,15 @@ class ApiClient {
 
   // Chat sessions (text channel) — server-side routes, same service-role
   // pattern as the voice call-log methods above.
+  // Retell's real multi-provider voice catalog (elevenlabs, openai, cartesia,
+  // minimax, fish_audio, platform) — see /api/retell/voices.
+  async getRetellVoices(): Promise<RetellVoice[]> {
+    const res = await fetch('/api/retell/voices');
+    const body = await res.json();
+    if (!res.ok) throw new ApiError(body.error || 'Failed to load voices');
+    return body.voices || [];
+  }
+
   async getChatSessions(tenantId: string, limit = 100): Promise<ChatSessionSummary[]> {
     const res = await fetch(`/api/tenants/${tenantId}/chat-sessions?limit=${limit}`);
     const body = await res.json();

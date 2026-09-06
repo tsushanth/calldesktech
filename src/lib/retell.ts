@@ -197,6 +197,16 @@ class RetellClient {
     });
   }
 
+  // Every voice Retell can hand to an agent, across every provider it
+  // supports (elevenlabs, openai, cartesia, minimax, fish_audio, and
+  // Retell's own 'platform' voices) — not just ElevenLabs. Backs the voice
+  // pickers in Settings and the new-version form so a tenant can actually
+  // choose across providers instead of being limited to two hardcoded
+  // ElevenLabs voice ids.
+  async listVoices(): Promise<RetellVoice[]> {
+    return this.request('/list-voices');
+  }
+
   // Fetch an LLM's configuration. Used by post-call QA to recover the agent's
   // own `general_prompt` (its instructions) so the review can judge whether the
   // agent actually followed them. Only the field QA reads is typed.
@@ -247,6 +257,22 @@ class RetellClient {
       }),
     });
   }
+}
+
+// One voice from GET /list-voices — see RetellClient.listVoices above.
+// `provider` is typed as `string` rather than a closed union: the live
+// catalog already includes at least one provider ('inworld') beyond the six
+// Retell's own API docs enumerate, so a closed union would silently drop
+// real voices out of the type without affecting them at runtime — better to
+// stay accurate than falsely exhaustive.
+export interface RetellVoice {
+  voice_id: string;
+  voice_name: string;
+  provider: string;
+  gender: 'male' | 'female';
+  accent?: string;
+  age?: string;
+  preview_audio_url?: string;
 }
 
 // Retell's own general_tools schema for a transfer_call entry — see
