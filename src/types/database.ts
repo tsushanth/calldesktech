@@ -216,6 +216,58 @@ export interface Database {
           created_at?: string
         }
       }
+      chat_sessions: {
+        Row: {
+          id: string
+          tenant_id: string
+          agent_version_id: string | null
+          flow_snapshot: Json | null
+          state: Json
+          created_at: string
+          ended_at: string | null
+        }
+        Insert: {
+          id?: string
+          tenant_id: string
+          agent_version_id?: string | null
+          flow_snapshot?: Json | null
+          state?: Json
+          created_at?: string
+          ended_at?: string | null
+        }
+        Update: {
+          id?: string
+          tenant_id?: string
+          agent_version_id?: string | null
+          flow_snapshot?: Json | null
+          state?: Json
+          created_at?: string
+          ended_at?: string | null
+        }
+      }
+      chat_messages: {
+        Row: {
+          id: string
+          session_id: string
+          role: 'user' | 'assistant'
+          content: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          session_id: string
+          role: 'user' | 'assistant'
+          content: string
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          session_id?: string
+          role?: 'user' | 'assistant'
+          content?: string
+          created_at?: string
+        }
+      }
     }
     Views: {
       [_ in never]: never
