@@ -234,4 +234,8 @@ export interface RetellCallData {
   end_timestamp?: number;
   transcript?: string;
   recording_url?: string;
+  // How the call ended, per Retell (e.g. 'call_transfer', 'voicemail_reached',
+  // 'dial_no_answer', 'user_hangup'). Populated on call_ended/call_analyzed and
+  // used to finalize our own outcome enum — see deriveOutcome in src/lib/alerts.ts.
+  disconnection_reason?: string;
 }

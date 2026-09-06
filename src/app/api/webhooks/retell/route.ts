@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/supabase';
 import { getRetellClient } from '@/lib/retell';
 import { runAndStoreCallQa } from '@/lib/callQa';
+import { deriveOutcome, fireAlertsForCall } from '@/lib/alerts';
 import type { RetellWebhookEvent } from '@/types';
 
 export async function POST(request: NextRequest) {
@@ -12,7 +13,7 @@ export async function POST(request: NextRequest) {
     // Find tenant by agent ID
     const { data: tenant } = await supabase
       .from('calldesk_tenants')
-      .select('id, user_id, retell_agent_id, retell_llm_id, knowledge_base_id')
+      .select('id, name, user_id, retell_agent_id, retell_llm_id, knowledge_base_id')
       .eq('retell_agent_id', event.call.agent_id)
       .single();
 
@@ -39,11 +40,19 @@ export async function POST(request: NextRequest) {
           ? Math.floor((event.call.end_timestamp - event.call.start_timestamp) / 1000)
           : 0;
 
+        // Finalize the call's outcome from how Retell says it ended. On
+        // call_started we optimistically stamp 'answered'; here is where a
+        // transfer/voicemail/no-answer becomes known. deriveOutcome returns
+        // null for a normal completed call — leave the existing outcome as-is
+        // in that case so we never clobber a 'booked'/'answered' with nothing.
+        const finalizedOutcome = deriveOutcome(event.call);
+
         await supabase
           .from('calldesk_call_logs')
           .update({
             duration_seconds: duration,
             transcript: event.call.transcript ? [{ role: 'system', content: event.call.transcript }] : null,
+            ...(finalizedOutcome ? { outcome: finalizedOutcome } : {}),
           })
           .eq('retell_call_id', event.call.call_id);
 
@@ -58,6 +67,18 @@ export async function POST(request: NextRequest) {
             retellCallId: event.call.call_id,
             transcript: event.call.transcript,
             agentInstructions: await getAgentInstructions(tenant.retell_llm_id),
+          });
+        }
+
+        // Fire any alert rules the tenant configured for this outcome. Skipped
+        // for demo tenants — those are throwaway and get cleaned up below. This
+        // is best-effort (never throws) so a mail hiccup can't fail the webhook.
+        if (finalizedOutcome && !tenant.user_id?.startsWith('demo_')) {
+          await fireAlertsForCall({
+            tenantId: tenant.id,
+            outcome: finalizedOutcome,
+            call: event.call,
+            businessName: tenant.name,
           });
         }
         break;
