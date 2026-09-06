@@ -323,6 +323,24 @@ class ApiClient {
     if (!res.ok) throw new ApiError(body.error || 'Failed to load stats');
     return body;
   }
+
+  async getAnalytics(tenantId: string): Promise<AnalyticsResponse> {
+    const res = await fetch(`/api/tenants/${tenantId}/analytics`);
+    const body = await res.json();
+    if (!res.ok) throw new ApiError(body.error || 'Failed to load analytics');
+    return body;
+  }
+}
+
+export type CallOutcome = 'booked' | 'answered' | 'transferred' | 'voicemail' | 'abandoned';
+
+export interface AnalyticsResponse {
+  windowDays: number;
+  totalCalls: number;
+  volume: Array<{ date: string; calls: number }>;
+  duration: Array<{ date: string; avgDuration: number | null }>;
+  outcomes: Array<{ outcome: CallOutcome; count: number }>;
+  byHour: Array<{ hour: number; calls: number }>;
 }
 
 // Custom error class
