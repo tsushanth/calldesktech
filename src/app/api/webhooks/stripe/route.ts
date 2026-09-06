@@ -35,27 +35,47 @@ export async function POST(request: NextRequest) {
     switch (event.type) {
       case 'checkout.session.completed': {
         const session = event.data.object as Stripe.Checkout.Session;
-        const businessId = session.metadata?.business_id;
+        // `business_id` in checkout metadata is actually the tenant id (see
+        // checkout/route.ts — it's looked up against calldesk_tenants.id).
+        const tenantId = session.metadata?.business_id;
         const userId = session.metadata?.user_id;
 
-        if (businessId) {
-          // Update business subscription status
-          await supabase
+        if (tenantId) {
+          // Upsert the tenant's billing record. This handler previously only
+          // ran .update() keyed by `id`, so the row was never created and,
+          // even if it had been, it was keyed inconsistently with how the
+          // rest of the app reads it (by tenant_id — see
+          // syncVoicePriceForTenant and /api/tenants/[id]/billing). Upserting
+          // on tenant_id fixes both. Requires the UNIQUE(tenant_id)
+          // constraint from migration 006.
+          const { data: business, error: upsertError } = await supabase
             .from('calldesk_businesses')
-            .update({
-              subscription_status: 'active',
-              stripe_customer_id: session.customer as string,
-              stripe_subscription_id: session.subscription as string,
-              updated_at: new Date().toISOString(),
-            })
-            .eq('id', businessId);
+            .upsert(
+              {
+                tenant_id: tenantId,
+                subscription_status: 'active',
+                stripe_customer_id: session.customer as string,
+                stripe_subscription_id: session.subscription as string,
+                updated_at: new Date().toISOString(),
+              },
+              { onConflict: 'tenant_id' }
+            )
+            .select('id')
+            .single();
 
-          // Update user's default business
-          if (userId) {
+          if (upsertError) {
+            console.error('Failed to upsert business on checkout:', upsertError);
+          }
+
+          // Point the user at their billing record. default_business_id is an
+          // FK to calldesk_businesses(id), so it must be the row's real id —
+          // not the tenant id (the old code stored the tenant id here, which
+          // could never satisfy the FK).
+          if (userId && business) {
             await supabase
               .from('calldesk_users')
               .update({
-                default_business_id: businessId,
+                default_business_id: business.id,
                 updated_at: new Date().toISOString(),
               })
               .eq('id', userId);
@@ -66,32 +86,32 @@ export async function POST(request: NextRequest) {
 
       case 'customer.subscription.updated': {
         const subscription = event.data.object as Stripe.Subscription;
-        const businessId = subscription.metadata?.business_id;
+        const tenantId = subscription.metadata?.business_id;
 
-        if (businessId) {
+        if (tenantId) {
           await supabase
             .from('calldesk_businesses')
             .update({
               subscription_status: subscription.status,
               updated_at: new Date().toISOString(),
             })
-            .eq('id', businessId);
+            .eq('tenant_id', tenantId);
         }
         break;
       }
 
       case 'customer.subscription.deleted': {
         const subscription = event.data.object as Stripe.Subscription;
-        const businessId = subscription.metadata?.business_id;
+        const tenantId = subscription.metadata?.business_id;
 
-        if (businessId) {
+        if (tenantId) {
           await supabase
             .from('calldesk_businesses')
             .update({
               subscription_status: 'canceled',
               updated_at: new Date().toISOString(),
             })
-            .eq('id', businessId);
+            .eq('tenant_id', tenantId);
         }
         break;
       }
