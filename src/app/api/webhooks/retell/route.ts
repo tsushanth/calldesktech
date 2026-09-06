@@ -3,6 +3,7 @@ import { getSupabaseAdmin } from '@/lib/supabase';
 import { getRetellClient } from '@/lib/retell';
 import { runAndStoreCallQa } from '@/lib/callQa';
 import { deriveOutcome, fireAlertsForCall } from '@/lib/alerts';
+import { dispatchWebhookEvent } from '@/lib/webhooks';
 import type { RetellWebhookEvent } from '@/types';
 
 export async function POST(request: NextRequest) {
@@ -34,7 +35,7 @@ export async function POST(request: NextRequest) {
         });
         break;
 
-      case 'call_ended':
+      case 'call_ended': {
         // Update call log with duration
         const duration = event.call.end_timestamp && event.call.start_timestamp
           ? Math.floor((event.call.end_timestamp - event.call.start_timestamp) / 1000)
@@ -81,7 +82,36 @@ export async function POST(request: NextRequest) {
             businessName: tenant.name,
           });
         }
+
+        // Notify the tenant's registered outbound webhooks. Best-effort:
+        // dispatchWebhookEvent never throws, so a slow/failing customer
+        // endpoint can't fail our response back to Retell. Reuses the same
+        // finalizedOutcome (deriveOutcome) as the source of truth rather than
+        // re-deriving transfer status separately.
+        const webhookData = {
+          call_id: event.call.call_id,
+          tenant_id: tenant.id,
+          caller_phone: event.call.from_number,
+          to_number: event.call.to_number,
+          direction: event.call.direction,
+          duration_seconds: duration,
+          outcome: finalizedOutcome ?? 'answered',
+          disconnection_reason: event.call.disconnection_reason ?? null,
+          transcript: event.call.transcript ?? null,
+          recording_url: event.call.recording_url ?? null,
+          started_at: event.call.start_timestamp
+            ? new Date(event.call.start_timestamp).toISOString()
+            : null,
+          ended_at: event.call.end_timestamp
+            ? new Date(event.call.end_timestamp).toISOString()
+            : null,
+        };
+        await dispatchWebhookEvent(tenant.id, 'call.completed', webhookData);
+        if (finalizedOutcome === 'transferred') {
+          await dispatchWebhookEvent(tenant.id, 'call.transferred', webhookData);
+        }
         break;
+      }
 
       case 'call_analyzed':
         // Update with analysis results and extracted data

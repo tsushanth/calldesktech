@@ -237,5 +237,6 @@ export interface RetellCallData {
   // How the call ended, per Retell (e.g. 'call_transfer', 'voicemail_reached',
   // 'dial_no_answer', 'user_hangup'). Populated on call_ended/call_analyzed and
   // used to finalize our own outcome enum — see deriveOutcome in src/lib/alerts.ts.
+  // Also used to fire the 'call.transferred' outbound webhook.
   disconnection_reason?: string;
 }
