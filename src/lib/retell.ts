@@ -197,6 +197,13 @@ class RetellClient {
     });
   }
 
+  // Fetch an LLM's configuration. Used by post-call QA to recover the agent's
+  // own `general_prompt` (its instructions) so the review can judge whether the
+  // agent actually followed them. Only the field QA reads is typed.
+  async getLLM(llmId: string): Promise<{ general_prompt?: string }> {
+    return this.request(`/get-retell-llm/${llmId}`);
+  }
+
   // Call Management (uses /v2 prefix)
   async getCall(callId: string): Promise<{
     call_id: string;

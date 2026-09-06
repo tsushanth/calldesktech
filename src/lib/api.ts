@@ -16,6 +16,29 @@ type ConversationFlow = Tables['conversation_flows']['Row'];
 type CallLog = Tables['call_logs']['Row'];
 type Booking = Tables['bookings']['Row'];
 
+// The QA dashboard's row shape — the QA fields plus the call identity/context
+// columns, without the heavy `transcript`. Mirrors the /qa route's select.
+type CallQa = Pick<
+  CallLog,
+  | 'id'
+  | 'caller_phone'
+  | 'outcome'
+  | 'duration_seconds'
+  | 'created_at'
+  | 'qa_status'
+  | 'qa_sentiment'
+  | 'qa_score'
+  | 'qa_critique'
+  | 'qa_analyzed_at'
+>;
+
+export interface RunCallQaResponse {
+  processed: number;
+  completed: number;
+  failed: number;
+  skipped: number;
+}
+
 export interface CreateTenantRequest {
   name: string;
   userId: string;
@@ -246,6 +269,23 @@ class ApiClient {
     return body.callLog;
   }
 
+  // AI Quality Assurance
+  async getCallQa(tenantId: string, limit = 100): Promise<CallQa[]> {
+    const res = await fetch(`/api/tenants/${tenantId}/qa?limit=${limit}`);
+    const body = await res.json();
+    if (!res.ok) throw new ApiError(body.error || 'Failed to load QA results');
+    return body.calls || [];
+  }
+
+  // Backfills QA for calls that have a transcript but no score yet. Returns how
+  // many were processed. New calls are scored automatically by the webhook.
+  async runCallQa(tenantId: string): Promise<RunCallQaResponse> {
+    const res = await fetch(`/api/tenants/${tenantId}/qa/run`, { method: 'POST' });
+    const body = await res.json();
+    if (!res.ok) throw new ApiError(body.error || 'Failed to run QA');
+    return body;
+  }
+
   // Bookings - Direct Supabase queries
   async getBookings(tenantId: string, limit = 50): Promise<Booking[]> {
     const supabase = this.getSupabaseClient();
@@ -350,5 +390,6 @@ export type {
   KnowledgeItemInsert,
   ConversationFlow,
   CallLog,
+  CallQa,
   Booking,
 };
