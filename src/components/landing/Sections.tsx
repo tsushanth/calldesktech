@@ -22,7 +22,7 @@ import { Icons, type IconName } from './icons';
 function IconTile({ name }: { name: IconName }) {
   const Icon = Icons[name];
   return (
-    <span className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-blue-500/20 bg-blue-500/10 text-blue-300">
+    <span className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-blue-100 bg-blue-50 text-blue-600">
       <Icon className="h-5 w-5" />
     </span>
   );
@@ -142,7 +142,7 @@ export function BuildingBlocks() {
         {BLOCKS.map((b, i) => (
           <Reveal key={b.tag} delay={(i % 2) * 60}>
             <Card className="h-full">
-              <span className="inline-flex rounded-full border border-blue-500/25 bg-blue-500/10 px-2.5 py-1 text-[11px] font-medium uppercase tracking-[0.12em] text-blue-300">
+              <span className="inline-flex rounded-full border border-blue-100 bg-blue-50 px-2.5 py-1 text-[11px] font-medium uppercase tracking-[0.12em] text-blue-600">
                 {b.tag}
               </span>
               <div className="mt-5">
@@ -198,7 +198,7 @@ export function HowItWorks() {
         {STEPS.map((s, i) => (
           <Reveal key={s.n} delay={i * 60}>
             <Card className="h-full">
-              <span className="text-[13px] font-medium tabular-nums tracking-[0.08em] text-blue-400">
+              <span className="text-[13px] font-medium tabular-nums tracking-[0.08em] text-blue-600">
                 {s.n}
               </span>
               <div className="mt-5">

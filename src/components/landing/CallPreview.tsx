@@ -24,15 +24,15 @@ export function CallPreview() {
         <div className="grid items-center gap-12 lg:grid-cols-2 lg:gap-20">
           <Reveal>
             <div>
-              <p className="text-[12px] font-medium uppercase tracking-[0.18em] text-blue-400">
+              <p className="text-[12px] font-medium uppercase tracking-[0.18em] text-blue-600">
                 What a call sounds like
               </p>
-              <h2 className="mt-6 text-[30px] font-normal leading-[1.05] tracking-[-0.045em] text-white md:text-[37.5px]">
+              <h2 className="mt-6 text-[30px] font-semibold leading-[1.05] tracking-[-0.03em] text-[#1a1d29] md:text-[37.5px]">
                 It books the appointment
                 <br />
                 while the caller is still talking.
               </h2>
-              <p className="mt-5 max-w-[460px] text-[16px] leading-[1.55] text-gray-400">
+              <p className="mt-5 max-w-[460px] text-[16px] leading-[1.55] text-gray-500">
                 Real availability from your calendar, spoken back in the same
                 turn — no hold music, no callback promise, no transcription
                 queue. This is the booking block running end to end.
@@ -44,17 +44,17 @@ export function CallPreview() {
           </Reveal>
 
           <Reveal delay={100}>
-            <div className="rounded-2xl border border-white/10 bg-gradient-to-b from-white/[0.06] to-white/[0.015] p-2">
-              <div className="rounded-xl bg-gray-950/60 p-5 md:p-7">
-                <div className="mb-6 flex items-center gap-2.5 border-b border-white/10 pb-4">
+            <div className="rounded-2xl border border-gray-200 bg-white p-2 shadow-sm">
+              <div className="rounded-xl bg-[#f7f8fa] p-5 md:p-7">
+                <div className="mb-6 flex items-center gap-2.5 border-b border-gray-200 pb-4">
                   <span className="relative flex h-2 w-2">
                     <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-green-400 opacity-60" />
-                    <span className="relative inline-flex h-2 w-2 rounded-full bg-green-400" />
+                    <span className="relative inline-flex h-2 w-2 rounded-full bg-green-500" />
                   </span>
-                  <span className="text-[12px] font-medium tracking-[-0.01em] text-gray-300">
+                  <span className="text-[12px] font-medium tracking-[-0.01em] text-[#1a1d29]">
                     Live call
                   </span>
-                  <span className="ml-auto text-[12px] tabular-nums text-gray-500">
+                  <span className="ml-auto text-[12px] tabular-nums text-gray-400">
                     00:24
                   </span>
                 </div>
@@ -72,8 +72,8 @@ export function CallPreview() {
                       <div
                         className={`max-w-[85%] rounded-xl px-4 py-2.5 text-[14px] leading-[1.45] ${
                           line.who === 'agent'
-                            ? 'bg-blue-600/15 text-blue-50 ring-1 ring-inset ring-blue-500/25'
-                            : 'bg-white/[0.06] text-gray-300'
+                            ? 'bg-blue-50 text-blue-900 ring-1 ring-inset ring-blue-100'
+                            : 'bg-white text-[#1a1d29] ring-1 ring-inset ring-gray-200'
                         }`}
                       >
                         {line.text}
@@ -82,7 +82,7 @@ export function CallPreview() {
                   ))}
                 </ul>
 
-                <p className="mt-6 border-t border-white/10 pt-4 text-[12px] text-gray-500">
+                <p className="mt-6 border-t border-gray-200 pt-4 text-[12px] text-gray-400">
                   Illustration of the booking building block. Try the live demo
                   for a real call.
                 </p>

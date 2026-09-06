@@ -10,8 +10,9 @@ import Link from 'next/link';
  *   H2          37.5px, weight 400, line-height 1.05, tracking -0.06em
  *   H3          20px,   weight 400, line-height 1.2,  tracking -0.05em
  *   radii       12px cards / 6px buttons
- * Colours are NOT ported — the reference is a light site; this app keeps its
- * own dark palette and the shared globals.css tokens untouched.
+ * Colours now match the dashboard's light Retell-console reskin (#1a1d29
+ * text, gray-200 borders, blue-600 accent, white rounded-xl cards) — the
+ * marketing page and the app used to look like two different products.
  */
 
 export function Container({
@@ -53,13 +54,13 @@ export function Section({
 
 export function Eyebrow({ children }: { children: React.ReactNode }) {
   return (
-    <p className="text-[12px] font-medium uppercase tracking-[0.18em] text-blue-400">
+    <p className="text-[12px] font-medium uppercase tracking-[0.18em] text-blue-600">
       {children}
     </p>
   );
 }
 
-/** Section heading — the reference's 37.5px / weight-400 / -0.06em signature. */
+/** Section heading — same weight/tracking rhythm as the dashboard's page titles. */
 export function SectionTitle({
   children,
   className = '',
@@ -69,7 +70,7 @@ export function SectionTitle({
 }) {
   return (
     <h2
-      className={`text-[30px] md:text-[37.5px] font-normal leading-[1.05] tracking-[-0.045em] text-white ${className}`}
+      className={`text-[30px] md:text-[37.5px] font-semibold leading-[1.05] tracking-[-0.03em] text-[#1a1d29] ${className}`}
     >
       {children}
     </h2>
@@ -78,7 +79,7 @@ export function SectionTitle({
 
 export function SectionLead({ children }: { children: React.ReactNode }) {
   return (
-    <p className="mt-5 max-w-[540px] text-[16px] leading-[1.5] text-gray-400">
+    <p className="mt-5 max-w-[540px] text-[16px] leading-[1.5] text-gray-500">
       {children}
     </p>
   );
@@ -100,7 +101,7 @@ export function PrimaryButton({
   return (
     <Link
       href={href}
-      className={`${BTN_BASE} ${s} bg-blue-600 text-white hover:bg-blue-500`}
+      className={`${BTN_BASE} ${s} bg-blue-600 text-white hover:bg-blue-700`}
     >
       {children}
     </Link>
@@ -120,14 +121,14 @@ export function SecondaryButton({
   return (
     <Link
       href={href}
-      className={`${BTN_BASE} ${s} border border-white/15 bg-white/[0.03] text-gray-200 hover:border-white/30 hover:bg-white/[0.06]`}
+      className={`${BTN_BASE} ${s} border border-gray-200 bg-white text-[#1a1d29] hover:border-gray-300 hover:bg-gray-50`}
     >
       {children}
     </Link>
   );
 }
 
-/** 12px-radius card, matching the reference's dominant card radius. */
+/** Rounded-xl card, matching the dashboard's bordered white card treatment. */
 export function Card({
   children,
   className = '',
@@ -139,9 +140,9 @@ export function Card({
 }) {
   return (
     <div
-      className={`rounded-xl border border-white/10 bg-white/[0.025] p-7 ${
+      className={`rounded-xl border border-gray-200 bg-white p-7 ${
         interactive
-          ? 'transition-[border-color,background-color,transform] duration-300 hover:-translate-y-0.5 hover:border-blue-500/40 hover:bg-white/[0.05]'
+          ? 'transition-[border-color,box-shadow,transform] duration-300 hover:-translate-y-0.5 hover:border-blue-300 hover:shadow-sm'
           : ''
       } ${className}`}
     >
@@ -152,7 +153,7 @@ export function Card({
 
 export function CardTitle({ children }: { children: React.ReactNode }) {
   return (
-    <h3 className="text-[20px] font-normal leading-[1.2] tracking-[-0.04em] text-white">
+    <h3 className="text-[20px] font-semibold leading-[1.2] tracking-[-0.02em] text-[#1a1d29]">
       {children}
     </h3>
   );
@@ -160,6 +161,6 @@ export function CardTitle({ children }: { children: React.ReactNode }) {
 
 export function CardBody({ children }: { children: React.ReactNode }) {
   return (
-    <p className="mt-3 text-[15px] leading-[1.55] text-gray-400">{children}</p>
+    <p className="mt-3 text-[15px] leading-[1.55] text-gray-500">{children}</p>
   );
 }

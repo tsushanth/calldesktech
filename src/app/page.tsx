@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { Instrument_Serif } from "next/font/google";
 
 import { SiteHeader } from "@/components/landing/SiteHeader";
 import { Hero } from "@/components/landing/Hero";
@@ -11,21 +10,13 @@ import {
 } from "@/components/landing/Sections";
 import { FAQ, FinalCTA, SiteFooter } from "@/components/landing/Closing";
 
-// Scoped to this page only — the rest of the app stays on Geist (see
-// layout.tsx). A serif display face gives the hero an editorial moment
-// without touching the body/UI type used everywhere else.
-const displayFont = Instrument_Serif({
-  weight: "400",
-  style: ["normal", "italic"],
-  subsets: ["latin"],
-  variable: "--font-display",
-});
-
+// Light theme, matching the dashboard's own Retell-console reskin — this
+// used to be a dark gradient page with a serif/italic display font while the
+// dashboard was light and plain Geist sans, so the marketing site and the
+// app read as two unrelated products.
 export default function Home() {
   return (
-    <div
-      className={`${displayFont.variable} min-h-screen bg-gradient-to-b from-gray-900 to-black text-white`}
-    >
+    <div className="min-h-screen bg-[#f7f8fa] text-[#1a1d29]">
       <SiteHeader />
 
       <main>

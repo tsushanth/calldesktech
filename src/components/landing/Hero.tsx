@@ -6,11 +6,9 @@ import { Icons, type IconName } from './icons';
  * Hero.
  *
  * Content is unchanged from the previous landing page — this app's own
- * positioning copy. What changed is the type treatment: the reference site's
- * hero runs ~90px display type at line-height 0.95 and tracking -0.02em, and
- * its section headings drop to weight 400 with -0.06em tracking. The previous
- * version used bold weights at default tracking, which is the main reason it
- * read flatter than the reference.
+ * positioning copy. Re-themed to the dashboard's light palette and plain
+ * Geist sans (dropping the serif/italic display font) so the marketing page
+ * and the app read as one product instead of two.
  */
 
 const CAPABILITIES: { icon: IconName; label: string }[] = [
@@ -30,31 +28,28 @@ export function Hero() {
         className="pointer-events-none absolute inset-x-0 top-0 h-[620px] opacity-70"
         style={{
           background:
-            'radial-gradient(60% 55% at 50% 0%, rgba(37,99,235,0.20) 0%, rgba(37,99,235,0.06) 40%, transparent 72%)',
+            'radial-gradient(60% 55% at 50% 0%, rgba(37,99,235,0.12) 0%, rgba(37,99,235,0.04) 40%, transparent 72%)',
         }}
       />
 
       <Container className="relative">
         <div className="mx-auto max-w-[820px] text-center">
           <Reveal>
-            <p className="text-[12px] font-medium uppercase tracking-[0.18em] text-blue-400">
+            <p className="text-[12px] font-medium uppercase tracking-[0.18em] text-blue-600">
               AI receptionist, built from real capabilities
             </p>
           </Reveal>
 
           <Reveal delay={60}>
-            <h1
-              className="mt-7 text-[46px] leading-[0.98] tracking-[-0.02em] text-white sm:text-[64px] md:text-[86px]"
-              style={{ fontFamily: 'var(--font-display)' }}
-            >
+            <h1 className="mt-7 text-[46px] font-semibold leading-[1.02] tracking-[-0.02em] text-[#1a1d29] sm:text-[60px] md:text-[76px]">
               Your phone,
               <br />
-              <span className="italic text-blue-400">finally handled.</span>
+              <span className="text-blue-600">finally handled.</span>
             </h1>
           </Reveal>
 
           <Reveal delay={120}>
-            <p className="mx-auto mt-7 max-w-[560px] text-[17px] leading-[1.5] text-gray-400 md:text-[18px]">
+            <p className="mx-auto mt-7 max-w-[560px] text-[17px] leading-[1.5] text-gray-500 md:text-[18px]">
               Answer questions, book appointments, transfer callers, or take a
               message — pick what your business needs, hear it work in under a
               minute, and go live today.
@@ -82,10 +77,10 @@ export function Hero() {
         <div className="mx-auto mt-16 grid max-w-[900px] grid-cols-2 gap-3 md:mt-20 md:grid-cols-4">
           {CAPABILITIES.map((cap, i) => (
             <Reveal key={cap.label} delay={240 + i * 60}>
-              <div className="flex items-center justify-center gap-2.5 rounded-xl border border-white/10 bg-white/[0.025] px-4 py-4 text-[14px] tracking-[-0.01em] text-gray-300 transition-colors duration-300 hover:border-white/20">
+              <div className="flex items-center justify-center gap-2.5 rounded-xl border border-gray-200 bg-white px-4 py-4 text-[14px] tracking-[-0.01em] text-gray-600 transition-colors duration-300 hover:border-gray-300">
                 {(() => {
                   const Icon = Icons[cap.icon];
-                  return <Icon className="h-4 w-4 shrink-0 text-blue-400" />;
+                  return <Icon className="h-4 w-4 shrink-0 text-blue-600" />;
                 })()}
                 <span>{cap.label}</span>
               </div>

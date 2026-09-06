@@ -64,14 +64,14 @@ export function FAQ() {
         </Reveal>
 
         <Reveal delay={80}>
-          <div className="divide-y divide-white/10 border-y border-white/10">
+          <div className="divide-y divide-gray-200 border-y border-gray-200">
             {FAQS.map((item) => (
               <details key={item.q} className="group py-5">
-                <summary className="flex cursor-pointer list-none items-start justify-between gap-6 text-[18px] font-normal leading-[1.3] tracking-[-0.03em] text-white transition-colors duration-150 hover:text-blue-300 [&::-webkit-details-marker]:hidden">
+                <summary className="flex cursor-pointer list-none items-start justify-between gap-6 text-[18px] font-medium leading-[1.3] tracking-[-0.02em] text-[#1a1d29] transition-colors duration-150 hover:text-blue-600 [&::-webkit-details-marker]:hidden">
                   {item.q}
                   <span
                     aria-hidden
-                    className="mt-1 shrink-0 text-gray-500 transition-transform duration-300 group-open:rotate-45"
+                    className="mt-1 shrink-0 text-gray-400 transition-transform duration-300 group-open:rotate-45"
                   >
                     <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
                       <path
@@ -83,7 +83,7 @@ export function FAQ() {
                     </svg>
                   </span>
                 </summary>
-                <p className="mt-3 max-w-[620px] text-[15px] leading-[1.6] text-gray-400">
+                <p className="mt-3 max-w-[620px] text-[15px] leading-[1.6] text-gray-500">
                   {item.a}
                 </p>
               </details>
@@ -99,7 +99,7 @@ export function FinalCTA() {
   return (
     <Section size="secondary">
       <Reveal>
-        <div className="relative overflow-hidden rounded-2xl border border-white/10 px-8 py-16 text-center md:px-16 md:py-24">
+        <div className="relative overflow-hidden rounded-2xl border border-gray-200 bg-white px-8 py-16 text-center shadow-sm md:px-16 md:py-24">
           <div
             aria-hidden
             className="pointer-events-none absolute inset-0"
@@ -109,14 +109,14 @@ export function FinalCTA() {
               // top edge, so the ellipse's lower lobe never reached the
               // card's bottom half, leaving it visibly dead/flat.
               background:
-                'radial-gradient(120% 140% at 50% 45%, rgba(37,99,235,0.22) 0%, rgba(37,99,235,0.09) 40%, rgba(37,99,235,0.02) 70%, transparent 100%)',
+                'radial-gradient(120% 140% at 50% 45%, rgba(37,99,235,0.10) 0%, rgba(37,99,235,0.04) 40%, rgba(37,99,235,0.01) 70%, transparent 100%)',
             }}
           />
           <div className="relative">
             <SectionTitle className="mx-auto max-w-[620px]">
               Hear it handle your first call in under a minute.
             </SectionTitle>
-            <p className="mx-auto mt-5 max-w-[500px] text-[16px] leading-[1.55] text-gray-400">
+            <p className="mx-auto mt-5 max-w-[500px] text-[16px] leading-[1.55] text-gray-500">
               No install, no card, no sales call. Pick a building block and
               listen to it run.
             </p>
@@ -137,36 +137,36 @@ export function FinalCTA() {
 
 export function SiteFooter() {
   return (
-    <footer className="border-t border-white/10 py-12">
+    <footer className="border-t border-gray-200 py-12">
       <Container>
         <div className="flex flex-col items-center justify-between gap-6 sm:flex-row">
           <div className="flex items-center gap-3">
             <Link
               href="/"
-              className="text-[15px] font-semibold tracking-[-0.03em] text-white"
+              className="text-[15px] font-semibold tracking-[-0.03em] text-[#1a1d29]"
             >
               CallDeskTech
             </Link>
-            <span className="text-[13px] text-gray-500">
+            <span className="text-[13px] text-gray-400">
               © {new Date().getFullYear()}
             </span>
           </div>
-          <div className="flex items-center gap-7 text-[13px] text-gray-500">
+          <div className="flex items-center gap-7 text-[13px] text-gray-400">
             <Link
               href="/pricing"
-              className="transition-colors duration-150 hover:text-white"
+              className="transition-colors duration-150 hover:text-[#1a1d29]"
             >
               Pricing
             </Link>
             <Link
               href="/demo"
-              className="transition-colors duration-150 hover:text-white"
+              className="transition-colors duration-150 hover:text-[#1a1d29]"
             >
               Demo
             </Link>
             <Link
               href="/dashboard"
-              className="transition-colors duration-150 hover:text-white"
+              className="transition-colors duration-150 hover:text-[#1a1d29]"
             >
               Dashboard
             </Link>
