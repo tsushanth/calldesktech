@@ -42,17 +42,22 @@ export async function GET() {
 }
 
 // POST /api/tenants - Create a new tenant (business)
+// Was trusting a client-supplied `x-user-id` header, same spoofable pattern
+// GET on this route had (see its comment) — any caller could create tenants
+// (and, with an areaCode, trigger a real Retell phone number purchase) under
+// any user id. Uses the real session now.
 export async function POST(request: NextRequest) {
   try {
     const supabase = getSupabaseAdmin();
 
-    const userId = request.headers.get('x-user-id');
+    const session = await getServerSession(authOptions);
+    const userId = session?.user?.id;
     if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const body = await request.json();
-    const { name, areaCode, voiceEngine } = body;
+    const { name, areaCode, voiceEngine, workspaceType } = body;
 
     if (!name) {
       return NextResponse.json(
@@ -66,7 +71,10 @@ export async function POST(request: NextRequest) {
     // for it would just be wasted API calls (and, for a purchased number,
     // real cost) — skip straight to a bare tenant row instead. This is what
     // lets voiceEngine be known and persisted before the tenant's very first
-    // demo call, rather than only after a later Settings-page edit.
+    // demo call, rather than only after a later Settings-page edit. The
+    // "Add another workspace" flow always creates a poc-engine tenant for
+    // the same reason — a second workspace shouldn't silently provision (and
+    // bill for) real Retell resources before its owner has configured it.
     if (voiceEngine === 'poc') {
       console.log('Creating poc-engine tenant (no Retell resources)...');
       const { data: tenant, error } = await supabase
@@ -74,7 +82,7 @@ export async function POST(request: NextRequest) {
         .insert({
           user_id: userId,
           name,
-          settings: { voice_engine: 'poc' },
+          settings: { voice_engine: 'poc', ...(workspaceType ? { workspace_type: workspaceType } : {}) },
         })
         .select()
         .single();

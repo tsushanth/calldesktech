@@ -7,6 +7,7 @@ import { useSession, signOut } from 'next-auth/react';
 import { useOnboarding } from '@/context/OnboardingContext';
 import { formatPhoneDisplay } from '@/lib/utils';
 import { AuthGuard } from '@/components/auth/AuthGuard';
+import WorkspaceSwitcher from '@/components/WorkspaceSwitcher';
 
 export default function DashboardLayout({
   children,
@@ -15,7 +16,7 @@ export default function DashboardLayout({
 }) {
   const { data: session } = useSession();
   const pathname = usePathname();
-  const { businessName, assignedPhoneNumber, tenantId, setTenantId } = useOnboarding();
+  const { businessName, assignedPhoneNumber, tenantId, setTenantId, setBusinessName } = useOnboarding();
 
   // tenantId only ever got set client-side, during onboarding — a fresh
   // sign-in (or a tenant created directly rather than through the wizard,
@@ -182,17 +183,21 @@ export default function DashboardLayout({
             CallDeskTech
           </Link>
 
-          {/* Workspace switcher-style row — Retell puts the account identity
-              right under the logo, not buried at the bottom only. */}
-          <div className="mx-3 mb-2 flex items-center gap-2.5 rounded-lg px-2 py-2">
-            <div className="flex h-7 w-7 flex-none items-center justify-center rounded-lg bg-gradient-to-br from-blue-500 to-indigo-600 text-xs font-semibold text-white">
-              {displayName.charAt(0).toUpperCase()}
-            </div>
-            <div className="min-w-0 flex-1">
-              <p className="truncate text-[11px] leading-tight text-gray-400">Workspace</p>
-              <p className="truncate text-[13px] font-medium leading-tight text-[#1a1d29]">{displayName}</p>
-            </div>
-          </div>
+          {/* Workspace switcher — Retell puts the account identity right
+              under the logo, not buried at the bottom only, and clicking it
+              opens a search/list/"add another workspace" popover. */}
+          <WorkspaceSwitcher
+            activeTenantId={tenantId}
+            displayName={displayName}
+            onSwitch={(tenant) => {
+              setTenantId(tenant.id);
+              setBusinessName(tenant.name);
+            }}
+            onCreated={(tenant) => {
+              setTenantId(tenant.id);
+              setBusinessName(tenant.name);
+            }}
+          />
 
           <nav className="flex-1 overflow-y-auto px-3 pb-4">
             {navGroups.map((group, gi) => (
