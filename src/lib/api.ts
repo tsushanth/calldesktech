@@ -15,6 +15,19 @@ type KnowledgeItemInsert = Tables['knowledge_items']['Insert'];
 type ConversationFlow = Tables['conversation_flows']['Row'];
 type CallLog = Tables['call_logs']['Row'];
 type Booking = Tables['bookings']['Row'];
+type ChatSession = Tables['chat_sessions']['Row'];
+type ChatMessage = Tables['chat_messages']['Row'];
+
+// A chat session as returned by the list endpoint — the row plus a derived
+// message count (there's no column for it; it's computed server-side).
+export interface ChatSessionSummary {
+  id: string;
+  tenant_id: string;
+  agent_version_id: string | null;
+  created_at: string;
+  ended_at: string | null;
+  message_count: number;
+}
 
 export interface CreateTenantRequest {
   name: string;
@@ -246,6 +259,22 @@ class ApiClient {
     return body.callLog;
   }
 
+  // Chat sessions (text channel) — server-side routes, same service-role
+  // pattern as the voice call-log methods above.
+  async getChatSessions(tenantId: string, limit = 100): Promise<ChatSessionSummary[]> {
+    const res = await fetch(`/api/tenants/${tenantId}/chat-sessions?limit=${limit}`);
+    const body = await res.json();
+    if (!res.ok) throw new ApiError(body.error || 'Failed to load chat sessions');
+    return body.chatSessions || [];
+  }
+
+  async getChatSession(sessionId: string): Promise<{ session: ChatSession | null; messages: ChatMessage[] }> {
+    const res = await fetch(`/api/chat-sessions/${sessionId}`);
+    const body = await res.json();
+    if (!res.ok) throw new ApiError(body.error || 'Failed to load chat session');
+    return { session: body.chatSession, messages: body.messages || [] };
+  }
+
   // Bookings - Direct Supabase queries
   async getBookings(tenantId: string, limit = 50): Promise<Booking[]> {
     const supabase = this.getSupabaseClient();
@@ -351,4 +380,6 @@ export type {
   ConversationFlow,
   CallLog,
   Booking,
+  ChatSession,
+  ChatMessage,
 };
