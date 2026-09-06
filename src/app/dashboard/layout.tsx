@@ -77,10 +77,7 @@ export default function DashboardLayout({
   const isActive = !!effectivePhoneNumber;
 
   // Grouped to match how Retell's own console reads: a top-level Home, then
-  // named sections for what you build, deploy, and review. Only sections
-  // with at least one page we actually ship appear — no dead links to
-  // features that don't exist yet (Batch Call, Analytics, Live Monitoring,
-  // etc. are real gaps, tracked separately, not stubbed here).
+  // named sections for what you build, deploy, and review.
   const navGroups: { label: string | null; items: { href: string; label: string; exact?: boolean }[] }[] = [
     { label: null, items: [{ href: '/dashboard', label: 'Overview', exact: true }] },
     {
@@ -90,9 +87,38 @@ export default function DashboardLayout({
         { href: '/dashboard/knowledge', label: 'Knowledge Base' },
       ],
     },
-    { label: 'Deploy', items: [{ href: '/dashboard/numbers', label: 'Phone Numbers' }] },
-    { label: 'Data', items: [{ href: '/dashboard/calls', label: 'Call Logs' }] },
-    { label: 'System', items: [{ href: '/dashboard/settings', label: 'Settings' }] },
+    {
+      label: 'Deploy',
+      items: [
+        { href: '/dashboard/numbers', label: 'Phone Numbers' },
+        { href: '/dashboard/batch-call', label: 'Batch Call' },
+        { href: '/dashboard/integrations', label: 'Integrations' },
+      ],
+    },
+    {
+      label: 'Data',
+      items: [
+        { href: '/dashboard/calls', label: 'Call Logs' },
+        { href: '/dashboard/chat-history', label: 'Chat History' },
+        { href: '/dashboard/contacts', label: 'Contacts' },
+        { href: '/dashboard/analytics', label: 'Analytics' },
+      ],
+    },
+    {
+      label: 'Monitor',
+      items: [
+        { href: '/dashboard/live-monitoring', label: 'Live Monitoring' },
+        { href: '/dashboard/quality-assurance', label: 'Quality Assurance' },
+        { href: '/dashboard/alerting', label: 'Alerting' },
+      ],
+    },
+    {
+      label: 'System',
+      items: [
+        { href: '/dashboard/billing', label: 'Billing' },
+        { href: '/dashboard/settings', label: 'Settings' },
+      ],
+    },
   ];
 
   const navIcons: Record<string, React.ReactNode> = {
@@ -100,7 +126,16 @@ export default function DashboardLayout({
     '/dashboard/agents': <IconAgents />,
     '/dashboard/knowledge': <IconBook />,
     '/dashboard/numbers': <IconPhone />,
+    '/dashboard/batch-call': <IconBatch />,
+    '/dashboard/integrations': <IconIntegrations />,
     '/dashboard/calls': <IconHistory />,
+    '/dashboard/chat-history': <IconChat />,
+    '/dashboard/contacts': <IconContacts />,
+    '/dashboard/analytics': <IconAnalytics />,
+    '/dashboard/live-monitoring': <IconMonitor />,
+    '/dashboard/quality-assurance': <IconQuality />,
+    '/dashboard/alerting': <IconAlert />,
+    '/dashboard/billing': <IconBilling />,
     '/dashboard/settings': <IconSettings />,
   };
 
@@ -246,3 +281,12 @@ function IconBook() { return <svg {...iconProps()}><path d="M4 5.5A1.5 1.5 0 0 1
 function IconPhone() { return <svg {...iconProps()}><path d="M6.5 4h3l1.5 4-2 1.3a11 11 0 0 0 5.7 5.7l1.3-2 4 1.5v3a1.5 1.5 0 0 1-1.6 1.5A16 16 0 0 1 5 5.6 1.5 1.5 0 0 1 6.5 4Z" /></svg>; }
 function IconHistory() { return <svg {...iconProps()}><circle cx="12" cy="12" r="8.5" /><path d="M12 7.5V12l3 2" /></svg>; }
 function IconSettings() { return <svg {...iconProps()}><circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.9 2.9l-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.6V21a2 2 0 1 1-4 0v-.2a1.7 1.7 0 0 0-1-1.5 1.7 1.7 0 0 0-1.9.3l-.1.1a2 2 0 1 1-2.9-2.9l.1-.1a1.7 1.7 0 0 0 .3-1.9 1.7 1.7 0 0 0-1.6-1H3a2 2 0 1 1 0-4h.2a1.7 1.7 0 0 0 1.5-1 1.7 1.7 0 0 0-.3-1.9l-.1-.1A2 2 0 1 1 7.2 3.5l.1.1a1.7 1.7 0 0 0 1.9.3H9a1.7 1.7 0 0 0 1-1.6V2a2 2 0 1 1 4 0v.2a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.9-.3l.1-.1a2 2 0 1 1 2.9 2.9l-.1.1a1.7 1.7 0 0 0-.3 1.9V9a1.7 1.7 0 0 0 1.6 1H21a2 2 0 1 1 0 4h-.2a1.7 1.7 0 0 0-1.5 1Z" /></svg>; }
+function IconBatch() { return <svg {...iconProps()}><path d="M6.5 4h3l1.5 4-2 1.3a11 11 0 0 0 5.7 5.7l1.3-2 4 1.5v3a1.5 1.5 0 0 1-1.6 1.5A16 16 0 0 1 5 5.6 1.5 1.5 0 0 1 6.5 4Z" /><path d="M17 3.5 20 6l-3 2.5" /></svg>; }
+function IconIntegrations() { return <svg {...iconProps()}><rect x="3" y="3" width="7" height="7" rx="1.5" /><rect x="14" y="3" width="7" height="7" rx="1.5" /><rect x="3" y="14" width="7" height="7" rx="1.5" /><rect x="14" y="14" width="7" height="7" rx="1.5" /></svg>; }
+function IconChat() { return <svg {...iconProps()}><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" /></svg>; }
+function IconContacts() { return <svg {...iconProps()}><circle cx="9" cy="8" r="3.2" /><path d="M3.5 20a5.5 5.5 0 0 1 11 0" /><path d="M16 6.5a3 3 0 0 1 0 6" /><path d="M15 14.3a5 5 0 0 1 5.5 5.2" /></svg>; }
+function IconAnalytics() { return <svg {...iconProps()}><path d="M4 20V10" /><path d="M11 20V4" /><path d="M18 20v-7" /></svg>; }
+function IconMonitor() { return <svg {...iconProps()}><rect x="3" y="4" width="18" height="12" rx="1.5" /><path d="M8 20h8" /><path d="M12 16v4" /><circle cx="9.5" cy="10" r="1" fill="currentColor" /></svg>; }
+function IconQuality() { return <svg {...iconProps()}><path d="M9 12.5 11 14.5 15.5 9" /><circle cx="12" cy="12" r="9" /></svg>; }
+function IconAlert() { return <svg {...iconProps()}><path d="M12 4a6 6 0 0 0-6 6v3.5L4 17h16l-2-3.5V10a6 6 0 0 0-6-6Z" /><path d="M10 20a2 2 0 0 0 4 0" /></svg>; }
+function IconBilling() { return <svg {...iconProps()}><rect x="2.5" y="5.5" width="19" height="13" rx="2" /><path d="M2.5 10h19" /><path d="M6 14.5h4" /></svg>; }
