@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/auth';
 import { getSupabaseAdmin } from '@/lib/supabase';
 import { getRetellClient } from '@/lib/retell';
 
@@ -21,6 +23,17 @@ export async function POST(
   const { id: batchId } = await params;
   const supabase = getSupabaseAdmin();
 
+  // This route places real, billable outbound phone calls — it must not be
+  // reachable by anyone who merely knows (or guesses) a batch id. Was
+  // previously wide open: no session check at all, matching a pattern
+  // several other routes on this surface still have, but the cost/risk here
+  // (real PSTN calls, not just a data read) made it the one worth fixing.
+  const session = await getServerSession(authOptions);
+  const userId = session?.user?.id;
+  if (!userId) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
   const { data: batch, error: batchError } = await supabase
     .from('calldesk_batch_calls')
     .select('*')
@@ -29,6 +42,16 @@ export async function POST(
   if (batchError || !batch) {
     return NextResponse.json({ error: 'Batch call not found' }, { status: 404 });
   }
+
+  const { data: tenant } = await supabase
+    .from('calldesk_tenants')
+    .select('user_id')
+    .eq('id', batch.tenant_id)
+    .single();
+  if (!tenant || tenant.user_id !== userId) {
+    return NextResponse.json({ error: 'Batch call not found' }, { status: 404 });
+  }
+
   // Only a fresh batch is runnable — guards against a double-trigger dialing
   // everyone twice if the button is hit again while a run is in flight.
   if (batch.status !== 'pending') {

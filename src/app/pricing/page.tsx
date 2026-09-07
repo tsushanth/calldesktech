@@ -78,21 +78,21 @@ export default function PricingPage() {
 
   if (status === 'loading') {
     return (
-      <main className="min-h-screen bg-gradient-to-br from-primary-600 to-primary-800 flex items-center justify-center">
+      <main className="min-h-screen bg-[#f7f8fa] flex items-center justify-center">
         <LoadingSpinner size="lg" />
       </main>
     );
   }
 
   return (
-    <main className="min-h-screen bg-gradient-to-br from-primary-600 to-primary-800 py-16 px-4">
+    <main className="min-h-screen bg-[#f7f8fa] py-16 px-4">
       <div className="max-w-4xl mx-auto">
         {/* Header */}
         <div className="text-center mb-12">
-          <h1 className="text-4xl font-bold text-white mb-4">
+          <h1 className="text-4xl font-semibold text-[#1a1d29] mb-4">
             Simple, Usage-Based Pricing
           </h1>
-          <p className="text-xl text-white/80">
+          <p className="text-xl text-gray-500">
             No monthly minimum. Pay only for talk time and completed actions.
           </p>
         </div>
@@ -107,7 +107,7 @@ export default function PricingPage() {
           {!showCoupon ? (
             <button
               onClick={() => setShowCoupon(true)}
-              className="text-white/70 hover:text-white text-sm underline"
+              className="text-gray-500 hover:text-[#1a1d29] text-sm underline"
             >
               Have a coupon code?
             </button>
@@ -122,7 +122,6 @@ export default function PricingPage() {
                     setCouponError('');
                   }}
                   error={couponError}
-                  className="bg-white"
                 />
                 <Button onClick={handleCouponSubmit} variant="secondary">
                   Apply
@@ -134,10 +133,10 @@ export default function PricingPage() {
 
         {/* Try Demo Link */}
         <div className="text-center mt-12">
-          <p className="text-white/70 mb-2">Want to try before you buy?</p>
+          <p className="text-gray-500 mb-2">Want to try before you buy?</p>
           <Link
             href="/demo"
-            className="text-white font-medium hover:underline"
+            className="text-blue-600 font-medium hover:underline"
           >
             Try a free demo call
           </Link>
@@ -147,7 +146,7 @@ export default function PricingPage() {
         <div className="text-center mt-8">
           <Link
             href="/"
-            className="text-white/60 hover:text-white text-sm"
+            className="text-gray-400 hover:text-[#1a1d29] text-sm"
           >
             &larr; Back to home
           </Link>
