@@ -18,7 +18,7 @@ export async function GET(request: NextRequest) {
     secret: process.env.NEXTAUTH_SECRET!,
   });
 
-  const res = NextResponse.redirect(new URL('/dashboard', request.url));
+  const res = NextResponse.redirect(new URL('/dashboard', process.env.NEXT_PUBLIC_APP_URL || request.url));
   res.cookies.set('__Secure-next-auth.session-token', token, {
     httpOnly: true,
     secure: true,
