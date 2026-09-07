@@ -90,15 +90,24 @@ export const BLOCK_PRICES = {
 // pricing — $0 base, pay only for what's used, undercutting Retell's
 // effective $0.07-0.31/min by 4-30x on our actual measured infra cost (see
 // costTracker.js). Mirrors Retell's own "$0 base + stacked per-minute"
-// model rather than a flat-plan-plus-overage. Backed by 5 live metered
+// model rather than a flat-plan-plus-overage. Backed by live metered
 // Stripe prices on product "CallDeskTech Usage" (voice priced per backend,
-// since kokoro/elevenlabs share one meter but can't both be attached to the
-// same subscription — see checkout/route.ts):
+// since only one price per meter can be attached to a subscription at once
+// — see syncVoicePriceForTenant in lib/stripe.ts, which swaps it):
 //   price_1U8tJeKFBTQTkmztTPNMcLKe  kokoro_voice_seconds     $0.02/min
 //   price_1U8tJfKFBTQTkmztIu8fXDxa  elevenlabs_voice_seconds $0.08/min
+//   price_1UCsz6KFBTQTkmztuAOaxCRM  cartesia_voice_seconds   $0.08/min
+//   price_1UCszEKFBTQTkmztXKqkApW7  minimax_voice_seconds    $0.16/min
 //   price_1U8tJtKFBTQTkmzt8CqFVIDs  booking_completed        $0.007/event
 //   price_1U8tJtKFBTQTkmztdgtdAu8n  transfer_completed       $0.01/event
 //   price_1U8tJuKFBTQTkmztzhIqUrg3  message_taken            $0.004/event
+// cartesia/minimax rates (added 2026-09-06) apply the same markup ElevenLabs
+// already carries — 1.82x its real per-minute cost at ElevenLabs Flash
+// v2.5's published $0.05/1000-char rate, using ~880 chars/min (empirically
+// derived from MiniMax's own docs example) to convert characters to audio
+// time. Cartesia's Sonic pay-as-you-go rate is identical to ElevenLabs's
+// ($0.05/1000 chars), so it lands on the same $0.08/min; MiniMax's
+// speech-2.8-hd is 2x that raw cost ($0.10/1000 chars), so it's 2x the price.
 // The old flat plan (price_1SekfDKFBTQTkmzt9Qx2rYWY, prod_TbyctCCfmAN34Q)
 // stays live only for whoever already subscribed to it before this switch —
 // new checkouts go on the usage-based plan below.
@@ -106,6 +115,8 @@ export const USAGE_PRICES = {
   voice: {
     kokoro: 'price_1U8tJeKFBTQTkmztTPNMcLKe',
     elevenlabs: 'price_1U8tJfKFBTQTkmztIu8fXDxa',
+    cartesia: 'price_1UCsz6KFBTQTkmztuAOaxCRM',
+    minimax: 'price_1UCszEKFBTQTkmztXKqkApW7',
   },
   booking: 'price_1U8tJtKFBTQTkmzt8CqFVIDs',
   transfer: 'price_1U8tJtKFBTQTkmztdgtdAu8n',
@@ -114,7 +125,7 @@ export const USAGE_PRICES = {
 
 export const PRICING = {
   usage: {
-    voicePerMinute: { kokoro: 0.02, elevenlabs: 0.08 },
+    voicePerMinute: { kokoro: 0.02, elevenlabs: 0.08, cartesia: 0.08, minimax: 0.16 },
     perBookingEvent: 0.007,
     perTransferEvent: 0.01,
     perMessageEvent: 0.004,

@@ -41,13 +41,11 @@ export const STRIPE_CONFIG = {
 // whenever a poc-engine version sets a tts_backend, so the subscription's
 // voice line item always matches what's actually configured.
 //
-// cartesia/minimax (added alongside kokoro/elevenlabs as call-loop-poc TTS
-// backends) have no USAGE_PRICES.voice entry yet — creating a real Stripe
-// metered price is a billing decision made once there's an account and a
-// confirmed rate to price against, not invented here. Selecting either as a
-// version's tts_backend works and is persisted; this just no-ops for them
-// (same "don't guess" behavior as no existing voice line item to swap)
-// rather than billing the wrong rate or throwing.
+// All four backends (kokoro/elevenlabs/cartesia/minimax) have a
+// USAGE_PRICES.voice entry — see the comment there for how the cartesia/
+// minimax rates were derived. This still no-ops gracefully for any future
+// backend added without a price yet, same "don't guess" behavior as no
+// existing voice line item to swap, rather than billing the wrong rate.
 export async function syncVoicePriceForTenant(tenantId: string, ttsBackend: import('@/types').TtsBackend) {
   const { USAGE_PRICES } = await import('./constants');
   const { getSupabaseAdmin } = await import('./supabase');
