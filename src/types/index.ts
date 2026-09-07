@@ -67,6 +67,15 @@ export interface Agent {
   updated_at: string;
 }
 
+// TTS backends the in-house ('poc') voice engine can run — kokoro
+// (self-hosted) and elevenlabs were the original two; cartesia and minimax
+// are additional providers call-loop-poc can call directly, each needing
+// its own API key set on that Fly app (not calldesktech's). Not yet wired to
+// a Stripe usage price (see USAGE_PRICES in lib/constants.ts) — that's a
+// real billing decision, made once there's an account and a real rate to
+// price against, not invented here.
+export type TtsBackend = 'kokoro' | 'elevenlabs' | 'cartesia' | 'minimax';
+
 export interface AgentVersion {
   id: string;
   agent_id: string;
@@ -76,7 +85,7 @@ export interface AgentVersion {
   retell_agent_id: string | null;
   retell_llm_id: string | null;
   voice_id: string | null;
-  tts_backend: 'kokoro' | 'elevenlabs' | null;
+  tts_backend: TtsBackend | null;
   wizard_config: Record<string, unknown> | null;
   created_at: string;
 }

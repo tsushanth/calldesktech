@@ -7,6 +7,7 @@ import { formatPhoneDisplay } from '@/lib/utils';
 import { VOICE_OPTIONS, TONE_OPTIONS } from '@/lib/constants';
 import type { RetellVoice } from '@/lib/retell';
 import type { VoiceEngine } from '@/lib/voiceEngine';
+import type { TtsBackend } from '@/types';
 import { WizardBlocksPicker } from '@/components/flow-builder/WizardBlocksPicker';
 import { buildWizardFlow, DEFAULT_WIZARD_BLOCKS, type WizardBlocks } from '@/lib/flowBuilder';
 import type { Agent, AgentVersion } from '@/types';
@@ -34,7 +35,7 @@ export default function SettingsPage() {
   const [calApiKey, setCalApiKey] = useState('');
   const [calEventTypeId, setCalEventTypeId] = useState('');
   const [voiceEngine, setVoiceEngine] = useState<VoiceEngine>('retell');
-  const [ttsBackend, setTtsBackend] = useState<'kokoro' | 'elevenlabs'>('kokoro');
+  const [ttsBackend, setTtsBackend] = useState<TtsBackend>('kokoro');
 
   // Building blocks — backed by the tenant's default "simple" agent (see
   // src/lib/flowBuilder.ts / the "Two-Tier Onboarding" design doc). This is
@@ -62,7 +63,12 @@ export default function SettingsPage() {
             setSelectedVoice(settings.voice || 'eleven_turbo_v2');
             setSelectedTone(settings.tone || 'professional');
             setVoiceEngine(settings.voice_engine === 'poc' ? 'poc' : 'retell');
-            setTtsBackend(settings.tts_backend === 'elevenlabs' ? 'elevenlabs' : 'kokoro');
+            const savedBackend = settings.tts_backend;
+            setTtsBackend(
+              savedBackend === 'elevenlabs' || savedBackend === 'cartesia' || savedBackend === 'minimax'
+                ? savedBackend
+                : 'kokoro'
+            );
           }
           setCalApiKey(data.cal_api_key || '');
           setCalEventTypeId(data.cal_event_type_id || '');
@@ -320,10 +326,17 @@ export default function SettingsPage() {
           {voiceEngine === 'poc' && (
             <div className="mt-5">
               <label className="mb-2 block text-[12.5px] font-medium text-gray-500">TTS Backend</label>
-              <div className="grid max-w-md grid-cols-2 gap-2.5">
+              <div className="grid max-w-2xl grid-cols-2 gap-2.5 md:grid-cols-4">
                 <OptionCard selected={ttsBackend === 'kokoro'} onClick={() => setTtsBackend('kokoro')} title="Kokoro" description="Self-hosted, lowest cost" />
                 <OptionCard selected={ttsBackend === 'elevenlabs'} onClick={() => setTtsBackend('elevenlabs')} title="ElevenLabs" description="Higher quality, per-char cost" />
+                <OptionCard selected={ttsBackend === 'cartesia'} onClick={() => setTtsBackend('cartesia')} title="Cartesia" description="Low-latency streaming" />
+                <OptionCard selected={ttsBackend === 'minimax'} onClick={() => setTtsBackend('minimax')} title="MiniMax" description="Beta — not yet billed" />
               </div>
+              {(ttsBackend === 'cartesia' || ttsBackend === 'minimax') && (
+                <p className="mt-2 text-[12px] text-amber-600">
+                  New backend — needs its own API key set on the call-loop-poc Fly app before calls actually use it (falls back to Kokoro until then).
+                </p>
+              )}
             </div>
           )}
         </SettingsSection>

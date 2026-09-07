@@ -40,9 +40,20 @@ export const STRIPE_CONFIG = {
 // the kokoro rate regardless. Called from agents/[id]/versions/route.ts
 // whenever a poc-engine version sets a tts_backend, so the subscription's
 // voice line item always matches what's actually configured.
-export async function syncVoicePriceForTenant(tenantId: string, ttsBackend: 'kokoro' | 'elevenlabs') {
+//
+// cartesia/minimax (added alongside kokoro/elevenlabs as call-loop-poc TTS
+// backends) have no USAGE_PRICES.voice entry yet — creating a real Stripe
+// metered price is a billing decision made once there's an account and a
+// confirmed rate to price against, not invented here. Selecting either as a
+// version's tts_backend works and is persisted; this just no-ops for them
+// (same "don't guess" behavior as no existing voice line item to swap)
+// rather than billing the wrong rate or throwing.
+export async function syncVoicePriceForTenant(tenantId: string, ttsBackend: import('@/types').TtsBackend) {
   const { USAGE_PRICES } = await import('./constants');
   const { getSupabaseAdmin } = await import('./supabase');
+  const targetPriceId: string | undefined = USAGE_PRICES.voice[ttsBackend as keyof typeof USAGE_PRICES.voice];
+  if (!targetPriceId) return; // no Stripe price configured for this backend yet
+
   const supabase = getSupabaseAdmin();
   const { data: business } = await supabase
     .from('calldesk_businesses')
@@ -53,9 +64,8 @@ export async function syncVoicePriceForTenant(tenantId: string, ttsBackend: 'kok
 
   const stripe = getStripe();
   const subscription = await stripe.subscriptions.retrieve(business.stripe_subscription_id);
-  const voicePriceIds: string[] = [USAGE_PRICES.voice.kokoro, USAGE_PRICES.voice.elevenlabs];
+  const voicePriceIds: string[] = Object.values(USAGE_PRICES.voice);
   const currentVoiceItem = subscription.items.data.find((item) => voicePriceIds.includes(item.price.id));
-  const targetPriceId = USAGE_PRICES.voice[ttsBackend];
   // No existing voice line item to swap (e.g. subscription predates this
   // pricing model) — don't guess at inserting one, just leave it alone.
   if (!currentVoiceItem || currentVoiceItem.price.id === targetPriceId) return;

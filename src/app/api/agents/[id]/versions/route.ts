@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/supabase';
 import { syncVoicePriceForTenant } from '@/lib/stripe';
-import type { FlowNode } from '@/types';
+import type { FlowNode, TtsBackend } from '@/types';
 
 // GET /api/agents/[id]/versions — list an agent's versions, newest first
 export async function GET(
@@ -51,7 +51,7 @@ export async function POST(
     retellAgentId?: string;
     retellLlmId?: string;
     voiceId?: string;
-    ttsBackend?: 'kokoro' | 'elevenlabs';
+    ttsBackend?: TtsBackend;
     wizardConfig?: Record<string, unknown>;
   };
 
@@ -125,7 +125,7 @@ export async function POST(
     .single();
   if (versionError) return NextResponse.json({ error: versionError.message }, { status: 500 });
 
-  if (voiceEngine === 'poc' && (ttsBackend === 'kokoro' || ttsBackend === 'elevenlabs')) {
+  if (voiceEngine === 'poc' && ttsBackend) {
     // Best-effort — a Stripe hiccup here shouldn't fail creating the agent
     // version itself, just leave the subscription's voice price as-is.
     await syncVoicePriceForTenant(agent.tenant_id, ttsBackend).catch((err) =>
