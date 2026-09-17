@@ -41,3 +41,20 @@ export async function PATCH(
   if (error || !data) return NextResponse.json({ error: error?.message || 'Agent not found' }, { status: 404 });
   return NextResponse.json({ agent: data });
 }
+
+// DELETE /api/agents/[id] — permanently delete an agent and everything under
+// it. Safe as a single delete: calldesk_agent_versions/conversation_flows/
+// knowledge_bases all have ON DELETE CASCADE on agent_id (migration 005), and
+// anything that merely POINTS at one of this agent's versions — phone number
+// routing, chat sessions, batch calls — has ON DELETE SET NULL, so it just
+// goes back to unrouted/unset rather than leaving a dangling reference.
+export async function DELETE(
+  _request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const { id: agentId } = await params;
+  const supabase = getSupabaseAdmin();
+  const { error } = await supabase.from('calldesk_agents').delete().eq('id', agentId);
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  return NextResponse.json({ success: true });
+}
