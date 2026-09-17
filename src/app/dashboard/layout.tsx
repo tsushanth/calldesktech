@@ -8,6 +8,7 @@ import { useOnboarding } from '@/context/OnboardingContext';
 import { formatPhoneDisplay } from '@/lib/utils';
 import { AuthGuard } from '@/components/auth/AuthGuard';
 import WorkspaceSwitcher from '@/components/WorkspaceSwitcher';
+import { PHONE_NUMBERS_CHANGED_EVENT } from '@/lib/events';
 
 export default function DashboardLayout({
   children,
@@ -71,19 +72,31 @@ export default function DashboardLayout({
   useEffect(() => {
     if (!tenantId) return;
     let cancelled = false;
+
+    const fetchNumbers = () => {
+      fetch(`/api/tenants/${tenantId}/phone-numbers`)
+        .then((res) => res.json())
+        .then((body) => {
+          if (cancelled) return;
+          setRoutedNumber(body.phoneNumbers?.[0]?.number || null);
+        })
+        .catch(() => {})
+        .finally(() => {
+          if (!cancelled) setNumbersFetchDone(true);
+        });
+    };
+
     setNumbersFetchDone(false);
-    fetch(`/api/tenants/${tenantId}/phone-numbers`)
-      .then((res) => res.json())
-      .then((body) => {
-        if (cancelled) return;
-        setRoutedNumber(body.phoneNumbers?.[0]?.number || null);
-      })
-      .catch(() => {})
-      .finally(() => {
-        if (!cancelled) setNumbersFetchDone(true);
-      });
+    fetchNumbers();
+
+    // This sidebar only ever fetched on tenant switch, so buying a number on
+    // the Numbers page left "Setup required" showing until the next
+    // full navigation back here re-ran this effect. The Numbers page fires
+    // this event on any add/buy so the sidebar updates immediately instead.
+    window.addEventListener(PHONE_NUMBERS_CHANGED_EVENT, fetchNumbers);
     return () => {
       cancelled = true;
+      window.removeEventListener(PHONE_NUMBERS_CHANGED_EVENT, fetchNumbers);
     };
   }, [tenantId]);
 

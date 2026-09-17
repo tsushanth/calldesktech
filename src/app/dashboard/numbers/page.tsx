@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { useOnboarding } from '@/context/OnboardingContext';
+import { notifyPhoneNumbersChanged } from '@/lib/events';
 import type { PhoneNumber, Agent, AgentVersion } from '@/types';
 
 // Mirrors Retell's own Phone Numbers screen: a list on the left, and on the
@@ -88,6 +89,7 @@ export default function PhoneNumbersPage() {
       setNumbers((prev) => [body.phoneNumber, ...prev]);
       setSelectedId(body.phoneNumber.id);
       setNewNumber('');
+      notifyPhoneNumbersChanged();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to add number');
     } finally {
@@ -115,6 +117,7 @@ export default function PhoneNumbersPage() {
       setNumbers((prev) => [body.phoneNumber, ...prev]);
       setSelectedId(body.phoneNumber.id);
       setBuyAreaCode('');
+      notifyPhoneNumbersChanged();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to buy a number');
     } finally {
