@@ -20,7 +20,7 @@ function draftNodesFromTemplate(nodes: FlowNode[]): DraftNode[] {
   return nodes.map((n) => ({ ...n, _key: newKey() }));
 }
 
-const NODE_TYPES: FlowNode['type'][] = ['greeting', 'extraction', 'function', 'knowledge_base', 'transfer', 'goodbye'];
+const NODE_TYPES: FlowNode['type'][] = ['greeting', 'extraction', 'function', 'knowledge_base', 'transfer', 'goodbye', 'payment'];
 
 function emptyNode(): DraftNode {
   return { _key: newKey(), id: '', type: 'greeting', prompt: '', edges: [] };
@@ -517,6 +517,32 @@ export default function NewAgentVersionPage() {
                   placeholder="+1..."
                   className="w-full max-w-xs bg-white border border-gray-200 rounded-lg px-3.5 py-2.5 font-mono text-[13px] focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100"
                 />
+              </div>
+            )}
+
+            {node.type === 'payment' && (
+              <div className="mb-4 grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-[12.5px] font-medium text-gray-500 mb-1">Amount (0 = tokenize only, no charge)</label>
+                  <input
+                    value={node.params?.amount || '0'}
+                    onChange={(e) => updateNode(node._key, { params: { ...node.params, amount: e.target.value } })}
+                    placeholder="0"
+                    className="w-full bg-white border border-gray-200 rounded-lg px-3.5 py-2.5 font-mono text-[13px] focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[12.5px] font-medium text-gray-500 mb-1">Pay Connector name</label>
+                  <input
+                    value={node.params?.paymentConnector || 'Default'}
+                    onChange={(e) => updateNode(node._key, { params: { ...node.params, paymentConnector: e.target.value } })}
+                    placeholder="Default"
+                    className="w-full bg-white border border-gray-200 rounded-lg px-3.5 py-2.5 font-mono text-[13px] focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100"
+                  />
+                </div>
+                <p className="col-span-2 text-[11.5px] text-gray-400">
+                  Hands the call to Twilio&apos;s own &lt;Pay&gt; — raw card details never reach our server. Requires a Pay Connector installed and PCI Mode enabled in the Twilio Console first.
+                </p>
               </div>
             )}
 

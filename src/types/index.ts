@@ -14,7 +14,7 @@ export interface Tenant {
 // Conversation Flow Types
 export interface FlowNode {
   id: string;
-  type: 'greeting' | 'extraction' | 'function' | 'knowledge_base' | 'transfer' | 'goodbye';
+  type: 'greeting' | 'extraction' | 'function' | 'knowledge_base' | 'transfer' | 'goodbye' | 'payment';
   prompt: string;
   extract?: Record<string, string>;
   function?: string;

@@ -2,15 +2,18 @@ import type { FlowNode } from '@/types';
 
 // Real, working starting-point flows — matching Retell's own Create Agent
 // template gallery (see the 2026-09-16 screenshot comparison), but only
-// for capabilities this runtime actually has. Deliberately NOT included:
-// Retell's "Insurance Verification" template needs payment processing,
-// which call-loop-poc still doesn't support — and won't as a casual
-// addition even once built, since raw card data flowing through this
-// system's normal pipeline (transcription -> LLM history -> logs -> stored
-// transcripts) would be a real PCI-DSS problem; that needs a dedicated
-// design around Twilio's <Pay> verb (tokenizes card data via a payment
-// connector, so raw numbers never reach our server/logs/LLM at all), not
-// an "add a payment field" pass. DTMF/keypad navigation IS now supported
+// for capabilities this runtime actually has.
+//
+// Payment collection (Retell's "Insurance Verification" needs this) IS now
+// wired up — call-loop-poc's 'payment' node type redirects the live call to
+// a real Twilio <Pay> verb, so raw card data never reaches our own server,
+// logs, or the LLM's conversation history at all. Still unverified as of
+// this template shipping: the exact behavior of our own DTMF handling
+// while a Pay session is active on the same call (a real Pay Connector +
+// PCI Mode is enabled on the account, but a live end-to-end test with
+// actual keypresses hasn't been run yet) — treat this template as "wired
+// correctly per the API contract," not "battle-tested," until that happens.
+// DTMF/keypad navigation IS now supported
 // (see call-loop-poc's twilioAdapter.js 'dtmf' handling) — a caller's
 // keypress arrives as a synthetic user turn ("[Caller pressed 1 on the
 // keypad]"), so an IVR menu is just a normal node whose edges include
@@ -205,6 +208,33 @@ export const AGENT_TEMPLATES: AgentTemplate[] = [
         edges: [],
       },
       { id: 'goodbye', type: 'goodbye', prompt: 'Thank the caller and say goodbye.', edges: [] },
+    ],
+  },
+  {
+    id: 'payment-collection',
+    label: 'Payment Collection',
+    description: 'Collect a payment or verify a card on file — hands off to Twilio\'s <Pay>, never touches raw card data.',
+    category: 'Payment Collection',
+    startNodeId: 'greeting',
+    nodes: [
+      {
+        id: 'greeting',
+        type: 'greeting',
+        prompt: 'Greet the caller and ask how you can help — mention that you can take a payment or verify a card on file if needed.',
+        edges: [{ id: 'e_to_payment', condition: 'caller wants to make a payment or provide card details', target: 'payment' }],
+      },
+      {
+        id: 'payment',
+        type: 'payment',
+        prompt: 'Let the caller know you\'re securely transferring them to enter their card details now — they should follow the prompts they hear.',
+        params: { amount: '0', paymentConnector: 'Default' },
+        edges: [
+          { id: 'e_payment_success', condition: 'payment succeeded', target: 'confirm' },
+          { id: 'e_payment_failed', condition: 'payment failed or was canceled', target: 'failed' },
+        ],
+      },
+      { id: 'confirm', type: 'goodbye', prompt: "Confirm the payment was received, thank the caller, and say goodbye.", edges: [] },
+      { id: 'failed', type: 'goodbye', prompt: "Let the caller know the payment didn't go through and they may want to try again or call back, then say goodbye.", edges: [] },
     ],
   },
 ];
