@@ -3,12 +3,20 @@ import type { FlowNode } from '@/types';
 // Real, working starting-point flows — matching Retell's own Create Agent
 // template gallery (see the 2026-09-16 screenshot comparison), but only
 // for capabilities this runtime actually has. Deliberately NOT included:
-// Retell's "Insurance Verification" and "IVR Navigation/Payment" templates
-// depend on DTMF/keypad navigation and payment processing, neither of
-// which call-loop-poc supports yet (see README's "Known POC gaps") — a
-// template that can't actually do what its name promises is worse than no
-// template. Every node type used here (greeting/extraction/function/
-// knowledge_base/transfer/goodbye) already runs in production.
+// Retell's "Insurance Verification" template needs payment processing,
+// which call-loop-poc still doesn't support — and won't as a casual
+// addition even once built, since raw card data flowing through this
+// system's normal pipeline (transcription -> LLM history -> logs -> stored
+// transcripts) would be a real PCI-DSS problem; that needs a dedicated
+// design around Twilio's <Pay> verb (tokenizes card data via a payment
+// connector, so raw numbers never reach our server/logs/LLM at all), not
+// an "add a payment field" pass. DTMF/keypad navigation IS now supported
+// (see call-loop-poc's twilioAdapter.js 'dtmf' handling) — a caller's
+// keypress arrives as a synthetic user turn ("[Caller pressed 1 on the
+// keypad]"), so an IVR menu is just a normal node whose edges include
+// conditions like "caller pressed 1", no special menu-node type needed.
+// Every node type used here (greeting/extraction/function/knowledge_base/
+// transfer/goodbye) already runs in production.
 //
 // Selecting a template in the version editor pre-fills the SAME node-graph
 // editor "Conversational flow" mode already uses, not a separate creation
@@ -153,6 +161,50 @@ export const AGENT_TEMPLATES: AgentTemplate[] = [
         edges: [{ id: 'e_callback_done', condition: 'preferred_callback_time has been collected', target: 'goodbye' }],
       },
       { id: 'goodbye', type: 'goodbye', prompt: 'Thank them for their time and say goodbye.', edges: [] },
+    ],
+  },
+  {
+    id: 'ivr-navigation',
+    label: 'IVR Navigation',
+    description: 'Keypad menu — press 1 for sales, 2 for support, 0 for a person. Also accepts spoken requests.',
+    category: 'IVR Navigation',
+    startNodeId: 'menu',
+    nodes: [
+      {
+        id: 'menu',
+        type: 'greeting',
+        prompt:
+          'Greet the caller, then say: "Press 1 for sales, press 2 for support, or press 0 to speak with someone." ' +
+          "A caller can also just say what they want instead of pressing a key — don't require the keypad if " +
+          'they speak their intent clearly.',
+        edges: [
+          { id: 'e_to_sales', condition: 'caller pressed 1, or says they want sales/pricing/to buy something', target: 'sales' },
+          { id: 'e_to_support', condition: 'caller pressed 2, or says they need help/support with something', target: 'support' },
+          { id: 'e_to_transfer', condition: 'caller pressed 0, or asks to speak to a real person', target: 'transfer' },
+        ],
+      },
+      {
+        id: 'sales',
+        type: 'extraction',
+        prompt: "Ask for the caller's name and what they're interested in.",
+        extract: { name: 'string', interest: 'string' },
+        edges: [{ id: 'e_sales_done', condition: 'name and interest have both been collected', target: 'goodbye' }],
+      },
+      {
+        id: 'support',
+        type: 'extraction',
+        prompt: "Ask for the caller's name and a brief description of the issue.",
+        extract: { name: 'string', issue: 'string' },
+        edges: [{ id: 'e_support_done', condition: 'name and issue have both been collected', target: 'goodbye' }],
+      },
+      {
+        id: 'transfer',
+        type: 'transfer',
+        prompt: "Let the caller know you're connecting them now.",
+        params: { transferTo: '' },
+        edges: [],
+      },
+      { id: 'goodbye', type: 'goodbye', prompt: 'Thank the caller and say goodbye.', edges: [] },
     ],
   },
 ];
