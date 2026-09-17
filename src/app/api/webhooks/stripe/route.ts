@@ -41,6 +41,9 @@ export async function POST(request: NextRequest) {
         const userId = session.metadata?.user_id;
 
         if (tenantId) {
+          const stripeCustomerId = session.customer as string;
+          const stripeSubscriptionId = session.subscription as string;
+
           // Upsert the tenant's billing record. This handler previously only
           // ran .update() keyed by `id`, so the row was never created and,
           // even if it had been, it was keyed inconsistently with how the
@@ -54,8 +57,8 @@ export async function POST(request: NextRequest) {
               {
                 tenant_id: tenantId,
                 subscription_status: 'active',
-                stripe_customer_id: session.customer as string,
-                stripe_subscription_id: session.subscription as string,
+                stripe_customer_id: stripeCustomerId,
+                stripe_subscription_id: stripeSubscriptionId,
                 updated_at: new Date().toISOString(),
               },
               { onConflict: 'tenant_id' }
@@ -80,39 +83,83 @@ export async function POST(request: NextRequest) {
               })
               .eq('id', userId);
           }
+
+          // Account-level billing (2026-09-17): one subscription is shared
+          // across every workspace a user owns, matching Retell's own model
+          // — adding a new workspace never re-asks for payment info if the
+          // account already has billing. calldesk_users is the real source
+          // of truth now; calldesk_businesses rows (including the one just
+          // upserted above) are kept as per-tenant MIRRORS of it so every
+          // existing tenant-keyed read site (paymentMethodGate.ts, both
+          // billing routes, call-loop-poc's stripeMeter.js/tenantLookup.js)
+          // needed zero changes.
+          if (userId) {
+            await supabase
+              .from('calldesk_users')
+              .update({
+                stripe_customer_id: stripeCustomerId,
+                stripe_subscription_id: stripeSubscriptionId,
+                subscription_status: 'active',
+                updated_at: new Date().toISOString(),
+              })
+              .eq('id', userId);
+
+            // Backfill every OTHER tenant this user already owns so
+            // pre-existing sibling workspaces inherit billing immediately,
+            // not just the one that happened to check out.
+            const { data: siblingTenants } = await supabase
+              .from('calldesk_tenants')
+              .select('id')
+              .eq('user_id', userId)
+              .neq('id', tenantId);
+            for (const sibling of siblingTenants || []) {
+              await supabase
+                .from('calldesk_businesses')
+                .upsert(
+                  {
+                    tenant_id: sibling.id,
+                    subscription_status: 'active',
+                    stripe_customer_id: stripeCustomerId,
+                    stripe_subscription_id: stripeSubscriptionId,
+                    updated_at: new Date().toISOString(),
+                  },
+                  { onConflict: 'tenant_id' }
+                );
+            }
+          }
         }
         break;
       }
 
+      // Both handlers below cascade by stripe_subscription_id rather than
+      // the original checkout's tenant_id metadata — since one subscription
+      // is now shared across every tenant a user owns (see
+      // checkout.session.completed above), a status change has to update
+      // every calldesk_businesses row mirroring it, not just the single
+      // tenant that happened to originate the checkout.
       case 'customer.subscription.updated': {
         const subscription = event.data.object as Stripe.Subscription;
-        const tenantId = subscription.metadata?.business_id;
-
-        if (tenantId) {
-          await supabase
-            .from('calldesk_businesses')
-            .update({
-              subscription_status: subscription.status,
-              updated_at: new Date().toISOString(),
-            })
-            .eq('tenant_id', tenantId);
-        }
+        await supabase
+          .from('calldesk_businesses')
+          .update({ subscription_status: subscription.status, updated_at: new Date().toISOString() })
+          .eq('stripe_subscription_id', subscription.id);
+        await supabase
+          .from('calldesk_users')
+          .update({ subscription_status: subscription.status, updated_at: new Date().toISOString() })
+          .eq('stripe_subscription_id', subscription.id);
         break;
       }
 
       case 'customer.subscription.deleted': {
         const subscription = event.data.object as Stripe.Subscription;
-        const tenantId = subscription.metadata?.business_id;
-
-        if (tenantId) {
-          await supabase
-            .from('calldesk_businesses')
-            .update({
-              subscription_status: 'canceled',
-              updated_at: new Date().toISOString(),
-            })
-            .eq('tenant_id', tenantId);
-        }
+        await supabase
+          .from('calldesk_businesses')
+          .update({ subscription_status: 'canceled', updated_at: new Date().toISOString() })
+          .eq('stripe_subscription_id', subscription.id);
+        await supabase
+          .from('calldesk_users')
+          .update({ subscription_status: 'canceled', updated_at: new Date().toISOString() })
+          .eq('stripe_subscription_id', subscription.id);
         break;
       }
     }

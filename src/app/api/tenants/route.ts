@@ -3,7 +3,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { getSupabaseAdmin } from '@/lib/supabase';
 import { getRetellClient } from '@/lib/retell';
-import { createBusinessTenant } from '@/lib/tenantProvisioning';
+import { createBusinessTenant, attachExistingAccountBilling } from '@/lib/tenantProvisioning';
 
 // GET /api/tenants - List all tenants for the current user.
 // Was previously trusting a client-supplied `x-user-id` header — any caller
@@ -97,6 +97,7 @@ export async function POST(request: NextRequest) {
       }
 
       console.log('Tenant created:', tenant.id);
+      await attachExistingAccountBilling(tenant.id, userId);
       return NextResponse.json({ tenant }, { status: 201 });
     }
 

@@ -96,12 +96,46 @@ export async function createBusinessTenant(
     console.error('Error creating default flow (non-fatal):', flowError);
   }
 
+  await attachExistingAccountBilling(tenant.id, userId);
+
   return {
     tenant: { id: tenant.id, name: tenant.name },
     agentId: agent.agent_id,
     llmId: llm.llm_id,
     knowledgeBaseId,
   };
+}
+
+// Account-level billing (2026-09-17): if this user already has an active
+// subscription on ANY of their other workspaces, attach it to a NEW one
+// immediately — matches Retell's own model, where adding a workspace never
+// re-asks for payment info once the account has billing. A user with no
+// existing subscription gets no calldesk_businesses row here, same as
+// before; their first checkout still creates one normally (see the Stripe
+// webhook), which now ALSO backfills this same inheritance onto any
+// workspaces created before that first checkout. Called from every tenant-
+// creation path, not just this one — see /api/tenants/route.ts's poc-engine
+// branch (the actual "Add another workspace" path), which never runs
+// createBusinessTenant at all.
+export async function attachExistingAccountBilling(tenantId: string, userId: string): Promise<void> {
+  const supabase = getSupabaseAdmin();
+  try {
+    const { data: billedUser } = await supabase
+      .from('calldesk_users')
+      .select('stripe_customer_id, stripe_subscription_id, subscription_status')
+      .eq('id', userId)
+      .single();
+    if (billedUser?.stripe_customer_id && billedUser.subscription_status === 'active') {
+      await supabase.from('calldesk_businesses').insert({
+        tenant_id: tenantId,
+        subscription_status: 'active',
+        stripe_customer_id: billedUser.stripe_customer_id,
+        stripe_subscription_id: billedUser.stripe_subscription_id,
+      });
+    }
+  } catch (billingError) {
+    console.error('Error inheriting account billing for new tenant (non-fatal):', billingError);
+  }
 }
 
 function getDefaultBusinessPrompt(name: string, description?: string, businessType?: string): string {
