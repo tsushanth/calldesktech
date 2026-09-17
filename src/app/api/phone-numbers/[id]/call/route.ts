@@ -53,7 +53,15 @@ export async function POST(
     });
     const body = await res.json();
     if (!res.ok) {
-      return NextResponse.json({ error: body.error || 'call-loop-poc rejected the call', detail: body }, { status: res.status });
+      // call-loop-poc's own error for this case is just the generic wrapper
+      // "Twilio call creation failed" — the actually useful part (e.g. "The
+      // number +1... is not a valid mobile number", an unverified trial-
+      // account destination, geo permissions) is Twilio's raw error body one
+      // level down at body.detail.message, which the dashboard was never
+      // reading, so every failure surfaced as the same unhelpful string.
+      const twilioMessage = typeof body.detail?.message === 'string' ? body.detail.message : null;
+      const message = twilioMessage ? `Twilio: ${twilioMessage}` : (body.error || 'call-loop-poc rejected the call');
+      return NextResponse.json({ error: message, detail: body }, { status: res.status });
     }
     return NextResponse.json({ call: body }, { status: 201 });
   } catch (err) {

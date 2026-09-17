@@ -294,19 +294,26 @@ export default function PhoneNumbersPage() {
                   <p className="mb-1 text-[11px] font-medium uppercase tracking-wider text-gray-400">Number</p>
                   <p className="font-mono text-[17px] text-[#1a1d29]">{selected.number}</p>
                 </div>
-                <button
-                  onClick={() => {
-                    setShowCallModal(true);
-                    setCallResult(null);
-                    setCallError(null);
-                  }}
-                  disabled={!selected.outbound_agent_version_id}
-                  title={!selected.outbound_agent_version_id ? 'Set an Outbound Call Agent first' : undefined}
-                  className="flex items-center gap-1.5 rounded-lg bg-[#1a1d29] px-3.5 py-2 text-[13px] font-medium text-white transition hover:bg-[#2a2e3d] disabled:opacity-40 disabled:cursor-not-allowed"
-                >
-                  <PhoneIcon />
-                  Make an outbound call
-                </button>
+                <div className="text-right">
+                  <button
+                    onClick={() => {
+                      setShowCallModal(true);
+                      setCallResult(null);
+                      setCallError(null);
+                    }}
+                    disabled={!selected.outbound_agent_version_id}
+                    title={!selected.outbound_agent_version_id ? 'Set an Outbound Call Agent first' : undefined}
+                    className="flex items-center gap-1.5 rounded-lg bg-[#1a1d29] px-3.5 py-2 text-[13px] font-medium text-white transition hover:bg-[#2a2e3d] disabled:opacity-40 disabled:cursor-not-allowed"
+                  >
+                    <PhoneIcon />
+                    Make an outbound call
+                  </button>
+                  {!selected.outbound_agent_version_id && (
+                    <p className="mt-1.5 text-[12px] text-amber-600">
+                      Greyed out — set an Outbound Call Agent below first.
+                    </p>
+                  )}
+                </div>
               </div>
             </div>
 
