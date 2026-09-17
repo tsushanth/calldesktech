@@ -992,10 +992,10 @@ function NodeSettingsPanel({
         <div className="space-y-3 border-t border-gray-100 pt-3">
           <div>
             <label className="mb-1 block text-[12px] font-medium text-gray-500">Interruption sensitivity</label>
-            <select value={node.params?.interruptionSensitivity || 'high'} onChange={(e) => onUpdate({ params: { ...node.params, interruptionSensitivity: e.target.value } })} className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-[12.5px] focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100">
-              <option value="high">High (default)</option>
-              <option value="medium">Medium</option>
-              <option value="low">Low</option>
+            <select value={node.params?.interruptionSensitivity || 'medium'} onChange={(e) => onUpdate({ params: { ...node.params, interruptionSensitivity: e.target.value } })} className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-[12.5px] focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100">
+              <option value="high">High (interrupt on any word)</option>
+              <option value="medium">Medium (default — needs ~2 words)</option>
+              <option value="low">Low (needs ~3 words)</option>
             </select>
           </div>
           <div>
