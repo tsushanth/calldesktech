@@ -420,7 +420,7 @@ export function OnboardingProvider({ children }: { children: React.ReactNode }) 
           const agentRes = await fetch(`/api/tenants/${tenantResponse.id}/agents`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ name: businessName }),
+            body: JSON.stringify({ name: businessName, mode: 'simple' }),
           });
           const agentBody = await agentRes.json();
           if (!agentRes.ok) throw new Error(agentBody.error);
