@@ -231,7 +231,7 @@ export default function SampleTranscriptPage() {
                 </Link>
                 <Link href="/pricing">
                   <Button size="lg" variant="secondary">
-                    Get Started - $49/mo
+                    Get Started — Pay As You Go
                   </Button>
                 </Link>
               </div>

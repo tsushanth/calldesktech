@@ -228,7 +228,7 @@ export default function OnboardingCompletePage() {
                       {hasPayment ? 'Payment confirmed' : 'Payment required'}
                     </p>
                     {hasPayment ? (
-                      <p className="text-sm text-gray-500">$49/month subscription</p>
+                      <p className="text-sm text-gray-500">Pay-as-you-go — billed only for call minutes and completed actions</p>
                     ) : (
                       <div className="mt-2">
                         <p className="text-sm text-gray-500 mb-2">

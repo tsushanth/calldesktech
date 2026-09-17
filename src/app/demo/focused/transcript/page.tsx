@@ -217,7 +217,7 @@ export default function FocusedTranscriptPage() {
               </p>
               <Link href="/pricing">
                 <Button size="lg" className="w-full sm:w-auto">
-                  Get Started - $49/mo
+                  Get Started — Pay As You Go
                 </Button>
               </Link>
             </div>
