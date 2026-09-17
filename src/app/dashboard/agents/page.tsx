@@ -85,7 +85,7 @@ export default function AgentsPage() {
       });
       const body = await res.json();
       if (!res.ok) throw new Error(body.error);
-      router.push(`/dashboard/agents/${body.agent.id}/versions/new${channel === 'text' ? '?channel=text' : ''}`);
+      router.push(`/dashboard/agents/${body.agent.id}${channel === 'text' ? '?channel=text' : ''}`);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to create agent');
       setIsCreating(false);

@@ -25,6 +25,9 @@ interface FlowVisualEditorProps {
   nodes: DraftNode[];
   startNodeId: string;
   onPositionChange: (nodeKey: string, position: { x: number; y: number }) => void;
+  selectedKey?: string | null;
+  onSelectNode?: (nodeKey: string) => void;
+  height?: number | string;
 }
 
 // Accent + badge color per node type — real signal (what kind of side
@@ -112,12 +115,19 @@ function computeAutoLayout(nodes: DraftNode[], startNodeId: string): Record<stri
 function FlowNodeCard({ data }: NodeProps) {
   const node = data.node as DraftNode;
   const isStart = data.isStart as boolean;
+  const isSelected = data.isSelected as boolean;
   const color = TYPE_COLORS[node.type] || DEFAULT_TYPE_COLOR;
   const paramEntries = node.params ? Object.entries(node.params).filter(([, v]) => v) : [];
   return (
     <div
-      className="w-[340px] rounded-xl border bg-white shadow-md transition-shadow hover:shadow-lg"
-      style={{ borderColor: isStart ? color.accent : '#e5e7eb', borderLeftWidth: 5, borderLeftColor: color.accent, borderWidth: isStart ? 2 : 1 }}
+      className="w-[340px] cursor-pointer rounded-xl border bg-white shadow-md transition-shadow hover:shadow-lg"
+      style={{
+        borderColor: isSelected ? '#2563eb' : isStart ? color.accent : '#e5e7eb',
+        borderLeftWidth: 5,
+        borderLeftColor: color.accent,
+        borderWidth: isSelected ? 2 : isStart ? 2 : 1,
+        boxShadow: isSelected ? '0 0 0 3px rgba(37,99,235,0.15)' : undefined,
+      }}
     >
       <Handle type="target" position={Position.Left} className="!h-3 !w-3 !border-2 !border-white" style={{ background: color.accent }} />
       <div className="px-4 py-3.5">
@@ -158,7 +168,7 @@ function FlowNodeCard({ data }: NodeProps) {
 
 const nodeTypes: NodeTypes = { flowNode: FlowNodeCard };
 
-export default function FlowVisualEditor({ nodes, startNodeId, onPositionChange }: FlowVisualEditorProps) {
+export default function FlowVisualEditor({ nodes, startNodeId, onPositionChange, selectedKey, onSelectNode, height = 720 }: FlowVisualEditorProps) {
   const autoLayout = useMemo(() => computeAutoLayout(nodes, startNodeId), [nodes, startNodeId]);
 
   const [rfNodes, setRfNodes, onNodesChange] = useNodesState<RFNode>([]);
@@ -178,7 +188,7 @@ export default function FlowVisualEditor({ nodes, startNodeId, onPositionChange 
         id: n._key,
         type: 'flowNode',
         position: prevByKey.get(n._key)?.position || n.position || autoLayout[n.id] || { x: 0, y: 0 },
-        data: { node: n, isStart: n.id === startNodeId },
+        data: { node: n, isStart: n.id === startNodeId, isSelected: n._key === selectedKey },
       }));
     });
 
@@ -208,7 +218,7 @@ export default function FlowVisualEditor({ nodes, startNodeId, onPositionChange 
     // avoids re-running this (and clobbering in-progress drags) purely
     // because its object identity changed on every render.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [nodes, startNodeId, setRfNodes, setRfEdges]);
+  }, [nodes, startNodeId, selectedKey, setRfNodes, setRfEdges]);
 
   const handleNodeDragStop = useCallback(
     (_event: unknown, node: RFNode) => {
@@ -217,14 +227,22 @@ export default function FlowVisualEditor({ nodes, startNodeId, onPositionChange 
     [onPositionChange]
   );
 
+  const handleNodeClick = useCallback(
+    (_event: unknown, node: RFNode) => {
+      onSelectNode?.(node.id);
+    },
+    [onSelectNode]
+  );
+
   return (
-    <div className="h-[720px] w-full overflow-hidden rounded-xl border border-gray-200 bg-gray-50">
+    <div className="w-full overflow-hidden rounded-xl border border-gray-200 bg-gray-50" style={{ height }}>
       <ReactFlow
         nodes={rfNodes}
         edges={rfEdges}
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
         onNodeDragStop={handleNodeDragStop}
+        onNodeClick={handleNodeClick}
         nodeTypes={nodeTypes}
         fitView
         minZoom={0.2}
