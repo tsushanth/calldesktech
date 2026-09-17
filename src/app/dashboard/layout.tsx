@@ -55,24 +55,39 @@ export default function DashboardLayout({
   // routed entirely through that page still showed "No number assigned"
   // here. Source of truth is calldesk_phone_numbers; fall back to the
   // cached value only until that fetch resolves.
+  //
+  // Real bug found 2026-09-17: the code never actually implemented that
+  // "only until it resolves" intent — routedNumber only ever got SET when
+  // the fetch returned a real number, so a tenant with genuinely ZERO
+  // numbers left it permanently null, indistinguishable from "still
+  // loading". effectivePhoneNumber then fell back to the stale
+  // localStorage value forever, showing a PREVIOUS workspace's number as
+  // "Live" for a tenant that was never actually routed at all.
+  // numbersFetchDone makes "confirmed empty" and "not loaded yet"
+  // distinguishable: the stale cache is only trusted before the real fetch
+  // resolves, never after.
   const [routedNumber, setRoutedNumber] = useState<string | null>(null);
+  const [numbersFetchDone, setNumbersFetchDone] = useState(false);
   useEffect(() => {
     if (!tenantId) return;
     let cancelled = false;
+    setNumbersFetchDone(false);
     fetch(`/api/tenants/${tenantId}/phone-numbers`)
       .then((res) => res.json())
       .then((body) => {
         if (cancelled) return;
-        const first = body.phoneNumbers?.[0]?.number;
-        if (first) setRoutedNumber(first);
+        setRoutedNumber(body.phoneNumbers?.[0]?.number || null);
       })
-      .catch(() => {});
+      .catch(() => {})
+      .finally(() => {
+        if (!cancelled) setNumbersFetchDone(true);
+      });
     return () => {
       cancelled = true;
     };
   }, [tenantId]);
 
-  const effectivePhoneNumber = routedNumber || assignedPhoneNumber;
+  const effectivePhoneNumber = numbersFetchDone ? routedNumber : (routedNumber || assignedPhoneNumber);
   const displayName = businessName || 'My Business';
   const displayPhone = effectivePhoneNumber ? formatPhoneDisplay(effectivePhoneNumber) : 'No number assigned';
   const isActive = !!effectivePhoneNumber;

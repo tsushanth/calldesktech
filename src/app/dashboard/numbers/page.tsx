@@ -202,20 +202,25 @@ export default function PhoneNumbersPage() {
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-[300px_1fr]">
         {/* Left: number list */}
         <div className="h-fit overflow-hidden rounded-xl border border-gray-200 bg-white">
-          <div className="space-y-2 border-b border-gray-100 p-3">
-            <div className="flex gap-2">
+          <div className="space-y-2.5 border-b border-gray-100 p-3">
+            {/* Was a side-by-side flex-1 input + flex-none button — at this
+                column's fixed 300px width, the two together genuinely don't
+                fit, and overflow-hidden clipped the button's own text
+                instead of wrapping it. Stacked vertically, neither can ever
+                clip regardless of column width. */}
+            <div className="space-y-1.5">
               <input
                 value={buyAreaCode}
                 onChange={(e) => setBuyAreaCode(e.target.value)}
                 placeholder="Area code (optional)"
                 maxLength={3}
-                className="flex-1 rounded-lg border border-gray-200 px-3 py-1.5 font-mono text-[13px] focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100"
+                className="w-full rounded-lg border border-gray-200 px-3 py-1.5 font-mono text-[13px] focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100"
                 onKeyDown={(e) => e.key === 'Enter' && handleBuyNumber()}
               />
               <button
                 onClick={handleBuyNumber}
                 disabled={isBuying}
-                className="flex-none rounded-lg bg-blue-600 px-3 py-1.5 text-[13px] font-medium text-white transition hover:bg-blue-700 disabled:opacity-40"
+                className="w-full rounded-lg bg-blue-600 px-3 py-1.5 text-[13px] font-medium text-white transition hover:bg-blue-700 disabled:opacity-40"
               >
                 {isBuying ? 'Buying…' : 'Buy a number'}
               </button>
@@ -224,14 +229,14 @@ export default function PhoneNumbersPage() {
               <input
                 value={newNumber}
                 onChange={(e) => setNewNumber(e.target.value)}
-                placeholder="Or register one you own: +1..."
-                className="flex-1 rounded-lg border border-gray-200 px-3 py-1.5 font-mono text-[13px] focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100"
+                placeholder="Or register a number you own"
+                className="min-w-0 flex-1 rounded-lg border border-gray-200 px-3 py-1.5 font-mono text-[13px] focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100"
                 onKeyDown={(e) => e.key === 'Enter' && handleAddNumber()}
               />
               <button
                 onClick={handleAddNumber}
                 disabled={isSaving || !newNumber.trim()}
-                className="rounded-lg bg-[#1a1d29] px-3 py-1.5 text-[13px] font-medium text-white transition hover:bg-[#2a2e3d] disabled:opacity-40"
+                className="flex-none rounded-lg bg-[#1a1d29] px-3 py-1.5 text-[13px] font-medium text-white transition hover:bg-[#2a2e3d] disabled:opacity-40"
               >
                 +
               </button>
