@@ -1,6 +1,6 @@
 'use client';
 
-import { BLOCK_PRICES } from '@/lib/constants';
+import { PRICING } from '@/lib/constants';
 import type { WizardBlocks } from '@/lib/flowBuilder';
 
 interface BlockDef {
@@ -8,12 +8,21 @@ interface BlockDef {
   label: string;
   description: string;
   icon: string;
+  // Real per-event price this block actually bills at (PRICING.usage in
+  // constants.ts) — this used to be a flat "+$15/mo"-style BLOCK_PRICES
+  // figure with a disclaimer that it wasn't real billing yet. That was
+  // confusing on its own (a real-looking price tag next to fine print
+  // nobody reads) and outright wrong once per-event usage pricing actually
+  // shipped — a caller who books once costs $0.007, not $15/mo regardless
+  // of volume. Showing the real number removes the need for a disclaimer.
+  perEventPrice: number;
+  unit: string;
 }
 
 const BLOCKS: BlockDef[] = [
-  { key: 'booking', label: 'Appointment booking', description: 'Collects name + preferred time and confirms a booking.', icon: '📅' },
-  { key: 'transfer', label: 'Transfer to a human', description: 'Caller can ask to speak to a real person on your team.', icon: '📞' },
-  { key: 'takeMessage', label: 'Take a message', description: 'Captures name, callback number, and reason when no one\'s available.', icon: '📝' },
+  { key: 'booking', label: 'Appointment booking', description: 'Collects name + preferred time and confirms a booking.', icon: '📅', perEventPrice: PRICING.usage.perBookingEvent, unit: 'booking' },
+  { key: 'transfer', label: 'Transfer to a human', description: 'Caller can ask to speak to a real person on your team.', icon: '📞', perEventPrice: PRICING.usage.perTransferEvent, unit: 'transfer' },
+  { key: 'takeMessage', label: 'Take a message', description: 'Captures name, callback number, and reason when no one\'s available.', icon: '📝', perEventPrice: PRICING.usage.perMessageEvent, unit: 'message' },
 ];
 
 // Shared by real onboarding (produces an agent's first version) and
@@ -77,7 +86,7 @@ export function WizardBlocksPicker({
                 </div>
               </div>
               <div className="flex items-center gap-3">
-                <span className={`text-sm font-medium ${textMuted}`}>+${BLOCK_PRICES[block.key]}/mo</span>
+                <span className={`text-sm font-medium ${textMuted}`}>${block.perEventPrice.toFixed(3)}/{block.unit}</span>
                 <span
                   className={`w-11 h-6 rounded-full relative transition ${isOn ? 'bg-blue-600' : dark ? 'bg-gray-600' : 'bg-gray-300'}`}
                 >
@@ -104,7 +113,7 @@ export function WizardBlocksPicker({
       })}
 
       <p className={`text-xs ${textMuted} pt-1`}>
-        Prices shown are estimates and not yet final billing — you won&apos;t be charged extra for these add-ons yet.
+        Billed per completed action, not per attempt or per month — no charge until a caller actually uses it.
       </p>
     </div>
   );

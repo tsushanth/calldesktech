@@ -4,16 +4,10 @@ import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/Button';
 import { useOnboarding } from '@/context/OnboardingContext';
 import { WizardBlocksPicker } from '@/components/flow-builder/WizardBlocksPicker';
-import { BLOCK_PRICES } from '@/lib/constants';
 
 export default function FocusedDemoBlocksPage() {
   const router = useRouter();
   const { wizardBlocks, setWizardBlocks, transferToNumber, setTransferToNumber } = useOnboarding();
-
-  const monthlyAddOn =
-    (wizardBlocks.booking ? BLOCK_PRICES.booking : 0) +
-    (wizardBlocks.transfer ? BLOCK_PRICES.transfer : 0) +
-    (wizardBlocks.takeMessage ? BLOCK_PRICES.takeMessage : 0);
 
   const canContinue = !wizardBlocks.transfer || transferToNumber.trim().length > 0;
 
@@ -46,8 +40,8 @@ export default function FocusedDemoBlocksPage() {
 
           <div className="mt-6 pt-6 border-t border-gray-100 flex items-center justify-between">
             <div>
-              <p className="text-sm text-gray-500">Estimated add-ons</p>
-              <p className="text-lg font-semibold text-gray-900">+${monthlyAddOn}/mo</p>
+              <p className="text-sm text-gray-500">Pay-as-you-go</p>
+              <p className="text-[13px] text-gray-400">No monthly minimum — billed only when a caller actually uses it</p>
             </div>
             <Button onClick={() => router.push('/demo/focused/phone')} disabled={!canContinue}>
               Continue

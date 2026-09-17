@@ -74,17 +74,6 @@ export const CALL_STATUSES = {
 
 export type CallStatus = keyof typeof CALL_STATUSES;
 
-// Per-block add-on prices for the à la carte building-block picker
-// (onboarding + dashboard settings). PLACEHOLDER VALUES — not wired to
-// Stripe yet, deliberately, per product decision 2026-08-26: build the
-// selection mechanism now, price it for real later. FAQ/KB has no entry
-// because it's the always-on baseline, not a paid add-on.
-export const BLOCK_PRICES = {
-  booking: 15,
-  transfer: 20,
-  takeMessage: 10,
-} as const;
-
 // Pricing info
 // 2026-08-26: replaced the old flat $39/mo plan with real usage-based
 // pricing — $0 base, pay only for what's used, undercutting Retell's
