@@ -1,8 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { Suspense, useState } from 'react';
 import { useSession, signIn } from 'next-auth/react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { useOnboarding } from '@/context/OnboardingContext';
 import { PricingCard } from '@/components/onboarding/PricingCard';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 import { Input } from '@/components/ui/Input';
@@ -10,8 +11,30 @@ import { Button } from '@/components/ui/Button';
 import Link from 'next/link';
 
 export default function PricingPage() {
+  return (
+    <Suspense fallback={<main className="min-h-screen bg-[#f7f8fa] flex items-center justify-center"><LoadingSpinner size="lg" /></main>}>
+      <PricingPageContent />
+    </Suspense>
+  );
+}
+
+function PricingPageContent() {
   const { data: session, status } = useSession();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  // Real bug this fixes: calldesk_business_id is set ONCE during the very
+  // first signup and never updated when a user switches workspaces via
+  // WorkspaceSwitcher — but this page used to read ONLY that stale key, with
+  // no idea which workspace was actually active. A user on their second
+  // "somecompany"-named workspace clicking "Add billing" from the Numbers
+  // page silently activated a Stripe subscription on their FIRST workspace
+  // instead, leaving the one they were actually looking at billing-less
+  // forever (and vice versa for anything gated on billing, like buying a
+  // number). Priority now: an explicit ?tenantId= (how Numbers' "Add
+  // billing" link reaches this page) > the actively-selected workspace from
+  // context > the legacy localStorage key, kept only as a last resort for
+  // the genuine first-time signup path where no tenant exists yet.
+  const { tenantId: activeTenantId } = useOnboarding();
   const [loading, setLoading] = useState(false);
   const [couponCode, setCouponCode] = useState('');
   const [showCoupon, setShowCoupon] = useState(false);
@@ -24,8 +47,7 @@ export default function PricingPage() {
       return;
     }
 
-    // Check if business already exists
-    const businessId = localStorage.getItem('calldesk_business_id');
+    const businessId = searchParams.get('tenantId') || activeTenantId || localStorage.getItem('calldesk_business_id');
 
     if (!businessId) {
       // No business yet - go to business setup first

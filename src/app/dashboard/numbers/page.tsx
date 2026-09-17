@@ -191,7 +191,7 @@ export default function PhoneNumbersPage() {
         <div className="mb-4 flex items-center justify-between gap-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-[13.5px] text-amber-800">
           <span>{billingPrompt.message}</span>
           <a
-            href={billingPrompt.action === 'checkout' ? '/pricing' : '/dashboard/billing'}
+            href={billingPrompt.action === 'checkout' ? `/pricing?tenantId=${tenantId}` : '/dashboard/billing'}
             className="flex-none rounded-lg bg-amber-800 px-3 py-1.5 text-[12.5px] font-medium text-white transition hover:bg-amber-900"
           >
             {billingPrompt.action === 'checkout' ? 'Add billing' : 'Add payment method'}
