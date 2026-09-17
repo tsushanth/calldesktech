@@ -232,15 +232,26 @@ export default function DashboardLayout({
 
           {/* Status + account, pinned to the bottom */}
           <div className="border-t border-gray-100 px-3 py-3">
-            <div className="mb-2 flex items-center gap-2 rounded-lg bg-gray-50 px-3 py-2.5">
-              <span className={`h-1.5 w-1.5 flex-none rounded-full ${isActive ? 'bg-green-500' : 'bg-amber-400'}`} />
-              <div className="min-w-0 flex-1">
-                <p className="text-[11px] font-medium leading-tight text-gray-500">
-                  {isActive ? 'Live' : 'Setup required'}
-                </p>
-                <p className="truncate text-[12px] leading-tight text-gray-400">{displayPhone}</p>
+            {isActive ? (
+              <div className="mb-2 flex items-center gap-2 rounded-lg bg-gray-50 px-3 py-2.5">
+                <span className="h-1.5 w-1.5 flex-none rounded-full bg-green-500" />
+                <div className="min-w-0 flex-1">
+                  <p className="text-[11px] font-medium leading-tight text-gray-500">Live</p>
+                  <p className="truncate text-[12px] leading-tight text-gray-400">{displayPhone}</p>
+                </div>
               </div>
-            </div>
+            ) : (
+              <Link
+                href="/dashboard/numbers"
+                className="mb-2 flex items-center gap-2 rounded-lg bg-amber-50 px-3 py-2.5 transition hover:bg-amber-100"
+              >
+                <span className="h-1.5 w-1.5 flex-none rounded-full bg-amber-400" />
+                <div className="min-w-0 flex-1">
+                  <p className="text-[11px] font-medium leading-tight text-amber-700">Setup required</p>
+                  <p className="truncate text-[12px] leading-tight text-amber-600">{displayPhone} — assign one</p>
+                </div>
+              </Link>
+            )}
 
             {session?.user && (
               <div className="flex items-center gap-2 rounded-lg px-2 py-1.5">
