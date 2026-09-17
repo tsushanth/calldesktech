@@ -100,9 +100,19 @@ export const AGENT_TEMPLATES: AgentTemplate[] = [
       {
         id: 'booking',
         type: 'extraction',
-        prompt: "Ask for the caller's name and their preferred appointment date/time.",
-        extract: { name: 'string', preferred_time: 'string' },
-        edges: [{ id: 'e_booking_done', condition: 'both name and preferred_time have been collected and confirmed', target: 'goodbye' }],
+        // check_availability/book_appointment (real Cal.com booking, see
+        // call-loop-poc's server.js) are automatically offered as tools
+        // here whenever this tenant has a calendar connected — nothing in
+        // this template controls that, it's a server-side gate. When
+        // they're NOT available (no calendar connected), the flow still
+        // works exactly as before, just extracting preferred_time as plain
+        // text with no real availability check.
+        prompt:
+          "Ask for the caller's name, email, and preferred appointment day. If real calendar tools are available " +
+          'to you, use check_availability before proposing any time, and book_appointment only after the caller ' +
+          'confirms a specific slot from that real availability — never invent or guess a time.',
+        extract: { name: 'string', email: 'string', preferred_time: 'string' },
+        edges: [{ id: 'e_booking_done', condition: 'the appointment is booked or confirmed (booking_confirmed is set, or name/time were collected and confirmed the normal way)', target: 'goodbye' }],
       },
       { id: 'goodbye', type: 'goodbye', prompt: 'Confirm the booking details one last time, thank the caller, and say goodbye.', edges: [] },
     ],
