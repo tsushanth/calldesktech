@@ -1096,7 +1096,7 @@ function SimulationTab({ agentId }: { agentId: string }) {
   const [successCriteria, setSuccessCriteria] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [runningId, setRunningId] = useState<string | null>(null);
+  const [runningIds, setRunningIds] = useState<Set<string>>(new Set());
   const [runResults, setRunResults] = useState<Record<string, RunResult>>({});
   const [expandedTranscriptId, setExpandedTranscriptId] = useState<string | null>(null);
 
@@ -1155,19 +1155,35 @@ function SimulationTab({ agentId }: { agentId: string }) {
     }
   };
 
-  const handleRun = async (testCaseId: string) => {
-    setRunningId(testCaseId);
+  const handleRun = async (testCaseId: string, { expandOnFinish = true } = {}) => {
+    setRunningIds((prev) => new Set(prev).add(testCaseId));
     setError(null);
     try {
       const res = await fetch(`/api/agents/${agentId}/test-cases/${testCaseId}/run`, { method: 'POST' });
       const body = await res.json();
       if (!res.ok) throw new Error(body.error);
       setRunResults((prev) => ({ ...prev, [testCaseId]: body.run }));
-      setExpandedTranscriptId(testCaseId);
+      if (expandOnFinish) setExpandedTranscriptId(testCaseId);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Simulation failed');
     } finally {
-      setRunningId(null);
+      setRunningIds((prev) => {
+        const next = new Set(prev);
+        next.delete(testCaseId);
+        return next;
+      });
+    }
+  };
+
+  // Fires every test case's run concurrently rather than one-at-a-time —
+  // each is independent (its own transcript, its own judge call), and
+  // runningIds (a Set, not a single id) already supports several showing
+  // "Running…" at once, which is exactly the bug report that prompted this:
+  // clicking Run on a second row used to silently revert the first row's
+  // button back to "Run" even though that request was still in flight.
+  const handleRunAll = () => {
+    for (const tc of testCases) {
+      if (!runningIds.has(tc.id)) handleRun(tc.id, { expandOnFinish: false });
     }
   };
 
@@ -1185,9 +1201,17 @@ function SimulationTab({ agentId }: { agentId: string }) {
       <div className="mb-4 flex items-center justify-between">
         <div>
           <h2 className="text-[15px] font-semibold text-[#1a1d29]">Simulation Testing</h2>
-          <p className="mt-0.5 text-[12.5px] text-gray-500">Define test cases for this agent. Running them against real calls is coming in a later pass.</p>
+          <p className="mt-0.5 text-[12.5px] text-gray-500">A synthetic caller converses with this agent's published flow over text, then a judge model scores the transcript.</p>
         </div>
         <div className="flex items-center gap-2">
+          <button
+            onClick={handleRunAll}
+            disabled={testCases.length === 0 || runningIds.size > 0}
+            title="Runs every test case below concurrently"
+            className="rounded-lg border border-gray-200 px-4 py-2 text-[13px] font-medium text-gray-700 transition hover:bg-gray-50 disabled:opacity-50"
+          >
+            {runningIds.size > 0 ? `Running ${runningIds.size}…` : '▶ Run all'}
+          </button>
           <button
             onClick={handleGenerate}
             disabled={isGenerating}
@@ -1271,10 +1295,10 @@ function SimulationTab({ agentId }: { agentId: string }) {
                         <div className="flex items-center justify-end gap-3">
                           <button
                             onClick={() => handleRun(tc.id)}
-                            disabled={runningId === tc.id}
+                            disabled={runningIds.has(tc.id)}
                             className="text-[12px] font-medium text-blue-600 hover:text-blue-700 disabled:opacity-50"
                           >
-                            {runningId === tc.id ? 'Running…' : 'Run'}
+                            {runningIds.has(tc.id) ? 'Running…' : 'Run'}
                           </button>
                           <button onClick={() => handleDelete(tc.id)} className="text-[12px] text-gray-300 opacity-0 transition hover:text-red-500 group-hover:opacity-100">Delete</button>
                         </div>
