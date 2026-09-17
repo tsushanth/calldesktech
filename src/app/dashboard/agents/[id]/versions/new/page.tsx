@@ -63,7 +63,7 @@ export default function NewAgentVersionPage() {
   const [retellAgentId, setRetellAgentId] = useState('');
   const [retellLlmId, setRetellLlmId] = useState('');
   const [nodes, setNodes] = useState<DraftNode[]>([emptyNode()]);
-  const [nodeView, setNodeView] = useState<'list' | 'visual'>('list');
+  const [nodeView, setNodeView] = useState<'list' | 'visual'>('visual');
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   // Template picker gate — matches Retell's own Create Agent modal, which

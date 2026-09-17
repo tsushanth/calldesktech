@@ -55,10 +55,18 @@ export default function AgentsPage() {
     setIsCreating(true);
     setError(null);
     try {
+      // Was a flat "New Voice Agent"/"New Text Agent" every time, so a
+      // tenant that created a few agents without renaming them ended up with
+      // several rows literally indistinguishable in the list ("New Voice
+      // Agent" x3, same creation date). A short date+time suffix makes each
+      // one unique and tells you when it was made at a glance; still fully
+      // renamable afterward (see the agent detail page's inline rename).
+      const suffix = new Date().toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+      const defaultName = `${channel === 'text' ? 'Text' : 'Voice'} Agent — ${suffix}`;
       const res = await fetch(`/api/tenants/${tenantId}/agents`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: channel === 'text' ? 'New Text Agent' : 'New Voice Agent' }),
+        body: JSON.stringify({ name: defaultName }),
       });
       const body = await res.json();
       if (!res.ok) throw new Error(body.error);

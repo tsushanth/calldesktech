@@ -15,6 +15,9 @@ export default function AgentDetailPage() {
   const [error, setError] = useState<string | null>(null);
   const [showGraduateConfirm, setShowGraduateConfirm] = useState(false);
   const [isGraduating, setIsGraduating] = useState(false);
+  const [isEditingName, setIsEditingName] = useState(false);
+  const [nameDraft, setNameDraft] = useState('');
+  const [isSavingName, setIsSavingName] = useState(false);
 
   const load = useCallback(async () => {
     setIsLoading(true);
@@ -55,6 +58,29 @@ export default function AgentDetailPage() {
     }
   };
 
+  const handleSaveName = async () => {
+    if (!agent || !nameDraft.trim() || nameDraft.trim() === agent.name) {
+      setIsEditingName(false);
+      return;
+    }
+    setIsSavingName(true);
+    try {
+      const res = await fetch(`/api/agents/${agentId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: nameDraft.trim() }),
+      });
+      const body = await res.json();
+      if (!res.ok) throw new Error(body.error);
+      setAgent(body.agent);
+      setIsEditingName(false);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to rename agent');
+    } finally {
+      setIsSavingName(false);
+    }
+  };
+
   if (isLoading) {
     return <div className="p-10 text-center text-[13.5px] text-gray-400">Loading agent…</div>;
   }
@@ -68,7 +94,41 @@ export default function AgentDetailPage() {
           <Link href="/dashboard/agents" className="text-[12.5px] text-gray-400 hover:text-[#1a1d29]">
             ← All agents
           </Link>
-          <h1 className="mt-1.5 text-[22px] font-semibold text-[#1a1d29]">{agent?.name || 'Agent'}</h1>
+          {isEditingName ? (
+            <div className="mt-1.5 flex items-center gap-2">
+              <input
+                autoFocus
+                value={nameDraft}
+                onChange={(e) => setNameDraft(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') handleSaveName();
+                  if (e.key === 'Escape') setIsEditingName(false);
+                }}
+                disabled={isSavingName}
+                className="rounded-lg border border-gray-200 px-2.5 py-1 text-[22px] font-semibold text-[#1a1d29] focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100"
+              />
+              <button onClick={handleSaveName} disabled={isSavingName} className="text-[13px] font-medium text-blue-600 hover:text-blue-700">
+                Save
+              </button>
+              <button onClick={() => setIsEditingName(false)} className="text-[13px] text-gray-400 hover:text-gray-600">
+                Cancel
+              </button>
+            </div>
+          ) : (
+            <h1
+              className="group mt-1.5 flex cursor-pointer items-center gap-2 text-[22px] font-semibold text-[#1a1d29]"
+              onClick={() => {
+                setNameDraft(agent?.name || '');
+                setIsEditingName(true);
+              }}
+              title="Click to rename"
+            >
+              {agent?.name || 'Agent'}
+              <svg className="h-4 w-4 text-gray-300 opacity-0 transition group-hover:opacity-100" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+              </svg>
+            </h1>
+          )}
         </div>
         <div className="flex items-center gap-2.5">
           {!isAdvanced && (
