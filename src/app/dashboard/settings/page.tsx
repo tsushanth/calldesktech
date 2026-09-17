@@ -334,7 +334,7 @@ export default function SettingsPage() {
               </div>
               {(ttsBackend === 'cartesia' || ttsBackend === 'minimax') && (
                 <p className="mt-2 text-[12px] text-amber-600">
-                  New backend — needs its own API key set on the call-loop-poc Fly app before calls actually use it (falls back to Kokoro until then).
+                  This voice isn&apos;t fully set up on our end yet — calls will use Kokoro instead until it is. Contact us if you need this enabled sooner.
                 </p>
               )}
             </div>

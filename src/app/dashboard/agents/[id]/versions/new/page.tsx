@@ -575,8 +575,8 @@ export default function NewAgentVersionPage() {
                 <option value="">Default (kokoro)</option>
                 <option value="kokoro">Kokoro</option>
                 <option value="elevenlabs">ElevenLabs</option>
-                <option value="cartesia">Cartesia (beta — needs its own key on call-loop-poc)</option>
-                <option value="minimax">MiniMax (beta — needs its own key on call-loop-poc)</option>
+                <option value="cartesia">Cartesia (not yet enabled — falls back to Kokoro)</option>
+                <option value="minimax">MiniMax (not yet enabled — falls back to Kokoro)</option>
               </select>
             </div>
           ) : (
