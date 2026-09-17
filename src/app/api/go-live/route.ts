@@ -54,12 +54,8 @@ export async function POST(request: NextRequest) {
 
     // Check if already activated (subscription_status stored in settings)
     const settings = tenant.settings || {};
-    if (settings.subscription_status === 'active' && tenant.phone_number) {
-      return NextResponse.json({
-        success: true,
-        phone_number: tenant.phone_number,
-        message: 'Already activated',
-      });
+    if (settings.subscription_status === 'active') {
+      return NextResponse.json({ success: true, message: 'Already activated' });
     }
 
     // Validate payment - either Stripe session or coupon
@@ -84,42 +80,14 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Provision phone number via Retell
-    let phoneNumber: string | null = null;
-
-    try {
-      const retellApiKey = process.env.RETELL_API_KEY;
-      if (!retellApiKey) {
-        throw new Error('Retell API key not configured');
-      }
-
-      // Purchase a phone number from Retell
-      const retellResponse = await fetch('https://api.retellai.com/v2/create-phone-number', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${retellApiKey}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          // You can specify area_code here if desired
-        }),
-      });
-
-      if (retellResponse.ok) {
-        const retellData = await retellResponse.json();
-        phoneNumber = retellData.phone_number;
-      } else {
-        console.error('Failed to provision phone number from Retell');
-        // For now, use the shared demo number as fallback
-        phoneNumber = process.env.RETELL_DEMO_PHONE_NUMBER || null;
-      }
-    } catch (err) {
-      console.error('Retell phone provisioning error:', err);
-      // Fallback to shared demo number
-      phoneNumber = process.env.RETELL_DEMO_PHONE_NUMBER || null;
-    }
-
-    // Update tenant with active subscription and phone number
+    // Real bug fixed 2026-09-17: this used to unconditionally purchase a
+    // real phone number from Retell on every activation, silently falling
+    // back to a SHARED demo number (RETELL_DEMO_PHONE_NUMBER) whenever the
+    // purchase failed — which is why the same number kept showing up
+    // "assigned" repeatedly. Getting a number is a deliberate action on the
+    // Phone Numbers page now (buy one or register one you own), not a side
+    // effect of checkout/coupon activation — this endpoint only marks
+    // billing active.
     const updatedSettings = {
       ...settings,
       subscription_status: 'active',
@@ -129,7 +97,6 @@ export async function POST(request: NextRequest) {
     const { error: updateError } = await supabase
       .from('calldesk_tenants')
       .update({
-        phone_number: phoneNumber,
         settings: updatedSettings,
         updated_at: new Date().toISOString(),
       })
@@ -145,7 +112,6 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      phone_number: phoneNumber,
       message: 'Service activated successfully',
     });
   } catch (error) {

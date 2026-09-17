@@ -12,13 +12,7 @@ import { useOnboarding } from '@/context/OnboardingContext';
 export default function OnboardingCompletePage() {
   const { status: authStatus } = useSession();
   const router = useRouter();
-  const {
-    businessName,
-    tenantId,
-    assignedPhoneNumber,
-    setAssignedPhoneNumber,
-    setIsSubscribed,
-  } = useOnboarding();
+  const { businessName, tenantId, setIsSubscribed } = useOnboarding();
 
   const [activating, setActivating] = useState(false);
   const [activated, setActivated] = useState(false);
@@ -88,9 +82,6 @@ export default function OnboardingCompletePage() {
       if (data.success) {
         setActivated(true);
         setIsSubscribed(true);
-        if (data.phone_number) {
-          setAssignedPhoneNumber(data.phone_number);
-        }
 
         // Clear session storage
         localStorage.removeItem('calldesk_stripe_session_id');
@@ -171,15 +162,8 @@ export default function OnboardingCompletePage() {
                 {businessName || 'Your Business'} is Live!
               </h2>
 
-              {assignedPhoneNumber && (
-                <div className="bg-primary-50 border border-primary-200 rounded-lg p-4 mb-6">
-                  <p className="text-sm text-primary-700 mb-1">Your dedicated phone number</p>
-                  <p className="text-2xl font-bold text-primary-900">{assignedPhoneNumber}</p>
-                </div>
-              )}
-
               <p className="text-gray-600 mb-6">
-                Forward your business calls to this number or share it directly with customers.
+                Head to Phone Numbers to buy a dedicated number or connect one you already own.
               </p>
 
               <Button
@@ -264,8 +248,8 @@ export default function OnboardingCompletePage() {
                     <span className="text-xs font-medium text-primary-600">3</span>
                   </div>
                   <div>
-                    <p className="font-medium text-gray-900">Provision dedicated phone number</p>
-                    <p className="text-sm text-gray-500">Click below to activate your AI receptionist</p>
+                    <p className="font-medium text-gray-900">Activate your account</p>
+                    <p className="text-sm text-gray-500">Click below — you can connect a phone number afterward from the dashboard</p>
                   </div>
                 </div>
               </div>
