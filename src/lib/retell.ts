@@ -2,6 +2,17 @@ import type { RetellAgent, ConversationFlow, FlowNode } from '@/types';
 
 const RETELL_API_URL = 'https://api.retellai.com';
 
+// Carries the HTTP status so callers can distinguish "no numbers in this
+// area code, try another" (404) from a real failure (400/401/500) —
+// purchasePhoneNumber's plain-string throw used to lose this, which is
+// exactly the info the buy-number retry flow needs.
+export class RetellApiError extends Error {
+  constructor(public status: number, public body: string) {
+    super(`Retell API Error: ${status} - ${body}`);
+    this.name = 'RetellApiError';
+  }
+}
+
 class RetellClient {
   private apiKey: string;
 
@@ -24,7 +35,7 @@ class RetellClient {
 
     if (!response.ok) {
       const error = await response.text();
-      throw new Error(`Retell API Error: ${response.status} - ${error}`);
+      throw new RetellApiError(response.status, error);
     }
 
     return response.json();

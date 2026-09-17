@@ -21,6 +21,14 @@ export default function PhoneNumbersPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isBuying, setIsBuying] = useState(false);
+  const [buyAreaCode, setBuyAreaCode] = useState('');
+  const [billingPrompt, setBillingPrompt] = useState<{ message: string; action: 'checkout' | 'billing_portal' } | null>(null);
+  const [showCallModal, setShowCallModal] = useState(false);
+  const [callToNumber, setCallToNumber] = useState('');
+  const [isCalling, setIsCalling] = useState(false);
+  const [callResult, setCallResult] = useState<{ sid: string; to: string } | null>(null);
+  const [callError, setCallError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     if (!tenantId) return;
@@ -85,6 +93,33 @@ export default function PhoneNumbersPage() {
     }
   };
 
+  const handleBuyNumber = async () => {
+    if (!tenantId) return;
+    setIsBuying(true);
+    setError(null);
+    setBillingPrompt(null);
+    try {
+      const res = await fetch(`/api/tenants/${tenantId}/phone-numbers/purchase`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ areaCode: buyAreaCode.trim() || undefined }),
+      });
+      const body = await res.json();
+      if (res.status === 402) {
+        setBillingPrompt({ message: body.error, action: body.action });
+        return;
+      }
+      if (!res.ok) throw new Error(body.error);
+      setNumbers((prev) => [body.phoneNumber, ...prev]);
+      setSelectedId(body.phoneNumber.id);
+      setBuyAreaCode('');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to buy a number');
+    } finally {
+      setIsBuying(false);
+    }
+  };
+
   const handleRoute = async (direction: 'inbound' | 'outbound', agentVersionId: string) => {
     if (!selectedId) return;
     setIsSaving(true);
@@ -102,6 +137,27 @@ export default function PhoneNumbersPage() {
       setError(err instanceof Error ? err.message : 'Failed to route number');
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const handleMakeCall = async () => {
+    if (!selectedId || !callToNumber.trim()) return;
+    setIsCalling(true);
+    setCallError(null);
+    setCallResult(null);
+    try {
+      const res = await fetch(`/api/phone-numbers/${selectedId}/call`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ toNumber: callToNumber.trim() }),
+      });
+      const body = await res.json();
+      if (!res.ok) throw new Error(body.error || 'Failed to place call');
+      setCallResult({ sid: body.call.sid, to: body.call.to });
+    } catch (err) {
+      setCallError(err instanceof Error ? err.message : 'Failed to place call');
+    } finally {
+      setIsCalling(false);
     }
   };
 
@@ -131,15 +187,44 @@ export default function PhoneNumbersPage() {
 
       {error && <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-[13.5px] text-red-700">{error}</div>}
 
+      {billingPrompt && (
+        <div className="mb-4 flex items-center justify-between gap-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-[13.5px] text-amber-800">
+          <span>{billingPrompt.message}</span>
+          <a
+            href={billingPrompt.action === 'checkout' ? '/pricing' : '/dashboard/billing'}
+            className="flex-none rounded-lg bg-amber-800 px-3 py-1.5 text-[12.5px] font-medium text-white transition hover:bg-amber-900"
+          >
+            {billingPrompt.action === 'checkout' ? 'Add billing' : 'Add payment method'}
+          </a>
+        </div>
+      )}
+
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-[300px_1fr]">
         {/* Left: number list */}
         <div className="h-fit overflow-hidden rounded-xl border border-gray-200 bg-white">
           <div className="space-y-2 border-b border-gray-100 p-3">
             <div className="flex gap-2">
               <input
+                value={buyAreaCode}
+                onChange={(e) => setBuyAreaCode(e.target.value)}
+                placeholder="Area code (optional)"
+                maxLength={3}
+                className="flex-1 rounded-lg border border-gray-200 px-3 py-1.5 font-mono text-[13px] focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100"
+                onKeyDown={(e) => e.key === 'Enter' && handleBuyNumber()}
+              />
+              <button
+                onClick={handleBuyNumber}
+                disabled={isBuying}
+                className="flex-none rounded-lg bg-blue-600 px-3 py-1.5 text-[13px] font-medium text-white transition hover:bg-blue-700 disabled:opacity-40"
+              >
+                {isBuying ? 'Buying…' : 'Buy a number'}
+              </button>
+            </div>
+            <div className="flex gap-2">
+              <input
                 value={newNumber}
                 onChange={(e) => setNewNumber(e.target.value)}
-                placeholder="+1..."
+                placeholder="Or register one you own: +1..."
                 className="flex-1 rounded-lg border border-gray-200 px-3 py-1.5 font-mono text-[13px] focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100"
                 onKeyDown={(e) => e.key === 'Enter' && handleAddNumber()}
               />
@@ -194,8 +279,25 @@ export default function PhoneNumbersPage() {
         ) : (
           <div className="space-y-5">
             <div className="rounded-xl border border-gray-200 bg-white p-5">
-              <p className="mb-1 text-[11px] font-medium uppercase tracking-wider text-gray-400">Number</p>
-              <p className="font-mono text-[17px] text-[#1a1d29]">{selected.number}</p>
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="mb-1 text-[11px] font-medium uppercase tracking-wider text-gray-400">Number</p>
+                  <p className="font-mono text-[17px] text-[#1a1d29]">{selected.number}</p>
+                </div>
+                <button
+                  onClick={() => {
+                    setShowCallModal(true);
+                    setCallResult(null);
+                    setCallError(null);
+                  }}
+                  disabled={!selected.outbound_agent_version_id}
+                  title={!selected.outbound_agent_version_id ? 'Set an Outbound Call Agent first' : undefined}
+                  className="flex items-center gap-1.5 rounded-lg bg-[#1a1d29] px-3.5 py-2 text-[13px] font-medium text-white transition hover:bg-[#2a2e3d] disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  <PhoneIcon />
+                  Make an outbound call
+                </button>
+              </div>
             </div>
 
             <RoutingSection
@@ -221,6 +323,55 @@ export default function PhoneNumbersPage() {
           </div>
         )}
       </div>
+
+      {showCallModal && selected && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/30 p-4" onClick={() => setShowCallModal(false)}>
+          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            <div className="mb-4 flex items-center justify-between">
+              <h2 className="text-[17px] font-semibold text-[#1a1d29]">Make an outbound call</h2>
+              <button type="button" onClick={() => setShowCallModal(false)} className="text-gray-400 hover:text-gray-600" aria-label="Close">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                  <path d="M18 6 6 18" /><path d="m6 6 12 12" />
+                </svg>
+              </button>
+            </div>
+            <p className="mb-4 text-[13px] text-gray-500">
+              Places a real call from <span className="font-mono text-[#1a1d29]">{selected.number}</span> using its Outbound Call Agent — the exact flow a real outbound call from this number would run.
+            </p>
+            <label className="mb-1.5 block text-[12.5px] font-medium text-[#1a1d29]">Destination number</label>
+            <input
+              value={callToNumber}
+              onChange={(e) => setCallToNumber(e.target.value)}
+              placeholder="+1..."
+              className="mb-4 w-full rounded-lg border border-gray-200 px-3.5 py-2.5 font-mono text-[13.5px] focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100"
+              onKeyDown={(e) => e.key === 'Enter' && handleMakeCall()}
+            />
+            {callError && (
+              <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-3.5 py-2.5 text-[13px] text-red-700">{callError}</div>
+            )}
+            {callResult && (
+              <div className="mb-4 rounded-lg border border-green-200 bg-green-50 px-3.5 py-2.5 text-[13px] text-green-700">
+                Call placed to {callResult.to}. It should be ringing now.
+              </div>
+            )}
+            <div className="flex justify-end gap-2">
+              <button
+                onClick={() => setShowCallModal(false)}
+                className="rounded-lg px-4 py-2 text-[13.5px] font-medium text-gray-600 hover:bg-gray-50"
+              >
+                Close
+              </button>
+              <button
+                onClick={handleMakeCall}
+                disabled={isCalling || !callToNumber.trim()}
+                className="rounded-lg bg-[#1a1d29] px-4 py-2 text-[13.5px] font-medium text-white transition hover:bg-[#2a2e3d] disabled:opacity-40"
+              >
+                {isCalling ? 'Calling…' : 'Call'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }

@@ -253,4 +253,80 @@ export const AGENT_TEMPLATES: AgentTemplate[] = [
       { id: 'failed', type: 'goodbye', prompt: "Let the caller know the payment didn't go through and they may want to try again or call back, then say goodbye.", edges: [] },
     ],
   },
+  {
+    id: 'insurance-verification-caller',
+    label: 'Insurance Verification Caller',
+    description: 'Collect insurance details and verify coverage against a real lookup before confirming.',
+    category: 'Insurance Verification',
+    startNodeId: 'greeting',
+    nodes: [
+      {
+        id: 'greeting',
+        type: 'greeting',
+        prompt: "Greet the caller and let them know you'll need their insurance details to verify coverage.",
+        edges: [{ id: 'e_to_collect', condition: 'always', target: 'collect' }],
+      },
+      {
+        id: 'collect',
+        type: 'extraction',
+        prompt: "Ask for the member's full name, date of birth, insurance provider, and member ID.",
+        extract: { name: 'string', date_of_birth: 'string', provider: 'string', member_id: 'string' },
+        edges: [{ id: 'e_collect_done', condition: 'name, date_of_birth, provider, and member_id have all been collected', target: 'verify' }],
+      },
+      {
+        id: 'verify',
+        // A real function-node webhook, not a fake/hardcoded "verified!" —
+        // params.webhookUrl points at whatever real eligibility-check
+        // system a tenant actually has; this template ships pointed at
+        // nothing (blank), same as every other function-node template
+        // node, since there's no real insurance API this product owns.
+        type: 'function',
+        prompt: "Let the caller know you're checking their coverage now.",
+        function: 'verify_insurance',
+        params: { webhookUrl: '' },
+        edges: [{ id: 'e_verify_done', condition: 'the coverage check has come back, whether verified or not', target: 'report' }],
+      },
+      {
+        id: 'report',
+        type: 'extraction',
+        prompt: "Tell the caller what the coverage check found (see the system note from the previous step) — confirmed active coverage, or a problem verifying it. If it couldn't be verified, ask if they'd like a callback instead.",
+        extract: { coverage_confirmed: 'string' },
+        edges: [{ id: 'e_report_done', condition: 'the caller has been told the result and the call is wrapping up', target: 'goodbye' }],
+      },
+      { id: 'goodbye', type: 'goodbye', prompt: 'Thank the caller and say goodbye.', edges: [] },
+    ],
+  },
+  {
+    id: 'document-request-caller',
+    label: 'Document Request Caller',
+    description: 'Call to request a required document and text over an upload link, following up if needed.',
+    category: 'Document Request',
+    startNodeId: 'greeting',
+    nodes: [
+      {
+        id: 'greeting',
+        type: 'greeting',
+        prompt: "Greet the caller and explain you're following up because a document is still needed to complete their file.",
+        edges: [{ id: 'e_to_confirm', condition: 'always', target: 'confirm' }],
+      },
+      {
+        id: 'confirm',
+        type: 'extraction',
+        prompt: 'Confirm which document is needed and that this is still the best number/caller to send the upload link to.',
+        extract: { document_name: 'string' },
+        edges: [{ id: 'e_confirm_done', condition: 'the document name has been confirmed', target: 'send_link' }],
+      },
+      {
+        id: 'send_link',
+        // Real SMS via call-loop-poc's own Twilio Messages API — not a
+        // "pretend I texted you" line. {{document_name}} pulls in what was
+        // just confirmed above.
+        type: 'sms',
+        prompt: "Let the caller know you're texting them the upload link now.",
+        params: { body: 'Please upload your {{document_name}} using this link: [upload link goes here]' },
+        edges: [{ id: 'e_link_sent', condition: 'always', target: 'goodbye' }],
+      },
+      { id: 'goodbye', type: 'goodbye', prompt: 'Confirm they received the text, thank them, and say goodbye.', edges: [] },
+    ],
+  },
 ];

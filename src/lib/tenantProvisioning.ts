@@ -1,0 +1,203 @@
+import { getSupabaseAdmin } from '@/lib/supabase';
+import { getRetellClient } from '@/lib/retell';
+
+// Shared by /api/business (real account onboarding) and /api/tenants' non-poc
+// branch (currently only reachable from the demo flow) — both used to
+// duplicate this same KB/LLM/Agent/tenant-row sequence and had drifted
+// (only one of them created a default conversation flow, only one collected
+// full business metadata). One implementation now; callers pass what they
+// have and get back whichever tenant fields their own drifted version used
+// to set, kept as optional inputs rather than removed.
+export interface CreateBusinessTenantParams {
+  userId: string;
+  name: string;
+  email?: string;
+  businessType?: string;
+  description?: string;
+  website?: string;
+  address?: string;
+  phone?: string;
+  hours?: string;
+}
+
+export interface CreateBusinessTenantResult {
+  tenant: { id: string; name: string };
+  agentId: string;
+  llmId: string;
+  knowledgeBaseId: string | null;
+}
+
+export async function createBusinessTenant(
+  params: CreateBusinessTenantParams
+): Promise<CreateBusinessTenantResult> {
+  const { userId, name, email, businessType, description, website, address, phone, hours } = params;
+  const supabase = getSupabaseAdmin();
+  const retell = getRetellClient();
+
+  let knowledgeBaseId: string | null = null;
+  if (website) {
+    try {
+      const kb = await retell.createKnowledgeBase({ name: `${name} Website`, urls: [website] });
+      knowledgeBaseId = kb.knowledge_base_id;
+    } catch (kbError) {
+      console.error('Failed to create knowledge base:', kbError);
+    }
+  }
+
+  const llm = await retell.createLLM({
+    generalPrompt: getDefaultBusinessPrompt(name, description, businessType),
+    beginMessage: `Hello! Thank you for calling ${name}. How can I help you today?`,
+    knowledgeBaseIds: knowledgeBaseId ? [knowledgeBaseId] : undefined,
+  });
+
+  const agent = await retell.createAgent({
+    agentName: `${name} Receptionist`,
+    voiceId: '11labs-Adrian',
+    llmId: llm.llm_id,
+  });
+
+  const { data: tenant, error: createError } = await supabase
+    .from('calldesk_tenants')
+    .insert({
+      user_id: userId,
+      name,
+      retell_agent_id: agent.agent_id,
+      retell_llm_id: llm.llm_id,
+      knowledge_base_id: knowledgeBaseId,
+      settings: {
+        voiceId: '11labs-Adrian',
+        language: 'en-US',
+        voice_engine: 'retell',
+        business_type: businessType,
+        description,
+        website,
+        address,
+        phone,
+        hours,
+        email,
+      },
+    })
+    .select()
+    .single();
+
+  if (createError) {
+    throw new Error(`Failed to create business: ${createError.message}`);
+  }
+
+  try {
+    await supabase.from('calldesk_conversation_flows').insert({
+      tenant_id: tenant.id,
+      name: 'Default Flow',
+      nodes: getDefaultFlowNodes(),
+      global_settings: { allowInterruptions: true, returnToFlow: true },
+      is_active: true,
+    });
+  } catch (flowError) {
+    console.error('Error creating default flow (non-fatal):', flowError);
+  }
+
+  return {
+    tenant: { id: tenant.id, name: tenant.name },
+    agentId: agent.agent_id,
+    llmId: llm.llm_id,
+    knowledgeBaseId,
+  };
+}
+
+function getDefaultBusinessPrompt(name: string, description?: string, businessType?: string): string {
+  let prompt = `
+You are a friendly and professional AI receptionist for ${name}.
+
+Your primary goals are:
+1. Answer questions about the business
+2. Help callers book appointments
+3. Take messages for the team
+
+Guidelines:
+- Be warm, helpful, and concise
+- If you don't know something, offer to have someone call them back
+- Always confirm important details (name, phone number, appointment time)
+- Handle interruptions naturally
+`;
+
+  if (businessType) prompt += `\nBusiness type: ${businessType}\n`;
+  if (description) prompt += `\nServices offered: ${description}\n`;
+
+  prompt += `
+When booking appointments:
+- Ask for the caller's name and preferred time
+- Confirm the appointment details before ending the call
+- If the requested time is unavailable, offer alternatives
+`;
+
+  return prompt;
+}
+
+function getDefaultFlowNodes() {
+  return [
+    {
+      id: 'greeting',
+      type: 'greeting',
+      prompt: 'Greet the caller warmly and ask how you can help them today.',
+      edges: [
+        { id: 'e1', condition: 'intent == "book_appointment"', target: 'collect_info' },
+        { id: 'e2', condition: 'intent == "question"', target: 'answer_question' },
+        { id: 'e3', condition: 'intent == "speak_to_human"', target: 'transfer' },
+      ],
+    },
+    {
+      id: 'collect_info',
+      type: 'extraction',
+      prompt: "Ask for the caller's name and their preferred appointment time.",
+      extract: { name: 'string', preferred_time: 'string' },
+      edges: [{ id: 'e4', condition: 'info_collected', target: 'confirm_booking' }],
+    },
+    {
+      id: 'answer_question',
+      type: 'knowledge_base',
+      prompt: "Answer the caller's question using the knowledge base.",
+      edges: [
+        { id: 'e5', condition: 'answered', target: 'anything_else' },
+        { id: 'e6', condition: 'unknown', target: 'take_message' },
+      ],
+    },
+    {
+      id: 'confirm_booking',
+      type: 'function',
+      prompt: 'Confirm the appointment details with the caller.',
+      function: 'confirm_booking',
+      edges: [
+        { id: 'e7', condition: 'confirmed', target: 'goodbye' },
+        { id: 'e8', condition: 'needs_change', target: 'collect_info' },
+      ],
+    },
+    {
+      id: 'anything_else',
+      type: 'greeting',
+      prompt: "Ask if there's anything else you can help with.",
+      edges: [
+        { id: 'e9', condition: 'yes', target: 'greeting' },
+        { id: 'e10', condition: 'no', target: 'goodbye' },
+      ],
+    },
+    {
+      id: 'take_message',
+      type: 'extraction',
+      prompt: 'Offer to take a message. Ask for their name and callback number.',
+      extract: { name: 'string', phone: 'string', message: 'string' },
+      edges: [{ id: 'e11', condition: 'message_taken', target: 'goodbye' }],
+    },
+    {
+      id: 'transfer',
+      type: 'transfer',
+      prompt: "Let them know you're transferring them to a team member.",
+      edges: [],
+    },
+    {
+      id: 'goodbye',
+      type: 'goodbye',
+      prompt: 'Thank them for calling and wish them a great day.',
+      edges: [],
+    },
+  ];
+}

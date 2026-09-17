@@ -14,8 +14,12 @@ export interface Tenant {
 // Conversation Flow Types
 export interface FlowNode {
   id: string;
-  type: 'greeting' | 'extraction' | 'function' | 'knowledge_base' | 'transfer' | 'goodbye' | 'payment';
-  prompt: string;
+  type: 'greeting' | 'extraction' | 'function' | 'knowledge_base' | 'transfer' | 'goodbye' | 'payment' | 'logic_split' | 'press_digit' | 'sms' | 'code' | 'mcp' | 'subagent';
+  // Optional only for 'logic_split' and 'press_digit' — neither speaks or
+  // calls the LLM (call-loop-poc's server.js routes them in code: logic_split
+  // from collectedData, press_digit via a real DTMF-tone detour), so
+  // neither has a prompt to hold.
+  prompt?: string;
   extract?: Record<string, string>;
   function?: string;
   params?: Record<string, string>;
@@ -23,9 +27,23 @@ export interface FlowNode {
   position?: { x: number; y: number };
 }
 
+// A 'logic_split' node's edges use StructuredCondition instead of free text
+// — real deterministic evaluation against collectedData (see server.js's
+// _evaluateStructuredCondition), the only condition shape in this codebase
+// that isn't just handed to the LLM to judge. Every other node type keeps
+// the free-text string, which stays LLM-judged as before.
+export interface StructuredCondition {
+  field: string;
+  operator: '==' | '!=' | '>' | '<' | '>=' | '<=';
+  value: string;
+}
+
 export interface FlowEdge {
   id: string;
-  condition: string;
+  // A conditionless edge (condition omitted) on a logic_split node is an
+  // explicit default/fallback — matches unconditionally if reached. Other
+  // node types are expected to always set condition.
+  condition?: string | StructuredCondition;
   target: string;
 }
 

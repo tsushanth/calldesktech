@@ -2,16 +2,26 @@
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useOnboarding } from '@/context/OnboardingContext';
 import type { Agent } from '@/types';
 
 export default function AgentsPage() {
+  const router = useRouter();
   const { tenantId, isHydrated } = useOnboarding();
   const [agents, setAgents] = useState<Agent[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [newName, setNewName] = useState('');
   const [isCreating, setIsCreating] = useState(false);
-  const [showCreate, setShowCreate] = useState(false);
+  // Two real, distinct paths — not just a cosmetic menu. Voice and Text both
+  // land in the SAME versions/new wizard (templates, Generate from prompt,
+  // node editor) that used to be reachable only by hand-navigating there
+  // after creating a bare agent from a plain name field; this dropdown IS
+  // the fix for that gap, not a new feature bolted alongside it. Text skips
+  // straight past voice-only config in that wizard (see its own ?channel=text
+  // handling) since a chat session never touches TTS/STT/Retell voice config
+  // at all (chatFlowResolver.ts pins to the newest version's flow regardless
+  // of voice_engine).
+  const [showCreateMenu, setShowCreateMenu] = useState(false);
   const [search, setSearch] = useState('');
   const [error, setError] = useState<string | null>(null);
 
@@ -34,24 +44,27 @@ export default function AgentsPage() {
     if (isHydrated) loadAgents();
   }, [isHydrated, loadAgents]);
 
-  const handleCreate = async () => {
-    if (!tenantId || !newName.trim()) return;
+  // Retell's own Create Agent modal never asks for a name upfront either —
+  // it goes straight to Type + Templates, with a default name editable
+  // afterward. Auto-naming here (instead of a blocking name prompt) is what
+  // actually lets "click Voice/Text Agent -> land in the wizard" happen in
+  // one step, matching that.
+  const handleCreate = async (channel: 'voice' | 'text') => {
+    if (!tenantId) return;
+    setShowCreateMenu(false);
     setIsCreating(true);
     setError(null);
     try {
       const res = await fetch(`/api/tenants/${tenantId}/agents`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: newName.trim() }),
+        body: JSON.stringify({ name: channel === 'text' ? 'New Text Agent' : 'New Voice Agent' }),
       });
       const body = await res.json();
       if (!res.ok) throw new Error(body.error);
-      setNewName('');
-      setShowCreate(false);
-      setAgents((prev) => [body.agent, ...prev]);
+      router.push(`/dashboard/agents/${body.agent.id}/versions/new${channel === 'text' ? '?channel=text' : ''}`);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to create agent');
-    } finally {
       setIsCreating(false);
     }
   };
@@ -84,38 +97,47 @@ export default function AgentsPage() {
               className="w-56 rounded-lg border border-gray-200 bg-white py-2 pl-9 pr-3 text-[13.5px] text-[#1a1d29] placeholder:text-gray-400 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100"
             />
           </div>
-          <button
-            onClick={() => setShowCreate((v) => !v)}
-            className="whitespace-nowrap rounded-lg bg-[#1a1d29] px-4 py-2 text-[13.5px] font-medium text-white transition hover:bg-[#2a2e3d]"
-          >
-            + Create an Agent
-          </button>
+          <div className="relative">
+            <button
+              onClick={() => setShowCreateMenu((v) => !v)}
+              disabled={isCreating}
+              className="whitespace-nowrap rounded-lg bg-[#1a1d29] px-4 py-2 text-[13.5px] font-medium text-white transition hover:bg-[#2a2e3d] disabled:opacity-60"
+            >
+              {isCreating ? 'Creating…' : '+ Create an Agent'}
+            </button>
+            {showCreateMenu && (
+              <>
+                <div className="fixed inset-0 z-40" onClick={() => setShowCreateMenu(false)} />
+                <div className="absolute right-0 top-full z-50 mt-1.5 w-56 overflow-hidden rounded-xl border border-gray-200 bg-white py-1.5 shadow-lg">
+                  <button
+                    onClick={() => handleCreate('voice')}
+                    className="flex w-full items-center gap-2.5 px-4 py-2.5 text-left text-[13.5px] text-[#1a1d29] hover:bg-gray-50"
+                  >
+                    <PhoneIcon />
+                    <div>
+                      <p className="font-medium">Voice Agent</p>
+                      <p className="text-[11.5px] text-gray-400">Answers real phone calls</p>
+                    </div>
+                  </button>
+                  <button
+                    onClick={() => handleCreate('text')}
+                    className="flex w-full items-center gap-2.5 px-4 py-2.5 text-left text-[13.5px] text-[#1a1d29] hover:bg-gray-50"
+                  >
+                    <ChatIcon />
+                    <div>
+                      <p className="font-medium">Text Agent</p>
+                      <p className="text-[11.5px] text-gray-400">Answers your chat widget</p>
+                    </div>
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
         </div>
       </div>
 
       {error && (
         <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-[13.5px] text-red-700">{error}</div>
-      )}
-
-      {showCreate && (
-        <div className="mb-4 flex items-center gap-2 rounded-xl border border-gray-200 bg-white p-3">
-          <input
-            type="text"
-            autoFocus
-            value={newName}
-            onChange={(e) => setNewName(e.target.value)}
-            placeholder="e.g. Front Desk, Sales Line"
-            className="flex-1 rounded-lg border border-gray-200 px-3 py-2 text-[13.5px] focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100"
-            onKeyDown={(e) => e.key === 'Enter' && handleCreate()}
-          />
-          <button
-            onClick={handleCreate}
-            disabled={isCreating || !newName.trim()}
-            className="whitespace-nowrap rounded-lg bg-blue-600 px-4 py-2 text-[13.5px] font-medium text-white transition hover:bg-blue-700 disabled:opacity-40"
-          >
-            {isCreating ? 'Creating…' : 'Create'}
-          </button>
-        </div>
       )}
 
       <div className="overflow-hidden rounded-xl border border-gray-200 bg-white">
@@ -179,6 +201,22 @@ function SearchIcon({ className }: { className?: string }) {
     <svg className={className} width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
       <circle cx="11" cy="11" r="7" />
       <path d="m20 20-3.5-3.5" />
+    </svg>
+  );
+}
+
+function PhoneIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="flex-none text-gray-400">
+      <path d="M6.5 4h3l1.5 4-2 1.3a11 11 0 0 0 5.7 5.7l1.3-2 4 1.5v3a1.5 1.5 0 0 1-1.6 1.5A16 16 0 0 1 5 5.6 1.5 1.5 0 0 1 6.5 4Z" />
+    </svg>
+  );
+}
+
+function ChatIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="flex-none text-gray-400">
+      <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5Z" />
     </svg>
   );
 }

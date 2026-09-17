@@ -21,7 +21,7 @@
 // in on every call and handed back out, so they can be persisted on the chat
 // session row between HTTP requests.
 
-import type { FlowNode } from '@/types';
+import type { FlowNode, StructuredCondition } from '@/types';
 
 const ANTHROPIC_API_URL = 'https://api.anthropic.com/v1/messages';
 // Match the voice path's default (Haiku) — a chat reply doesn't need more
@@ -32,8 +32,9 @@ const LLM_MODEL =
 
 // Node types that act the moment the flow enters them rather than waiting for
 // the visitor to type something first — mirrors AUTO_ADVANCE_TYPES in
-// server.js exactly.
-const AUTO_ADVANCE_TYPES = new Set(['function', 'knowledge_base', 'goodbye', 'transfer']);
+// server.js exactly. logic_split included since it never waits either — it
+// evaluates and jumps in the same hop, same as server.js's version.
+const AUTO_ADVANCE_TYPES = new Set(['function', 'knowledge_base', 'goodbye', 'transfer', 'logic_split']);
 // Terminal node types: once their turn is delivered, the chat session is over.
 const TERMINAL_TYPES = new Set(['goodbye', 'transfer']);
 // Guards against a malformed flow (e.g. a cycle of auto-advance nodes) pinning
@@ -195,6 +196,45 @@ async function callClaude(
   return { text: text.trim(), transition };
 }
 
+// Port of server.js's _evaluateStructuredCondition — the only place in this
+// file a condition is actually evaluated rather than handed to Claude to
+// judge. Extract fields have no real type system (always declared
+// 'string'), so this coerces to numeric comparison best-effort and
+// otherwise falls back to a trimmed, case-insensitive string comparison.
+function evaluateStructuredCondition(
+  { field, operator, value }: StructuredCondition,
+  data: Record<string, string>
+): boolean {
+  const actual = data ? data[field] : undefined;
+  const actualNum = Number(actual);
+  const valueNum = Number(value);
+  const bothNumeric =
+    actual !== undefined && actual !== '' && !Number.isNaN(actualNum) &&
+    value !== undefined && value !== '' && !Number.isNaN(valueNum);
+  const cmp = bothNumeric
+    ? actualNum < valueNum ? -1 : actualNum > valueNum ? 1 : 0
+    : String(actual ?? '').trim().toLowerCase().localeCompare(String(value ?? '').trim().toLowerCase());
+  switch (operator) {
+    case '==': return cmp === 0;
+    case '!=': return cmp !== 0;
+    case '>': return cmp > 0;
+    case '<': return cmp < 0;
+    case '>=': return cmp >= 0;
+    case '<=': return cmp <= 0;
+    default: return false;
+  }
+}
+
+// Port of server.js's _evaluateLogicSplit — first edge whose structured
+// condition matches wins; a conditionless edge is an explicit default.
+function evaluateLogicSplit(node: FlowNode, collectedData: Record<string, string>): string | null {
+  for (const edge of node.edges || []) {
+    if (!edge.condition || typeof edge.condition !== 'object') return edge.target;
+    if (evaluateStructuredCondition(edge.condition, collectedData)) return edge.target;
+  }
+  return null;
+}
+
 // Runs a flow 'function' node's configured webhook and folds the result into
 // history as a system note — port of _executeFunctionNode.
 async function executeFunctionNode(node: FlowNode, collectedData: Record<string, string>, history: EngineMessage[]) {
@@ -262,7 +302,7 @@ async function generateNodeTurn(
   // engine's fallback to the node's own prompt text so the visitor's last
   // message is never dead air.
   if (!turn.text && node && (node.type === 'goodbye' || node.type === 'transfer')) {
-    turn.text = node.prompt;
+    turn.text = node.prompt || '';
   }
   return turn;
 }
@@ -303,6 +343,24 @@ async function autoAdvance(
     const node = byId.get(nodeId);
     if (!node) return { currentNodeId: nodeId, ended: false };
 
+    // logic_split never talks and never calls the LLM — evaluate in code
+    // against collectedData and jump immediately. If the target is itself
+    // another auto-advance node (including a chained logic_split), keep
+    // hopping in this same loop (MAX_AUTO_ADVANCE_HOPS still bounds it);
+    // otherwise stop here and wait for the visitor's next message, exactly
+    // like a real transition_flow call would.
+    if (node.type === 'logic_split') {
+      const target = evaluateLogicSplit(node, collectedData);
+      if (!target) return { currentNodeId: nodeId, ended: false };
+      const targetNode = byId.get(target);
+      if (!targetNode) return { currentNodeId: nodeId, ended: false };
+      if (AUTO_ADVANCE_TYPES.has(targetNode.type)) {
+        nodeId = target;
+        continue;
+      }
+      return { currentNodeId: target, ended: false };
+    }
+
     // Node entry side effects (once per entry), then generate the node's turn.
     if (node.type === 'function') await executeFunctionNode(node, collectedData, history);
     if (node.type === 'knowledge_base' && opts.fetchKnowledgeItems) {
@@ -339,10 +397,7 @@ async function autoAdvance(
 // The chat's opening turn — generates the start node's greeting with the
 // transition tool suppressed (there's no visitor utterance to justify a
 // transition yet), mirroring _runNodeTurn's isCallOpening path.
-// (No RunOptions here, unlike runUserTurn: the opening turn only ever runs the
-// start node — always a non-auto greeting — so it never reaches a KB/function
-// side effect that would need one.)
-export async function runOpeningTurn(flow: EngineFlow | null): Promise<TurnResult> {
+export async function runOpeningTurn(flow: EngineFlow | null, opts: RunOptions = {}): Promise<TurnResult> {
   const assistantMessages: string[] = [];
   if (!flow) {
     // Prompt-only fallback: no flow, no state machine — just a greeting.
@@ -354,14 +409,26 @@ export async function runOpeningTurn(flow: EngineFlow | null): Promise<TurnResul
 
   const byId = nodesById(flow);
   const startNode = byId.get(flow.startNodeId) || flow.nodes[0];
-  const history: EngineMessage[] = [{ role: 'user', content: '[The chat just started — begin the flow.]' }];
+  const collectedData: Record<string, string> = {};
 
-  const turn = await generateNodeTurn(startNode, flow, history, {}, true);
+  // A start node that's itself an auto-advance type (a logic_split gating
+  // the very first step, or a function/knowledge_base run before the
+  // greeting) needs the same no-conversation-yet handling autoAdvance
+  // already does for mid-flow hops — walk it the same way rather than
+  // assuming the start node always talks.
+  if (AUTO_ADVANCE_TYPES.has(startNode.type)) {
+    const history: EngineMessage[] = [];
+    const result = await autoAdvance(startNode.id, flow, byId, history, collectedData, assistantMessages, opts);
+    return { assistantMessages, state: { currentNodeId: result.currentNodeId, collectedData }, ended: result.ended };
+  }
+
+  const history: EngineMessage[] = [{ role: 'user', content: '[The chat just started — begin the flow.]' }];
+  const turn = await generateNodeTurn(startNode, flow, history, collectedData, true);
   if (turn.text) assistantMessages.push(turn.text);
 
   return {
     assistantMessages,
-    state: { currentNodeId: startNode.id, collectedData: {} },
+    state: { currentNodeId: startNode.id, collectedData },
     ended: TERMINAL_TYPES.has(startNode.type),
   };
 }

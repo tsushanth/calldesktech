@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { getSupabaseAdmin } from '@/lib/supabase';
 import { getRetellClient } from '@/lib/retell';
+import { createBusinessTenant } from '@/lib/tenantProvisioning';
 
 // GET /api/tenants - List all tenants for the current user.
 // Was previously trusting a client-supplied `x-user-id` header — any caller
@@ -99,91 +100,46 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ tenant }, { status: 201 });
     }
 
-    let llmId: string | null = null;
-    let agentId: string | null = null;
-    let phoneNumber: string | null = null;
+    // Delegates the same KB/LLM/Agent/tenant/default-flow sequence
+    // /api/business uses — this branch used to duplicate it with drift (see
+    // src/lib/tenantProvisioning.ts's header comment).
+    const { tenant: createdTenant, agentId } = await createBusinessTenant({ userId, name });
 
-    // Create Retell resources - this is required for the AI to work
-    const retell = getRetellClient();
-
-    // 1. Create LLM configuration in Retell
-    console.log('Creating Retell LLM...');
-    const llm = await retell.createLLM({
-      generalPrompt: getDefaultPrompt(name),
-      beginMessage: `Hello! Thank you for calling ${name}. How can I help you today?`,
-    });
-    llmId = llm.llm_id;
-    console.log('LLM created:', llmId);
-
-    // 2. Create Agent in Retell
-    console.log('Creating Retell Agent...');
-    const agent = await retell.createAgent({
-      agentName: `${name} Receptionist`,
-      voiceId: '11labs-Adrian',
-      llmId: llm.llm_id,
-    });
-    agentId = agent.agent_id;
-    console.log('Agent created:', agentId);
-
-    // 3. Phone number handling
+    // Phone number handling — this branch is currently only reachable from
+    // the demo flow (see OnboardingContext.tsx), never from real account
+    // onboarding, so a real purchase here is effectively demo-only today.
     // For demos, we don't purchase a number - we use a shared demo number configured in env
     // For production tenants, they would purchase their own number
+    let phoneNumber: string | null = null;
     if (areaCode) {
       console.log('Purchasing phone number with area code:', areaCode);
       try {
+        const retell = getRetellClient();
         const phoneResult = await retell.purchasePhoneNumber(areaCode);
         phoneNumber = phoneResult.phone_number;
-        await retell.assignPhoneNumberToAgent(phoneNumber, agent.agent_id);
+        await retell.assignPhoneNumberToAgent(phoneNumber, agentId);
         console.log('Phone number assigned:', phoneNumber);
+        await supabase.from('calldesk_tenants').update({ phone_number: phoneNumber }).eq('id', createdTenant.id);
       } catch (phoneError) {
         console.error('Failed to purchase phone number:', phoneError);
       }
     }
 
-    // 4. Create tenant in database
-    console.log('Creating tenant in Supabase...');
-    const { data: tenant, error } = await supabase
+    const { data: tenant, error: fetchError } = await supabase
       .from('calldesk_tenants')
-      .insert({
-        user_id: userId,
-        name,
-        phone_number: phoneNumber,
-        retell_agent_id: agentId,
-        retell_llm_id: llmId,
-        settings: {
-          voiceId: '11labs-Adrian',
-          language: 'en-US',
-          voice_engine: 'retell',
-        },
-      })
-      .select()
+      .select('*')
+      .eq('id', createdTenant.id)
       .single();
 
-    if (error) {
-      console.error('Supabase error:', error);
+    if (fetchError) {
+      console.error('Supabase error:', fetchError);
       return NextResponse.json(
-        { error: `Database error: ${error.message}` },
+        { error: `Database error: ${fetchError.message}` },
         { status: 500 }
       );
     }
 
     console.log('Tenant created:', tenant.id);
-
-    // 5. Create default conversation flow
-    try {
-      await supabase.from('calldesk_conversation_flows').insert({
-        tenant_id: tenant.id,
-        name: 'Default Flow',
-        nodes: getDefaultFlowNodes(),
-        global_settings: {
-          allowInterruptions: true,
-          returnToFlow: true,
-        },
-        is_active: true,
-      });
-    } catch (flowError) {
-      console.error('Error creating default flow (non-fatal):', flowError);
-    }
 
     return NextResponse.json({ tenant }, { status: 201 });
   } catch (error) {
@@ -196,98 +152,3 @@ export async function POST(request: NextRequest) {
   }
 }
 
-function getDefaultPrompt(businessName: string): string {
-  return `
-You are a friendly and professional AI receptionist for ${businessName}.
-
-Your primary goals are:
-1. Answer questions about the business
-2. Help callers book appointments
-3. Take messages for the team
-
-Guidelines:
-- Be warm, helpful, and concise
-- If you don't know something, offer to have someone call them back
-- Always confirm important details (name, phone number, appointment time)
-- Handle interruptions naturally
-- If asked about pricing or specific services, check the knowledge base
-
-When booking appointments:
-- Ask for the caller's name and preferred time
-- Confirm the appointment details before ending the call
-- If the requested time is unavailable, offer alternatives
-`;
-}
-
-function getDefaultFlowNodes() {
-  return [
-    {
-      id: 'greeting',
-      type: 'greeting',
-      prompt: 'Greet the caller warmly and ask how you can help them today.',
-      edges: [
-        { id: 'e1', condition: 'intent == "book_appointment"', target: 'collect_info' },
-        { id: 'e2', condition: 'intent == "question"', target: 'answer_question' },
-        { id: 'e3', condition: 'intent == "speak_to_human"', target: 'transfer' },
-      ],
-    },
-    {
-      id: 'collect_info',
-      type: 'extraction',
-      prompt: 'Ask for the caller\'s name and their preferred appointment time.',
-      extract: { name: 'string', preferred_time: 'string' },
-      edges: [
-        { id: 'e4', condition: 'info_collected', target: 'confirm_booking' },
-      ],
-    },
-    {
-      id: 'answer_question',
-      type: 'knowledge_base',
-      prompt: 'Answer the caller\'s question using the knowledge base.',
-      edges: [
-        { id: 'e5', condition: 'answered', target: 'anything_else' },
-        { id: 'e6', condition: 'unknown', target: 'take_message' },
-      ],
-    },
-    {
-      id: 'confirm_booking',
-      type: 'function',
-      prompt: 'Confirm the appointment details with the caller.',
-      function: 'confirm_booking',
-      edges: [
-        { id: 'e7', condition: 'confirmed', target: 'goodbye' },
-        { id: 'e8', condition: 'needs_change', target: 'collect_info' },
-      ],
-    },
-    {
-      id: 'anything_else',
-      type: 'greeting',
-      prompt: 'Ask if there\'s anything else you can help with.',
-      edges: [
-        { id: 'e9', condition: 'yes', target: 'greeting' },
-        { id: 'e10', condition: 'no', target: 'goodbye' },
-      ],
-    },
-    {
-      id: 'take_message',
-      type: 'extraction',
-      prompt: 'Offer to take a message. Ask for their name and callback number.',
-      extract: { name: 'string', phone: 'string', message: 'string' },
-      edges: [
-        { id: 'e11', condition: 'message_taken', target: 'goodbye' },
-      ],
-    },
-    {
-      id: 'transfer',
-      type: 'transfer',
-      prompt: 'Let them know you\'re transferring them to a team member.',
-      edges: [],
-    },
-    {
-      id: 'goodbye',
-      type: 'goodbye',
-      prompt: 'Thank them for calling and wish them a great day.',
-      edges: [],
-    },
-  ];
-}
