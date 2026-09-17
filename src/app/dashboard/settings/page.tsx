@@ -36,6 +36,11 @@ export default function SettingsPage() {
   const [calEventTypeId, setCalEventTypeId] = useState('');
   const [voiceEngine, setVoiceEngine] = useState<VoiceEngine>('poc');
   const [ttsBackend, setTtsBackend] = useState<TtsBackend>('kokoro');
+  // Call recording — mirrors Retell's own data_storage_setting/
+  // data_storage_retention_days (see src/lib/retell.ts's updateAgent).
+  // 'everything' + indefinite matches their default.
+  const [recordingEnabled, setRecordingEnabled] = useState(true);
+  const [recordingRetentionDays, setRecordingRetentionDays] = useState('');
 
   // Building blocks — backed by the tenant's default "simple" agent (see
   // src/lib/flowBuilder.ts / the "Two-Tier Onboarding" design doc). This is
@@ -69,6 +74,8 @@ export default function SettingsPage() {
                 ? savedBackend
                 : 'kokoro'
             );
+            setRecordingEnabled(settings.recording_enabled !== 'false');
+            setRecordingRetentionDays(settings.recording_retention_days || '');
           }
           setCalApiKey(data.cal_api_key || '');
           setCalEventTypeId(data.cal_event_type_id || '');
@@ -193,6 +200,8 @@ export default function SettingsPage() {
           tone: selectedTone,
           voice_engine: voiceEngine,
           tts_backend: ttsBackend,
+          recording_enabled: String(recordingEnabled),
+          recording_retention_days: recordingRetentionDays,
         },
         cal_api_key: calApiKey || null,
         cal_event_type_id: calEventTypeId || null,
@@ -337,6 +346,34 @@ export default function SettingsPage() {
                   This voice isn&apos;t fully set up on our end yet — calls will use the CallDeskTech voice instead until it is. Contact us if you need this enabled sooner.
                 </p>
               )}
+            </div>
+          )}
+        </SettingsSection>
+
+        {/* Call Recording */}
+        <SettingsSection title="Call Recording" icon={<IconMic />}>
+          <p className="mb-4 text-[13.5px] text-gray-500">
+            Matches Retell&apos;s own default: recording is on, with no in-call disclosure announcement — consent is left to you to handle however fits your business, not enforced by the platform.
+          </p>
+          <div className="grid max-w-md grid-cols-2 gap-2.5">
+            <OptionCard selected={recordingEnabled} onClick={() => setRecordingEnabled(true)} title="Record calls" description="Audio + transcript kept" />
+            <OptionCard selected={!recordingEnabled} onClick={() => setRecordingEnabled(false)} title="Don't record" description="No audio captured" />
+          </div>
+          {recordingEnabled && (
+            <div className="mt-4 max-w-xs">
+              <label className="mb-1.5 block text-[12.5px] font-medium text-gray-500">Retention</label>
+              <select
+                value={recordingRetentionDays}
+                onChange={(e) => setRecordingRetentionDays(e.target.value)}
+                className="w-full rounded-lg border border-gray-200 bg-white px-3.5 py-2.5 text-[13.5px] focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100"
+              >
+                <option value="">Indefinite (default)</option>
+                <option value="30">30 days</option>
+                <option value="90">90 days</option>
+                <option value="180">180 days</option>
+                <option value="365">365 days</option>
+              </select>
+              <p className="mt-1 text-[11px] text-gray-400">Recordings older than this get deleted automatically. Doesn&apos;t affect transcripts, only audio.</p>
             </div>
           )}
         </SettingsSection>

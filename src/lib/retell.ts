@@ -69,6 +69,16 @@ class RetellClient {
     config: Partial<{
       agentName: string;
       voiceId: string;
+      // Real per-tenant recording/retention control (2026-09-17), matching
+      // what Retell's own docs describe for their (now-standard, formerly
+      // opt_out_sensitive_data_storage) data_storage_setting field —
+      // 'everything' keeps recordings+transcripts+logs, 'basic_attributes_only'
+      // means Retell never stores or returns a recording_url at all for this
+      // agent's calls. dataStorageRetentionDays (1-730) is Retell's own
+      // auto-deletion window; omitted/undefined means indefinite, same as
+      // their default.
+      dataStorageSetting: 'everything' | 'everything_except_pii' | 'basic_attributes_only';
+      dataStorageRetentionDays: number | null;
     }>
   ): Promise<RetellAgent> {
     return this.request<RetellAgent>(`/update-agent/${agentId}`, {
@@ -76,6 +86,8 @@ class RetellClient {
       body: JSON.stringify({
         agent_name: config.agentName,
         voice_id: config.voiceId,
+        data_storage_setting: config.dataStorageSetting,
+        data_storage_retention_days: config.dataStorageRetentionDays,
       }),
     });
   }

@@ -196,6 +196,7 @@ export interface Database {
           qa_model: string | null
           qa_analyzed_at: string | null
           recording_url: string | null
+          recording_sid: string | null
           voice_engine: string | null
           to_number: string | null
           direction: string | null
@@ -217,6 +218,7 @@ export interface Database {
           qa_model?: string | null
           qa_analyzed_at?: string | null
           recording_url?: string | null
+          recording_sid?: string | null
           voice_engine?: string | null
           to_number?: string | null
           direction?: string | null
@@ -238,6 +240,7 @@ export interface Database {
           qa_model?: string | null
           qa_analyzed_at?: string | null
           recording_url?: string | null
+          recording_sid?: string | null
           voice_engine?: string | null
           to_number?: string | null
           direction?: string | null
