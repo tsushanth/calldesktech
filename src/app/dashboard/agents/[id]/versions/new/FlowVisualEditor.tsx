@@ -10,6 +10,7 @@ import {
   useEdgesState,
   Handle,
   Position,
+  MarkerType,
   type Node as RFNode,
   type Edge as RFEdge,
   type NodeProps,
@@ -26,28 +27,29 @@ interface FlowVisualEditorProps {
   onPositionChange: (nodeKey: string, position: { x: number; y: number }) => void;
 }
 
-// Left-border accent per node type — real signal (what kind of side effect
-// this node has), not decoration for its own sake. Mirrors the icon badges
-// on Retell's own template cards, just as a color instead of a glyph.
-const TYPE_COLORS: Record<string, string> = {
-  greeting: '#3b82f6',
-  extraction: '#3b82f6',
-  function: '#8b5cf6',
-  code: '#8b5cf6',
-  mcp: '#8b5cf6',
-  subagent: '#6366f1',
-  knowledge_base: '#14b8a6',
-  transfer: '#f97316',
-  press_digit: '#f97316',
-  payment: '#22c55e',
-  sms: '#ec4899',
-  logic_split: '#eab308',
-  goodbye: '#6b7280',
+// Accent + badge color per node type — real signal (what kind of side
+// effect this node has), not decoration for its own sake. Mirrors the icon
+// badges on Retell's own template cards, just as color instead of a glyph.
+const TYPE_COLORS: Record<string, { accent: string; badgeBg: string; badgeText: string }> = {
+  greeting: { accent: '#3b82f6', badgeBg: '#eff6ff', badgeText: '#2563eb' },
+  extraction: { accent: '#3b82f6', badgeBg: '#eff6ff', badgeText: '#2563eb' },
+  function: { accent: '#8b5cf6', badgeBg: '#f5f3ff', badgeText: '#7c3aed' },
+  code: { accent: '#8b5cf6', badgeBg: '#f5f3ff', badgeText: '#7c3aed' },
+  mcp: { accent: '#8b5cf6', badgeBg: '#f5f3ff', badgeText: '#7c3aed' },
+  subagent: { accent: '#6366f1', badgeBg: '#eef2ff', badgeText: '#4f46e5' },
+  knowledge_base: { accent: '#14b8a6', badgeBg: '#f0fdfa', badgeText: '#0d9488' },
+  transfer: { accent: '#f97316', badgeBg: '#fff7ed', badgeText: '#ea580c' },
+  press_digit: { accent: '#f97316', badgeBg: '#fff7ed', badgeText: '#ea580c' },
+  payment: { accent: '#22c55e', badgeBg: '#f0fdf4', badgeText: '#16a34a' },
+  sms: { accent: '#ec4899', badgeBg: '#fdf2f8', badgeText: '#db2777' },
+  logic_split: { accent: '#eab308', badgeBg: '#fefce8', badgeText: '#ca8a04' },
+  goodbye: { accent: '#6b7280', badgeBg: '#f9fafb', badgeText: '#4b5563' },
 };
+const DEFAULT_TYPE_COLOR = { accent: '#9ca3af', badgeBg: '#f9fafb', badgeText: '#6b7280' };
 
 function conditionLabel(condition: string | StructuredCondition | undefined): string {
   if (!condition) return 'default';
-  if (typeof condition === 'string') return condition.length > 40 ? `${condition.slice(0, 40)}…` : condition;
+  if (typeof condition === 'string') return condition.length > 60 ? `${condition.slice(0, 60)}…` : condition;
   if (!condition.field) return 'default';
   return `${condition.field} ${condition.operator} ${condition.value}`;
 }
@@ -88,8 +90,8 @@ function computeAutoLayout(nodes: DraftNode[], startNodeId: string): Record<stri
     if (!columns.has(d)) columns.set(d, []);
     columns.get(d)!.push(n);
   }
-  const COL_WIDTH = 300;
-  const ROW_HEIGHT = 170;
+  const COL_WIDTH = 380;
+  const ROW_HEIGHT = 260;
   const positions: Record<string, { x: number; y: number }> = {};
   for (const [depth, colNodes] of columns) {
     colNodes.forEach((n, i) => {
@@ -102,24 +104,46 @@ function computeAutoLayout(nodes: DraftNode[], startNodeId: string): Record<stri
 function FlowNodeCard({ data }: NodeProps) {
   const node = data.node as DraftNode;
   const isStart = data.isStart as boolean;
-  const color = TYPE_COLORS[node.type] || '#9ca3af';
+  const color = TYPE_COLORS[node.type] || DEFAULT_TYPE_COLOR;
+  const paramEntries = node.params ? Object.entries(node.params).filter(([, v]) => v) : [];
   return (
     <div
-      className="w-64 rounded-lg border bg-white shadow-sm"
-      style={{ borderColor: isStart ? color : '#e5e7eb', borderLeftWidth: 4, borderLeftColor: color, borderWidth: isStart ? 2 : 1 }}
+      className="w-[340px] rounded-xl border bg-white shadow-md transition-shadow hover:shadow-lg"
+      style={{ borderColor: isStart ? color.accent : '#e5e7eb', borderLeftWidth: 5, borderLeftColor: color.accent, borderWidth: isStart ? 2 : 1 }}
     >
-      <Handle type="target" position={Position.Left} className="!bg-gray-300" />
-      <div className="px-3 py-2">
+      <Handle type="target" position={Position.Left} className="!h-3 !w-3 !border-2 !border-white" style={{ background: color.accent }} />
+      <div className="px-4 py-3.5">
         <div className="flex items-center justify-between gap-2">
-          <span className="truncate font-mono text-[12px] font-medium text-[#1a1d29]">{node.id || '(unnamed)'}</span>
-          {isStart && <span className="flex-none rounded-full bg-blue-50 px-1.5 py-0.5 text-[9.5px] font-medium text-blue-600">START</span>}
+          <span className="truncate font-mono text-[13.5px] font-semibold text-[#1a1d29]">{node.id || '(unnamed)'}</span>
+          {isStart && <span className="flex-none rounded-full bg-blue-100 px-2 py-0.5 text-[10px] font-semibold tracking-wide text-blue-700">START</span>}
         </div>
-        <p className="mt-0.5 text-[10.5px] font-medium uppercase tracking-wide" style={{ color }}>{node.type}</p>
+        <span
+          className="mt-1.5 inline-block rounded-md px-2 py-0.5 text-[10.5px] font-semibold uppercase tracking-wide"
+          style={{ backgroundColor: color.badgeBg, color: color.badgeText }}
+        >
+          {node.type.replace('_', ' ')}
+        </span>
         {node.prompt && (
-          <p className="mt-1 line-clamp-2 text-[11px] text-gray-500">{node.prompt}</p>
+          <p className="mt-2.5 whitespace-pre-wrap text-[12.5px] leading-relaxed text-gray-600">{node.prompt}</p>
+        )}
+        {node.extract && Object.keys(node.extract).length > 0 && (
+          <div className="mt-2.5 flex flex-wrap gap-1">
+            {Object.keys(node.extract).map((field) => (
+              <span key={field} className="rounded-md bg-gray-100 px-1.5 py-0.5 font-mono text-[10.5px] text-gray-600">{field}</span>
+            ))}
+          </div>
+        )}
+        {paramEntries.length > 0 && (node.type === 'function' || node.type === 'mcp' || node.type === 'code' || node.type === 'sms' || node.type === 'transfer' || node.type === 'press_digit' || node.type === 'payment') && (
+          <div className="mt-2.5 space-y-0.5 border-t border-gray-100 pt-2">
+            {paramEntries.slice(0, 2).map(([key, value]) => (
+              <p key={key} className="truncate text-[10.5px] text-gray-400">
+                <span className="font-medium text-gray-500">{key}:</span> {String(value)}
+              </p>
+            ))}
+          </div>
         )}
       </div>
-      <Handle type="source" position={Position.Right} className="!bg-gray-300" />
+      <Handle type="source" position={Position.Right} className="!h-3 !w-3 !border-2 !border-white" style={{ background: color.accent }} />
     </div>
   );
 }
@@ -160,10 +184,14 @@ export default function FlowVisualEditor({ nodes, startNodeId, onPositionChange 
           id: `${n._key}-e${i}`,
           source: n._key,
           target: targetKey,
+          type: 'smoothstep',
           label: conditionLabel(e.condition),
-          labelStyle: { fontSize: 10, fill: '#6b7280' },
-          labelBgStyle: { fill: '#ffffff', fillOpacity: 0.9 },
-          style: { stroke: '#cbd5e1' },
+          labelStyle: { fontSize: 11, fill: '#4b5563', fontWeight: 500 },
+          labelBgStyle: { fill: '#ffffff', fillOpacity: 1 },
+          labelBgPadding: [6, 3],
+          labelBgBorderRadius: 4,
+          style: { stroke: '#94a3b8', strokeWidth: 1.5 },
+          markerEnd: { type: MarkerType.ArrowClosed, color: '#94a3b8', width: 18, height: 18 },
         });
       });
     });
@@ -182,7 +210,7 @@ export default function FlowVisualEditor({ nodes, startNodeId, onPositionChange 
   );
 
   return (
-    <div className="h-[600px] w-full overflow-hidden rounded-xl border border-gray-200 bg-gray-50">
+    <div className="h-[720px] w-full overflow-hidden rounded-xl border border-gray-200 bg-gray-50">
       <ReactFlow
         nodes={rfNodes}
         edges={rfEdges}
