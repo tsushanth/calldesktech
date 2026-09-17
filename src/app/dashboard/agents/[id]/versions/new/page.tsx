@@ -572,11 +572,11 @@ export default function NewAgentVersionPage() {
                 onChange={(e) => setTtsBackend(e.target.value as '' | TtsBackend)}
                 className="w-full bg-white border border-gray-200 rounded-lg px-3.5 py-2.5 text-[13.5px] focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100"
               >
-                <option value="">Default (kokoro)</option>
-                <option value="kokoro">Kokoro</option>
+                <option value="">Default (CallDeskTech)</option>
+                <option value="kokoro">CallDeskTech</option>
                 <option value="elevenlabs">ElevenLabs</option>
-                <option value="cartesia">Cartesia (not yet enabled — falls back to Kokoro)</option>
-                <option value="minimax">MiniMax (not yet enabled — falls back to Kokoro)</option>
+                <option value="cartesia">Cartesia (not yet enabled — falls back to CallDeskTech)</option>
+                <option value="minimax">MiniMax (not yet enabled — falls back to CallDeskTech)</option>
               </select>
             </div>
           ) : (

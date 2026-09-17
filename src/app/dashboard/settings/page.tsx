@@ -327,14 +327,14 @@ export default function SettingsPage() {
             <div className="mt-5">
               <label className="mb-2 block text-[12.5px] font-medium text-gray-500">TTS Backend</label>
               <div className="grid max-w-2xl grid-cols-2 gap-2.5 md:grid-cols-4">
-                <OptionCard selected={ttsBackend === 'kokoro'} onClick={() => setTtsBackend('kokoro')} title="Kokoro" description="Self-hosted, lowest cost" />
+                <OptionCard selected={ttsBackend === 'kokoro'} onClick={() => setTtsBackend('kokoro')} title="CallDeskTech" description="Our own voice, lowest cost" />
                 <OptionCard selected={ttsBackend === 'elevenlabs'} onClick={() => setTtsBackend('elevenlabs')} title="ElevenLabs" description="Higher quality, per-char cost" />
                 <OptionCard selected={ttsBackend === 'cartesia'} onClick={() => setTtsBackend('cartesia')} title="Cartesia" description="Low-latency streaming" />
                 <OptionCard selected={ttsBackend === 'minimax'} onClick={() => setTtsBackend('minimax')} title="MiniMax" description="Higher cost, $0.16/min" />
               </div>
               {(ttsBackend === 'cartesia' || ttsBackend === 'minimax') && (
                 <p className="mt-2 text-[12px] text-amber-600">
-                  This voice isn&apos;t fully set up on our end yet — calls will use Kokoro instead until it is. Contact us if you need this enabled sooner.
+                  This voice isn&apos;t fully set up on our end yet — calls will use the CallDeskTech voice instead until it is. Contact us if you need this enabled sooner.
                 </p>
               )}
             </div>
