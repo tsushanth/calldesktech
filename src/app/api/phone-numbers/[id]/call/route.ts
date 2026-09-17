@@ -1,13 +1,23 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/supabase';
+import { getRetellClient } from '@/lib/retell';
 
 // POST /api/phone-numbers/[id]/call — places a real outbound call FROM this
 // number, to test what its own outbound_agent_version_id actually says.
 // Mirrors Retell's own "Make an outbound call" button on the Phone Numbers
-// detail page. Proxies to call-loop-poc's own POST /place-test-call, which
-// is what actually talks to Twilio — this route's job is just resolving
-// "which number" to "the real E.164 string + a bearer secret", server-side
-// only (the secret never reaches the browser).
+// detail page.
+//
+// Branches by which engine actually owns the number's outbound agent
+// version. A poc-engine number is bought directly on call-loop-poc's own
+// Twilio account (see /api/tenants/[id]/phone-numbers/purchase), so a raw
+// Twilio call FROM it works. A retell-engine number is bought through
+// Retell's own phone-number inventory — it was never "verified" on OUR
+// Twilio account, so the same raw-Twilio call fails with Twilio's "not yet
+// verified for your account". Retell owns the number and the agent, so its
+// own /v2/create-phone-call is the only thing that can actually place this
+// call. (Retell is the comparison baseline in this product, not something
+// worth building real Twilio<->Retell SIP-trunk infrastructure around —
+// this dispatch is the minimal fix that makes both paths work correctly.)
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -17,12 +27,6 @@ export async function POST(
 
   if (!toNumber || typeof toNumber !== 'string' || !toNumber.trim()) {
     return NextResponse.json({ error: 'toNumber is required (E.164 format)' }, { status: 400 });
-  }
-
-  const baseUrl = process.env.CALL_LOOP_POC_BASE_URL;
-  const secret = process.env.CALL_LOOP_POC_TEST_CALL_SECRET;
-  if (!baseUrl || !secret) {
-    return NextResponse.json({ error: 'CALL_LOOP_POC_BASE_URL/CALL_LOOP_POC_TEST_CALL_SECRET not configured' }, { status: 500 });
   }
 
   const supabase = getSupabaseAdmin();
@@ -39,6 +43,39 @@ export async function POST(
       { error: 'This number has no Outbound Call Agent configured — set one before testing.' },
       { status: 400 }
     );
+  }
+
+  const { data: version, error: versionError } = await supabase
+    .from('calldesk_agent_versions')
+    .select('voice_engine, retell_agent_id')
+    .eq('id', phoneNumber.outbound_agent_version_id)
+    .single();
+  if (versionError || !version) {
+    return NextResponse.json({ error: 'Outbound Call Agent version not found' }, { status: 404 });
+  }
+
+  if (version.voice_engine === 'retell') {
+    if (!version.retell_agent_id) {
+      return NextResponse.json({ error: 'This Retell agent version has no retell_agent_id' }, { status: 400 });
+    }
+    try {
+      const retell = getRetellClient();
+      const call = await retell.createPhoneCall({
+        fromNumber: phoneNumber.number,
+        toNumber: toNumber.trim(),
+        agentId: version.retell_agent_id,
+      });
+      return NextResponse.json({ call: { sid: call.call_id, to: toNumber.trim() } }, { status: 201 });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Retell call creation failed';
+      return NextResponse.json({ error: `Retell: ${message}` }, { status: 502 });
+    }
+  }
+
+  const baseUrl = process.env.CALL_LOOP_POC_BASE_URL;
+  const secret = process.env.CALL_LOOP_POC_TEST_CALL_SECRET;
+  if (!baseUrl || !secret) {
+    return NextResponse.json({ error: 'CALL_LOOP_POC_BASE_URL/CALL_LOOP_POC_TEST_CALL_SECRET not configured' }, { status: 500 });
   }
 
   try {

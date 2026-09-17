@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/supabase';
 import { getRetellClient, RetellApiError } from '@/lib/retell';
 import { checkPaymentMethodOnFile } from '@/lib/paymentMethodGate';
+import { isPocEngine } from '@/lib/voiceEngine';
 
 // Populous US area codes essentially guaranteed to have inventory — used as
 // retry candidates when the requested/inferred area code comes back empty,
@@ -10,10 +11,40 @@ const FALLBACK_AREA_CODES = ['212', '415', '312', '404'];
 
 const DEFAULT_AREA_CODE = '415';
 
-// POST /api/tenants/[id]/phone-numbers/purchase — buy a real number via
-// Retell (which wraps Twilio) and assign it to the tenant's agent. Distinct
-// from POST /api/tenants/[id]/phone-numbers, which only registers a number
-// the caller already owns and never spends money.
+// Buys a number on call-loop-poc's OWN Twilio account (not Retell's) and
+// points its Voice webhook at call-loop-poc's own /twilio/voice — required
+// for a poc-engine tenant's real inbound calls to work at all, and the
+// counterpart of the retell-engine branch below purchasing through Retell.
+// This route used to unconditionally require tenant.retell_agent_id and buy
+// through Retell for every tenant, which meant a poc-engine tenant (the
+// default for every new workspace and every dashboard-created agent) could
+// never buy a number at all — every attempt 400'd with "no Retell agent".
+async function purchaseViaPoc(areaCode: string | undefined): Promise<{ phoneNumber: string } | { error: string; status: number }> {
+  const baseUrl = process.env.CALL_LOOP_POC_BASE_URL;
+  const secret = process.env.CALL_LOOP_POC_TEST_CALL_SECRET;
+  if (!baseUrl || !secret) {
+    return { error: 'CALL_LOOP_POC_BASE_URL/CALL_LOOP_POC_TEST_CALL_SECRET not configured', status: 500 };
+  }
+  try {
+    const res = await fetch(`${baseUrl}/purchase-number`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${secret}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ areaCode }),
+    });
+    const body = await res.json();
+    if (!res.ok) {
+      return { error: body.error || 'call-loop-poc rejected the purchase', status: res.status };
+    }
+    return { phoneNumber: body.phone_number };
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : 'Failed to reach call-loop-poc', status: 502 };
+  }
+}
+
+// POST /api/tenants/[id]/phone-numbers/purchase — buy a real number and wire
+// it up to actually receive calls. Distinct from POST
+// /api/tenants/[id]/phone-numbers, which only registers a number the caller
+// already owns and never spends money.
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -44,63 +75,72 @@ export async function POST(
   if (tenantError || !tenant) {
     return NextResponse.json({ error: 'Tenant not found' }, { status: 404 });
   }
-  if (!tenant.retell_agent_id) {
-    return NextResponse.json(
-      { error: 'This tenant has no Retell agent to assign the number to.' },
-      { status: 400 }
-    );
-  }
 
   const body = await request.json().catch(() => ({}));
   const requestedAreaCode: string | undefined = body.areaCode;
+  const settings = (tenant.settings ?? {}) as { phone?: string; address?: string; voice_engine?: string };
 
-  const settings = (tenant.settings ?? {}) as { phone?: string; address?: string };
-  const inferredAreaCode = inferAreaCode(settings.phone);
-
-  const candidates = [
-    requestedAreaCode,
-    inferredAreaCode,
-    DEFAULT_AREA_CODE,
-    ...FALLBACK_AREA_CODES,
-    undefined, // final fallback: no area code, let Retell pick from national inventory
-  ].filter((v, i, arr) => arr.indexOf(v) === i); // dedupe, preserves order
-
-  const retell = getRetellClient();
   let phoneNumber: string | null = null;
-  let lastError: unknown = null;
 
-  for (const areaCode of candidates) {
-    try {
-      const result = await retell.purchasePhoneNumber(areaCode);
-      phoneNumber = result.phone_number;
-      break;
-    } catch (err) {
-      lastError = err;
-      if (err instanceof RetellApiError && err.status === 404) {
-        continue; // no numbers in this area code — try the next candidate
-      }
-      // Any other error (400/401/500) is a real failure, not "try elsewhere".
-      break;
+  if (isPocEngine(settings)) {
+    const result = await purchaseViaPoc(requestedAreaCode || inferAreaCode(settings.phone) || DEFAULT_AREA_CODE);
+    if ('error' in result) {
+      return NextResponse.json({ error: result.error }, { status: result.status });
     }
-  }
+    phoneNumber = result.phoneNumber;
+  } else {
+    if (!tenant.retell_agent_id) {
+      return NextResponse.json(
+        { error: 'This tenant has no Retell agent to assign the number to.' },
+        { status: 400 }
+      );
+    }
 
-  if (!phoneNumber) {
-    const message = lastError instanceof Error ? lastError.message : 'Failed to purchase a phone number';
-    return NextResponse.json({ error: message }, { status: 502 });
-  }
+    const inferredAreaCode = inferAreaCode(settings.phone);
+    const candidates = [
+      requestedAreaCode,
+      inferredAreaCode,
+      DEFAULT_AREA_CODE,
+      ...FALLBACK_AREA_CODES,
+      undefined, // final fallback: no area code, let Retell pick from national inventory
+    ].filter((v, i, arr) => arr.indexOf(v) === i); // dedupe, preserves order
 
-  try {
-    await retell.assignPhoneNumberToAgent(phoneNumber, tenant.retell_agent_id);
-  } catch (err) {
-    // The number is already purchased and billed at this point — don't lose
-    // track of it just because assignment failed; surface it as JSON instead
-    // of letting the exception bubble into an empty-body 500.
-    const message = err instanceof Error ? err.message : 'Failed to assign number to agent';
-    console.error('Phone number purchased but failed to assign to agent:', err);
-    return NextResponse.json(
-      { phoneNumber, warning: `Purchased but not assigned to agent: ${message}` },
-      { status: 201 }
-    );
+    const retell = getRetellClient();
+    let lastError: unknown = null;
+
+    for (const areaCode of candidates) {
+      try {
+        const result = await retell.purchasePhoneNumber(areaCode);
+        phoneNumber = result.phone_number;
+        break;
+      } catch (err) {
+        lastError = err;
+        if (err instanceof RetellApiError && err.status === 404) {
+          continue; // no numbers in this area code — try the next candidate
+        }
+        // Any other error (400/401/500) is a real failure, not "try elsewhere".
+        break;
+      }
+    }
+
+    if (!phoneNumber) {
+      const message = lastError instanceof Error ? lastError.message : 'Failed to purchase a phone number';
+      return NextResponse.json({ error: message }, { status: 502 });
+    }
+
+    try {
+      await retell.assignPhoneNumberToAgent(phoneNumber, tenant.retell_agent_id);
+    } catch (err) {
+      // The number is already purchased and billed at this point — don't lose
+      // track of it just because assignment failed; surface it as JSON instead
+      // of letting the exception bubble into an empty-body 500.
+      const message = err instanceof Error ? err.message : 'Failed to assign number to agent';
+      console.error('Phone number purchased but failed to assign to agent:', err);
+      return NextResponse.json(
+        { phoneNumber, warning: `Purchased but not assigned to agent: ${message}` },
+        { status: 201 }
+      );
+    }
   }
 
   const { data: numberRow, error: insertError } = await supabase
