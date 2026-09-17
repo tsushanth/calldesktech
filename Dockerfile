@@ -66,15 +66,19 @@ COPY --from=builder /app/public ./public
 COPY --from=builder /app/.next/standalone ./
 COPY --from=builder /app/.next/static ./.next/static
 
-# playwright-core's browsers.json (a runtime-read config file, not a JS
-# import) isn't picked up by Next's standalone build tracing even with
+# playwright-core's browsers.json AND pdfjs-dist's pdf.worker.mjs (both
+# runtime-read files, not JS imports Next's tracer can see) aren't reliably
+# picked up by Next's standalone build tracing even with
 # serverExternalPackages set — verified by actually running this built
-# image locally, not just a type-check: launch failed with "Cannot find
-# module '.../playwright-core/browsers.json'" until this explicit copy was
-# added. Copying the whole package directly from the builder's real
-# node_modules sidesteps the tracer entirely rather than chasing which
-# other files it might also be silently dropping.
+# image locally, not just a type-check or `docker build` succeeding: two
+# separate "Cannot find module" failures (browsers.json, then
+# pdf.worker.mjs) only surfaced this way, one after the other. Copying
+# these packages directly from the builder's real node_modules sidesteps
+# the tracer for all three rather than continuing to chase which other
+# files it might also be silently dropping.
 COPY --from=builder /app/node_modules/playwright-core ./node_modules/playwright-core
+COPY --from=builder /app/node_modules/pdfjs-dist ./node_modules/pdfjs-dist
+COPY --from=builder /app/node_modules/pdf-parse ./node_modules/pdf-parse
 
 USER nextjs
 
