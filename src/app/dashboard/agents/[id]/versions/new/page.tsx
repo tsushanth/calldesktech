@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { api } from '@/lib/api';
 import type { RetellVoice } from '@/lib/retell';
 import type { FlowNode, FlowEdge, TtsBackend } from '@/types';
+import { AGENT_TEMPLATES } from '@/lib/agentTemplates';
 
 type DraftNode = FlowNode & { _key: string };
 
@@ -13,6 +14,10 @@ let keySeq = 0;
 function newKey() {
   keySeq += 1;
   return `n${keySeq}`;
+}
+
+function draftNodesFromTemplate(nodes: FlowNode[]): DraftNode[] {
+  return nodes.map((n) => ({ ...n, _key: newKey() }));
 }
 
 const NODE_TYPES: FlowNode['type'][] = ['greeting', 'extraction', 'function', 'knowledge_base', 'transfer', 'goodbye'];
@@ -45,6 +50,30 @@ export default function NewAgentVersionPage() {
   const [nodes, setNodes] = useState<DraftNode[]>([emptyNode()]);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Template picker gate — matches Retell's own Create Agent modal, which
+  // shows a template gallery before the editor rather than dropping you
+  // straight into a blank flow. "Build from scratch" (or Single prompt)
+  // skips straight past this; picking a template pre-fills the SAME editor
+  // below with that template's real nodes for review/editing before save.
+  const [showEditor, setShowEditor] = useState(false);
+  const [appliedTemplateId, setAppliedTemplateId] = useState<string | null>(null);
+
+  const applyTemplate = (templateId: string) => {
+    const template = AGENT_TEMPLATES.find((t) => t.id === templateId);
+    if (!template) return;
+    setAgentType('conversational_flow');
+    setNodes(draftNodesFromTemplate(template.nodes));
+    setStartNodeId(template.startNodeId);
+    setAppliedTemplateId(template.id);
+    setFlowName(template.id);
+    setShowEditor(true);
+  };
+
+  const startFromScratch = (type: 'single_prompt' | 'conversational_flow') => {
+    setAgentType(type);
+    setAppliedTemplateId(null);
+    setShowEditor(true);
+  };
   // Retell's real multi-provider voice catalog (elevenlabs, openai, cartesia,
   // minimax, fish_audio, platform) — replaces a plain text input that only
   // ever hinted at an ElevenLabs-shaped id ("e.g. ... 11labs-Adrian").
@@ -184,31 +213,84 @@ export default function NewAgentVersionPage() {
 
       {error && <div className="mb-5 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-[13.5px] text-red-700">{error}</div>}
 
-      <div className="mb-6">
-        <label className="block text-[12.5px] font-medium text-gray-500 mb-1.5">Type</label>
-        <div className="grid grid-cols-2 gap-3 max-w-md">
-          <button
-            type="button"
-            onClick={() => setAgentType('single_prompt')}
-            className={`rounded-lg border px-4 py-3 text-left transition ${
-              agentType === 'single_prompt' ? 'border-blue-400 bg-blue-50' : 'border-gray-200 hover:border-gray-300'
-            }`}
-          >
-            <p className="text-[13.5px] font-medium text-[#1a1d29]">Single prompt</p>
-            <p className="text-[12px] text-gray-500">One prompt, no flow steps</p>
-          </button>
-          <button
-            type="button"
-            onClick={() => setAgentType('conversational_flow')}
-            className={`rounded-lg border px-4 py-3 text-left transition ${
-              agentType === 'conversational_flow' ? 'border-blue-400 bg-blue-50' : 'border-gray-200 hover:border-gray-300'
-            }`}
-          >
-            <p className="text-[13.5px] font-medium text-[#1a1d29]">Conversational flow</p>
-            <p className="text-[12px] text-gray-500">Multi-step node graph</p>
-          </button>
+      {!showEditor ? (
+        <>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 mb-3">
+            <button
+              type="button"
+              onClick={() => startFromScratch('conversational_flow')}
+              className="rounded-xl border border-dashed border-gray-300 bg-white px-5 py-5 text-left transition hover:border-gray-400"
+            >
+              <p className="text-[13.5px] font-medium text-[#1a1d29]">Build from scratch</p>
+              <p className="mt-0.5 text-[12px] text-gray-500">Start with a blank flow</p>
+            </button>
+            <button
+              type="button"
+              onClick={() => startFromScratch('single_prompt')}
+              className="rounded-xl border border-dashed border-gray-300 bg-white px-5 py-5 text-left transition hover:border-gray-400"
+            >
+              <p className="text-[13.5px] font-medium text-[#1a1d29]">Single prompt</p>
+              <p className="mt-0.5 text-[12px] text-gray-500">One prompt, no flow steps</p>
+            </button>
+          </div>
+
+          <p className="mb-2 mt-5 text-[12.5px] font-medium text-gray-500">Templates</p>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {AGENT_TEMPLATES.map((t) => (
+              <button
+                key={t.id}
+                type="button"
+                onClick={() => applyTemplate(t.id)}
+                className="rounded-xl border border-gray-200 bg-white px-5 py-5 text-left transition hover:border-blue-300 hover:bg-blue-50/30"
+              >
+                <p className="text-[11px] font-medium uppercase tracking-wide text-blue-600">{t.category}</p>
+                <p className="mt-1 text-[13.5px] font-medium text-[#1a1d29]">{t.label}</p>
+                <p className="mt-0.5 text-[12px] text-gray-500">{t.description}</p>
+              </button>
+            ))}
+          </div>
+        </>
+      ) : (
+      <>
+      <div className="mb-4 flex items-center justify-between">
+        <div>
+          <label className="block text-[12.5px] font-medium text-gray-500 mb-1.5">Type</label>
+          <div className="grid grid-cols-2 gap-3 max-w-md">
+            <button
+              type="button"
+              onClick={() => setAgentType('single_prompt')}
+              className={`rounded-lg border px-4 py-3 text-left transition ${
+                agentType === 'single_prompt' ? 'border-blue-400 bg-blue-50' : 'border-gray-200 hover:border-gray-300'
+              }`}
+            >
+              <p className="text-[13.5px] font-medium text-[#1a1d29]">Single prompt</p>
+              <p className="text-[12px] text-gray-500">One prompt, no flow steps</p>
+            </button>
+            <button
+              type="button"
+              onClick={() => setAgentType('conversational_flow')}
+              className={`rounded-lg border px-4 py-3 text-left transition ${
+                agentType === 'conversational_flow' ? 'border-blue-400 bg-blue-50' : 'border-gray-200 hover:border-gray-300'
+              }`}
+            >
+              <p className="text-[13.5px] font-medium text-[#1a1d29]">Conversational flow</p>
+              <p className="text-[12px] text-gray-500">Multi-step node graph</p>
+            </button>
+          </div>
         </div>
+        <button
+          type="button"
+          onClick={() => { setShowEditor(false); setNodes([emptyNode()]); setStartNodeId(''); setSinglePrompt(''); }}
+          className="text-[12.5px] font-medium text-gray-500 hover:text-[#1a1d29]"
+        >
+          ← Choose a different starting point
+        </button>
       </div>
+      {appliedTemplateId && (
+        <p className="mb-4 text-[12.5px] text-gray-500">
+          Starting from the <span className="font-medium text-[#1a1d29]">{AGENT_TEMPLATES.find((t) => t.id === appliedTemplateId)?.label}</span> template — everything below is fully editable.
+        </p>
+      )}
 
       <div className="bg-white border border-gray-200 rounded-xl p-6 mb-6 space-y-4">
         <h2 className="text-[14px] font-semibold text-[#1a1d29]">Version settings</h2>
@@ -502,6 +584,8 @@ export default function NewAgentVersionPage() {
           Cancel
         </Link>
       </div>
+      </>
+      )}
     </>
   );
 }
