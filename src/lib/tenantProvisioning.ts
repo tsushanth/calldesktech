@@ -8,6 +8,14 @@ import { getRetellClient } from '@/lib/retell';
 // full business metadata). One implementation now; callers pass what they
 // have and get back whichever tenant fields their own drifted version used
 // to set, kept as optional inputs rather than removed.
+//
+// voiceEngine defaults to 'poc' (2026-09-17): this used to unconditionally
+// provision real Retell LLM/Agent resources and hardcode
+// settings.voice_engine: 'retell' for EVERY tenant created through the real
+// "sign up as a new business" onboarding flow (/api/business) — meaning
+// every real customer silently landed on Retell, the comparison baseline
+// we benchmark against, rather than call-loop-poc, the actual product.
+// 'retell' is now opt-in, for internal benchmarking tenants only.
 export interface CreateBusinessTenantParams {
   userId: string;
   name: string;
@@ -18,12 +26,13 @@ export interface CreateBusinessTenantParams {
   address?: string;
   phone?: string;
   hours?: string;
+  voiceEngine?: 'poc' | 'retell';
 }
 
 export interface CreateBusinessTenantResult {
   tenant: { id: string; name: string };
-  agentId: string;
-  llmId: string;
+  agentId: string | null;
+  llmId: string | null;
   knowledgeBaseId: string | null;
 }
 
@@ -31,43 +40,51 @@ export async function createBusinessTenant(
   params: CreateBusinessTenantParams
 ): Promise<CreateBusinessTenantResult> {
   const { userId, name, email, businessType, description, website, address, phone, hours } = params;
+  const voiceEngine = params.voiceEngine === 'retell' ? 'retell' : 'poc';
   const supabase = getSupabaseAdmin();
-  const retell = getRetellClient();
 
   let knowledgeBaseId: string | null = null;
-  if (website) {
-    try {
-      const kb = await retell.createKnowledgeBase({ name: `${name} Website`, urls: [website] });
-      knowledgeBaseId = kb.knowledge_base_id;
-    } catch (kbError) {
-      console.error('Failed to create knowledge base:', kbError);
+  let agentId: string | null = null;
+  let llmId: string | null = null;
+
+  if (voiceEngine === 'retell') {
+    const retell = getRetellClient();
+    if (website) {
+      try {
+        const kb = await retell.createKnowledgeBase({ name: `${name} Website`, urls: [website] });
+        knowledgeBaseId = kb.knowledge_base_id;
+      } catch (kbError) {
+        console.error('Failed to create knowledge base:', kbError);
+      }
     }
+
+    const llm = await retell.createLLM({
+      generalPrompt: getDefaultBusinessPrompt(name, description, businessType),
+      beginMessage: `Hello! Thank you for calling ${name}. How can I help you today?`,
+      knowledgeBaseIds: knowledgeBaseId ? [knowledgeBaseId] : undefined,
+    });
+    llmId = llm.llm_id;
+
+    const agent = await retell.createAgent({
+      agentName: `${name} Receptionist`,
+      voiceId: '11labs-Adrian',
+      llmId: llm.llm_id,
+    });
+    agentId = agent.agent_id;
   }
-
-  const llm = await retell.createLLM({
-    generalPrompt: getDefaultBusinessPrompt(name, description, businessType),
-    beginMessage: `Hello! Thank you for calling ${name}. How can I help you today?`,
-    knowledgeBaseIds: knowledgeBaseId ? [knowledgeBaseId] : undefined,
-  });
-
-  const agent = await retell.createAgent({
-    agentName: `${name} Receptionist`,
-    voiceId: '11labs-Adrian',
-    llmId: llm.llm_id,
-  });
 
   const { data: tenant, error: createError } = await supabase
     .from('calldesk_tenants')
     .insert({
       user_id: userId,
       name,
-      retell_agent_id: agent.agent_id,
-      retell_llm_id: llm.llm_id,
+      retell_agent_id: agentId,
+      retell_llm_id: llmId,
       knowledge_base_id: knowledgeBaseId,
       settings: {
         voiceId: '11labs-Adrian',
         language: 'en-US',
-        voice_engine: 'retell',
+        voice_engine: voiceEngine,
         business_type: businessType,
         description,
         website,
@@ -100,8 +117,8 @@ export async function createBusinessTenant(
 
   return {
     tenant: { id: tenant.id, name: tenant.name },
-    agentId: agent.agent_id,
-    llmId: llm.llm_id,
+    agentId,
+    llmId,
     knowledgeBaseId,
   };
 }

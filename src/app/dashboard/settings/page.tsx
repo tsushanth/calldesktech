@@ -34,7 +34,7 @@ export default function SettingsPage() {
   const [providerFilter, setProviderFilter] = useState<'all' | RetellVoice['provider']>('all');
   const [calApiKey, setCalApiKey] = useState('');
   const [calEventTypeId, setCalEventTypeId] = useState('');
-  const [voiceEngine, setVoiceEngine] = useState<VoiceEngine>('retell');
+  const [voiceEngine, setVoiceEngine] = useState<VoiceEngine>('poc');
   const [ttsBackend, setTtsBackend] = useState<TtsBackend>('kokoro');
 
   // Building blocks — backed by the tenant's default "simple" agent (see

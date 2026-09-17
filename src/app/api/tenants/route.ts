@@ -103,8 +103,14 @@ export async function POST(request: NextRequest) {
 
     // Delegates the same KB/LLM/Agent/tenant/default-flow sequence
     // /api/business uses — this branch used to duplicate it with drift (see
-    // src/lib/tenantProvisioning.ts's header comment).
-    const { tenant: createdTenant, agentId } = await createBusinessTenant({ userId, name });
+    // src/lib/tenantProvisioning.ts's header comment). Only reached when
+    // voiceEngine !== 'poc' (see the branch above), so this is always the
+    // Retell demo path — explicit voiceEngine: 'retell' since
+    // createBusinessTenant now defaults to 'poc' otherwise.
+    const { tenant: createdTenant, agentId } = await createBusinessTenant({ userId, name, voiceEngine: 'retell' });
+    if (!agentId) {
+      return NextResponse.json({ error: 'Failed to provision Retell agent for demo tenant' }, { status: 500 });
+    }
 
     // Phone number handling — this branch is currently only reachable from
     // the demo flow (see OnboardingContext.tsx), never from real account
