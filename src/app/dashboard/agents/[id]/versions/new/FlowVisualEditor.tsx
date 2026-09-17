@@ -92,10 +92,18 @@ function computeAutoLayout(nodes: DraftNode[], startNodeId: string): Record<stri
   }
   const COL_WIDTH = 380;
   const ROW_HEIGHT = 260;
+  // A straight run of single-node columns (the common case: a linear chain)
+  // used to put every node at the same y, so each edge was a perfectly
+  // horizontal line with its label sitting right on top of it — invisible
+  // until you dragged a node off-axis. Alternating a half-row offset by
+  // column parity keeps a simple layout but angles every edge enough that
+  // its label clears the line.
+  const ZIGZAG_OFFSET = ROW_HEIGHT / 2;
   const positions: Record<string, { x: number; y: number }> = {};
   for (const [depth, colNodes] of columns) {
+    const baseline = depth % 2 === 1 ? ZIGZAG_OFFSET : 0;
     colNodes.forEach((n, i) => {
-      positions[n.id] = { x: depth * COL_WIDTH, y: i * ROW_HEIGHT };
+      positions[n.id] = { x: depth * COL_WIDTH, y: baseline + i * ROW_HEIGHT };
     });
   }
   return positions;

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useRouter } from 'next/navigation';
 import { useOnboarding } from '@/context/OnboardingContext';
 import type { PhoneNumber, Agent, AgentVersion } from '@/types';
 
@@ -11,6 +12,7 @@ import type { PhoneNumber, Agent, AgentVersion } from '@/types';
 // doc for why). Picking a version here is what "activation" means in this
 // model, and re-picking an older one is how rollback works.
 export default function PhoneNumbersPage() {
+  const router = useRouter();
   const { tenantId, isHydrated } = useOnboarding();
   const [numbers, setNumbers] = useState<PhoneNumber[]>([]);
   const [agents, setAgents] = useState<Agent[]>([]);
@@ -312,6 +314,7 @@ export default function PhoneNumbersPage() {
               versions={allVersions}
               versionLabel={versionLabel}
               onChange={(v) => handleRoute('inbound', v)}
+              onCreateAgent={() => router.push('/dashboard/agents')}
               disabled={isSaving}
             />
 
@@ -322,6 +325,7 @@ export default function PhoneNumbersPage() {
               versions={allVersions}
               versionLabel={versionLabel}
               onChange={(v) => handleRoute('outbound', v)}
+              onCreateAgent={() => router.push('/dashboard/agents')}
               disabled={isSaving}
               allowNone
             />
@@ -381,6 +385,8 @@ export default function PhoneNumbersPage() {
   );
 }
 
+const CREATE_AGENT_VALUE = '__create_agent__';
+
 function RoutingSection({
   title,
   description,
@@ -388,6 +394,7 @@ function RoutingSection({
   versions,
   versionLabel,
   onChange,
+  onCreateAgent,
   disabled,
   allowNone,
 }: {
@@ -397,6 +404,7 @@ function RoutingSection({
   versions: AgentVersion[];
   versionLabel: (v: AgentVersion) => string;
   onChange: (versionId: string) => void;
+  onCreateAgent: () => void;
   disabled: boolean;
   allowNone?: boolean;
 }) {
@@ -407,7 +415,13 @@ function RoutingSection({
       <div className="relative mt-3">
         <select
           value={value || ''}
-          onChange={(e) => onChange(e.target.value)}
+          onChange={(e) => {
+            if (e.target.value === CREATE_AGENT_VALUE) {
+              onCreateAgent();
+              return;
+            }
+            onChange(e.target.value);
+          }}
           disabled={disabled}
           className="w-full appearance-none rounded-lg border border-gray-200 bg-white px-3.5 py-2.5 text-[13.5px] text-[#1a1d29] focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100 disabled:opacity-50"
         >
@@ -415,6 +429,7 @@ function RoutingSection({
           {versions.map((v) => (
             <option key={v.id} value={v.id}>{versionLabel(v)}</option>
           ))}
+          <option value={CREATE_AGENT_VALUE}>+ Create an agent…</option>
         </select>
         <ChevronIcon className="pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
       </div>
