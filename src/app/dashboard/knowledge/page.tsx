@@ -70,6 +70,22 @@ export default function KnowledgePage() {
     }
   };
 
+  const handleDeleteKB = async (kbId: string, kbName: string) => {
+    if (!window.confirm(`Delete "${kbName}"? This also deletes all its FAQs and can't be undone.`)) return;
+
+    try {
+      await api.deleteKnowledgeBase(kbId);
+      const remaining = knowledgeBases.filter((kb) => kb.id !== kbId);
+      setKnowledgeBases(remaining);
+      if (selectedKB === kbId) {
+        setSelectedKB(remaining.length > 0 ? remaining[0].id : null);
+      }
+    } catch (err) {
+      console.error('Failed to delete knowledge base:', err);
+      alert(err instanceof Error ? err.message : 'Failed to delete knowledge base');
+    }
+  };
+
   const handleAddItem = async (question: string, answer: string) => {
     if (!selectedKB) return;
 
@@ -107,21 +123,32 @@ export default function KnowledgePage() {
           {/* Knowledge Base List */}
           <div className="col-span-1 space-y-1.5">
             {knowledgeBases.map((kb) => (
-              <button
+              <div
                 key={kb.id}
-                onClick={() => setSelectedKB(kb.id)}
-                className={`flex w-full items-center gap-2.5 rounded-lg p-3 text-left transition ${
+                className={`group flex w-full items-center gap-2.5 rounded-lg p-3 text-left transition ${
                   selectedKB === kb.id ? 'bg-blue-50' : 'border border-gray-200 bg-white hover:bg-gray-50'
                 }`}
               >
-                <span className={`flex h-7 w-7 flex-none items-center justify-center rounded-lg ${selectedKB === kb.id ? 'bg-blue-100 text-blue-600' : 'bg-gray-100 text-gray-400'}`}>
-                  <BookIcon />
-                </span>
-                <div className="min-w-0">
-                  <p className={`truncate text-[13.5px] font-medium ${selectedKB === kb.id ? 'text-blue-700' : 'text-[#1a1d29]'}`}>{kb.name}</p>
-                  <p className="text-[11.5px] capitalize text-gray-400">{kb.source_type}</p>
-                </div>
-              </button>
+                <button onClick={() => setSelectedKB(kb.id)} className="flex min-w-0 flex-1 items-center gap-2.5 text-left">
+                  <span className={`flex h-7 w-7 flex-none items-center justify-center rounded-lg ${selectedKB === kb.id ? 'bg-blue-100 text-blue-600' : 'bg-gray-100 text-gray-400'}`}>
+                    <BookIcon />
+                  </span>
+                  <div className="min-w-0">
+                    <p className={`truncate text-[13.5px] font-medium ${selectedKB === kb.id ? 'text-blue-700' : 'text-[#1a1d29]'}`}>{kb.name}</p>
+                    <p className="text-[11.5px] capitalize text-gray-400">{kb.source_type}</p>
+                  </div>
+                </button>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleDeleteKB(kb.id, kb.name);
+                  }}
+                  aria-label={`Delete ${kb.name}`}
+                  className="flex-none rounded-md p-1.5 text-gray-300 opacity-0 transition hover:bg-red-50 hover:text-red-600 group-hover:opacity-100"
+                >
+                  <TrashIcon />
+                </button>
+              </div>
             ))}
           </div>
 
@@ -339,6 +366,17 @@ function BookIcon({ large }: { large?: boolean }) {
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
       <path d="M4 5.5A1.5 1.5 0 0 1 5.5 4H12v16H5.5A1.5 1.5 0 0 1 4 18.5v-13Z" />
       <path d="M20 5.5A1.5 1.5 0 0 0 18.5 4H12v16h6.5a1.5 1.5 0 0 0 1.5-1.5v-13Z" />
+    </svg>
+  );
+}
+
+function TrashIcon() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M3 6h18" />
+      <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+      <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" />
+      <path d="M10 11v6M14 11v6" />
     </svg>
   );
 }

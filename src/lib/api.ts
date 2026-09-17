@@ -220,6 +220,12 @@ class ApiClient {
     return body.knowledgeBase;
   }
 
+  async deleteKnowledgeBase(knowledgeBaseId: string): Promise<void> {
+    const res = await fetch(`/api/knowledge-bases/${knowledgeBaseId}`, { method: 'DELETE' });
+    const body = await res.json();
+    if (!res.ok) throw new ApiError(body.error || 'Failed to delete knowledge base');
+  }
+
   async getKnowledgeItems(knowledgeBaseId: string): Promise<KnowledgeItem[]> {
     const res = await fetch(`/api/knowledge-bases/${knowledgeBaseId}/items`);
     const body = await res.json();
