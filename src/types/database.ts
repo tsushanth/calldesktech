@@ -121,6 +121,7 @@ export interface Database {
         Row: {
           id: string
           knowledge_base_id: string
+          document_id: string | null
           question: string
           answer: string
           created_at: string
@@ -128,6 +129,7 @@ export interface Database {
         Insert: {
           id?: string
           knowledge_base_id: string
+          document_id?: string | null
           question: string
           answer: string
           created_at?: string
@@ -135,8 +137,41 @@ export interface Database {
         Update: {
           id?: string
           knowledge_base_id?: string
+          document_id?: string | null
           question?: string
           answer?: string
+          created_at?: string
+        }
+      }
+      knowledge_documents: {
+        Row: {
+          id: string
+          knowledge_base_id: string
+          type: 'website' | 'text'
+          source_url: string | null
+          title: string | null
+          status: 'processing' | 'ready' | 'failed'
+          error: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          knowledge_base_id: string
+          type: 'website' | 'text'
+          source_url?: string | null
+          title?: string | null
+          status?: 'processing' | 'ready' | 'failed'
+          error?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          knowledge_base_id?: string
+          type?: 'website' | 'text'
+          source_url?: string | null
+          title?: string | null
+          status?: 'processing' | 'ready' | 'failed'
+          error?: string | null
           created_at?: string
         }
       }

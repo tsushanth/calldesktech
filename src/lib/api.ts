@@ -13,6 +13,7 @@ type KnowledgeBase = Tables['knowledge_bases']['Row'];
 type KnowledgeBaseInsert = Tables['knowledge_bases']['Insert'];
 type KnowledgeItem = Tables['knowledge_items']['Row'];
 type KnowledgeItemInsert = Tables['knowledge_items']['Insert'];
+type KnowledgeDocument = Tables['knowledge_documents']['Row'];
 type ConversationFlow = Tables['conversation_flows']['Row'];
 type CallLog = Tables['call_logs']['Row'];
 type Booking = Tables['bookings']['Row'];
@@ -218,6 +219,27 @@ class ApiClient {
     const body = await res.json();
     if (!res.ok) throw new ApiError(body.error || 'Failed to create knowledge base');
     return body.knowledgeBase;
+  }
+
+  async getKnowledgeDocuments(knowledgeBaseId: string): Promise<KnowledgeDocument[]> {
+    const res = await fetch(`/api/knowledge-bases/${knowledgeBaseId}/documents`);
+    const body = await res.json();
+    if (!res.ok) throw new ApiError(body.error || 'Failed to load documents');
+    return body.documents || [];
+  }
+
+  async addKnowledgeDocument(
+    knowledgeBaseId: string,
+    data: { type: 'website'; sourceUrl: string; title?: string } | { type: 'text'; text: string; title?: string }
+  ): Promise<KnowledgeDocument> {
+    const res = await fetch(`/api/knowledge-bases/${knowledgeBaseId}/documents`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+    const body = await res.json();
+    if (!res.ok) throw new ApiError(body.error || 'Failed to add document');
+    return body.document;
   }
 
   async deleteKnowledgeBase(knowledgeBaseId: string): Promise<void> {
@@ -451,6 +473,7 @@ export type {
   KnowledgeBaseInsert,
   KnowledgeItem,
   KnowledgeItemInsert,
+  KnowledgeDocument,
   ConversationFlow,
   CallLog,
   CallQa,

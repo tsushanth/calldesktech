@@ -23,6 +23,31 @@ function cleanText(text: string): string {
   return text.replace(/\s+/g, ' ').trim();
 }
 
+// Shared by the scraper's own heading-less fallback and the "Add text"
+// document type (pasted raw text has no DOM/headings to split on at all,
+// so it always goes through this path) — splits a wall of text into
+// paragraph-bounded chunks near MAX_ANSWER_CHARS rather than one giant item.
+export function chunkPlainText(text: string, titlePrefix: string): ScrapedItem[] {
+  const paragraphs = text
+    .split(/\n{2,}/)
+    .map((p) => cleanText(p))
+    .filter((p) => p.length >= MIN_ANSWER_CHARS);
+
+  const items: ScrapedItem[] = [];
+  let chunk = '';
+  let chunkIndex = 1;
+  for (const p of paragraphs) {
+    if (chunk.length + p.length > MAX_ANSWER_CHARS && chunk) {
+      items.push({ question: `${titlePrefix} — section ${chunkIndex}`, answer: chunk });
+      chunk = '';
+      chunkIndex += 1;
+    }
+    chunk += (chunk ? ' ' : '') + p;
+  }
+  if (chunk) items.push({ question: chunkIndex === 1 ? titlePrefix : `${titlePrefix} — section ${chunkIndex}`, answer: chunk });
+  return items;
+}
+
 // Splits the page into (heading, content-until-next-heading) sections when
 // real headings exist, falling back to fixed-size paragraph chunks for
 // pages with no heading structure (e.g. a single long block of copy).

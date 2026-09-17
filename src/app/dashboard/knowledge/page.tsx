@@ -2,16 +2,21 @@
 
 import { useState, useEffect } from 'react';
 import { useOnboarding } from '@/context/OnboardingContext';
-import { api, type KnowledgeBase, type KnowledgeItem } from '@/lib/api';
+import { api, type KnowledgeBase, type KnowledgeItem, type KnowledgeDocument } from '@/lib/api';
 
 export default function KnowledgePage() {
   const { tenantId, isHydrated } = useOnboarding();
   const [knowledgeBases, setKnowledgeBases] = useState<KnowledgeBase[]>([]);
   const [selectedKB, setSelectedKB] = useState<string | null>(null);
   const [items, setItems] = useState<KnowledgeItem[]>([]);
+  const [documents, setDocuments] = useState<KnowledgeDocument[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [showAddModal, setShowAddModal] = useState(false);
   const [showAddItemModal, setShowAddItemModal] = useState(false);
+  const [showAddMenu, setShowAddMenu] = useState(false);
+  const [showAddWebPageModal, setShowAddWebPageModal] = useState(false);
+  const [showAddTextModal, setShowAddTextModal] = useState(false);
+  const [addDocError, setAddDocError] = useState<string | null>(null);
 
   useEffect(() => {
     async function loadKnowledgeBases() {
@@ -51,6 +56,58 @@ export default function KnowledgePage() {
 
     loadItems();
   }, [selectedKB]);
+
+  useEffect(() => {
+    async function loadDocuments() {
+      if (!selectedKB) {
+        setDocuments([]);
+        return;
+      }
+
+      try {
+        const data = await api.getKnowledgeDocuments(selectedKB);
+        setDocuments(data);
+      } catch (err) {
+        console.error('Failed to load knowledge documents:', err);
+      }
+    }
+
+    loadDocuments();
+  }, [selectedKB]);
+
+  const refreshCurrentKB = async () => {
+    if (!selectedKB) return;
+    const [docs, docItems] = await Promise.all([
+      api.getKnowledgeDocuments(selectedKB),
+      api.getKnowledgeItems(selectedKB),
+    ]);
+    setDocuments(docs);
+    setItems(docItems);
+  };
+
+  const handleAddWebPage = async (sourceUrl: string, title: string) => {
+    if (!selectedKB) return;
+    setAddDocError(null);
+    try {
+      await api.addKnowledgeDocument(selectedKB, { type: 'website', sourceUrl, title: title || undefined });
+      await refreshCurrentKB();
+      setShowAddWebPageModal(false);
+    } catch (err) {
+      setAddDocError(err instanceof Error ? err.message : 'Failed to add web page');
+    }
+  };
+
+  const handleAddText = async (text: string, title: string) => {
+    if (!selectedKB) return;
+    setAddDocError(null);
+    try {
+      await api.addKnowledgeDocument(selectedKB, { type: 'text', text, title: title || undefined });
+      await refreshCurrentKB();
+      setShowAddTextModal(false);
+    } catch (err) {
+      setAddDocError(err instanceof Error ? err.message : 'Failed to add text');
+    }
+  };
 
   const handleCreateKB = async (name: string, sourceType: 'manual' | 'website' | 'pdf', sourceUrl?: string) => {
     if (!tenantId) return;
@@ -160,11 +217,56 @@ export default function KnowledgePage() {
                   {knowledgeBases.find((kb) => kb.id === selectedKB)?.name || 'Select a knowledge base'}
                 </h2>
                 {selectedKB && (
-                  <button onClick={() => setShowAddItemModal(true)} className="text-[13px] font-medium text-blue-600 hover:text-blue-700">
-                    + Add FAQ
-                  </button>
+                  <div className="relative">
+                    <button
+                      onClick={() => setShowAddMenu((v) => !v)}
+                      className="flex items-center gap-1 rounded-lg border border-gray-200 px-3 py-1.5 text-[13px] font-medium text-[#1a1d29] hover:bg-gray-50"
+                    >
+                      + Add
+                    </button>
+                    {showAddMenu && (
+                      <>
+                        <div className="fixed inset-0 z-10" onClick={() => setShowAddMenu(false)} />
+                        <div className="absolute right-0 top-full z-20 mt-1 w-48 rounded-lg border border-gray-200 bg-white py-1 shadow-lg">
+                          <button
+                            onClick={() => { setShowAddMenu(false); setAddDocError(null); setShowAddWebPageModal(true); }}
+                            className="flex w-full items-center gap-2 px-3.5 py-2 text-left text-[13px] text-[#1a1d29] hover:bg-gray-50"
+                          >
+                            Add web page
+                          </button>
+                          <button
+                            onClick={() => { setShowAddMenu(false); setAddDocError(null); setShowAddTextModal(true); }}
+                            className="flex w-full items-center gap-2 px-3.5 py-2 text-left text-[13px] text-[#1a1d29] hover:bg-gray-50"
+                          >
+                            Add text
+                          </button>
+                          <button
+                            onClick={() => { setShowAddMenu(false); setShowAddItemModal(true); }}
+                            className="flex w-full items-center gap-2 px-3.5 py-2 text-left text-[13px] text-[#1a1d29] hover:bg-gray-50"
+                          >
+                            Add FAQ
+                          </button>
+                        </div>
+                      </>
+                    )}
+                  </div>
                 )}
               </div>
+
+              {documents.length > 0 && (
+                <div className="border-b border-gray-100 px-5 py-3.5">
+                  <p className="mb-2 text-[11.5px] font-medium uppercase tracking-wide text-gray-400">Documents</p>
+                  <div className="space-y-1.5">
+                    {documents.map((doc) => (
+                      <div key={doc.id} className="flex items-center gap-2.5 rounded-lg bg-gray-50 px-3 py-2">
+                        <span className="flex-none text-gray-400">{doc.type === 'website' ? <LinkIcon /> : <TextIcon />}</span>
+                        <p className="min-w-0 flex-1 truncate text-[13px] text-[#1a1d29]">{doc.title || doc.source_url || 'Untitled document'}</p>
+                        <StatusBadge status={doc.status} />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               {items.length === 0 ? (
                 <div className="p-10 text-center text-[13.5px] text-gray-400">
@@ -201,6 +303,22 @@ export default function KnowledgePage() {
         <AddItemModal
           onClose={() => setShowAddItemModal(false)}
           onSubmit={handleAddItem}
+        />
+      )}
+
+      {showAddWebPageModal && (
+        <AddWebPageModal
+          onClose={() => { setShowAddWebPageModal(false); setAddDocError(null); }}
+          onSubmit={handleAddWebPage}
+          error={addDocError}
+        />
+      )}
+
+      {showAddTextModal && (
+        <AddTextModal
+          onClose={() => { setShowAddTextModal(false); setAddDocError(null); }}
+          onSubmit={handleAddText}
+          error={addDocError}
         />
       )}
     </>
@@ -357,6 +475,169 @@ function AddItemModal({
         </form>
       </div>
     </div>
+  );
+}
+
+function AddWebPageModal({
+  onClose,
+  onSubmit,
+  error,
+}: {
+  onClose: () => void;
+  onSubmit: (sourceUrl: string, title: string) => void;
+  error: string | null;
+}) {
+  const [sourceUrl, setSourceUrl] = useState('');
+  const [title, setTitle] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSubmitting(true);
+    await onSubmit(sourceUrl, title);
+    setSubmitting(false);
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4">
+      <div className="w-full max-w-lg rounded-xl border border-gray-200 bg-white p-6 shadow-xl">
+        <h2 className="mb-4 text-[17px] font-semibold text-[#1a1d29]">Add web page</h2>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label className="mb-1 block text-[12.5px] font-medium text-gray-500">URL</label>
+            <input
+              type="url"
+              value={sourceUrl}
+              onChange={(e) => setSourceUrl(e.target.value)}
+              placeholder="https://example.com/hours"
+              className="w-full rounded-lg border border-gray-200 px-3.5 py-2.5 text-[13.5px] focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100"
+              required
+            />
+          </div>
+
+          <div>
+            <label className="mb-1 block text-[12.5px] font-medium text-gray-500">Title (optional)</label>
+            <input
+              type="text"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              placeholder="e.g., Hours & Location"
+              className="w-full rounded-lg border border-gray-200 px-3.5 py-2.5 text-[13.5px] focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100"
+            />
+          </div>
+
+          {error && <p className="text-[13px] text-red-600">{error}</p>}
+
+          <div className="flex gap-2.5 pt-2">
+            <button type="button" onClick={onClose} className="flex-1 rounded-lg border border-gray-200 px-4 py-2.5 text-[13.5px] font-medium text-gray-600 transition hover:bg-gray-50">
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={submitting}
+              className="flex-1 rounded-lg bg-blue-600 px-4 py-2.5 text-[13.5px] font-medium text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-gray-200 disabled:text-gray-400"
+            >
+              {submitting ? 'Fetching…' : 'Add web page'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+function AddTextModal({
+  onClose,
+  onSubmit,
+  error,
+}: {
+  onClose: () => void;
+  onSubmit: (text: string, title: string) => void;
+  error: string | null;
+}) {
+  const [text, setText] = useState('');
+  const [title, setTitle] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSubmitting(true);
+    await onSubmit(text, title);
+    setSubmitting(false);
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4">
+      <div className="w-full max-w-lg rounded-xl border border-gray-200 bg-white p-6 shadow-xl">
+        <h2 className="mb-4 text-[17px] font-semibold text-[#1a1d29]">Add text</h2>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label className="mb-1 block text-[12.5px] font-medium text-gray-500">Title (optional)</label>
+            <input
+              type="text"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              placeholder="e.g., Return Policy"
+              className="w-full rounded-lg border border-gray-200 px-3.5 py-2.5 text-[13.5px] focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100"
+            />
+          </div>
+
+          <div>
+            <label className="mb-1 block text-[12.5px] font-medium text-gray-500">Text</label>
+            <textarea
+              value={text}
+              onChange={(e) => setText(e.target.value)}
+              placeholder="Paste any content you want the AI to be able to answer questions from."
+              rows={8}
+              className="w-full resize-none rounded-lg border border-gray-200 px-3.5 py-2.5 text-[13.5px] focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100"
+              required
+            />
+          </div>
+
+          {error && <p className="text-[13px] text-red-600">{error}</p>}
+
+          <div className="flex gap-2.5 pt-2">
+            <button type="button" onClick={onClose} className="flex-1 rounded-lg border border-gray-200 px-4 py-2.5 text-[13.5px] font-medium text-gray-600 transition hover:bg-gray-50">
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={submitting}
+              className="flex-1 rounded-lg bg-blue-600 px-4 py-2.5 text-[13.5px] font-medium text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-gray-200 disabled:text-gray-400"
+            >
+              {submitting ? 'Adding…' : 'Add text'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+function StatusBadge({ status }: { status: 'processing' | 'ready' | 'failed' }) {
+  const styles = {
+    processing: 'bg-amber-50 text-amber-600',
+    ready: 'bg-green-50 text-green-600',
+    failed: 'bg-red-50 text-red-600',
+  };
+  const labels = { processing: 'Processing', ready: 'Ready', failed: 'Failed' };
+  return <span className={`flex-none rounded-full px-2 py-0.5 text-[11px] font-medium ${styles[status]}`}>{labels[status]}</span>;
+}
+
+function LinkIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M10 13a5 5 0 0 0 7.5.5l2-2a5 5 0 0 0-7-7l-1 1" />
+      <path d="M14 11a5 5 0 0 0-7.5-.5l-2 2a5 5 0 0 0 7 7l1-1" />
+    </svg>
+  );
+}
+
+function TextIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M4 6h16M4 12h16M4 18h10" />
+    </svg>
   );
 }
 
