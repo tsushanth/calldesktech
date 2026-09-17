@@ -360,10 +360,15 @@ export default function PhoneNumbersPage() {
             <label className="mb-1.5 block text-[12.5px] font-medium text-[#1a1d29]">Destination number</label>
             <input
               value={callToNumber}
-              onChange={(e) => setCallToNumber(e.target.value)}
+              onChange={(e) => {
+                setCallToNumber(e.target.value);
+                // Editing the destination is what "trying again" means here —
+                // clears the placed-call state so the button re-enables.
+                setCallResult(null);
+              }}
               placeholder="+1..."
               className="mb-4 w-full rounded-lg border border-gray-200 px-3.5 py-2.5 font-mono text-[13.5px] focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100"
-              onKeyDown={(e) => e.key === 'Enter' && handleMakeCall()}
+              onKeyDown={(e) => e.key === 'Enter' && !isCalling && !callResult && handleMakeCall()}
             />
             {callError && (
               <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-3.5 py-2.5 text-[13px] text-red-700">{callError}</div>
@@ -382,10 +387,11 @@ export default function PhoneNumbersPage() {
               </button>
               <button
                 onClick={handleMakeCall}
-                disabled={isCalling || !callToNumber.trim()}
-                className="rounded-lg bg-[#1a1d29] px-4 py-2 text-[13.5px] font-medium text-white transition hover:bg-[#2a2e3d] disabled:opacity-40"
+                disabled={isCalling || !!callResult || !callToNumber.trim()}
+                title={callResult ? 'Already placed — edit the number to call again' : undefined}
+                className="rounded-lg bg-[#1a1d29] px-4 py-2 text-[13.5px] font-medium text-white transition hover:bg-[#2a2e3d] disabled:opacity-40 disabled:cursor-not-allowed"
               >
-                {isCalling ? 'Calling…' : 'Call'}
+                {isCalling ? 'Calling…' : callResult ? 'Called' : 'Call'}
               </button>
             </div>
           </div>
