@@ -5,7 +5,7 @@ import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { api } from '@/lib/api';
 import type { RetellVoice } from '@/lib/retell';
-import type { FlowNode, FlowEdge, StructuredCondition, TtsBackend } from '@/types';
+import type { FlowNode, FlowEdge, StructuredCondition, TtsBackend, AgentVersion } from '@/types';
 import { AGENT_TEMPLATES } from '@/lib/agentTemplates';
 import FlowVisualEditor from './FlowVisualEditor';
 
@@ -82,6 +82,58 @@ export default function NewAgentVersionPage() {
   const [generatePrompt, setGeneratePrompt] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
   const [generateError, setGenerateError] = useState<string | null>(null);
+  // Matches how Retell's own editor actually works: an agent that already
+  // has a version opens straight into an editable draft of its LATEST
+  // version — no template gallery, no "build from scratch" choice — with a
+  // Publish action to snapshot the edit as a new version. The template
+  // picker is for a genuinely brand-new agent only (zero versions), which is
+  // exactly the case the Agents list page's Voice/Text Agent creation
+  // reaches. isCheckingExisting gates rendering so the picker never
+  // flashes before this lookup resolves.
+  const [isCheckingExisting, setIsCheckingExisting] = useState(true);
+  const [basedOnVersionNumber, setBasedOnVersionNumber] = useState<number | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch(`/api/agents/${agentId}/versions`);
+        const body = await res.json();
+        if (!res.ok) throw new Error(body.error);
+        const versions: AgentVersion[] = body.versions || [];
+        // Already sorted version_number desc by the API.
+        const latest = versions[0];
+        if (!latest?.flow_id) return;
+
+        const flowRes = await fetch(`/api/flows/${latest.flow_id}`);
+        const flowBody = await flowRes.json();
+        if (!flowRes.ok || cancelled) return;
+        const loadedNodes = (flowBody.flow?.nodes || []) as FlowNode[];
+        if (loadedNodes.length === 0) return;
+
+        setNodes(draftNodesFromTemplate(loadedNodes));
+        setStartNodeId(flowBody.flow?.global_settings?.startNodeId || loadedNodes[0].id);
+        setVoiceEngine(latest.voice_engine);
+        setVoiceId(latest.voice_id || '');
+        setTtsBackend((latest.tts_backend as TtsBackend) || '');
+        setRetellAgentId(latest.retell_agent_id || '');
+        setRetellLlmId(latest.retell_llm_id || '');
+        const savedMode = flowBody.flow?.global_settings?.transcriptionMode;
+        if (savedMode === 'fast' || savedMode === 'balanced' || savedMode === 'accurate') setTranscriptionMode(savedMode);
+        setAgentType('conversational_flow');
+        setBasedOnVersionNumber(latest.version_number);
+        setFlowName(`v${latest.version_number + 1}`);
+        setAppliedTemplateId(null);
+        setShowEditor(true);
+      } catch {
+        // Any failure here (network, missing flow, etc.) just falls through
+        // to the normal template picker rather than blocking the page.
+      } finally {
+        if (!cancelled) setIsCheckingExisting(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [agentId]);
 
   const applyTemplate = (templateId: string) => {
     const template = AGENT_TEMPLATES.find((t) => t.id === templateId);
@@ -327,21 +379,35 @@ export default function NewAgentVersionPage() {
           ← Back to agent
         </Link>
         <div className="mt-1.5 flex items-center gap-2">
-          <h1 className="text-[22px] font-semibold text-[#1a1d29]">New version</h1>
+          <h1 className="text-[22px] font-semibold text-[#1a1d29]">{basedOnVersionNumber ? 'Edit agent' : 'New version'}</h1>
           {channel === 'text' && (
             <span className="rounded-full bg-purple-50 px-2.5 py-0.5 text-[11.5px] font-medium text-purple-600">Text agent</span>
           )}
+          {basedOnVersionNumber && (
+            <span className="rounded-full bg-gray-100 px-2.5 py-0.5 text-[11.5px] font-medium text-gray-600">Based on V{basedOnVersionNumber}</span>
+          )}
         </div>
         <p className="text-gray-500 text-[13px] mt-1">
-          {channel === 'text'
-            ? 'Versions are immutable — this creates a new one, it never edits an existing version. A text agent answers your chat widget; the newest version is always what it runs.'
-            : 'Versions are immutable — this creates a new one, it never edits an existing version. Route a phone number to it afterward to make it live.'}
+          {basedOnVersionNumber
+            ? <>Editing a copy of V{basedOnVersionNumber} — Publish saves it as V{basedOnVersionNumber + 1}; V{basedOnVersionNumber} stays exactly as it was and anything still routed to it keeps working.{' '}
+                <button type="button" onClick={() => { setShowEditor(false); setBasedOnVersionNumber(null); setNodes([emptyNode()]); setFlowName('v1'); }} className="font-medium text-blue-600 hover:text-blue-700">
+                  Start fresh from a template instead
+                </button>
+              </>
+            : channel === 'text'
+              ? 'Versions are immutable — this creates a new one, it never edits an existing version. A text agent answers your chat widget; the newest version is always what it runs.'
+              : 'Versions are immutable — this creates a new one, it never edits an existing version. Route a phone number to it afterward to make it live.'}
         </p>
       </div>
 
       {error && <div className="mb-5 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-[13.5px] text-red-700">{error}</div>}
 
-      {!showEditor ? (
+      {isCheckingExisting ? (
+        <div className="space-y-4">
+          <div className="h-32 animate-pulse rounded-xl bg-gray-100" />
+          <div className="h-64 animate-pulse rounded-xl bg-gray-100" />
+        </div>
+      ) : !showEditor ? (
         <>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 mb-3">
             <button
@@ -1052,7 +1118,7 @@ export default function NewAgentVersionPage() {
           disabled={isSaving}
           className="bg-blue-600 hover:bg-blue-700 disabled:opacity-50 px-6 py-2.5 rounded-lg text-[13.5px] font-medium text-white transition"
         >
-          {isSaving ? 'Saving...' : 'Save version'}
+          {isSaving ? 'Publishing…' : basedOnVersionNumber ? 'Publish' : 'Save version'}
         </button>
         <Link
           href={`/dashboard/agents/${agentId}`}

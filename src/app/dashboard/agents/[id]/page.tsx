@@ -83,7 +83,7 @@ export default function AgentDetailPage() {
             href={`/dashboard/agents/${agentId}/versions/new`}
             className="rounded-lg bg-blue-600 px-4 py-2 text-[13px] font-medium text-white transition hover:bg-blue-700"
           >
-            + New version
+            {versions.length === 0 ? '+ Create first version' : 'Edit'}
           </Link>
         </div>
       </div>
