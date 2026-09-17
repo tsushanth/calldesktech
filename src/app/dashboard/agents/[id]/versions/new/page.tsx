@@ -26,6 +26,15 @@ export default function NewAgentVersionPage() {
   const router = useRouter();
   const agentId = params.id as string;
 
+  // "Single prompt" (matches Retell's own Create Agent modal, which offers
+  // this alongside "Conversational flow") isn't a different runtime concept
+  // — a single-node flow with no edges already works today (a terminal
+  // node the model just keeps talking from). This mode is purely a UI
+  // simplification: one big prompt textarea instead of the full node
+  // graph, which gets wrapped into a one-node flow on save. No schema or
+  // API changes needed — see handleSave below.
+  const [agentType, setAgentType] = useState<'single_prompt' | 'conversational_flow'>('conversational_flow');
+  const [singlePrompt, setSinglePrompt] = useState('');
   const [flowName, setFlowName] = useState('v1');
   const [startNodeId, setStartNodeId] = useState('');
   const [voiceEngine, setVoiceEngine] = useState<'retell' | 'poc'>('poc');
@@ -103,22 +112,36 @@ export default function NewAgentVersionPage() {
 
   const handleSave = async () => {
     setError(null);
-    const cleanNodes: FlowNode[] = nodes.map(({ _key, ...n }) => {
-      void _key;
-      return n;
-    });
+
+    let cleanNodes: FlowNode[];
+    let effectiveStartNodeId: string;
+
+    if (agentType === 'single_prompt') {
+      if (!singlePrompt.trim()) return setError('Write the agent\'s prompt.');
+      // One terminal node, no edges — the model just talks from this
+      // single prompt for the whole call, same as a real single-node flow
+      // would behave; nothing about this is a special runtime case.
+      cleanNodes = [{ id: 'main', type: 'greeting', prompt: singlePrompt.trim(), edges: [] }];
+      effectiveStartNodeId = 'main';
+    } else {
+      cleanNodes = nodes.map(({ _key, ...n }) => {
+        void _key;
+        return n;
+      });
+      if (cleanNodes.some((n) => !n.id.trim())) return setError('Every node needs an id.');
+      const ids = new Set(cleanNodes.map((n) => n.id));
+      if (ids.size !== cleanNodes.length) return setError('Node ids must be unique.');
+      if (!startNodeId || !ids.has(startNodeId)) return setError('Pick a valid start node.');
+      for (const n of cleanNodes) {
+        for (const e of n.edges) {
+          if (!e.target || !ids.has(e.target)) return setError(`Node "${n.id}" has an edge with no valid target.`);
+          if (!e.condition.trim()) return setError(`Node "${n.id}" has an edge with no condition.`);
+        }
+      }
+      effectiveStartNodeId = startNodeId;
+    }
 
     if (!flowName.trim()) return setError('Give this version a name.');
-    if (cleanNodes.some((n) => !n.id.trim())) return setError('Every node needs an id.');
-    const ids = new Set(cleanNodes.map((n) => n.id));
-    if (ids.size !== cleanNodes.length) return setError('Node ids must be unique.');
-    if (!startNodeId || !ids.has(startNodeId)) return setError('Pick a valid start node.');
-    for (const n of cleanNodes) {
-      for (const e of n.edges) {
-        if (!e.target || !ids.has(e.target)) return setError(`Node "${n.id}" has an edge with no valid target.`);
-        if (!e.condition.trim()) return setError(`Node "${n.id}" has an edge with no condition.`);
-      }
-    }
 
     setIsSaving(true);
     try {
@@ -127,7 +150,7 @@ export default function NewAgentVersionPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           flowName: flowName.trim(),
-          startNodeId,
+          startNodeId: effectiveStartNodeId,
           nodes: cleanNodes,
           voiceEngine,
           voiceId: voiceId || undefined,
@@ -161,6 +184,32 @@ export default function NewAgentVersionPage() {
 
       {error && <div className="mb-5 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-[13.5px] text-red-700">{error}</div>}
 
+      <div className="mb-6">
+        <label className="block text-[12.5px] font-medium text-gray-500 mb-1.5">Type</label>
+        <div className="grid grid-cols-2 gap-3 max-w-md">
+          <button
+            type="button"
+            onClick={() => setAgentType('single_prompt')}
+            className={`rounded-lg border px-4 py-3 text-left transition ${
+              agentType === 'single_prompt' ? 'border-blue-400 bg-blue-50' : 'border-gray-200 hover:border-gray-300'
+            }`}
+          >
+            <p className="text-[13.5px] font-medium text-[#1a1d29]">Single prompt</p>
+            <p className="text-[12px] text-gray-500">One prompt, no flow steps</p>
+          </button>
+          <button
+            type="button"
+            onClick={() => setAgentType('conversational_flow')}
+            className={`rounded-lg border px-4 py-3 text-left transition ${
+              agentType === 'conversational_flow' ? 'border-blue-400 bg-blue-50' : 'border-gray-200 hover:border-gray-300'
+            }`}
+          >
+            <p className="text-[13.5px] font-medium text-[#1a1d29]">Conversational flow</p>
+            <p className="text-[12px] text-gray-500">Multi-step node graph</p>
+          </button>
+        </div>
+      </div>
+
       <div className="bg-white border border-gray-200 rounded-xl p-6 mb-6 space-y-4">
         <h2 className="text-[14px] font-semibold text-[#1a1d29]">Version settings</h2>
         <div className="grid grid-cols-2 gap-4">
@@ -172,6 +221,7 @@ export default function NewAgentVersionPage() {
               className="w-full bg-white border border-gray-200 rounded-lg px-3.5 py-2.5 text-[13.5px] focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100"
             />
           </div>
+          {agentType === 'conversational_flow' && (
           <div>
             <label className="block text-[12.5px] font-medium text-gray-500 mb-1">Start node</label>
             <select
@@ -185,6 +235,7 @@ export default function NewAgentVersionPage() {
               ))}
             </select>
           </div>
+          )}
           <div>
             <label className="block text-[12.5px] font-medium text-gray-500 mb-1">Call engine</label>
             <select
@@ -262,6 +313,22 @@ export default function NewAgentVersionPage() {
         </div>
       </div>
 
+      {agentType === 'single_prompt' ? (
+      <div className="bg-white border border-gray-200 rounded-xl p-6 mb-8">
+        <label className="block text-[12.5px] font-medium text-gray-500 mb-1">Prompt</label>
+        <p className="text-[12px] text-gray-400 mb-2">
+          Everything the agent knows and does for the whole call — no separate steps, no transitions.
+        </p>
+        <textarea
+          value={singlePrompt}
+          onChange={(e) => setSinglePrompt(e.target.value)}
+          rows={10}
+          placeholder="You are a friendly receptionist for Acme Dental. Greet the caller, answer questions about hours and services, and help them book an appointment by collecting their name and preferred time."
+          className="w-full bg-white border border-gray-200 rounded-lg px-3.5 py-2.5 text-[13.5px] focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100 resize-none"
+        />
+      </div>
+      ) : (
+      <>
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-[15px] font-semibold text-[#1a1d29]">Nodes</h2>
         <button
@@ -417,6 +484,8 @@ export default function NewAgentVersionPage() {
           </div>
         ))}
       </div>
+      </>
+      )}
 
       <div className="flex gap-3">
         <button
