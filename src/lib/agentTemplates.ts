@@ -226,11 +226,17 @@ export const AGENT_TEMPLATES: AgentTemplate[] = [
       {
         id: 'payment',
         type: 'payment',
+        // Edge conditions reference the normalized `payment_status` field
+        // (see call-loop-poc's /twilio/pay-result) directly, not vague
+        // phrasing like "payment failed or was canceled" — a live test
+        // reproduced the model treating an unrecognized raw Twilio Result
+        // value as "try again" and re-triggering payment twice instead of
+        // routing here, because the wording didn't match closely enough.
         prompt: 'Let the caller know you\'re securely transferring them to enter their card details now — they should follow the prompts they hear.',
         params: { amount: '0', paymentConnector: 'Default' },
         edges: [
-          { id: 'e_payment_success', condition: 'payment succeeded', target: 'confirm' },
-          { id: 'e_payment_failed', condition: 'payment failed or was canceled', target: 'failed' },
+          { id: 'e_payment_success', condition: 'payment_status is "succeeded"', target: 'confirm' },
+          { id: 'e_payment_failed', condition: 'payment_status is "failed"', target: 'failed' },
         ],
       },
       { id: 'confirm', type: 'goodbye', prompt: "Confirm the payment was received, thank the caller, and say goodbye.", edges: [] },
