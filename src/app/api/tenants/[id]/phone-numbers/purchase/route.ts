@@ -89,7 +89,19 @@ export async function POST(
     return NextResponse.json({ error: message }, { status: 502 });
   }
 
-  await retell.assignPhoneNumberToAgent(phoneNumber, tenant.retell_agent_id);
+  try {
+    await retell.assignPhoneNumberToAgent(phoneNumber, tenant.retell_agent_id);
+  } catch (err) {
+    // The number is already purchased and billed at this point — don't lose
+    // track of it just because assignment failed; surface it as JSON instead
+    // of letting the exception bubble into an empty-body 500.
+    const message = err instanceof Error ? err.message : 'Failed to assign number to agent';
+    console.error('Phone number purchased but failed to assign to agent:', err);
+    return NextResponse.json(
+      { phoneNumber, warning: `Purchased but not assigned to agent: ${message}` },
+      { status: 201 }
+    );
+  }
 
   const { data: numberRow, error: insertError } = await supabase
     .from('calldesk_phone_numbers')

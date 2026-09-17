@@ -134,14 +134,22 @@ class RetellClient {
     });
   }
 
+  // Retell deprecated the single-agent `inbound_agent_id` field (removed
+  // 2026-03-31) in favor of a weighted multi-agent list — see
+  // https://docs.retellai.com/deprecation-notice/2026/03-31_phone_number_agent_fields.
+  // A single agent is just one entry with weight 1, but it must carry the
+  // agent's current version, so this fetches it first.
   async assignPhoneNumberToAgent(
     phoneNumber: string,
     agentId: string
   ): Promise<void> {
+    const agent = await this.getAgent(agentId) as RetellAgent & { version?: number };
     await this.request(`/update-phone-number/${phoneNumber}`, {
       method: 'PATCH',
       body: JSON.stringify({
-        inbound_agent_id: agentId,
+        inbound_agents: [
+          { agent_id: agentId, agent_version: agent.version ?? 0, weight: 1 },
+        ],
       }),
     });
   }
