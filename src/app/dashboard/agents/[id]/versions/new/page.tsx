@@ -7,6 +7,7 @@ import { api } from '@/lib/api';
 import type { RetellVoice } from '@/lib/retell';
 import type { FlowNode, FlowEdge, StructuredCondition, TtsBackend } from '@/types';
 import { AGENT_TEMPLATES } from '@/lib/agentTemplates';
+import FlowVisualEditor from './FlowVisualEditor';
 
 type DraftNode = FlowNode & { _key: string };
 
@@ -62,6 +63,7 @@ export default function NewAgentVersionPage() {
   const [retellAgentId, setRetellAgentId] = useState('');
   const [retellLlmId, setRetellLlmId] = useState('');
   const [nodes, setNodes] = useState<DraftNode[]>([emptyNode()]);
+  const [nodeView, setNodeView] = useState<'list' | 'visual'>('list');
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   // Template picker gate — matches Retell's own Create Agent modal, which
@@ -582,15 +584,44 @@ export default function NewAgentVersionPage() {
       <>
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-[15px] font-semibold text-[#1a1d29]">Nodes</h2>
-        <button
-          onClick={addNode}
-          className="text-[13px] border border-gray-200 text-gray-600 hover:bg-gray-50 px-4 py-2 rounded-lg transition"
-        >
-          + Add node
-        </button>
+        <div className="flex items-center gap-3">
+          <div className="flex rounded-lg border border-gray-200 bg-white p-0.5">
+            <button
+              onClick={() => setNodeView('list')}
+              className={`rounded-md px-3 py-1.5 text-[12.5px] font-medium transition ${nodeView === 'list' ? 'bg-[#1a1d29] text-white' : 'text-gray-500 hover:text-gray-700'}`}
+            >
+              List
+            </button>
+            <button
+              onClick={() => setNodeView('visual')}
+              className={`rounded-md px-3 py-1.5 text-[12.5px] font-medium transition ${nodeView === 'visual' ? 'bg-[#1a1d29] text-white' : 'text-gray-500 hover:text-gray-700'}`}
+            >
+              Visual
+            </button>
+          </div>
+          <button
+            onClick={addNode}
+            className="text-[13px] border border-gray-200 text-gray-600 hover:bg-gray-50 px-4 py-2 rounded-lg transition"
+          >
+            + Add node
+          </button>
+        </div>
       </div>
 
-      <div className="space-y-4 mb-8">
+      {nodeView === 'visual' && (
+        <div className="mb-8">
+          <FlowVisualEditor
+            nodes={nodes}
+            startNodeId={startNodeId}
+            onPositionChange={(nodeKey, position) => updateNode(nodeKey, { position })}
+          />
+          <p className="mt-2 text-[11.5px] text-gray-400">
+            Drag nodes to arrange them — positions are saved with the version. Switch to List to edit a node&apos;s fields.
+          </p>
+        </div>
+      )}
+
+      <div className={`space-y-4 mb-8 ${nodeView === 'visual' ? 'hidden' : ''}`}>
         {nodes.map((node) => (
           <div key={node._key} className="bg-white border border-gray-200 rounded-xl p-6">
             <div className="grid grid-cols-2 gap-4 mb-4">
