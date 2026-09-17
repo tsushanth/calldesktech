@@ -30,6 +30,9 @@ export async function POST(request: NextRequest) {
           tenant_id: tenant.id,
           retell_call_id: event.call.call_id,
           caller_phone: event.call.from_number,
+          to_number: event.call.to_number,
+          direction: event.call.direction,
+          voice_engine: 'retell',
           outcome: 'answered', // Will be updated on call_ended
           duration_seconds: 0,
         });
@@ -53,6 +56,11 @@ export async function POST(request: NextRequest) {
           .update({
             duration_seconds: duration,
             transcript: event.call.transcript ? [{ role: 'system', content: event.call.transcript }] : null,
+            // Was captured off the event and forwarded to the tenant's own
+            // outbound webhooks below, but never actually saved onto this
+            // row — silently dropped before it ever reached our own
+            // database, so nobody could ever play it back.
+            recording_url: event.call.recording_url ?? null,
             ...(finalizedOutcome ? { outcome: finalizedOutcome } : {}),
           })
           .eq('retell_call_id', event.call.call_id);

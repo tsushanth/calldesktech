@@ -88,6 +88,19 @@ export default function CallDetailPage() {
             </div>
           </div>
 
+          {call.recording_url ? (
+            <div className="rounded-xl border border-gray-200 bg-white p-5">
+              <h2 className="mb-3 text-[14px] font-semibold text-[#1a1d29]">Recording</h2>
+              {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
+              <audio controls preload="none" className="w-full" src={`/api/calls/${call.id}/recording`} />
+            </div>
+          ) : (
+            <div className="rounded-xl border border-gray-200 bg-white p-5">
+              <h2 className="mb-1 text-[14px] font-semibold text-[#1a1d29]">Recording</h2>
+              <p className="text-[12.5px] text-gray-400">No recording available for this call.</p>
+            </div>
+          )}
+
           {call.extracted_data && (
             <div className="rounded-xl border border-gray-200 bg-white p-5">
               <h2 className="mb-3.5 text-[14px] font-semibold text-[#1a1d29]">Extracted Information</h2>
