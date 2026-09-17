@@ -1129,6 +1129,23 @@ function SimulationTab({ agentId }: { agentId: string }) {
     }
   };
 
+  const [isGenerating, setIsGenerating] = useState(false);
+
+  const handleGenerate = async () => {
+    setIsGenerating(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/agents/${agentId}/test-cases/generate`, { method: 'POST' });
+      const body = await res.json();
+      if (!res.ok) throw new Error(body.error);
+      setTestCases((prev) => [...(body.testCases || []), ...prev]);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to generate test cases');
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
   const handleDelete = async (id: string) => {
     try {
       await fetch(`/api/agents/${agentId}/test-cases/${id}`, { method: 'DELETE' });
@@ -1145,9 +1162,19 @@ function SimulationTab({ agentId }: { agentId: string }) {
           <h2 className="text-[15px] font-semibold text-[#1a1d29]">Simulation Testing</h2>
           <p className="mt-0.5 text-[12.5px] text-gray-500">Define test cases for this agent. Running them against real calls is coming in a later pass.</p>
         </div>
-        <button onClick={() => setShowForm(true)} className="rounded-lg bg-[#1a1d29] px-4 py-2 text-[13px] font-medium text-white transition hover:bg-[#2a2e3d]">
-          + Test Case
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={handleGenerate}
+            disabled={isGenerating}
+            title="Drafts test cases from this agent's own published flow — its real branches, not generic ones"
+            className="rounded-lg border border-gray-200 px-4 py-2 text-[13px] font-medium text-gray-700 transition hover:bg-gray-50 disabled:opacity-50"
+          >
+            {isGenerating ? 'Generating…' : '✨ Generate from workflow'}
+          </button>
+          <button onClick={() => setShowForm(true)} className="rounded-lg bg-[#1a1d29] px-4 py-2 text-[13px] font-medium text-white transition hover:bg-[#2a2e3d]">
+            + Test Case
+          </button>
+        </div>
       </div>
 
       {error && <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-3.5 py-2.5 text-[13px] text-red-700">{error}</div>}
