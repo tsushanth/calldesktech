@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { Fragment, useEffect, useState, useCallback } from 'react';
 import { useParams, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { api } from '@/lib/api';
@@ -1082,6 +1082,12 @@ function SimulationTab({ agentId }: { agentId: string }) {
     success_criteria: string;
     created_at: string;
   }
+  interface RunResult {
+    id: string;
+    passed: boolean;
+    reasoning: string;
+    transcript: { role: 'caller' | 'agent'; content: string }[];
+  }
   const [testCases, setTestCases] = useState<TestCase[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
@@ -1090,6 +1096,9 @@ function SimulationTab({ agentId }: { agentId: string }) {
   const [successCriteria, setSuccessCriteria] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [runningId, setRunningId] = useState<string | null>(null);
+  const [runResults, setRunResults] = useState<Record<string, RunResult>>({});
+  const [expandedTranscriptId, setExpandedTranscriptId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setIsLoading(true);
@@ -1143,6 +1152,22 @@ function SimulationTab({ agentId }: { agentId: string }) {
       setError(err instanceof Error ? err.message : 'Failed to generate test cases');
     } finally {
       setIsGenerating(false);
+    }
+  };
+
+  const handleRun = async (testCaseId: string) => {
+    setRunningId(testCaseId);
+    setError(null);
+    try {
+      const res = await fetch(`/api/agents/${agentId}/test-cases/${testCaseId}/run`, { method: 'POST' });
+      const body = await res.json();
+      if (!res.ok) throw new Error(body.error);
+      setRunResults((prev) => ({ ...prev, [testCaseId]: body.run }));
+      setExpandedTranscriptId(testCaseId);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Simulation failed');
+    } finally {
+      setRunningId(null);
     }
   };
 
@@ -1211,25 +1236,68 @@ function SimulationTab({ agentId }: { agentId: string }) {
               <th className="px-5 py-3 font-medium">Test Case</th>
               <th className="px-5 py-3 font-medium">User Prompt</th>
               <th className="px-5 py-3 font-medium">Success Criteria</th>
+              <th className="px-5 py-3 font-medium">Last Run</th>
               <th className="px-5 py-3 font-medium"></th>
             </tr>
           </thead>
           <tbody>
             {isLoading ? (
-              <tr><td colSpan={4} className="px-5 py-10 text-center text-gray-400">Loading…</td></tr>
+              <tr><td colSpan={5} className="px-5 py-10 text-center text-gray-400">Loading…</td></tr>
             ) : testCases.length === 0 ? (
-              <tr><td colSpan={4} className="px-5 py-10 text-center text-gray-400">No test cases yet.</td></tr>
+              <tr><td colSpan={5} className="px-5 py-10 text-center text-gray-400">No test cases yet.</td></tr>
             ) : (
-              testCases.map((tc) => (
-                <tr key={tc.id} className="group border-b border-gray-50 last:border-0 hover:bg-gray-50/70">
-                  <td className="px-5 py-3 font-medium text-[#1a1d29]">{tc.name}</td>
-                  <td className="max-w-[280px] truncate px-5 py-3 text-gray-600">{tc.user_prompt}</td>
-                  <td className="max-w-[280px] truncate px-5 py-3 text-gray-600">{tc.success_criteria}</td>
-                  <td className="px-5 py-3 text-right">
-                    <button onClick={() => handleDelete(tc.id)} className="text-[12px] text-gray-300 opacity-0 transition hover:text-red-500 group-hover:opacity-100">Delete</button>
-                  </td>
-                </tr>
-              ))
+              testCases.map((tc) => {
+                const run = runResults[tc.id];
+                const isExpanded = expandedTranscriptId === tc.id;
+                return (
+                  <Fragment key={tc.id}>
+                    <tr className="group border-b border-gray-50 last:border-0 hover:bg-gray-50/70">
+                      <td className="px-5 py-3 font-medium text-[#1a1d29]">{tc.name}</td>
+                      <td className="max-w-[220px] truncate px-5 py-3 text-gray-600">{tc.user_prompt}</td>
+                      <td className="max-w-[220px] truncate px-5 py-3 text-gray-600">{tc.success_criteria}</td>
+                      <td className="px-5 py-3">
+                        {run ? (
+                          <button
+                            onClick={() => setExpandedTranscriptId(isExpanded ? null : tc.id)}
+                            className={`rounded-full px-2.5 py-0.5 text-[11.5px] font-medium ${run.passed ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'}`}
+                          >
+                            {run.passed ? 'Passed' : 'Failed'}
+                          </button>
+                        ) : (
+                          <span className="text-gray-300">—</span>
+                        )}
+                      </td>
+                      <td className="px-5 py-3 text-right">
+                        <div className="flex items-center justify-end gap-3">
+                          <button
+                            onClick={() => handleRun(tc.id)}
+                            disabled={runningId === tc.id}
+                            className="text-[12px] font-medium text-blue-600 hover:text-blue-700 disabled:opacity-50"
+                          >
+                            {runningId === tc.id ? 'Running…' : 'Run'}
+                          </button>
+                          <button onClick={() => handleDelete(tc.id)} className="text-[12px] text-gray-300 opacity-0 transition hover:text-red-500 group-hover:opacity-100">Delete</button>
+                        </div>
+                      </td>
+                    </tr>
+                    {isExpanded && run && (
+                      <tr className="border-b border-gray-50 bg-gray-50/50 last:border-0">
+                        <td colSpan={5} className="px-5 py-4">
+                          <p className="mb-2 text-[12.5px] text-gray-600"><span className="font-medium text-[#1a1d29]">Verdict:</span> {run.reasoning}</p>
+                          <div className="max-h-64 space-y-1.5 overflow-y-auto rounded-lg border border-gray-200 bg-white p-3">
+                            {run.transcript.map((t, i) => (
+                              <p key={i} className="text-[12.5px]">
+                                <span className={`font-medium ${t.role === 'caller' ? 'text-blue-600' : 'text-gray-700'}`}>{t.role === 'caller' ? 'Caller' : 'Agent'}:</span>{' '}
+                                <span className="text-gray-600">{t.content}</span>
+                              </p>
+                            ))}
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+                  </Fragment>
+                );
+              })
             )}
           </tbody>
         </table>
