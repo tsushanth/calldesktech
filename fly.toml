@@ -32,7 +32,10 @@ primary_region = 'iad'
   processes = ['app']
 
 [[vm]]
-  memory = '512mb'
+  # Bumped from 512mb (2026-09-16): headless Chromium for the knowledge-base
+  # scraper's JS-rendering fallback (src/lib/scraper.ts) is memory-hungry —
+  # 512mb alongside Next.js itself was too tight to run it reliably.
+  memory = '1024mb'
   cpu_kind = 'shared'
   cpus = 1
-  memory_mb = 512
+  memory_mb = 1024

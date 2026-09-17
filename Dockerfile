@@ -43,6 +43,20 @@ WORKDIR /app
 
 ENV NODE_ENV=production
 
+# Headless Chromium for src/lib/scraper.ts's JS-rendering fallback (a
+# static fetch() can't see content a page only renders client-side after
+# load — found and verified against a real site during development).
+# playwright-core ships no browser of its own, and its own downloaded
+# Chromium builds are glibc binaries that don't run on Alpine's musl libc —
+# using Alpine's own apk-packaged chromium instead avoids that mismatch
+# entirely, at the cost of a real image-size increase (~300MB) this stage
+# now carries. --no-sandbox is passed at launch (see scraper.ts) since this
+# container has no unprivileged-user-namespace support Chromium's sandbox
+# needs; running as the non-root `nextjs` user below is the real sandbox
+# boundary here instead.
+RUN apk add --no-cache chromium nss freetype harfbuzz ca-certificates ttf-freefont
+ENV CHROMIUM_EXECUTABLE_PATH=/usr/bin/chromium-browser
+
 # Create non-root user
 RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 nextjs
@@ -51,6 +65,16 @@ RUN adduser --system --uid 1001 nextjs
 COPY --from=builder /app/public ./public
 COPY --from=builder /app/.next/standalone ./
 COPY --from=builder /app/.next/static ./.next/static
+
+# playwright-core's browsers.json (a runtime-read config file, not a JS
+# import) isn't picked up by Next's standalone build tracing even with
+# serverExternalPackages set — verified by actually running this built
+# image locally, not just a type-check: launch failed with "Cannot find
+# module '.../playwright-core/browsers.json'" until this explicit copy was
+# added. Copying the whole package directly from the builder's real
+# node_modules sidesteps the tracer entirely rather than chasing which
+# other files it might also be silently dropping.
+COPY --from=builder /app/node_modules/playwright-core ./node_modules/playwright-core
 
 USER nextjs
 

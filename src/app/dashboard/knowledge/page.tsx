@@ -16,6 +16,7 @@ export default function KnowledgePage() {
   const [showAddMenu, setShowAddMenu] = useState(false);
   const [showAddWebPageModal, setShowAddWebPageModal] = useState(false);
   const [showAddTextModal, setShowAddTextModal] = useState(false);
+  const [showAddPdfModal, setShowAddPdfModal] = useState(false);
   const [addDocError, setAddDocError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -106,6 +107,18 @@ export default function KnowledgePage() {
       setShowAddTextModal(false);
     } catch (err) {
       setAddDocError(err instanceof Error ? err.message : 'Failed to add text');
+    }
+  };
+
+  const handleAddPdf = async (file: File, title: string) => {
+    if (!selectedKB) return;
+    setAddDocError(null);
+    try {
+      await api.addKnowledgePdf(selectedKB, file, title || undefined);
+      await refreshCurrentKB();
+      setShowAddPdfModal(false);
+    } catch (err) {
+      setAddDocError(err instanceof Error ? err.message : 'Failed to upload PDF');
     }
   };
 
@@ -241,6 +254,12 @@ export default function KnowledgePage() {
                             Add text
                           </button>
                           <button
+                            onClick={() => { setShowAddMenu(false); setAddDocError(null); setShowAddPdfModal(true); }}
+                            className="flex w-full items-center gap-2 px-3.5 py-2 text-left text-[13px] text-[#1a1d29] hover:bg-gray-50"
+                          >
+                            Upload file
+                          </button>
+                          <button
                             onClick={() => { setShowAddMenu(false); setShowAddItemModal(true); }}
                             className="flex w-full items-center gap-2 px-3.5 py-2 text-left text-[13px] text-[#1a1d29] hover:bg-gray-50"
                           >
@@ -259,7 +278,9 @@ export default function KnowledgePage() {
                   <div className="space-y-1.5">
                     {documents.map((doc) => (
                       <div key={doc.id} className="flex items-center gap-2.5 rounded-lg bg-gray-50 px-3 py-2">
-                        <span className="flex-none text-gray-400">{doc.type === 'website' ? <LinkIcon /> : <TextIcon />}</span>
+                        <span className="flex-none text-gray-400">
+                          {doc.type === 'website' ? <LinkIcon /> : doc.type === 'pdf' ? <PdfIcon /> : <TextIcon />}
+                        </span>
                         <p className="min-w-0 flex-1 truncate text-[13px] text-[#1a1d29]">{doc.title || doc.source_url || 'Untitled document'}</p>
                         <StatusBadge status={doc.status} />
                       </div>
@@ -318,6 +339,14 @@ export default function KnowledgePage() {
         <AddTextModal
           onClose={() => { setShowAddTextModal(false); setAddDocError(null); }}
           onSubmit={handleAddText}
+          error={addDocError}
+        />
+      )}
+
+      {showAddPdfModal && (
+        <AddPdfModal
+          onClose={() => { setShowAddPdfModal(false); setAddDocError(null); }}
+          onSubmit={handleAddPdf}
           error={addDocError}
         />
       )}
@@ -614,6 +643,74 @@ function AddTextModal({
   );
 }
 
+function AddPdfModal({
+  onClose,
+  onSubmit,
+  error,
+}: {
+  onClose: () => void;
+  onSubmit: (file: File, title: string) => void;
+  error: string | null;
+}) {
+  const [file, setFile] = useState<File | null>(null);
+  const [title, setTitle] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!file) return;
+    setSubmitting(true);
+    await onSubmit(file, title);
+    setSubmitting(false);
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4">
+      <div className="w-full max-w-lg rounded-xl border border-gray-200 bg-white p-6 shadow-xl">
+        <h2 className="mb-4 text-[17px] font-semibold text-[#1a1d29]">Upload file</h2>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label className="mb-1 block text-[12.5px] font-medium text-gray-500">PDF file (up to 25MB)</label>
+            <input
+              type="file"
+              accept="application/pdf"
+              onChange={(e) => setFile(e.target.files?.[0] || null)}
+              className="w-full rounded-lg border border-gray-200 px-3.5 py-2.5 text-[13.5px] file:mr-3 file:rounded-md file:border-0 file:bg-gray-100 file:px-3 file:py-1.5 file:text-[12.5px] file:font-medium"
+              required
+            />
+          </div>
+
+          <div>
+            <label className="mb-1 block text-[12.5px] font-medium text-gray-500">Title (optional)</label>
+            <input
+              type="text"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              placeholder="e.g., Menu, Service Agreement"
+              className="w-full rounded-lg border border-gray-200 px-3.5 py-2.5 text-[13.5px] focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100"
+            />
+          </div>
+
+          {error && <p className="text-[13px] text-red-600">{error}</p>}
+
+          <div className="flex gap-2.5 pt-2">
+            <button type="button" onClick={onClose} className="flex-1 rounded-lg border border-gray-200 px-4 py-2.5 text-[13.5px] font-medium text-gray-600 transition hover:bg-gray-50">
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={submitting || !file}
+              className="flex-1 rounded-lg bg-blue-600 px-4 py-2.5 text-[13.5px] font-medium text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-gray-200 disabled:text-gray-400"
+            >
+              {submitting ? 'Uploading…' : 'Upload'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
 function StatusBadge({ status }: { status: 'processing' | 'ready' | 'failed' }) {
   const styles = {
     processing: 'bg-amber-50 text-amber-600',
@@ -637,6 +734,15 @@ function TextIcon() {
   return (
     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
       <path d="M4 6h16M4 12h16M4 18h10" />
+    </svg>
+  );
+}
+
+function PdfIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z" />
+      <path d="M14 2v6h6" />
     </svg>
   );
 }

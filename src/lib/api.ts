@@ -242,6 +242,19 @@ class ApiClient {
     return body.document;
   }
 
+  async addKnowledgePdf(knowledgeBaseId: string, file: File, title?: string): Promise<KnowledgeDocument> {
+    const formData = new FormData();
+    formData.append('file', file);
+    if (title) formData.append('title', title);
+    // No Content-Type header here — the browser sets multipart/form-data
+    // with the correct boundary itself; setting it manually breaks the
+    // upload (a classic fetch+FormData footgun).
+    const res = await fetch(`/api/knowledge-bases/${knowledgeBaseId}/documents`, { method: 'POST', body: formData });
+    const body = await res.json();
+    if (!res.ok) throw new ApiError(body.error || 'Failed to upload PDF');
+    return body.document;
+  }
+
   async deleteKnowledgeBase(knowledgeBaseId: string): Promise<void> {
     const res = await fetch(`/api/knowledge-bases/${knowledgeBaseId}`, { method: 'DELETE' });
     const body = await res.json();

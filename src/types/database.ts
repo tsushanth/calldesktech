@@ -147,31 +147,34 @@ export interface Database {
         Row: {
           id: string
           knowledge_base_id: string
-          type: 'website' | 'text'
+          type: 'website' | 'text' | 'pdf'
           source_url: string | null
           title: string | null
           status: 'processing' | 'ready' | 'failed'
           error: string | null
+          storage_path: string | null
           created_at: string
         }
         Insert: {
           id?: string
           knowledge_base_id: string
-          type: 'website' | 'text'
+          type: 'website' | 'text' | 'pdf'
           source_url?: string | null
           title?: string | null
           status?: 'processing' | 'ready' | 'failed'
           error?: string | null
+          storage_path?: string | null
           created_at?: string
         }
         Update: {
           id?: string
           knowledge_base_id?: string
-          type?: 'website' | 'text'
+          type?: 'website' | 'text' | 'pdf'
           source_url?: string | null
           title?: string | null
           status?: 'processing' | 'ready' | 'failed'
           error?: string | null
+          storage_path?: string | null
           created_at?: string
         }
       }

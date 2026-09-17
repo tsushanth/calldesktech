@@ -2,31 +2,54 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/supabase';
 import { getRetellClient } from '@/lib/retell';
 import { scrapeUrl, chunkPlainText } from '@/lib/scraper';
+import { extractPdfText } from '@/lib/pdfParser';
 
-// Adds ONE document (a web page or a block of pasted text) to an EXISTING
-// knowledge base — the piece that makes a KB able to accumulate multiple
-// sources over time, matching Retell's own "+ Add" flow (one KB, several
-// independently-added documents) instead of the old one-source-per-KB
-// model. See migration 014_knowledge_base_documents.sql.
+const MAX_PDF_BYTES = 25 * 1024 * 1024; // matches the 'knowledge-base-files' bucket's own file_size_limit
+
+// Adds ONE document (a web page, a block of pasted text, or an uploaded
+// PDF) to an EXISTING knowledge base — the piece that makes a KB able to
+// accumulate multiple sources over time, matching Retell's own "+ Add"
+// flow (one KB, several independently-added documents) instead of the old
+// one-source-per-KB model. See migrations 014/015.
 //
 // Same engine gate as KB creation (tenants/[id]/knowledge-bases/route.ts):
-// a 'poc'-engine tenant's documents are scraped/chunked by us and stored
-// directly; only a 'retell'-engine tenant's documents go through Retell's
-// (paid, per-KB) API, since Retell is already answering that tenant's
-// calls either way.
+// a 'poc'-engine tenant's documents are scraped/chunked/parsed by us and
+// stored directly; only a 'retell'-engine tenant's documents go through
+// Retell's (paid, per-KB) API, since Retell is already answering that
+// tenant's calls either way.
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id: knowledgeBaseId } = await params;
   const supabase = getSupabaseAdmin();
-  const body = await request.json();
-  const { type, sourceUrl, text, title } = body as {
-    type: 'website' | 'text';
-    sourceUrl?: string;
-    text?: string;
-    title?: string;
-  };
+
+  let type: 'website' | 'text' | 'pdf';
+  let sourceUrl: string | undefined;
+  let text: string | undefined;
+  let title: string | undefined;
+  let pdfBuffer: Buffer | undefined;
+  let pdfFilename: string | undefined;
+
+  // A PDF upload arrives as multipart/form-data (a real binary file);
+  // website/text documents still come in as plain JSON — branch on
+  // content-type rather than forcing every caller through FormData.
+  const contentType = request.headers.get('content-type') || '';
+  if (contentType.includes('multipart/form-data')) {
+    const formData = await request.formData();
+    type = 'pdf';
+    title = (formData.get('title') as string) || undefined;
+    const file = formData.get('file') as File | null;
+    if (!file) return NextResponse.json({ error: 'file is required for a pdf document' }, { status: 400 });
+    if (file.size > MAX_PDF_BYTES) {
+      return NextResponse.json({ error: `File exceeds the ${MAX_PDF_BYTES / 1024 / 1024}MB limit` }, { status: 400 });
+    }
+    pdfBuffer = Buffer.from(await file.arrayBuffer());
+    pdfFilename = file.name;
+  } else {
+    const body = await request.json();
+    ({ type, sourceUrl, text, title } = body as { type: 'website' | 'text'; sourceUrl?: string; text?: string; title?: string });
+  }
 
   if (type === 'website' && !sourceUrl) {
     return NextResponse.json({ error: 'sourceUrl is required for a website document' }, { status: 400 });
@@ -45,6 +68,8 @@ export async function POST(
   const tenantSettings = (kb as unknown as { calldesk_tenants: { settings?: { voice_engine?: string } } }).calldesk_tenants?.settings;
   const voiceEngine = tenantSettings?.voice_engine === 'retell' ? 'retell' : 'poc';
 
+  const defaultTitle = type === 'website' ? sourceUrl : type === 'pdf' ? pdfFilename : 'Pasted text';
+
   // Row created up front as 'processing' so a slow scrape/Retell call is
   // visible in the Documents list rather than the document only appearing
   // once fully done — mirrors calldesk_knowledge_bases' own pending states
@@ -55,7 +80,7 @@ export async function POST(
       knowledge_base_id: knowledgeBaseId,
       type,
       source_url: type === 'website' ? sourceUrl : null,
-      title: title || (type === 'website' ? sourceUrl : 'Pasted text'),
+      title: title || defaultTitle,
       status: 'processing',
     })
     .select()
@@ -64,25 +89,58 @@ export async function POST(
 
   try {
     let items: { question: string; answer: string }[] = [];
+    let storagePath: string | undefined;
+
+    // A PDF has no Retell-API equivalent that accepts a raw file upload,
+    // so its text is always extracted locally first regardless of engine —
+    // only WHERE that extracted text ends up (our own items table vs.
+    // Retell's KB) still follows the engine gate below.
+    if (type === 'pdf') {
+      items = await extractPdfText(pdfBuffer!, title || pdfFilename || 'Uploaded PDF');
+      storagePath = `${knowledgeBaseId}/${doc.id}-${pdfFilename}`;
+      const { error: uploadError } = await supabase.storage
+        .from('knowledge-base-files')
+        .upload(storagePath, pdfBuffer!, { contentType: 'application/pdf' });
+      if (uploadError) {
+        // Keep the extracted text either way — losing the searchable
+        // content over a storage hiccup (the original file is a
+        // reference copy, not the primary data) would be the wrong
+        // failure mode here.
+        console.error(`[knowledge-documents] PDF uploaded to storage failed for doc ${doc.id}:`, uploadError);
+        storagePath = undefined;
+      }
+    }
 
     if (voiceEngine === 'retell') {
       const retell = getRetellClient();
+      const retellTexts =
+        type === 'pdf'
+          ? [{ title: title || pdfFilename || 'Uploaded PDF', text: items.map((i) => `${i.question}\n${i.answer}`).join('\n\n') }]
+          : type === 'text'
+            ? [{ title: title || 'Pasted text', text: text! }]
+            : undefined;
       if (kb.retell_kb_id) {
         // Existing Retell KB — extend it with this one new source, not a
         // second parallel KB, so Retell's own KB stays the single source
         // of truth for a retell-engine tenant's agent.
-        await retell.updateKnowledgeBase(kb.retell_kb_id, type === 'website' ? { urls: [sourceUrl!] } : { texts: [text!] });
+        await retell.updateKnowledgeBase(
+          kb.retell_kb_id,
+          type === 'website' ? { urls: [sourceUrl!] } : { texts: retellTexts!.map((t) => t.text) }
+        );
       } else {
         const created = await retell.createKnowledgeBase(
-          type === 'website'
-            ? { name: title || sourceUrl!, urls: [sourceUrl!] }
-            : { name: title || 'Pasted text', texts: [{ title: title || 'Pasted text', text: text! }] }
+          type === 'website' ? { name: title || sourceUrl!, urls: [sourceUrl!] } : { name: title || 'Pasted text', texts: retellTexts }
         );
         await supabase.from('calldesk_knowledge_bases').update({ retell_kb_id: created.knowledge_base_id }).eq('id', knowledgeBaseId);
       }
-      // Retell stores/serves the actual content on its side — we don't get
-      // structured Q&A items back to mirror locally, only that it succeeded.
-    } else {
+      // Retell stores/serves the actual content on its side for
+      // website/text — we don't get structured Q&A items back to mirror
+      // locally, only that it succeeded. A PDF's items were already
+      // extracted above regardless, so those still get stored locally too
+      // (below) even for a retell-engine tenant, so the original text
+      // stays inspectable in our own UI either way.
+      if (type !== 'pdf') items = [];
+    } else if (type !== 'pdf') {
       items = type === 'website' ? await scrapeUrl(sourceUrl!) : chunkPlainText(text!, title || 'Pasted text');
     }
 
@@ -95,7 +153,7 @@ export async function POST(
 
     const { data: updatedDoc, error: statusError } = await supabase
       .from('calldesk_knowledge_documents')
-      .update({ status: 'ready' })
+      .update({ status: 'ready', ...(storagePath ? { storage_path: storagePath } : {}) })
       .eq('id', doc.id)
       .select()
       .single();
