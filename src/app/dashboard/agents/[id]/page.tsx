@@ -1097,8 +1097,16 @@ function SimulationTab({ agentId }: { agentId: string }) {
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [runningIds, setRunningIds] = useState<Set<string>>(new Set());
-  const [runResults, setRunResults] = useState<Record<string, RunResult>>({});
+  // Best-of-N (2026-09-17): these simulations are inherently non-
+  // deterministic — both the synthetic caller and the agent are freshly
+  // LLM-generated each run — so a single Pass/Fail conflates "the flow is
+  // actually broken" with "this one run went sideways." Each test case now
+  // keeps every run from its last batch, and the badge shows a pass RATE
+  // (e.g. "4/5") instead of one binary verdict.
+  const [runsPerTest, setRunsPerTest] = useState(3);
+  const [runResults, setRunResults] = useState<Record<string, RunResult[]>>({});
   const [expandedTranscriptId, setExpandedTranscriptId] = useState<string | null>(null);
+  const [expandedRunIndex, setExpandedRunIndex] = useState(0);
 
   const load = useCallback(async () => {
     setIsLoading(true);
@@ -1155,17 +1163,35 @@ function SimulationTab({ agentId }: { agentId: string }) {
     }
   };
 
+  const runOnce = async (testCaseId: string): Promise<RunResult> => {
+    const res = await fetch(`/api/agents/${agentId}/test-cases/${testCaseId}/run`, { method: 'POST' });
+    const body = await res.json();
+    if (!res.ok) throw new Error(body.error);
+    return body.run;
+  };
+
+  // Fires runsPerTest simulations for this test case concurrently. A single
+  // failed run (network hiccup, model error) doesn't lose the others —
+  // Promise.allSettled, not Promise.all — but does surface an error banner
+  // so a systemic failure (e.g. no published version) isn't silently eaten.
   const handleRun = async (testCaseId: string, { expandOnFinish = true } = {}) => {
     setRunningIds((prev) => new Set(prev).add(testCaseId));
     setError(null);
     try {
-      const res = await fetch(`/api/agents/${agentId}/test-cases/${testCaseId}/run`, { method: 'POST' });
-      const body = await res.json();
-      if (!res.ok) throw new Error(body.error);
-      setRunResults((prev) => ({ ...prev, [testCaseId]: body.run }));
-      if (expandOnFinish) setExpandedTranscriptId(testCaseId);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Simulation failed');
+      const settled = await Promise.allSettled(
+        Array.from({ length: runsPerTest }, () => runOnce(testCaseId))
+      );
+      const succeeded = settled.filter((s) => s.status === 'fulfilled').map((s) => (s as PromiseFulfilledResult<RunResult>).value);
+      const failures = settled.filter((s) => s.status === 'rejected');
+      if (succeeded.length > 0) {
+        setRunResults((prev) => ({ ...prev, [testCaseId]: succeeded }));
+        setExpandedRunIndex(0);
+        if (expandOnFinish) setExpandedTranscriptId(testCaseId);
+      }
+      if (failures.length > 0) {
+        const first = failures[0] as PromiseRejectedResult;
+        setError(`${failures.length} of ${runsPerTest} run(s) failed to complete: ${first.reason instanceof Error ? first.reason.message : String(first.reason)}`);
+      }
     } finally {
       setRunningIds((prev) => {
         const next = new Set(prev);
@@ -1204,6 +1230,19 @@ function SimulationTab({ agentId }: { agentId: string }) {
           <p className="mt-0.5 text-[12.5px] text-gray-500">A synthetic caller converses with this agent's published flow over text, then a judge model scores the transcript.</p>
         </div>
         <div className="flex items-center gap-2">
+          <label className="flex items-center gap-1.5 text-[12.5px] text-gray-500">
+            Runs per test
+            <select
+              value={runsPerTest}
+              onChange={(e) => setRunsPerTest(Number(e.target.value))}
+              className="rounded-lg border border-gray-200 bg-white px-2 py-1.5 text-[12.5px] focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100"
+            >
+              <option value={1}>1</option>
+              <option value={3}>3</option>
+              <option value={5}>5</option>
+              <option value={10}>10</option>
+            </select>
+          </label>
           <button
             onClick={handleRunAll}
             disabled={testCases.length === 0 || runningIds.size > 0}
@@ -1271,8 +1310,10 @@ function SimulationTab({ agentId }: { agentId: string }) {
               <tr><td colSpan={5} className="px-5 py-10 text-center text-gray-400">No test cases yet.</td></tr>
             ) : (
               testCases.map((tc) => {
-                const run = runResults[tc.id];
+                const runs = runResults[tc.id];
                 const isExpanded = expandedTranscriptId === tc.id;
+                const passCount = runs?.filter((r) => r.passed).length ?? 0;
+                const activeRun = runs?.[Math.min(expandedRunIndex, runs.length - 1)];
                 return (
                   <Fragment key={tc.id}>
                     <tr className="group border-b border-gray-50 last:border-0 hover:bg-gray-50/70">
@@ -1280,12 +1321,18 @@ function SimulationTab({ agentId }: { agentId: string }) {
                       <td className="max-w-[220px] truncate px-5 py-3 text-gray-600">{tc.user_prompt}</td>
                       <td className="max-w-[220px] truncate px-5 py-3 text-gray-600">{tc.success_criteria}</td>
                       <td className="px-5 py-3">
-                        {run ? (
+                        {runs ? (
                           <button
-                            onClick={() => setExpandedTranscriptId(isExpanded ? null : tc.id)}
-                            className={`rounded-full px-2.5 py-0.5 text-[11.5px] font-medium ${run.passed ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'}`}
+                            onClick={() => {
+                              setExpandedRunIndex(0);
+                              setExpandedTranscriptId(isExpanded ? null : tc.id);
+                            }}
+                            title={`${passCount} of ${runs.length} run(s) passed`}
+                            className={`rounded-full px-2.5 py-0.5 text-[11.5px] font-medium ${
+                              passCount === runs.length ? 'bg-green-50 text-green-700' : passCount === 0 ? 'bg-red-50 text-red-700' : 'bg-amber-50 text-amber-700'
+                            }`}
                           >
-                            {run.passed ? 'Passed' : 'Failed'}
+                            {passCount}/{runs.length} passed
                           </button>
                         ) : (
                           <span className="text-gray-300">—</span>
@@ -1304,12 +1351,31 @@ function SimulationTab({ agentId }: { agentId: string }) {
                         </div>
                       </td>
                     </tr>
-                    {isExpanded && run && (
+                    {isExpanded && runs && activeRun && (
                       <tr className="border-b border-gray-50 bg-gray-50/50 last:border-0">
                         <td colSpan={5} className="px-5 py-4">
-                          <p className="mb-2 text-[12.5px] text-gray-600"><span className="font-medium text-[#1a1d29]">Verdict:</span> {run.reasoning}</p>
+                          {runs.length > 1 && (
+                            <div className="mb-3 flex flex-wrap gap-1.5">
+                              {runs.map((r, i) => (
+                                <button
+                                  key={r.id}
+                                  onClick={() => setExpandedRunIndex(i)}
+                                  className={`rounded-md px-2.5 py-1 text-[11.5px] font-medium transition ${
+                                    i === expandedRunIndex
+                                      ? 'bg-[#1a1d29] text-white'
+                                      : r.passed
+                                        ? 'bg-green-50 text-green-700 hover:bg-green-100'
+                                        : 'bg-red-50 text-red-700 hover:bg-red-100'
+                                  }`}
+                                >
+                                  Run {i + 1} {r.passed ? '✓' : '✗'}
+                                </button>
+                              ))}
+                            </div>
+                          )}
+                          <p className="mb-2 text-[12.5px] text-gray-600"><span className="font-medium text-[#1a1d29]">Verdict:</span> {activeRun.reasoning}</p>
                           <div className="max-h-64 space-y-1.5 overflow-y-auto rounded-lg border border-gray-200 bg-white p-3">
-                            {run.transcript.map((t, i) => (
+                            {activeRun.transcript.map((t, i) => (
                               <p key={i} className="text-[12.5px]">
                                 <span className={`font-medium ${t.role === 'caller' ? 'text-blue-600' : 'text-gray-700'}`}>{t.role === 'caller' ? 'Caller' : 'Agent'}:</span>{' '}
                                 <span className="text-gray-600">{t.content}</span>
