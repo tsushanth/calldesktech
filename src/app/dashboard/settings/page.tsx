@@ -316,11 +316,11 @@ export default function SettingsPage() {
         {/* Voice Engine */}
         <SettingsSection title="Call Engine" icon={<IconPlug />}>
           <p className="mb-4 text-[13.5px] text-gray-500">
-            Which pipeline handles this tenant&apos;s demo calls. Retell places a real outbound phone call; our in-house engine runs entirely in-browser with no telephony involved.
+            Which pipeline handles this tenant&apos;s calls. CallDeskTech is our own engine, with real phone numbers and outbound/inbound calling; Retell is kept only as a comparison baseline.
           </p>
           <div className="grid max-w-md grid-cols-2 gap-2.5">
-            <OptionCard selected={voiceEngine === 'retell'} onClick={() => setVoiceEngine('retell')} title="Retell" description="Real outbound PSTN call" />
-            <OptionCard selected={voiceEngine === 'poc'} onClick={() => setVoiceEngine('poc')} title="In-house (beta)" description="In-browser, no phone number" />
+            <OptionCard selected={voiceEngine === 'poc'} onClick={() => setVoiceEngine('poc')} title="CallDeskTech" description="Our own engine — real phone numbers" />
+            <OptionCard selected={voiceEngine === 'retell'} onClick={() => setVoiceEngine('retell')} title="Retell" description="Comparison baseline" />
           </div>
 
           {voiceEngine === 'poc' && (

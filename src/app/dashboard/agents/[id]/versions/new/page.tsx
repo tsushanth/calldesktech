@@ -559,7 +559,7 @@ export default function NewAgentVersionPage() {
               onChange={(e) => setVoiceEngine(e.target.value as 'retell' | 'poc')}
               className="w-full bg-white border border-gray-200 rounded-lg px-3.5 py-2.5 text-[13.5px] focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100"
             >
-              <option value="poc">In-house (poc)</option>
+              <option value="poc">CallDeskTech</option>
               <option value="retell">Retell</option>
             </select>
           </div>
