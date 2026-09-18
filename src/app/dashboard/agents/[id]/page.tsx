@@ -127,6 +127,14 @@ export default function AgentBuilderPage() {
   const [singlePrompt, setSinglePrompt] = useState('');
   const [flowName, setFlowName] = useState('v1');
   const [transcriptionMode, setTranscriptionMode] = useState<'' | 'fast' | 'balanced' | 'accurate'>('');
+  // Agent Handbook + Transition Flexibility (2026-09-18, builder parity
+  // Phase 2) — both live in the flow's existing global_settings JSON, same
+  // as transcriptionMode/timezone/allowInterruptions, so no schema change.
+  // Threaded into call-loop-poc's _buildNodeSystemPrompt/_buildTransitionTool
+  // (separate commit there) so they actually affect real calls, not just
+  // sit in the UI.
+  const [handbook, setHandbook] = useState('');
+  const [transitionFlexibility, setTransitionFlexibility] = useState<'' | 'strict' | 'flexible'>('');
   const [startNodeId, setStartNodeId] = useState('');
   const [voiceEngine, setVoiceEngine] = useState<'retell' | 'poc'>('poc');
   const [voiceId, setVoiceId] = useState('');
@@ -174,6 +182,9 @@ export default function AgentBuilderPage() {
         setRetellLlmId(latest.retell_llm_id || '');
         const savedMode = flowBody.flow?.global_settings?.transcriptionMode;
         if (savedMode === 'fast' || savedMode === 'balanced' || savedMode === 'accurate') setTranscriptionMode(savedMode);
+        setHandbook(flowBody.flow?.global_settings?.handbook || '');
+        const savedFlexibility = flowBody.flow?.global_settings?.transitionFlexibility;
+        if (savedFlexibility === 'strict' || savedFlexibility === 'flexible') setTransitionFlexibility(savedFlexibility);
         setAgentType('conversational_flow');
         setBasedOnVersionNumber(latest.version_number);
         setFlowName(`v${latest.version_number + 1}`);
@@ -405,7 +416,11 @@ export default function AgentBuilderPage() {
           ttsBackend: ttsBackend || undefined,
           retellAgentId: retellAgentId || undefined,
           retellLlmId: retellLlmId || undefined,
-          globalSettings: transcriptionMode ? { transcriptionMode } : undefined,
+          globalSettings: {
+            ...(transcriptionMode ? { transcriptionMode } : {}),
+            ...(handbook.trim() ? { handbook: handbook.trim() } : {}),
+            ...(transitionFlexibility ? { transitionFlexibility } : {}),
+          },
         }),
       });
       const body = await res.json();
@@ -745,6 +760,31 @@ export default function AgentBuilderPage() {
                             <option value="fast">Fast — quicker turn-taking, more false starts</option>
                             <option value="accurate">Accurate — waits longer, fewer false starts</option>
                           </select>
+                        </div>
+                      )}
+                      {voiceEngine === 'poc' && (
+                        <div>
+                          <label className="mb-1 block text-[12.5px] font-medium text-gray-500">Transition flexibility</label>
+                          <select
+                            value={transitionFlexibility}
+                            onChange={(e) => setTransitionFlexibility(e.target.value as typeof transitionFlexibility)}
+                            className="w-full rounded-lg border border-gray-200 bg-white px-3.5 py-2.5 text-[13.5px] focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100"
+                          >
+                            <option value="">Flexible (default) — use judgment on close matches</option>
+                            <option value="strict">Strict — only transition when a condition is clearly, unambiguously met</option>
+                          </select>
+                        </div>
+                      )}
+                      {voiceEngine === 'poc' && (
+                        <div>
+                          <label className="mb-1 block text-[12.5px] font-medium text-gray-500">Agent Handbook</label>
+                          <textarea
+                            value={handbook}
+                            onChange={(e) => setHandbook(e.target.value)}
+                            rows={6}
+                            placeholder="Reference material the agent can draw on at every step — policies, pricing, FAQs — separate from this node's own instructions. Applies to the whole flow, not just one node."
+                            className="w-full resize-y rounded-lg border border-gray-200 bg-white px-3.5 py-2.5 text-[12.5px] focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100"
+                          />
                         </div>
                       )}
                       {channel === 'voice' && (voiceEngine === 'poc' ? (
