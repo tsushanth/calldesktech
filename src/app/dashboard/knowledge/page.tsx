@@ -18,6 +18,7 @@ export default function KnowledgePage() {
   const [showAddTextModal, setShowAddTextModal] = useState(false);
   const [showAddPdfModal, setShowAddPdfModal] = useState(false);
   const [addDocError, setAddDocError] = useState<string | null>(null);
+  const [agents, setAgents] = useState<{ id: string; name: string }[]>([]);
 
   useEffect(() => {
     async function loadKnowledgeBases() {
@@ -39,6 +40,30 @@ export default function KnowledgePage() {
 
     loadKnowledgeBases();
   }, [tenantId, isHydrated]);
+
+  useEffect(() => {
+    if (!tenantId || !isHydrated) return;
+    fetch(`/api/tenants/${tenantId}/agents`)
+      .then((r) => (r.ok ? r.json() : { agents: [] }))
+      .then((b) => setAgents((b.agents || []).map((a: { id: string; name: string }) => ({ id: a.id, name: a.name }))))
+      .catch(() => setAgents([]));
+  }, [tenantId, isHydrated]);
+
+  // A knowledge_base node in a flow only sees a KB attached to its agent
+  // (call-loop-poc resolves it by agent_id) — so this is not cosmetic.
+  const handleAttachAgent = async (kbId: string, agentId: string) => {
+    try {
+      const res = await fetch(`/api/knowledge-bases/${kbId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ agent_id: agentId || null }),
+      });
+      if (!res.ok) throw new Error((await res.json()).error);
+      setKnowledgeBases((prev) => prev.map((kb) => (kb.id === kbId ? { ...kb, agent_id: agentId || null } : kb)));
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Failed to attach knowledge base');
+    }
+  };
 
   useEffect(() => {
     async function loadItems() {
@@ -122,7 +147,7 @@ export default function KnowledgePage() {
     }
   };
 
-  const handleCreateKB = async (name: string, sourceType: 'manual' | 'website' | 'pdf', sourceUrl?: string) => {
+  const handleCreateKB = async (name: string, sourceType: 'manual' | 'website' | 'pdf', sourceUrl?: string, agentId?: string) => {
     if (!tenantId) return;
 
     try {
@@ -131,6 +156,7 @@ export default function KnowledgePage() {
         name,
         source_type: sourceType,
         source_url: sourceUrl,
+        ...(agentId ? { agent_id: agentId } : {}),
       });
       setKnowledgeBases([newKB, ...knowledgeBases]);
       setSelectedKB(newKB.id);
@@ -226,9 +252,30 @@ export default function KnowledgePage() {
           <div className="col-span-1 lg:col-span-3">
             <div className="overflow-hidden rounded-xl border border-gray-200 bg-white">
               <div className="flex items-center justify-between border-b border-gray-100 px-5 py-3.5">
-                <h2 className="text-[14px] font-semibold text-[#1a1d29]">
-                  {knowledgeBases.find((kb) => kb.id === selectedKB)?.name || 'Select a knowledge base'}
-                </h2>
+                <div>
+                  <h2 className="text-[14px] font-semibold text-[#1a1d29]">
+                    {knowledgeBases.find((kb) => kb.id === selectedKB)?.name || 'Select a knowledge base'}
+                  </h2>
+                  {selectedKB && (
+                    <div className="mt-1.5 flex flex-wrap items-center gap-2">
+                      <label className="text-[12px] text-gray-500" htmlFor="kb-agent">Used by</label>
+                      <select
+                        id="kb-agent"
+                        value={knowledgeBases.find((kb) => kb.id === selectedKB)?.agent_id || ''}
+                        onChange={(e) => handleAttachAgent(selectedKB, e.target.value)}
+                        className="rounded-md border border-gray-200 bg-white px-2 py-1 text-[12px] focus:border-blue-400 focus:outline-none"
+                      >
+                        <option value="">No agent</option>
+                        {agents.map((a) => (
+                          <option key={a.id} value={a.id}>{a.name}</option>
+                        ))}
+                      </select>
+                      {!knowledgeBases.find((kb) => kb.id === selectedKB)?.agent_id && (
+                        <span className="text-[11.5px] text-amber-600">Not attached — a Knowledge Base step won&apos;t see this content.</span>
+                      )}
+                    </div>
+                  )}
+                </div>
                 {selectedKB && (
                   <div className="relative">
                     <button
@@ -316,6 +363,7 @@ export default function KnowledgePage() {
         <AddKnowledgeBaseModal
           onClose={() => setShowAddModal(false)}
           onSubmit={handleCreateKB}
+          agents={agents}
         />
       )}
 
@@ -374,17 +422,20 @@ function EmptyState({ onAdd }: { onAdd: () => void }) {
 function AddKnowledgeBaseModal({
   onClose,
   onSubmit,
+  agents,
 }: {
   onClose: () => void;
-  onSubmit: (name: string, sourceType: 'manual' | 'website' | 'pdf', sourceUrl?: string) => void;
+  onSubmit: (name: string, sourceType: 'manual' | 'website' | 'pdf', sourceUrl?: string, agentId?: string) => void;
+  agents: { id: string; name: string }[];
 }) {
+  const [agentId, setAgentId] = useState(agents.length === 1 ? agents[0].id : '');
   const [name, setName] = useState('');
   const [sourceType, setSourceType] = useState<'manual' | 'website' | 'pdf'>('manual');
   const [sourceUrl, setSourceUrl] = useState('');
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    onSubmit(name, sourceType, sourceType === 'website' ? sourceUrl : undefined);
+    onSubmit(name, sourceType, sourceType === 'website' ? sourceUrl : undefined, agentId || undefined);
   };
 
   return (
@@ -434,6 +485,21 @@ function AddKnowledgeBaseModal({
               />
             </div>
           )}
+
+          <div>
+            <label className="mb-1 block text-[12.5px] font-medium text-gray-500">Agent that uses it</label>
+            <select
+              value={agentId}
+              onChange={(e) => setAgentId(e.target.value)}
+              className="w-full rounded-lg border border-gray-200 bg-white px-3.5 py-2.5 text-[13.5px] focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100"
+            >
+              <option value="">Choose later</option>
+              {agents.map((a) => (
+                <option key={a.id} value={a.id}>{a.name}</option>
+              ))}
+            </select>
+            <p className="mt-1 text-[11.5px] text-gray-400">A Knowledge Base step only sees content from a knowledge base attached to its agent.</p>
+          </div>
 
           <div className="flex gap-2.5 pt-2">
             <button type="button" onClick={onClose} className="flex-1 rounded-lg border border-gray-200 px-4 py-2.5 text-[13.5px] font-medium text-gray-600 transition hover:bg-gray-50">

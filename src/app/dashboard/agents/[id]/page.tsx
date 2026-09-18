@@ -1226,6 +1226,11 @@ function NodeSettingsPanel({
             <label className="mb-1 block text-[12px] font-medium text-gray-500">Response wait time (ms)</label>
             <input type="number" min={0} max={10000} value={node.params?.responseWaitTimeMs || ''} onChange={(e) => onUpdate({ params: { ...node.params, responseWaitTimeMs: e.target.value } })} placeholder="0" className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-[12.5px] focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100" />
           </div>
+          <div>
+            <label className="mb-1 block text-[12px] font-medium text-gray-500">Check in after silence (seconds)</label>
+            <input type="number" min={0} max={120} value={node.params?.reminderMessageFrequencySec || ''} onChange={(e) => onUpdate({ params: { ...node.params, reminderMessageFrequencySec: e.target.value } })} placeholder="Off" className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-[12.5px] focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100" />
+            <p className="mt-1 text-[11.5px] text-gray-400">If the caller goes quiet this long during this step, the agent gently checks in (&ldquo;Are you still there?&rdquo;). Blank = never.</p>
+          </div>
         </div>
       )}
 

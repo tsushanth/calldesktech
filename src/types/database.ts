@@ -94,6 +94,7 @@ export interface Database {
           tenant_id: string
           name: string
           source_type: 'website' | 'pdf' | 'manual'
+          agent_id: string | null
           source_url: string | null
           retell_kb_id: string | null
           created_at: string
@@ -103,6 +104,7 @@ export interface Database {
           tenant_id: string
           name: string
           source_type: 'website' | 'pdf' | 'manual'
+          agent_id?: string | null
           source_url?: string | null
           retell_kb_id?: string | null
           created_at?: string
@@ -112,6 +114,7 @@ export interface Database {
           tenant_id?: string
           name?: string
           source_type?: 'website' | 'pdf' | 'manual'
+          agent_id?: string | null
           source_url?: string | null
           retell_kb_id?: string | null
           created_at?: string

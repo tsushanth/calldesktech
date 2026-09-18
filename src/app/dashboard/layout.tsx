@@ -114,6 +114,7 @@ export default function DashboardLayout({
       items: [
         { href: '/dashboard/agents', label: 'Agents' },
         { href: '/dashboard/knowledge', label: 'Knowledge Base' },
+        { href: '/dashboard/subflows', label: 'Subflows' },
       ],
     },
     {
@@ -146,6 +147,7 @@ export default function DashboardLayout({
       items: [
         { href: '/dashboard/billing', label: 'Billing' },
         { href: '/dashboard/settings', label: 'Settings' },
+        { href: '/docs', label: 'API Docs' },
       ],
     },
   ];

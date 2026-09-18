@@ -19,16 +19,34 @@ const NODE_TYPES: { type: FlowNode['type']; label: string }[] = [
   { type: 'transfer', label: 'Call Transfer' },
   { type: 'logic_split', label: 'Logic Split' },
   { type: 'knowledge_base', label: 'Knowledge Base' },
+  { type: 'sms', label: 'In-Call SMS' },
+  { type: 'code', label: 'Code' },
+  { type: 'mcp', label: 'MCP' },
   { type: 'goodbye', label: 'Ending' },
 ];
 
+// Per-type parameter fields. Not offered here: press_digit and payment —
+// both redirect the live call and resume in a NEW session, which doesn't
+// carry a subflow's call stack, so they can't run inside one yet — and
+// subflow_ref (no nesting).
+const PARAM_FIELDS: Partial<Record<FlowNode['type'], { key: string; label: string; placeholder?: string; multiline?: boolean; mono?: boolean }[]>> = {
+  function: [{ key: 'webhookUrl', label: 'Webhook URL', placeholder: 'https://…', mono: true }],
+  transfer: [{ key: 'transferTo', label: 'Transfer to (phone number)', placeholder: '+14155550123', mono: true }],
+  sms: [{ key: 'to', label: 'Send to (blank = caller)', mono: true }, { key: 'body', label: 'Message', multiline: true }],
+  code: [{ key: 'code', label: 'JavaScript', multiline: true, mono: true }],
+  mcp: [
+    { key: 'serverUrl', label: 'MCP server URL', mono: true },
+    { key: 'toolName', label: 'Tool name', mono: true },
+    { key: 'toolArguments', label: 'Arguments (JSON)', mono: true },
+    { key: 'headers', label: 'Headers (JSON, optional)', placeholder: '{"Authorization": "Bearer …"}', mono: true },
+  ],
+};
+
 // A standalone editor for one subflow's node graph, linked to from a
-// subflow_ref node in the main flow builder. Deliberately a simpler form
-// than the main builder's NodeSettingsPanel — id/type/prompt/edges only,
-// no per-node-type param editors (code/mcp/sms/etc.) — a subflow is meant
-// to hold a small reusable sub-routine (e.g. an IVR-navigation detour), not
-// every node type the main canvas supports. Can be extended later if a
-// subflow genuinely needs one of those types.
+// subflow_ref node in the main flow builder and from the Subflows list.
+// A simpler form than the main builder's panel (id/type/prompt/edges plus
+// the per-type params in PARAM_FIELDS) — a subflow is a small reusable
+// sub-routine, not the whole canvas.
 export default function SubflowEditorPage() {
   const params = useParams();
   const subflowId = params.subflowId as string;
@@ -194,6 +212,33 @@ export default function SubflowEditorPage() {
                 <label className="mb-1 block text-[12px] font-medium text-gray-500">Prompt</label>
                 <textarea value={selectedNode.prompt || ''} onChange={(e) => updateNode(selectedNode._key, { prompt: e.target.value })} rows={6} className="w-full resize-y rounded-lg border border-gray-200 bg-white px-3 py-2 text-[12.5px]" />
               </div>
+              {(PARAM_FIELDS[selectedNode.type] || []).map((f) => (
+                <div key={f.key}>
+                  <label className="mb-1 block text-[12px] font-medium text-gray-500">{f.label}</label>
+                  {f.multiline ? (
+                    <textarea
+                      value={selectedNode.params?.[f.key] || ''}
+                      onChange={(e) => updateNode(selectedNode._key, { params: { ...selectedNode.params, [f.key]: e.target.value } })}
+                      rows={f.key === 'code' ? 6 : 3}
+                      spellCheck={false}
+                      className={`w-full resize-y rounded-lg border border-gray-200 bg-white px-3 py-2 text-[12.5px] ${f.mono ? 'font-mono' : ''}`}
+                    />
+                  ) : (
+                    <input
+                      value={selectedNode.params?.[f.key] || ''}
+                      onChange={(e) => updateNode(selectedNode._key, { params: { ...selectedNode.params, [f.key]: e.target.value } })}
+                      placeholder={f.placeholder}
+                      className={`w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-[12.5px] ${f.mono ? 'font-mono' : ''}`}
+                    />
+                  )}
+                </div>
+              ))}
+              {selectedNode.type === 'function' && (
+                <div>
+                  <label className="mb-1 block text-[12px] font-medium text-gray-500">Function name</label>
+                  <input value={selectedNode.function || ''} onChange={(e) => updateNode(selectedNode._key, { function: e.target.value })} className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 font-mono text-[12.5px]" />
+                </div>
+              )}
               <div className="border-t border-gray-100 pt-3">
                 <div className="mb-1.5 flex items-center justify-between">
                   <label className="text-[12px] font-medium text-gray-500">Transitions</label>
