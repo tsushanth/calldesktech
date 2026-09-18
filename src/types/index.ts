@@ -83,6 +83,16 @@ export interface Agent {
   mode: 'simple' | 'advanced';
   created_at: string;
   updated_at: string;
+  // Only present from GET /api/tenants/[id]/agents (the list route), which
+  // enriches each row with its latest version's engine/voice and any
+  // routed phone numbers — not present on GET /api/agents/[id] (single
+  // agent fetch), which returns the bare row.
+  latestVersion?: {
+    voiceEngine: string;
+    voice: string | null;
+    updatedAt: string;
+  } | null;
+  phoneNumbers?: string[];
 }
 
 // TTS backends the in-house ('poc') voice engine can run — kokoro

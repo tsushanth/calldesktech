@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useOnboarding } from '@/context/OnboardingContext';
+import { formatPhoneDisplay } from '@/lib/utils';
 import type { Agent } from '@/types';
 
 export default function AgentsPage() {
@@ -211,15 +212,18 @@ export default function AgentsPage() {
           <thead>
             <tr className="border-b border-gray-100 bg-gray-50/60 text-[11.5px] uppercase tracking-wide text-gray-400">
               <th className="px-5 py-3 font-medium">Agent Name</th>
+              <th className="px-5 py-3 font-medium">Type</th>
+              <th className="px-5 py-3 font-medium">Voice</th>
+              <th className="px-5 py-3 font-medium">Phone</th>
               <th className="px-5 py-3 font-medium">Mode</th>
-              <th className="px-5 py-3 font-medium">Created</th>
+              <th className="px-5 py-3 font-medium">Last Updated</th>
               <th className="px-5 py-3 font-medium"></th>
             </tr>
           </thead>
           <tbody>
             {filtered.length === 0 ? (
               <tr>
-                <td colSpan={4} className="px-5 py-14 text-center text-gray-400">
+                <td colSpan={7} className="px-5 py-14 text-center text-gray-400">
                   {agents.length === 0 ? 'No agents yet — create one to start building a version.' : 'No agents match your search.'}
                 </td>
               </tr>
@@ -257,6 +261,39 @@ export default function AgentsPage() {
                     )}
                   </td>
                   <td className="px-5 py-3.5">
+                    {agent.latestVersion ? (
+                      <span
+                        className={`inline-flex rounded-full px-2.5 py-0.5 text-[11.5px] font-medium ${
+                          agent.latestVersion.voiceEngine === 'poc' ? 'bg-teal-50 text-teal-700' : 'bg-blue-50 text-blue-700'
+                        }`}
+                      >
+                        {agent.latestVersion.voiceEngine === 'poc' ? 'CallDeskTech' : 'Retell'}
+                      </span>
+                    ) : (
+                      <span className="text-gray-300">No version yet</span>
+                    )}
+                  </td>
+                  <td className="px-5 py-3.5 text-gray-600">
+                    {agent.latestVersion?.voice ? (
+                      agent.latestVersion.voice === 'kokoro' ? 'CallDeskTech' : agent.latestVersion.voice
+                    ) : (
+                      <span className="text-gray-300">—</span>
+                    )}
+                  </td>
+                  <td className="px-5 py-3.5 font-mono text-gray-600">
+                    {agent.phoneNumbers && agent.phoneNumbers.length > 0 ? (
+                      agent.phoneNumbers.length === 1 ? (
+                        formatPhoneDisplay(agent.phoneNumbers[0])
+                      ) : (
+                        <span title={agent.phoneNumbers.map(formatPhoneDisplay).join(', ')}>
+                          {formatPhoneDisplay(agent.phoneNumbers[0])} +{agent.phoneNumbers.length - 1}
+                        </span>
+                      )
+                    ) : (
+                      <span className="font-sans text-gray-300">Unrouted</span>
+                    )}
+                  </td>
+                  <td className="px-5 py-3.5">
                     <span
                       className={`inline-flex rounded-full px-2.5 py-0.5 text-[11.5px] font-medium ${
                         agent.mode === 'advanced' ? 'bg-purple-50 text-purple-600' : 'bg-gray-100 text-gray-600'
@@ -265,7 +302,9 @@ export default function AgentsPage() {
                       {agent.mode === 'advanced' ? 'Advanced' : 'Simple (wizard-owned)'}
                     </span>
                   </td>
-                  <td className="px-5 py-3.5 text-gray-500">{new Date(agent.created_at).toLocaleDateString()}</td>
+                  <td className="px-5 py-3.5 text-gray-500">
+                    {new Date(agent.latestVersion?.updatedAt || agent.created_at).toLocaleDateString()}
+                  </td>
                   <td className="px-5 py-3.5">
                     {editingId !== agent.id && (
                       <div className="flex items-center justify-end gap-1 opacity-0 transition group-hover:opacity-100">
