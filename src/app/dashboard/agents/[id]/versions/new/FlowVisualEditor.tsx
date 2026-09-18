@@ -138,15 +138,23 @@ function FlowNodeCard({ data }: NodeProps) {
     );
   }
   const color = TYPE_COLORS[node.type] || DEFAULT_TYPE_COLOR;
+  const edgeColor = isSelected ? '#2563eb' : isStart ? color.accent : '#e5e7eb';
+  const edgeWidth = isSelected || isStart ? 2 : 1;
   const paramEntries = node.params ? Object.entries(node.params).filter(([, v]) => v) : [];
   return (
     <div
       className="w-[340px] cursor-pointer rounded-xl border bg-white shadow-md transition-shadow hover:shadow-lg"
       style={{
-        borderColor: isSelected ? '#2563eb' : isStart ? color.accent : '#e5e7eb',
-        borderLeftWidth: 5,
+        // Longhand-only: mixing `borderColor`/`borderWidth` with the
+        // border-left overrides makes React warn on every re-render.
+        borderTopColor: edgeColor,
+        borderRightColor: edgeColor,
+        borderBottomColor: edgeColor,
         borderLeftColor: color.accent,
-        borderWidth: isSelected ? 2 : isStart ? 2 : 1,
+        borderTopWidth: edgeWidth,
+        borderRightWidth: edgeWidth,
+        borderBottomWidth: edgeWidth,
+        borderLeftWidth: 5,
         boxShadow: isSelected ? '0 0 0 3px rgba(37,99,235,0.15)' : undefined,
       }}
     >
