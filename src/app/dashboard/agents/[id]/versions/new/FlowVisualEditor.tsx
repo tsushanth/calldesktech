@@ -28,6 +28,12 @@ interface FlowVisualEditorProps {
   onPositionChange: (nodeKey: string, position: { x: number; y: number }) => void;
   selectedKey?: string | null;
   onSelectNode?: (nodeKey: string) => void;
+  /** Drag from one node's right handle to another's left handle. */
+  onConnectNodes?: (sourceKey: string, targetKey: string) => void;
+  /** Select an arrow and press Delete/Backspace. `index` = position in the source node's edges. */
+  onDeleteEdges?: (edges: { sourceKey: string; index: number }[]) => void;
+  /** subflow id -> display info, for subflow_ref cards. */
+  subflowInfo?: Record<string, { name: string; nodeCount: number }>;
   height?: number | string;
 }
 
@@ -40,6 +46,7 @@ const TYPE_COLORS: Record<string, { accent: string; badgeBg: string; badgeText: 
   function: { accent: '#8b5cf6', badgeBg: '#f5f3ff', badgeText: '#7c3aed' },
   code: { accent: '#8b5cf6', badgeBg: '#f5f3ff', badgeText: '#7c3aed' },
   mcp: { accent: '#8b5cf6', badgeBg: '#f5f3ff', badgeText: '#7c3aed' },
+  subflow_ref: { accent: '#7c3aed', badgeBg: '#f5f3ff', badgeText: '#6d28d9' },
   subagent: { accent: '#6366f1', badgeBg: '#eef2ff', badgeText: '#4f46e5' },
   knowledge_base: { accent: '#14b8a6', badgeBg: '#f0fdfa', badgeText: '#0d9488' },
   transfer: { accent: '#f97316', badgeBg: '#fff7ed', badgeText: '#ea580c' },
@@ -117,6 +124,7 @@ function FlowNodeCard({ data }: NodeProps) {
   const node = data.node as DraftNode;
   const isStart = data.isStart as boolean;
   const isSelected = data.isSelected as boolean;
+  const subflow = data.subflow as { id: string; name: string; nodeCount: number } | null;
   const color = TYPE_COLORS[node.type] || DEFAULT_TYPE_COLOR;
   const paramEntries = node.params ? Object.entries(node.params).filter(([, v]) => v) : [];
   return (
@@ -142,6 +150,22 @@ function FlowNodeCard({ data }: NodeProps) {
         >
           {node.type.replace('_', ' ')}
         </span>
+        {node.type === 'subflow_ref' && (
+          <div className="mt-2.5 rounded-lg bg-violet-50 px-3 py-2">
+            {subflow ? (
+              <>
+                <p className="text-[12.5px] font-medium text-violet-900">{subflow.name}</p>
+                <p className="mt-0.5 text-[11px] text-violet-700">
+                  {subflow.nodeCount} node{subflow.nodeCount === 1 ? '' : 's'} inside ·{' '}
+                  <a href={`/dashboard/subflows/${subflow.id}`} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="font-semibold underline">Edit</a>
+                </p>
+              </>
+            ) : (
+              <p className="text-[11.5px] text-violet-700">No subflow chosen yet — pick one in this node&apos;s settings.</p>
+            )}
+            <p className="mt-1.5 text-[10.5px] text-violet-600">Drag arrows out of this node for each way the subflow can finish.</p>
+          </div>
+        )}
         {node.prompt && (
           <div className="mt-2.5 text-[12.5px] leading-relaxed text-gray-600">{renderMiniMarkdown(node.prompt)}</div>
         )}
@@ -182,7 +206,7 @@ function FlowNodeCard({ data }: NodeProps) {
 
 const nodeTypes: NodeTypes = { flowNode: FlowNodeCard };
 
-export default function FlowVisualEditor({ nodes, startNodeId, onPositionChange, selectedKey, onSelectNode, height = 720 }: FlowVisualEditorProps) {
+export default function FlowVisualEditor({ nodes, startNodeId, onPositionChange, selectedKey, onSelectNode, onConnectNodes, onDeleteEdges, subflowInfo, height = 720 }: FlowVisualEditorProps) {
   const autoLayout = useMemo(() => computeAutoLayout(nodes, startNodeId), [nodes, startNodeId]);
 
   const [rfNodes, setRfNodes, onNodesChange] = useNodesState<RFNode>([]);
@@ -202,7 +226,12 @@ export default function FlowVisualEditor({ nodes, startNodeId, onPositionChange,
         id: n._key,
         type: 'flowNode',
         position: prevByKey.get(n._key)?.position || n.position || autoLayout[n.id] || { x: 0, y: 0 },
-        data: { node: n, isStart: n.id === startNodeId, isSelected: n._key === selectedKey },
+        data: {
+          node: n,
+          isStart: n.id === startNodeId,
+          isSelected: n._key === selectedKey,
+          subflow: n.type === 'subflow_ref' && n.params?.subflowId ? { id: n.params.subflowId, ...(subflowInfo?.[n.params.subflowId] || { name: 'Subflow', nodeCount: 0 }) } : null,
+        },
       }));
     });
 
@@ -232,13 +261,34 @@ export default function FlowVisualEditor({ nodes, startNodeId, onPositionChange,
     // avoids re-running this (and clobbering in-progress drags) purely
     // because its object identity changed on every render.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [nodes, startNodeId, selectedKey, setRfNodes, setRfEdges]);
+  }, [nodes, startNodeId, selectedKey, subflowInfo, setRfNodes, setRfEdges]);
 
   const handleNodeDragStop = useCallback(
     (_event: unknown, node: RFNode) => {
       onPositionChange(node.id, node.position);
     },
     [onPositionChange]
+  );
+
+  const handleConnect = useCallback(
+    (c: { source: string | null; target: string | null }) => {
+      if (c.source && c.target) onConnectNodes?.(c.source, c.target);
+    },
+    [onConnectNodes]
+  );
+
+  const handleEdgesDelete = useCallback(
+    (deleted: RFEdge[]) => {
+      // Edge ids are `${sourceKey}-e${index}` (see the sync effect above).
+      const parsed = deleted
+        .map((e) => {
+          const m = /^(.*)-e(\d+)$/.exec(e.id);
+          return m ? { sourceKey: m[1], index: Number(m[2]) } : null;
+        })
+        .filter((x): x is { sourceKey: string; index: number } => x !== null);
+      if (parsed.length) onDeleteEdges?.(parsed);
+    },
+    [onDeleteEdges]
   );
 
   const handleNodeClick = useCallback(
@@ -257,6 +307,10 @@ export default function FlowVisualEditor({ nodes, startNodeId, onPositionChange,
         onEdgesChange={onEdgesChange}
         onNodeDragStop={handleNodeDragStop}
         onNodeClick={handleNodeClick}
+        onConnect={handleConnect}
+        onEdgesDelete={handleEdgesDelete}
+        deleteKeyCode={['Backspace', 'Delete']}
+        connectionRadius={40}
         nodeTypes={nodeTypes}
         fitView
         minZoom={0.2}

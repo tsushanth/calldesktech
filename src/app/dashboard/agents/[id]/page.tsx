@@ -66,6 +66,7 @@ export default function AgentBuilderPage() {
   const [showVersionHistory, setShowVersionHistory] = useState(false);
   const [versions, setVersions] = useState<AgentVersion[]>([]);
   const [subflows, setSubflows] = useState<Subflow[]>([]);
+  const [paletteTab, setPaletteTab] = useState<'nodes' | 'subflows'>('nodes');
 
   const loadAgent = useCallback(async () => {
     try {
@@ -217,6 +218,15 @@ export default function AgentBuilderPage() {
   // the node to reference it, so from here on it behaves exactly like a
   // subflow the user built by hand (editable via "Edit" on the node, same
   // API, same publish-time embedding).
+  // Drop a subflow onto the canvas as a ready-to-connect node.
+  const addSubflowNode = (sf: Subflow) => {
+    const base = sf.name.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '') || 'subflow';
+    const node = { ...emptyNodeOfType('subflow_ref'), id: uniqueNodeId(base), params: { subflowId: sf.id } };
+    setNodes((prev) => [...prev, node]);
+    setSelectedKey(node._key);
+    setRightTab('node');
+  };
+
   const materializeTemplateSubflows = async (templateNodes: FlowNode[]): Promise<FlowNode[]> => {
     if (!agent) return templateNodes;
     return Promise.all(
@@ -346,8 +356,18 @@ export default function AgentBuilderPage() {
     setNodes((prev) => prev.filter((n) => n._key !== key));
     setSelectedKey((prev) => (prev === key ? null : prev));
   };
+  // Every node needs a unique id before anything can point at it, so give
+  // new nodes a readable default instead of leaving it blank (a blank id
+  // can't be the target of an arrow).
+  const uniqueNodeId = (base: string) => {
+    const taken = new Set(nodes.map((n) => n.id));
+    if (!taken.has(base)) return base;
+    let i = 2;
+    while (taken.has(`${base}_${i}`)) i += 1;
+    return `${base}_${i}`;
+  };
   const addNodeOfType = (type: FlowNode['type']) => {
-    const node = emptyNodeOfType(type);
+    const node = { ...emptyNodeOfType(type), id: uniqueNodeId(type === 'greeting' ? 'conversation' : type) };
     setNodes((prev) => [...prev, node]);
     setSelectedKey(node._key);
     setRightTab('node');
@@ -392,6 +412,39 @@ export default function AgentBuilderPage() {
       )
     );
   };
+  // Drag-to-connect from the canvas: an arrow from `sourceKey` to `targetKey`.
+  // The condition starts blank — the right panel opens on the source node so
+  // the user can say when to take it.
+  const connectNodes = (sourceKey: string, targetKey: string) => {
+    const target = nodes.find((n) => n._key === targetKey);
+    if (!target || !target.id.trim()) {
+      setError('Give the target node an id first — arrows point at a node by its id.');
+      return;
+    }
+    setNodes((prev) =>
+      prev.map((n) => {
+        if (n._key !== sourceKey) return n;
+        if (n.type === 'press_digit') return { ...n, edges: [{ id: `e1_${sourceKey}`, target: target.id }] }; // exactly one edge
+        const edge: FlowEdge = {
+          id: `e${Date.now()}_${n.edges.length}`,
+          condition: n.type === 'logic_split' ? { field: '', operator: '==' as const, value: '' } : '',
+          target: target.id,
+        };
+        return { ...n, edges: [...n.edges, edge] };
+      })
+    );
+    setSelectedKey(sourceKey);
+    setRightTab('node');
+  };
+  const deleteEdges = (removed: { sourceKey: string; index: number }[]) => {
+    setNodes((prev) =>
+      prev.map((n) => {
+        const drop = new Set(removed.filter((r) => r.sourceKey === n._key).map((r) => r.index));
+        return drop.size ? { ...n, edges: n.edges.filter((_, i) => !drop.has(i)) } : n;
+      })
+    );
+  };
+
   const addEdge = (nodeKey: string) => {
     setNodes((prev) =>
       prev.map((n) =>
@@ -755,9 +808,31 @@ export default function AgentBuilderPage() {
                 </div>
                 {agentType === 'conversational_flow' && (
                   <>
-                    <p className="mb-1.5 mt-2 px-1 text-[11px] font-medium uppercase tracking-wide text-gray-400">Nodes — click to add</p>
+                    <div className="mt-2 flex rounded-lg border border-gray-200 bg-gray-50 p-0.5">
+                      {(['nodes', 'subflows'] as const).map((t) => (
+                        <button
+                          key={t}
+                          onClick={() => setPaletteTab(t)}
+                          className={`flex-1 rounded-md px-2 py-1.5 text-[12px] font-medium capitalize transition ${paletteTab === t ? 'bg-white text-[#1a1d29] shadow-sm' : 'text-gray-500'}`}
+                        >
+                          {t}
+                        </button>
+                      ))}
+                    </div>
+                    {paletteTab === 'subflows' ? (
+                      <SubflowPalette
+                        subflows={subflows}
+                        onAdd={addSubflowNode}
+                        onCreate={async () => {
+                          const created = await handleCreateSubflow(`Subflow ${subflows.length + 1}`);
+                          if (created) addSubflowNode(created);
+                        }}
+                      />
+                    ) : (
+                    <>
+                    <p className="mb-1.5 mt-2 px-1 text-[11px] font-medium uppercase tracking-wide text-gray-400">Click to add · drag from a node&apos;s right dot to another node to connect</p>
                     <div className="space-y-1">
-                      {NODE_TYPES.map((nt) => (
+                      {NODE_TYPES.filter((nt) => nt.type !== 'subflow_ref').map((nt) => (
                         <button
                           key={nt.type}
                           onClick={() => addNodeOfType(nt.type)}
@@ -768,6 +843,8 @@ export default function AgentBuilderPage() {
                         </button>
                       ))}
                     </div>
+                    </>
+                    )}
                   </>
                 )}
 
@@ -814,6 +891,9 @@ export default function AgentBuilderPage() {
                     onPositionChange={(nodeKey, position) => updateNode(nodeKey, { position })}
                     selectedKey={selectedKey}
                     onSelectNode={(key) => { setSelectedKey(key); setRightTab('node'); }}
+                    onConnectNodes={connectNodes}
+                    onDeleteEdges={deleteEdges}
+                    subflowInfo={Object.fromEntries(subflows.map((sf) => [sf.id, { name: sf.name, nodeCount: sf.nodes.length }]))}
                     height="100%"
                   />
                 )}
@@ -1364,9 +1444,61 @@ function SubflowRefFields({
           Edit &ldquo;{selected.name}&rdquo; ({selected.nodes.length} node{selected.nodes.length === 1 ? '' : 's'}) →
         </a>
       )}
+      <p className="text-[12px] leading-relaxed text-gray-500">
+        This node&apos;s <strong>Edges</strong> below are the ways the subflow can finish — one per outcome, each with a condition (e.g. &ldquo;caller confirmed&rdquo; → next step). You can also drag arrows from this node to another on the canvas.
+      </p>
       {!node.params?.subflowId && (
         <p className="text-[12px] text-amber-600">Pick or create a subflow — this node won&apos;t do anything until it references one.</p>
       )}
+    </div>
+  );
+}
+
+function SubflowPalette({
+  subflows,
+  onAdd,
+  onCreate,
+}: {
+  subflows: Subflow[];
+  onAdd: (sf: Subflow) => void;
+  onCreate: () => Promise<void>;
+}) {
+  const [isCreating, setIsCreating] = useState(false);
+  const group = (title: string, items: Subflow[]) => (
+    <div className="mt-3">
+      <p className="mb-1 px-1 text-[11px] font-medium uppercase tracking-wide text-gray-400">{title}</p>
+      {items.length === 0 ? (
+        <p className="px-1 text-[12px] text-gray-400">None yet.</p>
+      ) : (
+        <div className="space-y-1">
+          {items.map((sf) => (
+            <div key={sf.id} className="flex items-center gap-1 rounded-lg hover:bg-gray-50">
+              <button onClick={() => onAdd(sf)} className="min-w-0 flex-1 px-2.5 py-2 text-left text-[13px] text-[#1a1d29]" title="Add to canvas">
+                <span className="block truncate">{sf.name}</span>
+                <span className="text-[10.5px] text-gray-400">{sf.nodes.length} node{sf.nodes.length === 1 ? '' : 's'}</span>
+              </button>
+              <a href={`/dashboard/subflows/${sf.id}`} target="_blank" rel="noopener noreferrer" className="flex-none px-2 text-[11.5px] font-medium text-blue-600 hover:text-blue-700">Edit</a>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+  return (
+    <div>
+      <p className="mt-2 px-1 text-[11.5px] leading-relaxed text-gray-500">
+        A subflow is a reusable mini-flow. Click one to add it to the canvas, then drag arrows out of it for each way it can finish.
+      </p>
+      {group('This agent', subflows.filter((s) => s.scope !== 'library'))}
+      {group('Shared library', subflows.filter((s) => s.scope === 'library'))}
+      <button
+        onClick={async () => { setIsCreating(true); try { await onCreate(); } finally { setIsCreating(false); } }}
+        disabled={isCreating}
+        className="mt-3 w-full rounded-lg border border-dashed border-gray-300 px-2.5 py-2 text-[12.5px] font-medium text-gray-600 hover:border-blue-300 hover:text-blue-600 disabled:opacity-40"
+      >
+        {isCreating ? 'Creating…' : '+ New subflow'}
+      </button>
+      <a href="/dashboard/subflows" target="_blank" rel="noopener noreferrer" className="mt-2 block px-1 text-[11.5px] text-gray-400 hover:text-gray-600">Manage all subflows →</a>
     </div>
   );
 }
