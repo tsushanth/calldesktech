@@ -4,6 +4,7 @@ import { getRetellClient } from '@/lib/retell';
 import { runAndStoreCallQa } from '@/lib/callQa';
 import { deriveOutcome, deriveTransferStatus, fireAlertsForCall } from '@/lib/alerts';
 import { dispatchWebhookEvent } from '@/lib/webhooks';
+import { runAndStorePostCallAnalysis } from '@/lib/postCallAnalysis';
 import type { RetellWebhookEvent } from '@/types';
 
 export async function POST(request: NextRequest) {
@@ -35,6 +36,16 @@ export async function POST(request: NextRequest) {
           voice_engine: 'retell',
           outcome: 'answered', // Will be updated on call_ended
           duration_seconds: 0,
+        });
+        await dispatchWebhookEvent(tenant.id, 'call.started', {
+          call_id: event.call.call_id,
+          tenant_id: tenant.id,
+          caller_phone: event.call.from_number,
+          to_number: event.call.to_number,
+          direction: event.call.direction,
+          started_at: event.call.start_timestamp
+            ? new Date(event.call.start_timestamp).toISOString()
+            : new Date().toISOString(),
         });
         break;
 
@@ -83,6 +94,17 @@ export async function POST(request: NextRequest) {
           });
         }
 
+        // Post-call analysis (default-off: only when the agent version's
+        // globalSettings.postCallAnalysis has fields). Never throws.
+        const analysis = event.call.transcript
+          ? await runAndStorePostCallAnalysis({
+              supabase,
+              retellCallId: event.call.call_id,
+              retellAgentId: event.call.agent_id,
+              transcript: event.call.transcript,
+            })
+          : null;
+
         // Fire any alert rules the tenant configured for this outcome. Skipped
         // for demo tenants — those are throwaway and get cleaned up below. This
         // is best-effort (never throws) so a mail hiccup can't fail the webhook.
@@ -110,6 +132,7 @@ export async function POST(request: NextRequest) {
           outcome: finalizedOutcome ?? 'answered',
           disconnection_reason: event.call.disconnection_reason ?? null,
           transcript: event.call.transcript ?? null,
+          analysis,
           recording_url: event.call.recording_url ?? null,
           started_at: event.call.start_timestamp
             ? new Date(event.call.start_timestamp).toISOString()
@@ -121,6 +144,9 @@ export async function POST(request: NextRequest) {
         await dispatchWebhookEvent(tenant.id, 'call.completed', webhookData);
         if (finalizedOutcome === 'transferred') {
           await dispatchWebhookEvent(tenant.id, 'call.transferred', webhookData);
+        }
+        if (analysis) {
+          await dispatchWebhookEvent(tenant.id, 'call.analyzed', { ...webhookData, analysis });
         }
         break;
       }

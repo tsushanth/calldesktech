@@ -125,6 +125,18 @@ function FlowNodeCard({ data }: NodeProps) {
   const isStart = data.isStart as boolean;
   const isSelected = data.isSelected as boolean;
   const subflow = data.subflow as { id: string; name: string; nodeCount: number } | null;
+  // Canvas-only sticky note: no handles (can't be wired), stripped at publish.
+  if (node.type === 'note') {
+    return (
+      <div
+        className="w-[240px] cursor-pointer rounded-md border bg-yellow-100 p-3 shadow-md"
+        style={{ borderColor: isSelected ? '#2563eb' : '#facc15', borderWidth: isSelected ? 2 : 1 }}
+      >
+        <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-yellow-700">Note · not published</p>
+        <p className="whitespace-pre-wrap text-[12.5px] leading-relaxed text-yellow-900">{node.prompt || 'Empty note — edit it in the right panel.'}</p>
+      </div>
+    );
+  }
   const color = TYPE_COLORS[node.type] || DEFAULT_TYPE_COLOR;
   const paramEntries = node.params ? Object.entries(node.params).filter(([, v]) => v) : [];
   return (

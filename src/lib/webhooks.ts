@@ -8,6 +8,11 @@ import { getSupabaseAdmin } from '@/lib/supabase';
 // `event` field and the X-CallDesk-Event header.
 export const WEBHOOK_EVENTS = [
   {
+    id: 'call.started',
+    label: 'Call started',
+    description: 'Fires when a call connects (Retell-engine calls only).',
+  },
+  {
     id: 'call.completed',
     label: 'Call completed',
     description: 'Fires when a call ends, with its final outcome and transcript.',
@@ -16,6 +21,11 @@ export const WEBHOOK_EVENTS = [
     id: 'call.transferred',
     label: 'Call transferred',
     description: 'Fires when a call is handed off to a human (transfer).',
+  },
+  {
+    id: 'call.analyzed',
+    label: 'Call analyzed',
+    description: "Fires after post-call analysis runs, with the extracted `analysis` fields (only for agents with post-call analysis configured).",
   },
 ] as const;
 

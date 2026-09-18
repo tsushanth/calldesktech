@@ -206,6 +206,7 @@ export interface Database {
           is_internal_test: boolean
           transfer_status: string | null
           transfer_wait_ms: number | null
+          analysis: Json | null
         }
         Insert: {
           id?: string
@@ -231,6 +232,7 @@ export interface Database {
           is_internal_test?: boolean
           transfer_status?: string | null
           transfer_wait_ms?: number | null
+          analysis?: Json | null
         }
         Update: {
           id?: string
@@ -256,6 +258,7 @@ export interface Database {
           is_internal_test?: boolean
           transfer_status?: string | null
           transfer_wait_ms?: number | null
+          analysis?: Json | null
         }
       }
       bookings: {

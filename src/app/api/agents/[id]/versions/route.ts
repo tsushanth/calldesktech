@@ -89,6 +89,16 @@ export async function POST(
   const { id: agentId } = await params;
   const supabase = getSupabaseAdmin();
   const body = await request.json();
+  // Canvas-only 'note' nodes (and any edges pointing at them) must never
+  // reach the engine — strip server-side too, not just in the builder.
+  if (Array.isArray(body.nodes)) {
+    const noteIds = new Set((body.nodes as FlowNode[]).filter((n) => n?.type === 'note').map((n) => n.id));
+    if (noteIds.size) {
+      body.nodes = (body.nodes as FlowNode[])
+        .filter((n) => n.type !== 'note')
+        .map((n) => ({ ...n, edges: (n.edges || []).filter((e) => !noteIds.has(e.target)) }));
+    }
+  }
   const {
     flowName,
     startNodeId,

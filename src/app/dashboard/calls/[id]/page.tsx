@@ -114,6 +114,20 @@ export default function CallDetailPage() {
               </div>
             </div>
           )}
+
+          {call.analysis && typeof call.analysis === 'object' && !Array.isArray(call.analysis) && Object.keys(call.analysis).length > 0 && (
+            <div className="rounded-xl border border-gray-200 bg-white p-5">
+              <h2 className="mb-3.5 text-[14px] font-semibold text-[#1a1d29]">Call Analysis</h2>
+              <div className="space-y-2.5">
+                {Object.entries(call.analysis as Record<string, unknown>).map(([key, value]) => (
+                  <div key={key}>
+                    <p className="text-[12px] capitalize text-gray-400">{key.replace(/_/g, ' ')}</p>
+                    <p className="text-[13.5px] font-medium text-[#1a1d29]">{value === null || value === undefined ? '—' : String(value)}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Transcript */}

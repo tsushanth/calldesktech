@@ -10,6 +10,11 @@ import { useOnboarding } from '@/context/OnboardingContext';
 // that server module (it pulls in node:crypto and the Supabase admin client).
 const WEBHOOK_EVENTS = [
   {
+    id: 'call.started',
+    label: 'call.started',
+    description: 'When a call connects (Retell-engine calls only).',
+  },
+  {
     id: 'call.completed',
     label: 'call.completed',
     description: 'When a call ends, with its outcome and transcript.',
@@ -18,6 +23,11 @@ const WEBHOOK_EVENTS = [
     id: 'call.transferred',
     label: 'call.transferred',
     description: 'When a call is handed off to a human.',
+  },
+  {
+    id: 'call.analyzed',
+    label: 'call.analyzed',
+    description: 'After post-call analysis, with the extracted fields.',
   },
 ] as const;
 

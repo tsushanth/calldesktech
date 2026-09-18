@@ -68,7 +68,7 @@ const ops: Record<string, Partial<Record<Method, Op>>> = {
   },
 
   [`/tenants/${T}/calls`]: { get: { tag: 'Calls', summary: 'List calls', query: { limit: 'default 50' }, returns: '{ callLogs: CallLog[] }' } },
-  '/calls/{callId}': { get: { tag: 'Calls', summary: 'Get a call', description: 'Includes transcript, outcome, duration, transfer status.', returns: '{ callLog }' } },
+  '/calls/{callId}': { get: { tag: 'Calls', summary: 'Get a call', description: 'Includes transcript, outcome, duration, transfer status, and `analysis` (post-call analysis fields, null unless configured on the agent).', returns: '{ callLog }' } },
   '/calls/{callId}/recording': { get: { tag: 'Calls', summary: 'Stream a call recording', returns: 'audio' } },
 
   [`/tenants/${T}/batch-calls`]: {
@@ -79,7 +79,7 @@ const ops: Record<string, Partial<Record<Method, Op>>> = {
 
   [`/tenants/${T}/webhooks`]: {
     get: { tag: 'Webhooks', summary: 'List webhooks', returns: '{ webhooks }' },
-    post: { tag: 'Webhooks', summary: 'Register a webhook', description: 'Events: `call.completed`, `call.transferred`. Deliveries are signed with the returned `whsec_` secret (X-CallDesk-Event header names the event).', body: { url: 'https URL', events: "('call.completed' | 'call.transferred')[]" }, bodyRequired: ['url'], returns: '{ webhook }' },
+    post: { tag: 'Webhooks', summary: 'Register a webhook', description: 'Events: `call.started` (Retell-engine calls only), `call.completed` (includes `analysis` when configured), `call.transferred`, `call.analyzed` (post-call analysis results). Deliveries are signed with the returned `whsec_` secret (X-CallDesk-Event header names the event).', body: { url: 'https URL', events: "('call.started' | 'call.completed' | 'call.transferred' | 'call.analyzed')[]" }, bodyRequired: ['url'], returns: '{ webhook }' },
   },
   [`/tenants/${T}/webhooks/{webhookId}`]: {
     patch: { tag: 'Webhooks', summary: 'Update a webhook', body: { url: 'string', events: 'string[]', enabled: 'boolean' }, returns: '{ webhook }' },

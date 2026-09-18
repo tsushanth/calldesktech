@@ -10,6 +10,8 @@ import { AGENT_TEMPLATES } from '@/lib/agentTemplates';
 import { estimatePocCallCost } from '@/lib/costEstimate';
 import { renderMiniMarkdown } from '@/lib/miniMarkdown';
 import FlowVisualEditor from './versions/new/FlowVisualEditor';
+import VersionCompareModal from './VersionCompareModal';
+import TestCallModal from './TestCallModal';
 
 type DraftNode = FlowNode & { _key: string };
 
@@ -23,9 +25,12 @@ function draftNodesFromTemplate(nodes: FlowNode[]): DraftNode[] {
   return nodes.map((n) => ({ ...n, _key: newKey() }));
 }
 
-const NODE_TYPES: { type: FlowNode['type']; label: string }[] = [
+// `preset` entries are palette shortcuts onto an existing engine type, not new
+// engine types (Extract Variable is a pre-filled 'extraction' node).
+const NODE_TYPES: { type: FlowNode['type']; label: string; preset?: 'extract_variable' }[] = [
   { type: 'greeting', label: 'Conversation' },
   { type: 'extraction', label: 'Extraction' },
+  { type: 'extraction', label: 'Extract Variable', preset: 'extract_variable' },
   { type: 'subagent', label: 'Subagent' },
   { type: 'function', label: 'Function' },
   { type: 'transfer', label: 'Call Transfer' },
@@ -38,7 +43,10 @@ const NODE_TYPES: { type: FlowNode['type']; label: string }[] = [
   { type: 'payment', label: 'Payment' },
   { type: 'goodbye', label: 'Ending' },
   { type: 'subflow_ref', label: 'Subflow' },
+  { type: 'note', label: 'Note' },
 ];
+
+type PostCallField = { name: string; type: 'text' | 'boolean' | 'number' | 'enum'; description: string; options?: string[] };
 
 const CONDITION_OPERATORS: StructuredCondition['operator'][] = ['==', '!=', '>', '<', '>=', '<='];
 
@@ -146,6 +154,18 @@ export default function AgentBuilderPage() {
   const [handbook, setHandbook] = useState('');
   const [transitionFlexibility, setTransitionFlexibility] = useState<'' | 'strict' | 'flexible'>('');
   const [interruptionSensitivity, setInterruptionSensitivity] = useState<'' | 'high' | 'medium' | 'low' | 'off'>('');
+  // Post-call analysis + new engine settings (all default-off, stored under
+  // these exact keys in the version's globalSettings).
+  const [postCallFields, setPostCallFields] = useState<PostCallField[]>([]);
+  const [maxCallDurationSec, setMaxCallDurationSec] = useState('');
+  const [endCallAfterSilenceSec, setEndCallAfterSilenceSec] = useState('');
+  const [voicemailDetection, setVoicemailDetection] = useState<'' | 'hangup' | 'leave_message'>('');
+  const [voicemailMessage, setVoicemailMessage] = useState('');
+  const [fillerWords, setFillerWords] = useState('');
+  const [responsiveness, setResponsiveness] = useState('');
+  const [showCompare, setShowCompare] = useState(false);
+  const [showTestCall, setShowTestCall] = useState(false);
+  const [restoringId, setRestoringId] = useState<string | null>(null);
   const [startNodeId, setStartNodeId] = useState('');
   const [voiceEngine, setVoiceEngine] = useState<'retell' | 'poc'>('poc');
   const [voiceId, setVoiceId] = useState('');
@@ -167,6 +187,33 @@ export default function AgentBuilderPage() {
   const [isCheckingExisting, setIsCheckingExisting] = useState(true);
   const [basedOnVersionNumber, setBasedOnVersionNumber] = useState<number | null>(null);
 
+  // Loads a version's nodes + global settings into the builder state. Used on
+  // first load and by "Restore".
+  const applyVersionToBuilder = useCallback((latest: AgentVersion, gs: Record<string, any>, loadedNodes: FlowNode[]) => { // eslint-disable-line @typescript-eslint/no-explicit-any
+    setNodes(draftNodesFromTemplate(loadedNodes));
+    setStartNodeId(gs.startNodeId || loadedNodes[0].id);
+    setVoiceEngine(latest.voice_engine);
+    setVoiceId(latest.voice_id || '');
+    setTtsBackend((latest.tts_backend as TtsBackend) || '');
+    setRetellAgentId(latest.retell_agent_id || '');
+    setRetellLlmId(latest.retell_llm_id || '');
+    setTranscriptionMode(gs.transcriptionMode === 'fast' || gs.transcriptionMode === 'balanced' || gs.transcriptionMode === 'accurate' ? gs.transcriptionMode : '');
+    setHandbook(gs.handbook || '');
+    setTransitionFlexibility(gs.transitionFlexibility === 'strict' || gs.transitionFlexibility === 'flexible' ? gs.transitionFlexibility : '');
+    setInterruptionSensitivity(['high', 'medium', 'low', 'off'].includes(gs.interruptionSensitivity) ? gs.interruptionSensitivity : '');
+    setPostCallFields(Array.isArray(gs.postCallAnalysis?.fields) ? gs.postCallAnalysis.fields : []);
+    setMaxCallDurationSec(typeof gs.maxCallDurationSec === 'number' ? String(gs.maxCallDurationSec) : '');
+    setEndCallAfterSilenceSec(typeof gs.endCallAfterSilenceSec === 'number' ? String(gs.endCallAfterSilenceSec) : '');
+    setVoicemailDetection(gs.voicemailDetection === 'hangup' || gs.voicemailDetection === 'leave_message' ? gs.voicemailDetection : '');
+    setVoicemailMessage(typeof gs.voicemailMessage === 'string' ? gs.voicemailMessage : '');
+    setFillerWords(Array.isArray(gs.fillerWords) ? gs.fillerWords.join(', ') : '');
+    setResponsiveness(typeof gs.responsiveness === 'number' ? String(gs.responsiveness) : '');
+    setAgentType('conversational_flow');
+    setBasedOnVersionNumber(latest.version_number);
+    setFlowName(`v${latest.version_number + 1}`);
+    setAppliedTemplateId(null);
+  }, []);
+
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -184,24 +231,7 @@ export default function AgentBuilderPage() {
         const loadedNodes = (flowBody.flow?.nodes || []) as FlowNode[];
         if (loadedNodes.length === 0) return;
 
-        setNodes(draftNodesFromTemplate(loadedNodes));
-        setStartNodeId(flowBody.flow?.global_settings?.startNodeId || loadedNodes[0].id);
-        setVoiceEngine(latest.voice_engine);
-        setVoiceId(latest.voice_id || '');
-        setTtsBackend((latest.tts_backend as TtsBackend) || '');
-        setRetellAgentId(latest.retell_agent_id || '');
-        setRetellLlmId(latest.retell_llm_id || '');
-        const savedMode = flowBody.flow?.global_settings?.transcriptionMode;
-        if (savedMode === 'fast' || savedMode === 'balanced' || savedMode === 'accurate') setTranscriptionMode(savedMode);
-        setHandbook(flowBody.flow?.global_settings?.handbook || '');
-        const savedFlexibility = flowBody.flow?.global_settings?.transitionFlexibility;
-        if (savedFlexibility === 'strict' || savedFlexibility === 'flexible') setTransitionFlexibility(savedFlexibility);
-        const savedInterruption = flowBody.flow?.global_settings?.interruptionSensitivity;
-        if (['high', 'medium', 'low', 'off'].includes(savedInterruption)) setInterruptionSensitivity(savedInterruption);
-        setAgentType('conversational_flow');
-        setBasedOnVersionNumber(latest.version_number);
-        setFlowName(`v${latest.version_number + 1}`);
-        setAppliedTemplateId(null);
+        applyVersionToBuilder(latest, flowBody.flow?.global_settings || {}, loadedNodes);
         setShowEditor(true);
       } catch {
         // Falls through to the template picker.
@@ -366,8 +396,16 @@ export default function AgentBuilderPage() {
     while (taken.has(`${base}_${i}`)) i += 1;
     return `${base}_${i}`;
   };
-  const addNodeOfType = (type: FlowNode['type']) => {
-    const node = { ...emptyNodeOfType(type), id: uniqueNodeId(type === 'greeting' ? 'conversation' : type) };
+  const addNodeOfType = (type: FlowNode['type'], preset?: 'extract_variable') => {
+    const base = emptyNodeOfType(type);
+    const node = preset === 'extract_variable'
+      ? {
+          ...base,
+          id: uniqueNodeId('extract_variable'),
+          prompt: 'Ask the caller for the value(s) listed under "Fields to collect" and confirm them before moving on. Only extract what the caller actually said.',
+          extract: { variable_name: 'string' },
+        }
+      : { ...base, id: uniqueNodeId(type === 'greeting' ? 'conversation' : type) };
     setNodes((prev) => [...prev, node]);
     setSelectedKey(node._key);
     setRightTab('node');
@@ -497,6 +535,79 @@ export default function AgentBuilderPage() {
     );
   };
 
+  // Post-call analysis + new engine settings, under their exact keys. Blank =
+  // omitted (unset).
+  const buildNewGlobalSettings = (): Record<string, unknown> => {
+    const out: Record<string, unknown> = {};
+    const fields = postCallFields
+      .map((f) => ({
+        name: f.name.trim(),
+        type: f.type,
+        description: f.description.trim(),
+        ...(f.type === 'enum' ? { options: (f.options || []).map((o) => o.trim()).filter(Boolean) } : {}),
+      }))
+      .filter((f) => f.name && (f.type !== 'enum' || (f.options?.length || 0) > 0));
+    if (fields.length) out.postCallAnalysis = { fields };
+    const num = (v: string) => (v.trim() !== '' && Number.isFinite(Number(v)) ? Number(v) : null);
+    const maxDur = num(maxCallDurationSec);
+    if (maxDur !== null) out.maxCallDurationSec = maxDur;
+    const silence = num(endCallAfterSilenceSec);
+    if (silence !== null) out.endCallAfterSilenceSec = silence;
+    if (voicemailDetection) {
+      out.voicemailDetection = voicemailDetection;
+      if (voicemailDetection === 'leave_message' && voicemailMessage.trim()) out.voicemailMessage = voicemailMessage.trim();
+    }
+    const fillers = fillerWords.split(',').map((w) => w.trim()).filter(Boolean);
+    if (fillers.length) out.fillerWords = fillers;
+    const resp = num(responsiveness);
+    if (resp !== null) out.responsiveness = Math.min(1, Math.max(0, resp));
+    return out;
+  };
+
+  // Creates a NEW version from an old one (versions are immutable), then
+  // loads it into the builder.
+  const handleRestore = async (v: AgentVersion) => {
+    if (!v.flow_id) return;
+    if (!window.confirm(`Restore V${v.version_number} as a new version? The current latest stays in history.`)) return;
+    setRestoringId(v.id);
+    setError(null);
+    try {
+      const flowRes = await fetch(`/api/flows/${v.flow_id}`);
+      const flowBody = await flowRes.json();
+      if (!flowRes.ok) throw new Error(flowBody.error || 'Could not load that version');
+      const flowNodes = (flowBody.flow?.nodes || []) as FlowNode[];
+      const gs = (flowBody.flow?.global_settings || {}) as Record<string, unknown>;
+      const { startNodeId: sid, allowInterruptions, returnToFlow, ...restSettings } = gs;
+      void allowInterruptions; void returnToFlow;
+      const res = await fetch(`/api/agents/${agentId}/versions`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          flowName: `Restored from v${v.version_number}`,
+          startNodeId: (sid as string) || flowNodes[0]?.id,
+          nodes: flowNodes,
+          globalSettings: restSettings,
+          voiceEngine: v.voice_engine,
+          voiceId: v.voice_id || undefined,
+          ttsBackend: v.tts_backend || undefined,
+          retellAgentId: v.retell_agent_id || undefined,
+          retellLlmId: v.retell_llm_id || undefined,
+          wizardConfig: v.wizard_config || undefined,
+        }),
+      });
+      const body = await res.json();
+      if (!res.ok) throw new Error(body.error);
+      applyVersionToBuilder(body.version as AgentVersion, gs, flowNodes);
+      setShowEditor(true);
+      setShowVersionHistory(false);
+      loadAgent();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to restore version');
+    } finally {
+      setRestoringId(null);
+    }
+  };
+
   const handleSave = async () => {
     setError(null);
 
@@ -508,8 +619,12 @@ export default function AgentBuilderPage() {
       cleanNodes = [{ id: 'main', type: 'greeting', prompt: singlePrompt.trim(), edges: [] }];
       effectiveStartNodeId = 'main';
     } else {
-      cleanNodes = nodes.map(({ _key, ...n }) => {
+      // Notes are canvas-only stickies: never published. They have no edges,
+      // but drop any edge (defensively) that points at one.
+      const noteIds = new Set(nodes.filter((n) => n.type === 'note').map((n) => n.id));
+      cleanNodes = nodes.filter((n) => n.type !== 'note').map(({ _key, ...n }) => {
         void _key;
+        if (noteIds.size) n = { ...n, edges: n.edges.filter((e) => !noteIds.has(e.target)) };
         if (n.type === 'logic_split') {
           return {
             ...n,
@@ -597,6 +712,7 @@ export default function AgentBuilderPage() {
             ...(handbook.trim() ? { handbook: handbook.trim() } : {}),
             ...(transitionFlexibility ? { transitionFlexibility } : {}),
             ...(interruptionSensitivity ? { interruptionSensitivity } : {}),
+            ...buildNewGlobalSettings(),
           },
         }),
       });
@@ -688,11 +804,28 @@ export default function AgentBuilderPage() {
                       <p className="px-3.5 py-2 text-[12.5px] text-gray-400">No versions published yet.</p>
                     ) : (
                       versions.map((v) => (
-                        <div key={v.id} className="flex items-center justify-between px-3.5 py-2 text-[12.5px] hover:bg-gray-50">
+                        <div key={v.id} className="flex items-center justify-between gap-2 px-3.5 py-2 text-[12.5px] hover:bg-gray-50">
                           <span className="font-mono text-[#1a1d29]">V{v.version_number}</span>
-                          <span className="text-gray-400">{new Date(v.created_at).toLocaleDateString()}</span>
+                          <span className="flex-1 text-gray-400">{new Date(v.created_at).toLocaleDateString()}</span>
+                          {v.flow_id && (
+                            <button
+                              onClick={() => handleRestore(v)}
+                              disabled={restoringId !== null}
+                              className="text-[11.5px] font-medium text-blue-600 hover:text-blue-700 disabled:opacity-40"
+                            >
+                              {restoringId === v.id ? 'Restoring…' : 'Restore as new'}
+                            </button>
+                          )}
                         </div>
                       ))
+                    )}
+                    {versions.length >= 2 && (
+                      <button
+                        onClick={() => { setShowVersionHistory(false); setShowCompare(true); }}
+                        className="w-full border-t border-gray-100 px-3.5 py-2 text-left text-[12.5px] font-medium text-blue-600 hover:bg-gray-50"
+                      >
+                        Compare versions…
+                      </button>
                     )}
                   </div>
                 </>
@@ -700,6 +833,13 @@ export default function AgentBuilderPage() {
             </div>
           </div>
           {activeTab === 'agent' && showEditor && (
+            <div className="flex flex-none items-center gap-2">
+            <button
+              onClick={() => setShowTestCall(true)}
+              className="rounded-lg border border-gray-200 px-4 py-2 text-[13px] font-medium text-[#1a1d29] transition hover:bg-gray-50"
+            >
+              Test call
+            </button>
             <button
               onClick={handleSave}
               disabled={isSaving}
@@ -707,6 +847,7 @@ export default function AgentBuilderPage() {
             >
               {isSaving ? 'Publishing…' : 'Publish'}
             </button>
+            </div>
           )}
         </div>
 
@@ -834,8 +975,8 @@ export default function AgentBuilderPage() {
                     <div className="space-y-1">
                       {NODE_TYPES.filter((nt) => nt.type !== 'subflow_ref').map((nt) => (
                         <button
-                          key={nt.type}
-                          onClick={() => addNodeOfType(nt.type)}
+                          key={nt.preset || nt.type}
+                          onClick={() => addNodeOfType(nt.type, nt.preset)}
                           className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-[13px] text-[#1a1d29] transition hover:bg-gray-50"
                         >
                           <NodeTypeIcon type={nt.type} />
@@ -936,7 +1077,7 @@ export default function AgentBuilderPage() {
                             className="w-full rounded-lg border border-gray-200 bg-white px-3.5 py-2.5 text-[13.5px] focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100"
                           >
                             <option value="">Select a node…</option>
-                            {nodes.filter((n) => n.id).map((n) => (
+                            {nodes.filter((n) => n.id && n.type !== 'note').map((n) => (
                               <option key={n._key} value={n.id}>{n.id}</option>
                             ))}
                           </select>
@@ -1011,6 +1152,71 @@ export default function AgentBuilderPage() {
                           />
                         </div>
                       )}
+                      {voiceEngine === 'poc' && (
+                        <div className="space-y-3 border-t border-gray-100 pt-3">
+                          <p className="text-[11px] font-medium uppercase tracking-wide text-gray-400">Call limits &amp; behavior</p>
+                          <div>
+                            <label className="mb-1 block text-[12.5px] font-medium text-gray-500">Max call duration (seconds)</label>
+                            <input type="number" min={1} value={maxCallDurationSec} onChange={(e) => setMaxCallDurationSec(e.target.value)} placeholder="Unset" className="w-full rounded-lg border border-gray-200 bg-white px-3.5 py-2.5 text-[13.5px] focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100" />
+                          </div>
+                          <div>
+                            <label className="mb-1 block text-[12.5px] font-medium text-gray-500">End call after silence (seconds)</label>
+                            <input type="number" min={1} value={endCallAfterSilenceSec} onChange={(e) => setEndCallAfterSilenceSec(e.target.value)} placeholder="Unset" className="w-full rounded-lg border border-gray-200 bg-white px-3.5 py-2.5 text-[13.5px] focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100" />
+                          </div>
+                          <div>
+                            <label className="mb-1 block text-[12.5px] font-medium text-gray-500">Voicemail detection</label>
+                            <select value={voicemailDetection} onChange={(e) => setVoicemailDetection(e.target.value as typeof voicemailDetection)} className="w-full rounded-lg border border-gray-200 bg-white px-3.5 py-2.5 text-[13.5px] focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100">
+                              <option value="">Off (default)</option>
+                              <option value="hangup">Hang up on voicemail</option>
+                              <option value="leave_message">Leave a message</option>
+                            </select>
+                          </div>
+                          {voicemailDetection === 'leave_message' && (
+                            <div>
+                              <label className="mb-1 block text-[12.5px] font-medium text-gray-500">Voicemail message</label>
+                              <textarea value={voicemailMessage} onChange={(e) => setVoicemailMessage(e.target.value)} rows={3} className="w-full resize-y rounded-lg border border-gray-200 bg-white px-3.5 py-2.5 text-[12.5px] focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100" />
+                            </div>
+                          )}
+                          <div>
+                            <label className="mb-1 block text-[12.5px] font-medium text-gray-500">Filler words</label>
+                            <input value={fillerWords} onChange={(e) => setFillerWords(e.target.value)} placeholder="e.g. one moment, let me check (comma-separated; blank = off)" className="w-full rounded-lg border border-gray-200 bg-white px-3.5 py-2.5 text-[13.5px] focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100" />
+                          </div>
+                          <div>
+                            <label className="mb-1 block text-[12.5px] font-medium text-gray-500">
+                              Responsiveness {responsiveness !== '' ? `(${responsiveness})` : '(unset)'}
+                            </label>
+                            <div className="flex items-center gap-2">
+                              <input type="range" min={0} max={1} step={0.05} value={responsiveness === '' ? 0.5 : responsiveness} onChange={(e) => setResponsiveness(e.target.value)} className="flex-1" />
+                              {responsiveness !== '' && <button type="button" onClick={() => setResponsiveness('')} className="text-[12px] text-gray-400 hover:text-gray-600">Clear</button>}
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                      <div className="space-y-2 border-t border-gray-100 pt-3">
+                        <div className="flex items-center justify-between">
+                          <p className="text-[11px] font-medium uppercase tracking-wide text-gray-400">Post-call analysis</p>
+                          <button type="button" onClick={() => setPostCallFields((p) => [...p, { name: '', type: 'text', description: '' }])} className="text-[12px] font-medium text-blue-600 hover:text-blue-700">+ Add field</button>
+                        </div>
+                        <p className="text-[11.5px] text-gray-400">After each call, an LLM extracts these fields from the transcript. Results show on the call and in the call.completed / call.analyzed webhooks. Currently runs for Retell-engine calls only. None = off.</p>
+                        {postCallFields.map((f, i) => (
+                          <div key={i} className="space-y-1.5 rounded-lg border border-gray-100 p-2">
+                            <div className="flex gap-1.5">
+                              <input value={f.name} onChange={(e) => setPostCallFields((p) => p.map((x, j) => (j === i ? { ...x, name: e.target.value } : x)))} placeholder="field_name" className="min-w-0 flex-1 rounded-lg border border-gray-200 px-2.5 py-1.5 font-mono text-[12px]" />
+                              <select value={f.type} onChange={(e) => setPostCallFields((p) => p.map((x, j) => (j === i ? { ...x, type: e.target.value as PostCallField['type'] } : x)))} className="rounded-lg border border-gray-200 px-1.5 py-1 text-[12px]">
+                                <option value="text">text</option>
+                                <option value="boolean">boolean</option>
+                                <option value="number">number</option>
+                                <option value="enum">enum</option>
+                              </select>
+                              <button type="button" onClick={() => setPostCallFields((p) => p.filter((_, j) => j !== i))} className="px-1 text-gray-400 hover:text-red-500">✕</button>
+                            </div>
+                            <input value={f.description} onChange={(e) => setPostCallFields((p) => p.map((x, j) => (j === i ? { ...x, description: e.target.value } : x)))} placeholder="Description (what to extract)" className="w-full rounded-lg border border-gray-200 px-2.5 py-1.5 text-[12px]" />
+                            {f.type === 'enum' && (
+                              <input value={(f.options || []).join(', ')} onChange={(e) => setPostCallFields((p) => p.map((x, j) => (j === i ? { ...x, options: e.target.value.split(',').map((o) => o.trimStart()) } : x)))} placeholder="Options, comma-separated" className="w-full rounded-lg border border-gray-200 px-2.5 py-1.5 text-[12px]" />
+                            )}
+                          </div>
+                        ))}
+                      </div>
                       {channel === 'voice' && (voiceEngine === 'poc' ? (
                         <div>
                           <label className="mb-1 block text-[12.5px] font-medium text-gray-500">TTS backend</label>
@@ -1079,6 +1285,11 @@ export default function AgentBuilderPage() {
           )}
         </div>
       </div>
+
+      {showCompare && <VersionCompareModal versions={versions} onClose={() => setShowCompare(false)} />}
+      {showTestCall && agent && (
+        <TestCallModal tenantId={agent.tenant_id} latestVersion={versions[0] || null} onClose={() => setShowTestCall(false)} />
+      )}
 
       {showGenerateModal && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/30 p-4" onClick={() => setShowGenerateModal(false)}>
@@ -1162,14 +1373,20 @@ function NodeSettingsPanel({
         <div>
           <label className="mb-1 block text-[12px] font-medium text-gray-500">Type</label>
           <select value={node.type} onChange={(e) => onUpdate({ type: e.target.value as FlowNode['type'] })} className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-[12.5px] focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100">
-            {NODE_TYPES.map((t) => (
+            {NODE_TYPES.filter((t) => !t.preset).map((t) => (
               <option key={t.type} value={t.type}>{t.label}</option>
             ))}
           </select>
         </div>
       </div>
 
-      {node.type === 'logic_split' ? (
+      {node.type === 'note' ? (
+        <div>
+          <label className="mb-1 block text-[12px] font-medium text-gray-500">Note</label>
+          <textarea value={node.prompt || ''} onChange={(e) => onUpdate({ prompt: e.target.value })} rows={5} placeholder="A sticky note for you and your team." className="w-full resize-none rounded-lg border border-gray-200 bg-white px-3 py-2 text-[12.5px] focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100" />
+          <p className="mt-1 text-[11.5px] text-gray-400">Canvas-only. Notes are removed when you publish — they are never sent to the call engine, and are not kept in the published version.</p>
+        </div>
+      ) : node.type === 'logic_split' ? (
         <p className="text-[12px] text-gray-400">Logic split has no instructions and never talks to the caller — it evaluates the edges below directly against previously collected data.</p>
       ) : node.type === 'press_digit' ? (
         <p className="text-[12px] text-gray-400">Press digit has no instructions — it plays real DTMF tones, then continues to its one edge below.</p>
@@ -1182,6 +1399,7 @@ function NodeSettingsPanel({
 
       {node.type === 'extraction' && (
         <div>
+          <p className="mb-2 text-[11.5px] text-gray-400">Extract Variable: the agent asks for and captures these values into named variables, usable in later steps as {'{{field}}'} and in Logic Split conditions.</p>
           <div className="mb-1.5 flex items-center justify-between">
             <label className="text-[12px] font-medium text-gray-500">Fields to collect</label>
             <button onClick={onAddExtractField} className="text-[12px] font-medium text-blue-600 hover:text-blue-700">+ Add</button>
@@ -1290,8 +1508,21 @@ function NodeSettingsPanel({
         <SubflowRefFields node={node} onUpdate={onUpdate} subflows={subflows || []} onCreateSubflow={onCreateSubflow} />
       )}
 
-      {node.type !== 'logic_split' && node.type !== 'press_digit' && (
+      {node.type !== 'logic_split' && node.type !== 'press_digit' && node.type !== 'note' && (
         <div className="space-y-3 border-t border-gray-100 pt-3">
+          <div>
+            <label className="mb-1 block text-[12px] font-medium text-gray-500">Model (optional)</label>
+            <input
+              value={node.params?.model || ''}
+              onChange={(e) => {
+                const next = { ...(node.params || {}) };
+                if (e.target.value.trim()) next.model = e.target.value; else delete next.model;
+                onUpdate({ params: next });
+              }}
+              placeholder="Blank = default model"
+              className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 font-mono text-[12.5px] focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100"
+            />
+          </div>
           <div>
             <label className="mb-1 block text-[12px] font-medium text-gray-500">Interruption sensitivity</label>
             <select value={node.params?.interruptionSensitivity || ''} onChange={(e) => onUpdate({ params: { ...node.params, interruptionSensitivity: e.target.value } })} className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-[12.5px] focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100">
@@ -1314,6 +1545,7 @@ function NodeSettingsPanel({
         </div>
       )}
 
+      {node.type !== 'note' && (
       <div className="border-t border-gray-100 pt-3">
         <div className="mb-1.5 flex items-center justify-between">
           <label className="text-[12px] font-medium text-gray-500">
@@ -1364,7 +1596,7 @@ function NodeSettingsPanel({
                   className="flex-1 rounded-lg border border-gray-200 bg-white px-2 py-1 text-[12px] font-mono focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100"
                 >
                   <option value="">target…</option>
-                  {allNodes.filter((n) => n.id && n._key !== node._key).map((n) => (
+                  {allNodes.filter((n) => n.id && n._key !== node._key && n.type !== 'note').map((n) => (
                     <option key={n._key} value={n.id}>{n.id}</option>
                   ))}
                 </select>
@@ -1375,6 +1607,7 @@ function NodeSettingsPanel({
           {node.edges.length === 0 && <p className="text-[11.5px] text-gray-400">No edges — terminal node.</p>}
         </div>
       </div>
+      )}
 
       <div className="border-t border-gray-100 pt-3">
         <button onClick={onRemove} className="text-[12.5px] font-medium text-red-500 hover:text-red-600">Remove node</button>
