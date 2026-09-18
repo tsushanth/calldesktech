@@ -1428,6 +1428,14 @@ function NodeSettingsPanel({
         </div>
       )}
 
+      {(node.type === 'transfer' || node.type === 'goodbye') && (
+        <div>
+          <label className="mb-1 block text-[12px] font-medium text-gray-500">Exact words to say (optional)</label>
+          <textarea rows={2} value={(node.params?.spokenMessage as string) || ''} onChange={(e) => onUpdate({ params: { ...node.params, spokenMessage: e.target.value } })} placeholder={node.type === 'transfer' ? 'Transferring you to a colleague now, one moment.' : 'Thanks for calling, goodbye!'} className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-[12.5px] focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100" />
+          <p className="mt-1 text-[11px] text-gray-400">Spoken word for word. Leave blank and the AI writes the line from the step&apos;s instructions.</p>
+        </div>
+      )}
+
       {node.type === 'transfer' && (
         <div>
           <label className="mb-1 block text-[12px] font-medium text-gray-500">Transfer to</label>
