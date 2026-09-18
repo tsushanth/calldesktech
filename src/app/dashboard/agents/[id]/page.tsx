@@ -288,6 +288,7 @@ export default function AgentBuilderPage() {
     setAppliedTemplateId(template.id);
     setFlowName(template.id);
     if (template.singlePrompt) setSinglePrompt(template.singlePrompt);
+    if (template.handbook) setHandbook(template.handbook);
     setShowEditor(true);
   };
 
