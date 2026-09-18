@@ -711,6 +711,256 @@ If you are told:
 You must respond with exactly:
 NO_RESPONSE_NEEDED`;
 
+// Shared by After-Hours Support Guard — a real business-hours check needs
+// an actual clock, which an LLM node can't reliably reason about (it's
+// only ever told today's DATE, not the current time — see
+// _buildNodeSystemPrompt). A 'code' node computes it deterministically
+// instead and a 'logic_split' routes off the result.
+//
+// Known, disclosed limitation: fixed UTC-8 (PST) offset — does not account
+// for PDT during daylight saving, since the sandbox isn't guaranteed to
+// have full ICU/Intl timezone data. Good enough as a template starting
+// point; a real deployment should replace this with a proper timezone
+// library call if the code node's sandbox supports one, or a small
+// webhook.
+const HUMAN_TRANSFER_TREATMENT_SUBFLOW_SEED: TemplateSubflowSeed = {
+  name: 'Human Transfer Treatment',
+  startNodeId: 'check_hours',
+  nodes: [
+    {
+      id: 'check_hours',
+      type: 'code',
+      params: {
+        code:
+          `const now = new Date();\n` +
+          `let pstHour = now.getUTCHours() + now.getUTCMinutes() / 60 - 8;\n` +
+          `if (pstHour < 0) pstHour += 24;\n` +
+          `const isWeekday = now.getUTCDay() >= 1 && now.getUTCDay() <= 5;\n` +
+          `const withinHours = isWeekday && pstHour >= 8.5 && pstHour < 17;\n` +
+          `return { within_business_hours: withinHours ? 'true' : 'false' };`,
+      },
+      edges: [{ id: 'e_hours_checked', condition: 'always', target: 'hours_split' }],
+    },
+    {
+      id: 'hours_split',
+      type: 'logic_split',
+      edges: [
+        { id: 'e_within_hours', condition: { field: 'within_business_hours', operator: '==', value: 'true' }, target: 'do_transfer' },
+        { id: 'e_after_hours', target: 'after_hours' }, // conditionless = default/fallback
+      ],
+    },
+    {
+      id: 'do_transfer',
+      type: 'transfer',
+      prompt: 'Let the caller know you are transferring them to the appropriate specialist now.',
+      params: { transferTo: '' },
+      edges: [],
+    },
+    {
+      id: 'after_hours',
+      type: 'extraction',
+      prompt:
+        'Say exactly: "Our office is currently closed. Our hours are Monday to Friday, eight thirty AM to five PM Pacific. Let me make ' +
+        'sure someone calls you back. Can I have your phone number?"',
+      extract: { callback_number: 'string' },
+      edges: [{ id: 'e_callback_collected', condition: 'callback number has been collected', target: 'after_hours_goodbye' }],
+    },
+    { id: 'after_hours_goodbye', type: 'goodbye', prompt: 'Say a natural variation of: "Great, we will call you back as soon as possible. Have a nice day!"', edges: [] },
+  ],
+};
+
+const AFTER_HOURS_SUPPORT_GUARD_SINGLE_PROMPT = `## Role
+
+You are an AI phone agent named Chloe for the Retell prior authorization hotline. Your job is to identify the caller type, verify member identity, look up prior authorization cases, and read the case status back to the caller.
+
+## Working Hours
+
+- **Office hours:** Monday to Friday, 8:30 AM to 5:00 PM PST
+
+## Human Transfer Treatment
+
+### If Within Working Hours
+
+Call \`transfer_call\` to transfer to the appropriate specialist.
+
+### If Outside Working Hours
+
+Respond exactly with:
+
+> "Our office is currently closed. Our hours are Monday to Friday, eight thirty AM to five PM Pacific. Let me make sure someone calls you back. Can I have your phone number?"
+
+<*Wait for customer response*>
+
+After collecting the number, provide a natural variation of:
+
+> "Great, we will call you back as soon as possible. Have a nice day!"
+
+---
+
+## Call Flow Overview
+
+1. Greet the caller and identify their caller type.
+2. Collect and verify member name and date of birth.
+3. Look up the member and retrieve prior authorization cases.
+4. Match the correct medication case and read the status.
+
+## Call Flow
+
+### Step 1: Greeting and Caller Identification
+
+Respond exactly with:
+
+> "Thank you for calling the Retell prior authorization hotline. To get started, please let me know where you are calling from: a provider's office, a pharmacy, or let me know if you are a member."
+
+<*Wait for customer response*>
+
+- If the customer is calling from a **provider's office** or is a doctor, continue to Step 2.
+- If the customer is calling from a **pharmacy** or is a pharmacist, continue to Step 2.
+- If the customer is a **member**, go to "## Human Transfer Treatment"
+
+### Step 2: Collect Member Name and Date of Birth
+
+Provide a natural variation of:
+
+> "Great! I'll be happy to assist you. In order to look up the right prior authorization case, I will need the member's name and date of birth."
+
+#### Step 2.1: Ask for First and Last Name
+
+Respond exactly with:
+
+> "Please provide the first and last name."
+
+<*Wait for customer response*>
+
+#### Step 2.2: Ask for Date of Birth
+
+Respond exactly with:
+
+> "Great, now please provide the date of birth."
+
+<*Wait for customer response*>
+
+Read the full date of birth back to the customer before proceeding.
+
+Provide a natural variation of:
+
+> "Just to confirm, the date of birth is [Month] [Day], [Year] — is that correct?"
+
+<*Wait for customer response*>
+
+- If yes, continue to Step 3.
+- If no, ask the customer to repeat the date of birth and read it back again.
+
+Do not re-confirm the first and last name again.
+
+### Step 3: Look Up Member
+
+Provide a natural variation of:
+
+> "Great, please give me a moment while I look that up. It should only take a minute."
+
+Call \`get_member\` with the confirmed first name, last name, and date of birth.
+
+- If the member is found and the name and date of birth match, continue to Step 4.
+- If the member is not found, provide a natural variation of:
+
+  > "I'm unable to find anyone with that information. Let's double check I have everything correctly."
+
+  Return to Step 2.1 and re-collect the information. If the member is still not found on the second attempt, provide a natural variation of:
+
+  > "I'm still unable to find the member. I'll transfer you to someone who can assist."
+
+go to "## Human Transfer Treatment"
+
+### Step 4: Match Medication and Read Status
+
+Call \`get_pa_cases\` for the verified member.
+
+- If no cases are found, provide a natural variation of:
+
+  > "I'm seeing that member but I'm not seeing any case information for them. Do you mind if I connect you to a human agent?"
+
+  <*Wait for customer response*>
+
+  go to "## Human Transfer Treatment"
+
+- If cases are found, continue to Step 4.1.
+
+#### Step 4.1: Ask for Medication Name
+
+Respond exactly with:
+
+> "Great, I found the member. Please provide me with the medication name for the prior authorization case."
+
+<*Wait for customer response*>
+
+- If the medication name matches exactly one case, continue to Step 4.3.
+- If the medication name matches multiple cases, continue to Step 4.2.
+- If the medication name does not match any case, ask the customer to spell the drug name phonetically and try again. If it still does not match, provide a natural variation of:
+
+  > "Looks like I'm still having trouble looking this up. I'll go ahead and transfer you so that someone can assist."
+
+ go to "## Human Transfer Treatment"
+
+- If the customer does not have the medication name, provide a natural variation of:
+
+  > "Without the medication name, we are unable to share any information about the prior authorization case statuses. Would you like to provide the medication name, call back when you have it, or speak to a representative?"
+
+  <*Wait for customer response*>
+
+#### Step 4.2: Disambiguate Multiple Cases
+
+Provide a natural variation of:
+
+> "Please provide the medication strength or the medication quantity."
+
+<*Wait for customer response*>
+
+- If the details match exactly one case, continue to Step 4.3.
+- If the details still do not match, ask the customer to spell the drug name and try again. If still unresolved, go to "## Human Transfer Treatment"
+
+#### Step 4.3: Confirm Medication Case
+
+Provide a natural variation of:
+
+> "Okay, just to make sure I have everything correctly, you are calling about [drug name] for [first name] [last name], is that correct?"
+
+<*Wait for customer response*>
+
+- If yes, continue to Step 4.4.
+- If no, return to Step 4.1.
+
+#### Step 4.4: Read Status
+
+Provide a natural variation of:
+
+> "The status for that medication is [status]. Whenever a final decision is issued on an approval, a fax is sent automatically to the provider number we have on file. Do you have any questions about this case or are you all set?"
+
+<*Wait for customer response*>
+
+- If no questions, continue to Step 5.
+- If questions, provide a natural variation of:
+
+  > "I don't have additional information beyond what is in the system. I can transfer you to someone who may be able to help."
+
+go to "## Human Transfer Treatment"
+
+### Step 5: Wrap Up
+
+Provide a natural variation of:
+
+> "Is there anything else I can help you with today?"
+
+<*Wait for customer response*>
+
+- If no, respond exactly with:
+
+  > "Thank you for calling Retell and have a wonderful day!"
+
+  Call \`end_call\`
+
+- If yes, go to "## Human Transfer Treatment"`;
+
 export const AGENT_TEMPLATES: AgentTemplate[] = [
   {
     id: 'receptionist',
@@ -1172,6 +1422,187 @@ export const AGENT_TEMPLATES: AgentTemplate[] = [
       { id: 'declined_goodbye', type: 'goodbye', prompt: 'Say exactly: "Okay, thank you." and end the call.', edges: [] },
       { id: 'not_accepting_goodbye', type: 'goodbye', prompt: 'Say exactly: "Okay, thank you for confirming." and end the call.', edges: [] },
       { id: 'wrong_office_goodbye', type: 'goodbye', prompt: 'Say a natural variation of: "Sorry about that." and end the call.', edges: [] },
+    ],
+  },
+  {
+    // "## Human Transfer Treatment" is invoked from six different points in
+    // the source prompt (member caller type, member not found twice, no PA
+    // cases, medication still not found, caller has questions, wants more
+    // help at wrap-up) — every one of them ends the call the same way
+    // (transfer if within hours, else take a callback number), so it's a
+    // real subflow, not copy-pasted logic. Its subflow_ref node has ZERO
+    // edges: unlike Insurance Verification's IVR nav, this block always
+    // ends the call itself (via a 'transfer' or 'goodbye' node inside it,
+    // both already call-ending node types) — there's nothing to hand
+    // control back to.
+    id: 'after-hours-support-guard',
+    label: 'After-Hours Support Guard',
+    description: 'Verifies caller/member identity, looks up prior authorization cases, and reads status back — transfers to staff in hours, takes a callback number after hours.',
+    category: 'Support',
+    startNodeId: 'greeting_id_caller',
+    singlePrompt: AFTER_HOURS_SUPPORT_GUARD_SINGLE_PROMPT,
+    nodes: [
+      {
+        id: 'greeting_id_caller',
+        type: 'extraction',
+        prompt:
+          'Say exactly: "Thank you for calling the Retell prior authorization hotline. To get started, please let me know where you are ' +
+          'calling from: a provider\'s office, a pharmacy, or let me know if you are a member."',
+        extract: { caller_type: 'string' },
+        edges: [
+          { id: 'e_caller_provider', condition: "caller is from a provider's office, is a doctor, from a pharmacy, or is a pharmacist", target: 'collect_name' },
+          { id: 'e_caller_member', condition: 'caller is a member', target: 'human_transfer' },
+        ],
+      },
+      {
+        id: 'collect_name',
+        type: 'extraction',
+        prompt:
+          'Say exactly: "Please provide the first and last name." then wait. Then say exactly: "Great, now please provide the date of ' +
+          'birth." then wait. Read the full date of birth back with a natural variation of: "Just to confirm, the date of birth is ' +
+          '[Month] [Day], [Year] — is that correct?" If no, ask them to repeat it and read it back again. Do not re-confirm the name.',
+        extract: { member_first_name: 'string', member_last_name: 'string', member_dob: 'string' },
+        edges: [{ id: 'e_name_dob_confirmed', condition: 'name and date of birth have been collected and the date of birth has been confirmed correct', target: 'lookup_member' }],
+      },
+      {
+        id: 'lookup_member',
+        type: 'function',
+        prompt: "Say a natural variation of: \"Great, please give me a moment while I look that up. It should only take a minute.\"",
+        function: 'get_member',
+        params: { webhookUrl: '' },
+        edges: [{ id: 'e_lookup_done', condition: 'always', target: 'lookup_result' }],
+      },
+      {
+        id: 'lookup_result',
+        type: 'extraction',
+        prompt:
+          'Check the system note from the lookup. If the member was NOT found, say a natural variation of: "I\'m unable to find anyone ' +
+          'with that information. Let\'s double check I have everything correctly." If found, move on.',
+        extract: { member_found: 'string' },
+        edges: [
+          { id: 'e_found', condition: 'the member was found and matched', target: 'get_pa_cases' },
+          { id: 'e_not_found_first', condition: 'the member was not found (first attempt)', target: 'collect_name_retry' },
+        ],
+      },
+      {
+        id: 'collect_name_retry',
+        type: 'extraction',
+        prompt:
+          'This is a SECOND attempt — re-collect the name and date of birth the same way as before (ask, then read the date of birth back ' +
+          'to confirm).',
+        extract: { member_first_name: 'string', member_last_name: 'string', member_dob: 'string' },
+        edges: [{ id: 'e_retry_confirmed', condition: 'name and date of birth have been re-collected and confirmed', target: 'lookup_member_retry' }],
+      },
+      {
+        id: 'lookup_member_retry',
+        type: 'function',
+        prompt: "Say a natural variation of: \"Great, please give me a moment while I look that up.\"",
+        function: 'get_member',
+        params: { webhookUrl: '' },
+        edges: [{ id: 'e_lookup_retry_done', condition: 'always', target: 'lookup_result_retry' }],
+      },
+      {
+        id: 'lookup_result_retry',
+        type: 'extraction',
+        prompt:
+          'Check the system note from the lookup. If still not found, say a natural variation of: "I\'m still unable to find the member. ' +
+          'I\'ll transfer you to someone who can assist."',
+        extract: { member_found: 'string' },
+        edges: [
+          { id: 'e_found_retry', condition: 'the member was found and matched', target: 'get_pa_cases' },
+          { id: 'e_still_not_found', condition: 'the member still was not found', target: 'human_transfer' },
+        ],
+      },
+      {
+        id: 'get_pa_cases',
+        type: 'function',
+        function: 'get_pa_cases',
+        params: { webhookUrl: '' },
+        edges: [{ id: 'e_cases_done', condition: 'always', target: 'cases_result' }],
+      },
+      {
+        id: 'cases_result',
+        type: 'extraction',
+        prompt:
+          'Check the system note from the case lookup. If no cases were found, say a natural variation of: "I\'m seeing that member but ' +
+          'I\'m not seeing any case information for them. Do you mind if I connect you to a human agent?" and wait for their response ' +
+          'before moving on. If cases were found, say a natural variation of: "Great, I found the member. Please provide me with the ' +
+          'medication name for the prior authorization case."',
+        extract: { cases_found: 'string' },
+        edges: [
+          { id: 'e_no_cases', condition: 'no cases were found for the member', target: 'human_transfer' },
+          { id: 'e_cases_found', condition: 'cases were found for the member', target: 'ask_medication' },
+        ],
+      },
+      {
+        id: 'ask_medication',
+        type: 'extraction',
+        prompt:
+          'Match the medication name the caller gives against the case(s) found. If it does not match any case, ask them to spell the ' +
+          'drug name phonetically and try again. If the caller says they do not have the medication name, say a natural variation of: ' +
+          '"Without the medication name, we are unable to share any information about the prior authorization case statuses. Would you ' +
+          'like to provide the medication name, call back when you have it, or speak to a representative?"',
+        extract: { medication_name: 'string' },
+        edges: [
+          { id: 'e_med_one_match', condition: 'the medication name matches exactly one case', target: 'confirm_case' },
+          { id: 'e_med_multi_match', condition: 'the medication name matches multiple cases', target: 'disambiguate' },
+          { id: 'e_med_no_match', condition: 'still no match after being asked to spell the drug name phonetically and retrying', target: 'human_transfer' },
+          { id: 'e_med_wants_rep', condition: "caller doesn't have the medication name and wants to speak to a representative", target: 'human_transfer' },
+          { id: 'e_med_call_back', condition: "caller doesn't have the medication name and will call back once they have it", target: 'callback_later_goodbye' },
+        ],
+      },
+      {
+        id: 'disambiguate',
+        type: 'extraction',
+        prompt: 'Say exactly: "Please provide the medication strength or the medication quantity." If it still does not match after asking them to spell the drug name, that counts as unresolved.',
+        extract: { medication_strength_or_quantity: 'string' },
+        edges: [
+          { id: 'e_disambig_match', condition: 'the details now match exactly one case', target: 'confirm_case' },
+          { id: 'e_disambig_unresolved', condition: 'still does not match after retrying', target: 'human_transfer' },
+        ],
+      },
+      {
+        id: 'confirm_case',
+        type: 'extraction',
+        prompt: 'Say a natural variation of: "Okay, just to make sure I have everything correctly, you are calling about [drug name] for [first name] [last name], is that correct?"',
+        extract: { case_confirmed: 'string' },
+        edges: [
+          { id: 'e_case_yes', condition: 'confirmed correct', target: 'read_status' },
+          { id: 'e_case_no', condition: 'not correct', target: 'ask_medication' },
+        ],
+      },
+      {
+        id: 'read_status',
+        type: 'extraction',
+        prompt:
+          'Say a natural variation of: "The status for that medication is [status]. Whenever a final decision is issued on an approval, ' +
+          'a fax is sent automatically to the provider number we have on file. Do you have any questions about this case or are you all ' +
+          'set?" If they have questions, say a natural variation of: "I don\'t have additional information beyond what is in the system. ' +
+          'I can transfer you to someone who may be able to help."',
+        extract: { has_questions: 'string' },
+        edges: [
+          { id: 'e_status_no_questions', condition: 'no questions, all set', target: 'wrap_up' },
+          { id: 'e_status_questions', condition: 'has questions', target: 'human_transfer' },
+        ],
+      },
+      {
+        id: 'wrap_up',
+        type: 'extraction',
+        prompt: 'Say exactly: "Is there anything else I can help you with today?"',
+        extract: { needs_more_help: 'string' },
+        edges: [
+          { id: 'e_wrap_done', condition: 'no, nothing else', target: 'final_goodbye' },
+          { id: 'e_wrap_more', condition: 'yes, wants more help', target: 'human_transfer' },
+        ],
+      },
+      { id: 'final_goodbye', type: 'goodbye', prompt: 'Say exactly: "Thank you for calling Retell and have a wonderful day!"', edges: [] },
+      { id: 'callback_later_goodbye', type: 'goodbye', prompt: 'Thank the caller and let them know to call back once they have the medication name.', edges: [] },
+      {
+        id: 'human_transfer',
+        type: 'subflow_ref',
+        params: { _templateSubflowSeed: JSON.stringify(HUMAN_TRANSFER_TREATMENT_SUBFLOW_SEED) },
+        edges: [], // always ends the call itself (transfer or after-hours goodbye) — nothing to hand back to
+      },
     ],
   },
 ];
