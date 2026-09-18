@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/supabase';
+import { authorizeTenant } from '@/lib/authz';
 
 // GET /api/tenants/[id]/agents — list a tenant's agents, each enriched with
 // its latest version's voice_engine/voice + any phone number routed to it.
@@ -14,9 +15,12 @@ import { getSupabaseAdmin } from '@/lib/supabase';
 // version's own created_at) is a real substitute for "when", just not
 // "who"; building the "who" would mean building team accounts first.
 export async function GET(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const __auth = await authorizeTenant(request, (await params).id);
+  if (!__auth.ok) return __auth.response;
+
   const { id: tenantId } = await params;
   const supabase = getSupabaseAdmin();
   const { data: agents, error } = await supabase
@@ -114,6 +118,9 @@ export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const __auth = await authorizeTenant(request, (await params).id);
+  if (!__auth.ok) return __auth.response;
+
   const { id: tenantId } = await params;
   const supabase = getSupabaseAdmin();
   const { name, mode } = await request.json();

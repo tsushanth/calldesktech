@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/supabase';
 import { getRetellClient } from '@/lib/retell';
 import { scrapeUrl } from '@/lib/scraper';
+import { authorizeTenant, belongsToTenant } from '@/lib/authz';
 
 // Simple CRUD against calldesk_knowledge_bases directly — deliberately
 // separate from /api/tenants/[id]/knowledge, which does real Retell
@@ -11,9 +12,12 @@ import { scrapeUrl } from '@/lib/scraper';
 // key, which RLS silently blocks (see tenants/[id]/route.ts) — the
 // dashboard's Knowledge page has never actually loaded data in production.
 export async function GET(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const __auth = await authorizeTenant(request, (await params).id);
+  if (!__auth.ok) return __auth.response;
+
   const { id: tenantId } = await params;
   const supabase = getSupabaseAdmin();
   const { data, error } = await supabase
@@ -48,6 +52,9 @@ export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const __auth = await authorizeTenant(request, (await params).id);
+  if (!__auth.ok) return __auth.response;
+
   const { id: tenantId } = await params;
   const supabase = getSupabaseAdmin();
   const body = await request.json();
@@ -63,6 +70,9 @@ export async function POST(
   // created unattached, e.g. from a future tenant-wide library view) but
   // must be set for any knowledge_base node to actually see its content.
   const { name, source_type: sourceType, source_url: sourceUrl, agent_id: agentId } = body;
+  if (agentId && !(await belongsToTenant('calldesk_agents', agentId, tenantId))) {
+    return NextResponse.json({ error: 'agent_id not found' }, { status: 404 });
+  }
 
   const { data: tenant, error: tenantError } = await supabase
     .from('calldesk_tenants')

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/supabase';
 import { getRetellClient, flowToRetellPrompt, flowToRetellTools } from '@/lib/retell';
 import type { FlowNode, GlobalSettings } from '@/types';
+import { authorizeResource } from '@/lib/authz';
 
 // POST /api/agent-versions/[id]/sync-retell — pushes an agent version's flow
 // to Retell as a flattened prompt on that version's own retell_llm_id.
@@ -12,9 +13,12 @@ import type { FlowNode, GlobalSettings } from '@/types';
 // No-ops (not an error) for a poc-engine version, since call-loop-poc reads
 // the flow directly at call time and has nothing to sync to.
 export async function POST(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const __auth = await authorizeResource(request, 'calldesk_agent_versions', (await params).id);
+  if (!__auth.ok) return __auth.response;
+
   try {
     const { id: versionId } = await params;
     const supabase = getSupabaseAdmin();

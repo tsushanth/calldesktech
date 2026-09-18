@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/supabase';
+import { authorizeTenant } from '@/lib/authz';
 
 // GET /api/tenants/[id]/contacts — the distinct callers who've ever called in,
 // aggregated from calldesk_call_logs, joined to their calldesk_contacts row
@@ -8,9 +9,12 @@ import { getSupabaseAdmin } from '@/lib/supabase';
 // Server-side + service-role on purpose: querying Supabase directly from the
 // client is silently blocked by RLS (see stats/route.ts for the same pattern).
 export async function GET(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const __auth = await authorizeTenant(request, (await params).id);
+  if (!__auth.ok) return __auth.response;
+
   const { id: tenantId } = await params;
   const supabase = getSupabaseAdmin();
 
@@ -69,6 +73,9 @@ export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const __auth = await authorizeTenant(request, (await params).id);
+  if (!__auth.ok) return __auth.response;
+
   const { id: tenantId } = await params;
   const supabase = getSupabaseAdmin();
   const { caller_phone, do_not_call } = await request.json();

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/supabase';
 import { getRetellClient } from '@/lib/retell';
+import { authorizeTenant } from '@/lib/authz';
 
 // GET/PATCH a single tenant, server-side (service role) — src/lib/api.ts's
 // getTenant/updateTenant used to hit calldesk_tenants directly from the
@@ -13,9 +14,12 @@ import { getRetellClient } from '@/lib/retell';
 // the service-role key is the same fix already used everywhere else in
 // this API surface — this table just never got the same treatment.
 export async function GET(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const __auth = await authorizeTenant(request, (await params).id);
+  if (!__auth.ok) return __auth.response;
+
   const { id } = await params;
   const supabase = getSupabaseAdmin();
   const { data, error } = await supabase
@@ -31,6 +35,9 @@ export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const __auth = await authorizeTenant(request, (await params).id);
+  if (!__auth.ok) return __auth.response;
+
   const { id } = await params;
   const supabase = getSupabaseAdmin();
   const updates = await request.json();

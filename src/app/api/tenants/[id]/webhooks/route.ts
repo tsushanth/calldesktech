@@ -1,15 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/supabase';
 import { generateWebhookSecret, WEBHOOK_EVENT_IDS } from '@/lib/webhooks';
+import { authorizeTenant } from '@/lib/authz';
 
 // GET /api/tenants/[id]/webhooks — list a tenant's outbound webhooks.
 // The signing secret is returned so the UI can show it (it's the tenant's
 // own secret, scoped to their tenant), matching how the config page needs it
 // to display verification setup.
 export async function GET(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const __auth = await authorizeTenant(request, (await params).id);
+  if (!__auth.ok) return __auth.response;
+
   const { id: tenantId } = await params;
   const supabase = getSupabaseAdmin();
   const { data, error } = await supabase
@@ -27,6 +31,9 @@ export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const __auth = await authorizeTenant(request, (await params).id);
+  if (!__auth.ok) return __auth.response;
+
   const { id: tenantId } = await params;
   const supabase = getSupabaseAdmin();
   const { url, events } = await request.json();

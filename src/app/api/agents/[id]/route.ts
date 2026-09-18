@@ -1,11 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/supabase';
+import { authorizeResource } from '@/lib/authz';
 
 // GET /api/agents/[id] — fetch one agent
 export async function GET(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const __auth = await authorizeResource(request, 'calldesk_agents', (await params).id);
+  if (!__auth.ok) return __auth.response;
+
   const { id: agentId } = await params;
   const supabase = getSupabaseAdmin();
   const { data, error } = await supabase
@@ -26,6 +30,9 @@ export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const __auth = await authorizeResource(request, 'calldesk_agents', (await params).id);
+  if (!__auth.ok) return __auth.response;
+
   const { id: agentId } = await params;
   const { name } = await request.json();
   if (!name || typeof name !== 'string' || !name.trim()) {
@@ -49,9 +56,12 @@ export async function PATCH(
 // routing, chat sessions, batch calls — has ON DELETE SET NULL, so it just
 // goes back to unrouted/unset rather than leaving a dangling reference.
 export async function DELETE(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const __auth = await authorizeResource(request, 'calldesk_agents', (await params).id);
+  if (!__auth.ok) return __auth.response;
+
   const { id: agentId } = await params;
   const supabase = getSupabaseAdmin();
   const { error } = await supabase.from('calldesk_agents').delete().eq('id', agentId);

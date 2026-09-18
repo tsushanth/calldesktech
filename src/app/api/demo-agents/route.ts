@@ -3,6 +3,7 @@ import { getSupabaseAdmin } from '@/lib/supabase';
 import { getRetellClient, flowToRetellPrompt, flowToRetellTools } from '@/lib/retell';
 import { CAPABILITY_DEMOS, type DemoProfileId } from '@/lib/constants';
 import { buildWizardFlow, buildSingleBlockDemoFlow, type WizardBlocks } from '@/lib/flowBuilder';
+import { requireAuth } from '@/lib/authz';
 
 // GET /api/demo-agents - Get all demo agents
 export async function GET() {
@@ -30,6 +31,9 @@ export async function GET() {
 
 // DELETE /api/demo-agents - Delete all demo agents (admin only, for recreating with KB)
 export async function DELETE(request: NextRequest) {
+  const __auth = await requireAuth(request);
+  if (!__auth.ok) return __auth.response;
+
   try {
     // Simple auth check
     const authHeader = request.headers.get('authorization');
@@ -93,6 +97,9 @@ export async function DELETE(request: NextRequest) {
 
 // POST /api/demo-agents - Initialize demo agents (admin only, run once)
 export async function POST(request: NextRequest) {
+  const __auth = await requireAuth(request);
+  if (!__auth.ok) return __auth.response;
+
   try {
     // Simple auth check - in production, use proper admin auth
     const authHeader = request.headers.get('authorization');

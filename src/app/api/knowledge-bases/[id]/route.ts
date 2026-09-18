@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/supabase';
 import { getRetellClient } from '@/lib/retell';
+import { authorizeResource, belongsToTenant } from '@/lib/authz';
 
 // Attaches (or re-attaches) this KB to an agent — required for a
 // knowledge_base node to ever see its content (see the agent_id comment in
@@ -11,10 +12,16 @@ export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const __auth = await authorizeResource(request, 'calldesk_knowledge_bases', (await params).id);
+  if (!__auth.ok) return __auth.response;
+
   const { id: knowledgeBaseId } = await params;
   const supabase = getSupabaseAdmin();
   const body = await request.json();
   const updates: Record<string, unknown> = {};
+  if (body.agent_id && __auth.tenantId && !(await belongsToTenant('calldesk_agents', body.agent_id, __auth.tenantId))) {
+    return NextResponse.json({ error: 'agent_id not found' }, { status: 404 });
+  }
   if ('agent_id' in body) updates.agent_id = body.agent_id || null;
   if (body.name !== undefined) updates.name = body.name;
   if (Object.keys(updates).length === 0) {
@@ -40,9 +47,12 @@ export async function PATCH(
 // billing there ($8/KB/month past the free tier) with nothing in our own
 // UI pointing at it to ever notice.
 export async function DELETE(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const __auth = await authorizeResource(request, 'calldesk_knowledge_bases', (await params).id);
+  if (!__auth.ok) return __auth.response;
+
   const { id: knowledgeBaseId } = await params;
   const supabase = getSupabaseAdmin();
 

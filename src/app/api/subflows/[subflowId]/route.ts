@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/supabase';
+import { authorizeResource } from '@/lib/authz';
 
 // Tenant-less convenience routes for the standalone subflow editor page
 // (/dashboard/subflows/[subflowId]), which is linked to directly from a
@@ -24,9 +25,12 @@ function toApi(row: {
 }
 
 export async function GET(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ subflowId: string }> }
 ) {
+  const __auth = await authorizeResource(request, 'calldesk_subflows', (await params).subflowId);
+  if (!__auth.ok) return __auth.response;
+
   const { subflowId } = await params;
   const supabase = getSupabaseAdmin();
   const { data, error } = await supabase.from('calldesk_subflows').select('*').eq('id', subflowId).single();
@@ -38,6 +42,9 @@ export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ subflowId: string }> }
 ) {
+  const __auth = await authorizeResource(request, 'calldesk_subflows', (await params).subflowId);
+  if (!__auth.ok) return __auth.response;
+
   const { subflowId } = await params;
   const body = await request.json();
   const updates: Record<string, unknown> = { updated_at: new Date().toISOString() };

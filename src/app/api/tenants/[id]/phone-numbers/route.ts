@@ -1,11 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/supabase';
+import { authorizeTenant } from '@/lib/authz';
 
 // GET /api/tenants/[id]/phone-numbers — list a tenant's phone numbers
 export async function GET(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const __auth = await authorizeTenant(request, (await params).id);
+  if (!__auth.ok) return __auth.response;
+
   const { id: tenantId } = await params;
   const supabase = getSupabaseAdmin();
   const { data, error } = await supabase
@@ -22,6 +26,9 @@ export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const __auth = await authorizeTenant(request, (await params).id);
+  if (!__auth.ok) return __auth.response;
+
   const { id: tenantId } = await params;
   const supabase = getSupabaseAdmin();
   const { number } = await request.json();

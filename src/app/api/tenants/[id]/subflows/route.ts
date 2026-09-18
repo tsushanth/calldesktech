@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/supabase';
+import { authorizeTenant, belongsToTenant } from '@/lib/authz';
 
 // GET /api/tenants/[id]/subflows?agentId=... — list subflows visible to an
 // agent: every library-scoped subflow in the tenant, plus that agent's own
@@ -9,6 +10,9 @@ export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const __auth = await authorizeTenant(request, (await params).id);
+  if (!__auth.ok) return __auth.response;
+
   const { id: tenantId } = await params;
   const agentId = request.nextUrl.searchParams.get('agentId');
   const supabase = getSupabaseAdmin();
@@ -40,9 +44,15 @@ export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const __auth = await authorizeTenant(request, (await params).id);
+  if (!__auth.ok) return __auth.response;
+
   const { id: tenantId } = await params;
   const body = await request.json();
   const { agentId, scope = 'agent', name, nodes = [], startNodeId } = body;
+  if (agentId && !(await belongsToTenant('calldesk_agents', agentId, tenantId))) {
+    return NextResponse.json({ error: 'agentId not found' }, { status: 404 });
+  }
 
   if (!name || typeof name !== 'string') {
     return NextResponse.json({ error: 'name is required' }, { status: 400 });

@@ -1,12 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/supabase';
+import { authorizeResource } from '@/lib/authz';
 
 // GET /api/chat-sessions/[id] — one chat session plus its full transcript, for
 // the Chat History detail view. Service-role, same as /api/calls/[id].
 export async function GET(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const __auth = await authorizeResource(request, 'calldesk_chat_sessions', (await params).id);
+  if (!__auth.ok) return __auth.response;
+
   const { id } = await params;
   const supabase = getSupabaseAdmin();
 

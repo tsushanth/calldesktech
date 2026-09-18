@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/supabase';
+import { authorizeResource, belongsToTenant } from '@/lib/authz';
 
 // POST /api/phone-numbers/[id]/routing — points a phone number's inbound or
 // outbound slot at a specific agent version. This IS "activation" in this
@@ -12,9 +13,15 @@ export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const __auth = await authorizeResource(request, 'calldesk_phone_numbers', (await params).id);
+  if (!__auth.ok) return __auth.response;
+
   const { id: phoneNumberId } = await params;
   const supabase = getSupabaseAdmin();
   const { direction, agentVersionId } = await request.json();
+  if (agentVersionId && __auth.tenantId && !(await belongsToTenant('calldesk_agent_versions', agentVersionId, __auth.tenantId))) {
+    return NextResponse.json({ error: 'agentVersionId not found' }, { status: 404 });
+  }
 
   if (direction !== 'inbound' && direction !== 'outbound') {
     return NextResponse.json({ error: 'direction must be "inbound" or "outbound"' }, { status: 400 });
@@ -45,6 +52,11 @@ export async function POST(
   try {
     const res = await fetch(`${request.nextUrl.origin}/api/agent-versions/${agentVersionId}/sync-retell`, {
       method: 'POST',
+      // The sync route is authenticated now — forward this caller's own credentials.
+      headers: {
+        cookie: request.headers.get('cookie') || '',
+        authorization: request.headers.get('authorization') || '',
+      },
     });
     const body = await res.json().catch(() => ({}));
     if (!res.ok) {

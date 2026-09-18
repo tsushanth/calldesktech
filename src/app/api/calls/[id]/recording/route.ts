@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/supabase';
+import { authorizeResource } from '@/lib/authz';
 
 // GET /api/calls/[id]/recording — streams a call's audio to the browser.
 // Neither engine's recording URL can be linked to directly from an <audio
@@ -10,9 +11,12 @@ import { getSupabaseAdmin } from '@/lib/supabase';
 // simpler to route both through one server-side endpoint than to special-
 // case the client for one engine vs the other.
 export async function GET(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const __auth = await authorizeResource(request, 'calldesk_call_logs', (await params).id);
+  if (!__auth.ok) return __auth.response;
+
   const { id } = await params;
   const supabase = getSupabaseAdmin();
   const { data: call, error } = await supabase

@@ -1,15 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/supabase';
 import { deliverWebhook } from '@/lib/webhooks';
+import { authorizeTenant } from '@/lib/authz';
 
 // POST /api/tenants/[id]/webhooks/[webhookId]/test — send a real, signed
 // `webhook.test` ping to the stored endpoint and report whether it accepted
 // it. This is a genuine outbound request signed with the endpoint's secret,
 // so the tenant can confirm both reachability and signature verification.
 export async function POST(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string; webhookId: string }> }
 ) {
+  const __auth = await authorizeTenant(request, (await params).id);
+  if (!__auth.ok) return __auth.response;
+
   const { id: tenantId, webhookId } = await params;
   const supabase = getSupabaseAdmin();
 

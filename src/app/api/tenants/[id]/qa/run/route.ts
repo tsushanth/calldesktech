@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/supabase';
 import { getRetellClient } from '@/lib/retell';
 import { runAndStoreCallQa } from '@/lib/callQa';
+import { authorizeTenant } from '@/lib/authz';
 
 // POST /api/tenants/[id]/qa/run — backfill QA for a tenant's calls that have a
 // transcript but haven't been scored yet (status pending or failed). This is a
@@ -11,9 +12,12 @@ import { runAndStoreCallQa } from '@/lib/callQa';
 const BATCH_LIMIT = 25;
 
 export async function POST(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const __auth = await authorizeTenant(request, (await params).id);
+  if (!__auth.ok) return __auth.response;
+
   const { id: tenantId } = await params;
   const supabase = getSupabaseAdmin();
 

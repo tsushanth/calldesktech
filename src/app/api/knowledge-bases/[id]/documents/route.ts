@@ -3,6 +3,7 @@ import { getSupabaseAdmin } from '@/lib/supabase';
 import { getRetellClient } from '@/lib/retell';
 import { scrapeUrl, chunkPlainText } from '@/lib/scraper';
 import { extractPdfText } from '@/lib/pdfParser';
+import { authorizeResource } from '@/lib/authz';
 
 const MAX_PDF_BYTES = 25 * 1024 * 1024; // matches the 'knowledge-base-files' bucket's own file_size_limit
 
@@ -21,6 +22,9 @@ export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const __auth = await authorizeResource(request, 'calldesk_knowledge_bases', (await params).id);
+  if (!__auth.ok) return __auth.response;
+
   const { id: knowledgeBaseId } = await params;
   const supabase = getSupabaseAdmin();
 
@@ -169,9 +173,12 @@ export async function POST(
 }
 
 export async function GET(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const __auth = await authorizeResource(request, 'calldesk_knowledge_bases', (await params).id);
+  if (!__auth.ok) return __auth.response;
+
   const { id: knowledgeBaseId } = await params;
   const supabase = getSupabaseAdmin();
   const { data, error } = await supabase

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/supabase';
+import { authorizeTenant } from '@/lib/authz';
 
 // GET /api/tenants/[id]/qa/overview?days=30 — the QA "Overview" dashboard
 // (trend charts + resolution rate + date range), matching Retell's own
@@ -26,6 +27,9 @@ export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const __auth = await authorizeTenant(request, (await params).id);
+  if (!__auth.ok) return __auth.response;
+
   const { id: tenantId } = await params;
   const supabase = getSupabaseAdmin();
 

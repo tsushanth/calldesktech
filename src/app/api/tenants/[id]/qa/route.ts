@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/supabase';
+import { authorizeTenant } from '@/lib/authz';
 
 // GET /api/tenants/[id]/qa — call logs with their AI Quality Assurance results
 // for the QA dashboard. Server-side / service-role only (the client never hits
@@ -9,6 +10,9 @@ export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const __auth = await authorizeTenant(request, (await params).id);
+  if (!__auth.ok) return __auth.response;
+
   const { id: tenantId } = await params;
   const limit = Number(request.nextUrl.searchParams.get('limit')) || 100;
   const supabase = getSupabaseAdmin();

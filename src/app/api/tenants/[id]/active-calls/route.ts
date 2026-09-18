@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { authorizeTenant } from '@/lib/authz';
 
 // GET /api/tenants/[id]/active-calls — proxies call-loop-poc's own
 // GET /active-calls endpoint (see call-loop-poc/server.js) server-side, so
@@ -25,9 +26,12 @@ type ActiveCall = {
 };
 
 export async function GET(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const __auth = await authorizeTenant(request, (await params).id);
+  if (!__auth.ok) return __auth.response;
+
   const { id: tenantId } = await params;
 
   if (!ACTIVE_CALLS_SECRET) {

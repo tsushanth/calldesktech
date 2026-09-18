@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/supabase';
+import { authorizeTenant, belongsToTenant } from '@/lib/authz';
 
 // Split a pasted/uploaded blob of numbers into a clean list. Accepts numbers
 // separated by newlines, commas, or semicolons (however a spreadsheet paste
@@ -25,9 +26,12 @@ function parseNumbers(input: unknown): string[] {
 // each with a rollup of how many targets it has / were placed / failed so the
 // dashboard table can show progress without a second round-trip per batch.
 export async function GET(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const __auth = await authorizeTenant(request, (await params).id);
+  if (!__auth.ok) return __auth.response;
+
   const { id: tenantId } = await params;
   const supabase = getSupabaseAdmin();
 
@@ -63,10 +67,17 @@ export async function GET(
 // one target row per parsed number. Does NOT place any calls; triggering is a
 // separate step (POST /api/batch-calls/[id]/run) so creating a batch is cheap
 // and can't be half-run if the request drops mid-dial.
+function tenantIdFromAuth(a: { ok: true; tenantId?: string }): string {
+  return a.tenantId as string;
+}
+
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const __auth = await authorizeTenant(request, (await params).id);
+  if (!__auth.ok) return __auth.response;
+
   const { id: tenantId } = await params;
   const supabase = getSupabaseAdmin();
   const body = await request.json();
@@ -75,6 +86,9 @@ export async function POST(
 
   if (!agentVersionId) {
     return NextResponse.json({ error: 'agentVersionId is required' }, { status: 400 });
+  }
+  if (!(await belongsToTenant('calldesk_agent_versions', agentVersionId, tenantIdFromAuth(__auth)))) {
+    return NextResponse.json({ error: 'agentVersionId not found' }, { status: 404 });
   }
   if (numbers.length === 0) {
     return NextResponse.json({ error: 'At least one phone number is required' }, { status: 400 });

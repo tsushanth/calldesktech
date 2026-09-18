@@ -1,13 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/supabase';
+import { authorizeResource } from '@/lib/authz';
 
 // GET/POST calldesk_knowledge_items for one knowledge base — see
 // tenants/[id]/knowledge-bases/route.ts for why this exists (RLS silently
 // blocked the direct client-side equivalent).
 export async function GET(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const __auth = await authorizeResource(request, 'calldesk_knowledge_bases', (await params).id);
+  if (!__auth.ok) return __auth.response;
+
   const { id: knowledgeBaseId } = await params;
   const supabase = getSupabaseAdmin();
   const { data, error } = await supabase
@@ -23,6 +27,9 @@ export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const __auth = await authorizeResource(request, 'calldesk_knowledge_bases', (await params).id);
+  if (!__auth.ok) return __auth.response;
+
   const { id: knowledgeBaseId } = await params;
   const supabase = getSupabaseAdmin();
   const { items } = await request.json();

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getStripe } from '@/lib/stripe';
 import { getSupabaseAdmin } from '@/lib/supabase';
+import { authorizeTenant } from '@/lib/authz';
 
 // POST /api/tenants/[id]/billing/portal — creates a Stripe Billing Portal
 // session for the tenant's customer and returns its URL.
@@ -15,9 +16,12 @@ import { getSupabaseAdmin } from '@/lib/supabase';
 const PORTAL_CONFIG_TAG = 'calldesktech';
 
 export async function POST(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const __auth = await authorizeTenant(request, (await params).id);
+  if (!__auth.ok) return __auth.response;
+
   const { id: tenantId } = await params;
   const supabase = getSupabaseAdmin();
 

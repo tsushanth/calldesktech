@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAnthropicClient } from '@/lib/anthropic';
 import type { FlowNode } from '@/types';
+import { requireAuth } from '@/lib/authz';
 
 // POST /api/agents/generate-flow — "Generate from prompt" (matches Retell's
 // own Create Agent modal): a real LLM call that drafts a starting
@@ -58,6 +59,9 @@ const GENERATE_FLOW_TOOL = {
 };
 
 export async function POST(request: NextRequest) {
+  const __auth = await requireAuth(request);
+  if (!__auth.ok) return __auth.response;
+
   const { description } = await request.json();
   if (!description || typeof description !== 'string' || !description.trim()) {
     return NextResponse.json({ error: 'A description is required.' }, { status: 400 });

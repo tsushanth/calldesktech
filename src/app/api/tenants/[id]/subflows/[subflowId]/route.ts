@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/supabase';
+import { authorizeTenant } from '@/lib/authz';
 
 function toApi(row: {
   id: string; tenant_id: string; agent_id: string | null; scope: string;
@@ -20,9 +21,12 @@ function toApi(row: {
 }
 
 export async function GET(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string; subflowId: string }> }
 ) {
+  const __auth = await authorizeTenant(request, (await params).id);
+  if (!__auth.ok) return __auth.response;
+
   const { id: tenantId, subflowId } = await params;
   const supabase = getSupabaseAdmin();
   const { data, error } = await supabase
@@ -44,6 +48,9 @@ export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string; subflowId: string }> }
 ) {
+  const __auth = await authorizeTenant(request, (await params).id);
+  if (!__auth.ok) return __auth.response;
+
   const { id: tenantId, subflowId } = await params;
   const body = await request.json();
   const updates: Record<string, unknown> = { updated_at: new Date().toISOString() };
@@ -65,9 +72,12 @@ export async function PATCH(
 }
 
 export async function DELETE(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string; subflowId: string }> }
 ) {
+  const __auth = await authorizeTenant(request, (await params).id);
+  if (!__auth.ok) return __auth.response;
+
   const { id: tenantId, subflowId } = await params;
   const supabase = getSupabaseAdmin();
   const { error } = await supabase

@@ -1,13 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/supabase';
+import { authorizeResource } from '@/lib/authz';
 
 // GET /api/agents/[id]/test-cases — list an agent's Simulation test cases.
 // First pass of the Simulation tab: storage + listing only, no run/batch-
 // testing execution yet — that needs its own call-orchestration work.
 export async function GET(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const __auth = await authorizeResource(request, 'calldesk_agents', (await params).id);
+  if (!__auth.ok) return __auth.response;
+
   const { id: agentId } = await params;
   const supabase = getSupabaseAdmin();
   const { data, error } = await supabase
@@ -24,6 +28,9 @@ export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const __auth = await authorizeResource(request, 'calldesk_agents', (await params).id);
+  if (!__auth.ok) return __auth.response;
+
   const { id: agentId } = await params;
   const { name, userPrompt, successCriteria } = await request.json();
   if (!name?.trim() || !userPrompt?.trim() || !successCriteria?.trim()) {

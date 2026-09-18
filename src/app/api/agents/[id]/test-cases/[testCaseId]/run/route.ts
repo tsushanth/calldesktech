@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/supabase';
 import { runTestCaseSimulation } from '@/lib/testCaseSimulator';
 import type { EngineFlow } from '@/lib/textFlowEngine';
+import { authorizeResource } from '@/lib/authz';
 
 // POST /api/agents/[id]/test-cases/[testCaseId]/run — simulates the test
 // case against the agent's own latest PUBLISHED flow (a synthetic caller LLM
@@ -9,9 +10,12 @@ import type { EngineFlow } from '@/lib/textFlowEngine';
 // against the test case's success criteria. See src/lib/testCaseSimulator.ts
 // for why text instead of a real call.
 export async function POST(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string; testCaseId: string }> }
 ) {
+  const __auth = await authorizeResource(request, 'calldesk_agents', (await params).id);
+  if (!__auth.ok) return __auth.response;
+
   const { id: agentId, testCaseId } = await params;
   const supabase = getSupabaseAdmin();
 

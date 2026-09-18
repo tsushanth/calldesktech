@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/supabase';
 import { getAnthropicClient } from '@/lib/anthropic';
 import type { FlowNode } from '@/types';
+import { authorizeResource } from '@/lib/authz';
 
 // POST /api/agents/[id]/test-cases/generate — drafts test cases from the
 // agent's own LATEST PUBLISHED flow (not a generic template), matching
@@ -49,9 +50,12 @@ function summarizeFlow(nodes: FlowNode[], startNodeId: string): string {
 }
 
 export async function POST(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const __auth = await authorizeResource(request, 'calldesk_agents', (await params).id);
+  if (!__auth.ok) return __auth.response;
+
   const { id: agentId } = await params;
   const supabase = getSupabaseAdmin();
 

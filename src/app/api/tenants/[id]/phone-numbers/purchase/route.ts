@@ -3,6 +3,7 @@ import { getSupabaseAdmin } from '@/lib/supabase';
 import { getRetellClient, RetellApiError } from '@/lib/retell';
 import { checkPaymentMethodOnFile } from '@/lib/paymentMethodGate';
 import { isPocEngine } from '@/lib/voiceEngine';
+import { authorizeTenant } from '@/lib/authz';
 
 // Populous US area codes essentially guaranteed to have inventory — used as
 // retry candidates when the requested/inferred area code comes back empty,
@@ -49,6 +50,9 @@ export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const __auth = await authorizeTenant(request, (await params).id);
+  if (!__auth.ok) return __auth.response;
+
   const { id: tenantId } = await params;
   const supabase = getSupabaseAdmin();
 

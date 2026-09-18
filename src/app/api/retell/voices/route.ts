@@ -1,12 +1,16 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { getRetellClient } from '@/lib/retell';
+import { requireAuth } from '@/lib/authz';
 
 // GET /api/retell/voices — the full multi-provider voice catalog Retell can
 // hand to an agent (elevenlabs, openai, cartesia, minimax, fish_audio,
 // platform), not just the two hardcoded ElevenLabs voices this app used to
 // offer. Server-side so RETELL_API_KEY never reaches the browser, same
 // pattern as every other Retell-backed route.
-export async function GET() {
+export async function GET(request: NextRequest) {
+  const __auth = await requireAuth(request);
+  if (!__auth.ok) return __auth.response;
+
   try {
     const voices = await getRetellClient().listVoices();
     return NextResponse.json({ voices });

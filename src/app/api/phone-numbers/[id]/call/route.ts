@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/supabase';
 import { getRetellClient } from '@/lib/retell';
+import { authorizeResource } from '@/lib/authz';
 
 // POST /api/phone-numbers/[id]/call — places a real outbound call FROM this
 // number, to test what its own outbound_agent_version_id actually says.
@@ -22,6 +23,9 @@ export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const __auth = await authorizeResource(request, 'calldesk_phone_numbers', (await params).id);
+  if (!__auth.ok) return __auth.response;
+
   const { id: phoneNumberId } = await params;
   const { toNumber } = await request.json();
 
