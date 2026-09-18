@@ -34,6 +34,7 @@ const NODE_TYPES: { type: FlowNode['type']; label: string; preset?: 'extract_var
   { type: 'subagent', label: 'Subagent' },
   { type: 'function', label: 'Function' },
   { type: 'transfer', label: 'Call Transfer' },
+  { type: 'agent_transfer', label: 'Agent Transfer' },
   { type: 'press_digit', label: 'Press Digit' },
   { type: 'logic_split', label: 'Logic Split' },
   { type: 'sms', label: 'In-Call SMS' },
@@ -92,6 +93,9 @@ export default function AgentBuilderPage() {
         const sfRes = await fetch(`/api/tenants/${agentBody.agent.tenant_id}/subflows?agentId=${agentId}`);
         const sfBody = await sfRes.json();
         if (sfRes.ok) setSubflows(sfBody.subflows || []);
+        const agRes = await fetch(`/api/tenants/${agentBody.agent.tenant_id}/agents`);
+        const agBody = await agRes.json();
+        if (agRes.ok) setTenantAgents((agBody.agents || []).map((a: { id: string; name: string }) => ({ id: a.id, name: a.name })));
       }
     } catch {
       // Non-fatal — the builder below still works off its own version fetch.
@@ -163,6 +167,10 @@ export default function AgentBuilderPage() {
   const [voicemailMessage, setVoicemailMessage] = useState('');
   const [fillerWords, setFillerWords] = useState('');
   const [responsiveness, setResponsiveness] = useState('');
+  const [backchannel, setBackchannel] = useState<'' | 'on' | 'off'>('');
+  const [backchannelFrequency, setBackchannelFrequency] = useState('');
+  const [backchannelDelayMs, setBackchannelDelayMs] = useState('');
+  const [tenantAgents, setTenantAgents] = useState<{ id: string; name: string }[]>([]);
   const [showCompare, setShowCompare] = useState(false);
   const [showTestCall, setShowTestCall] = useState(false);
   const [restoringId, setRestoringId] = useState<string | null>(null);
@@ -208,6 +216,9 @@ export default function AgentBuilderPage() {
     setVoicemailMessage(typeof gs.voicemailMessage === 'string' ? gs.voicemailMessage : '');
     setFillerWords(Array.isArray(gs.fillerWords) ? gs.fillerWords.join(', ') : '');
     setResponsiveness(typeof gs.responsiveness === 'number' ? String(gs.responsiveness) : '');
+    setBackchannel(gs.backchannelEnabled === true ? 'on' : gs.backchannelEnabled === false ? 'off' : '');
+    setBackchannelFrequency(typeof gs.backchannelFrequency === 'number' ? String(gs.backchannelFrequency) : '');
+    setBackchannelDelayMs(typeof gs.backchannelDelayMs === 'number' ? String(gs.backchannelDelayMs) : '');
     setAgentType('conversational_flow');
     setBasedOnVersionNumber(latest.version_number);
     setFlowName(`v${latest.version_number + 1}`);
@@ -561,6 +572,11 @@ export default function AgentBuilderPage() {
     if (fillers.length) out.fillerWords = fillers;
     const resp = num(responsiveness);
     if (resp !== null) out.responsiveness = Math.min(1, Math.max(0, resp));
+    if (backchannel) out.backchannelEnabled = backchannel === 'on';
+    const bcFreq = num(backchannelFrequency);
+    if (bcFreq !== null) out.backchannelFrequency = Math.min(1, Math.max(0, bcFreq));
+    const bcDelay = num(backchannelDelayMs);
+    if (bcDelay !== null && bcDelay > 0) out.backchannelDelayMs = bcDelay;
     return out;
   };
 
@@ -638,6 +654,10 @@ export default function AgentBuilderPage() {
         return n;
       });
       if (cleanNodes.some((n) => !n.id.trim())) return setError('Every node needs an id.');
+      {
+        const bad = cleanNodes.find((n) => n.type === 'agent_transfer' && !n.params?.targetAgentId);
+        if (bad) return setError(`Node "${bad.id}" (agent transfer) needs an agent to hand the call to.`);
+      }
       const ids = new Set(cleanNodes.map((n) => n.id));
       if (ids.size !== cleanNodes.length) return setError('Node ids must be unique.');
       if (!startNodeId || !ids.has(startNodeId)) return setError('Pick a valid start node (Global Settings tab).');
@@ -1182,6 +1202,20 @@ export default function AgentBuilderPage() {
                             <input value={fillerWords} onChange={(e) => setFillerWords(e.target.value)} placeholder="e.g. one moment, let me check (comma-separated; blank = off)" className="w-full rounded-lg border border-gray-200 bg-white px-3.5 py-2.5 text-[13.5px] focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100" />
                           </div>
                           <div>
+                            <label className="mb-1 block text-[12.5px] font-medium text-gray-500">Backchannel (short &ldquo;Got it.&rdquo; when the reply is slow)</label>
+                            <select value={backchannel} onChange={(e) => setBackchannel(e.target.value as '' | 'on' | 'off')} className="w-full rounded-lg border border-gray-200 bg-white px-3.5 py-2.5 text-[13.5px] focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100">
+                              <option value="">Platform default</option>
+                              <option value="on">On</option>
+                              <option value="off">Off</option>
+                            </select>
+                            {backchannel !== 'off' && (
+                              <div className="mt-2 grid grid-cols-2 gap-2">
+                                <input type="number" min={0} max={1} step={0.1} value={backchannelFrequency} onChange={(e) => setBackchannelFrequency(e.target.value)} placeholder="Chance 0–1 (default 0.8)" className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-[13px] focus:border-blue-400 focus:outline-none" />
+                                <input type="number" min={200} step={100} value={backchannelDelayMs} onChange={(e) => setBackchannelDelayMs(e.target.value)} placeholder="Wait ms (default 1500)" className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-[13px] focus:border-blue-400 focus:outline-none" />
+                              </div>
+                            )}
+                          </div>
+                          <div>
                             <label className="mb-1 block text-[12.5px] font-medium text-gray-500">
                               Responsiveness {responsiveness !== '' ? `(${responsiveness})` : '(unset)'}
                             </label>
@@ -1275,6 +1309,7 @@ export default function AgentBuilderPage() {
                       onRemoveExtractField={(key) => removeExtractField(selectedNode._key, key)}
                       subflows={subflows}
                       onCreateSubflow={handleCreateSubflow}
+                      tenantAgents={tenantAgents.filter((a) => a.id !== agentId)}
                     />
                   ) : (
                     <p className="text-[13px] text-gray-400">Select a node on the canvas to edit it, or add one from the left panel.</p>
@@ -1349,6 +1384,7 @@ function NodeSettingsPanel({
   onRemoveExtractField,
   subflows,
   onCreateSubflow,
+  tenantAgents,
 }: {
   node: DraftNode;
   allNodes: DraftNode[];
@@ -1362,6 +1398,7 @@ function NodeSettingsPanel({
   onRemoveExtractField: (key: string) => void;
   subflows?: Subflow[];
   onCreateSubflow?: (name: string) => Promise<Subflow | null>;
+  tenantAgents?: { id: string; name: string }[];
 }) {
   return (
     <div className="space-y-4">
@@ -1428,11 +1465,22 @@ function NodeSettingsPanel({
         </div>
       )}
 
-      {(node.type === 'transfer' || node.type === 'goodbye') && (
+      {(node.type === 'transfer' || node.type === 'goodbye' || node.type === 'agent_transfer') && (
         <div>
           <label className="mb-1 block text-[12px] font-medium text-gray-500">Exact words to say (optional)</label>
-          <textarea rows={2} value={(node.params?.spokenMessage as string) || ''} onChange={(e) => onUpdate({ params: { ...node.params, spokenMessage: e.target.value } })} placeholder={node.type === 'transfer' ? 'Transferring you to a colleague now, one moment.' : 'Thanks for calling, goodbye!'} className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-[12.5px] focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100" />
+          <textarea rows={2} value={(node.params?.spokenMessage as string) || ''} onChange={(e) => onUpdate({ params: { ...node.params, spokenMessage: e.target.value } })} placeholder={node.type === 'goodbye' ? 'Thanks for calling, goodbye!' : 'Transferring you to a colleague now, one moment.'} className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-[12.5px] focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100" />
           <p className="mt-1 text-[11px] text-gray-400">Spoken word for word. Leave blank and the AI writes the line from the step&apos;s instructions.</p>
+        </div>
+      )}
+
+      {node.type === 'agent_transfer' && (
+        <div>
+          <label className="mb-1 block text-[12px] font-medium text-gray-500">Hand the call to agent</label>
+          <select value={(node.params?.targetAgentId as string) || ''} onChange={(e) => onUpdate({ params: { ...node.params, targetAgentId: e.target.value } })} className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-[12.5px] focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100">
+            <option value="">Choose an agent…</option>
+            {(tenantAgents || []).map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
+          </select>
+          <p className="mt-1 text-[11px] leading-relaxed text-gray-400">The call stays connected and continues with that agent&apos;s latest published version, keeping what was said and collected so far. The voice stays the same as this agent&apos;s. This is the last step of this flow, so it has no outgoing arrows.</p>
         </div>
       )}
 
@@ -1519,7 +1567,7 @@ function NodeSettingsPanel({
         <SubflowRefFields node={node} onUpdate={onUpdate} subflows={subflows || []} onCreateSubflow={onCreateSubflow} />
       )}
 
-      {node.type !== 'logic_split' && node.type !== 'press_digit' && node.type !== 'note' && (
+      {node.type !== 'logic_split' && node.type !== 'press_digit' && node.type !== 'note' && node.type !== 'agent_transfer' && (
         <div className="space-y-3 border-t border-gray-100 pt-3">
           <div>
             <label className="mb-1 block text-[12px] font-medium text-gray-500">Model (optional)</label>

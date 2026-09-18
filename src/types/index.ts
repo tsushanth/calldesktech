@@ -14,7 +14,7 @@ export interface Tenant {
 // Conversation Flow Types
 export interface FlowNode {
   id: string;
-  type: 'greeting' | 'extraction' | 'function' | 'knowledge_base' | 'transfer' | 'goodbye' | 'payment' | 'logic_split' | 'press_digit' | 'sms' | 'code' | 'mcp' | 'subagent' | 'subflow_ref'
+  type: 'greeting' | 'extraction' | 'function' | 'knowledge_base' | 'transfer' | 'goodbye' | 'payment' | 'logic_split' | 'press_digit' | 'sms' | 'code' | 'mcp' | 'subagent' | 'subflow_ref' | 'agent_transfer'
     // 'note' is a canvas-only sticky: stripped at publish, never sent to the engine.
     | 'note';
   // Optional only for 'logic_split' and 'press_digit' — neither speaks or
