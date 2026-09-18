@@ -5,17 +5,23 @@ import { getSupabaseAdmin } from '@/lib/supabase';
 import { getRetellClient } from '@/lib/retell';
 
 // POST /api/batch-calls/[id]/run — actually places the batch. Walks the
-// batch's pending targets IN ORDER and dials each one through the same Retell
-// outbound path a single call uses (getRetellClient().createPhoneCall, the
-// wrapper over /v2/create-phone-call that /api/demo-call hits directly). A
-// number that can't be placed is marked 'failed' and the batch moves on — one
-// bad row never sinks the rest. Each placed call gets a calldesk_call_logs row
-// (so it shows up in Calls and the Retell webhook can later fill in its
-// outcome/transcript), and the target is linked to that log.
+// batch's pending targets IN ORDER and dials each one. A number that can't be
+// placed is marked 'failed' and the batch moves on — one bad row never sinks
+// the rest.
 //
-// Retell-engine only: placing a real PSTN call needs a retell_agent_id and a
-// from-number, neither of which a poc-engine version has — so a poc version is
-// rejected up front rather than dialing nothing.
+// Branches by voice_engine, same dispatch the Numbers page's single "Make an
+// outbound call" button already uses (see /api/phone-numbers/[id]/call):
+// retell-engine calls Retell's own outbound API directly; poc-engine proxies
+// to call-loop-poc's /place-test-call, since that's the only thing that owns
+// the Twilio credentials for a number bought on our own account.
+//
+// Real gap fixed here (2026-09-17): this used to hard-reject any non-retell
+// version ("Batch calling is only supported for the Retell voice engine"),
+// which after this session's pivot to poc-engine as the default meant batch
+// calling didn't work AT ALL for the actual product — only for the Retell
+// comparison baseline. The UI's version picker never warned about this
+// either, so creating a batch against a poc-engine agent silently succeeded
+// and only failed confusingly at Run time.
 export async function POST(
   _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -78,17 +84,20 @@ export async function POST(
   if (!version) {
     return failBatch('Agent version not found');
   }
-  if (version.voice_engine !== 'retell') {
-    return failBatch('Batch calling is only supported for the Retell voice engine');
+  const isPoc = version.voice_engine === 'poc';
+  if (!isPoc && version.voice_engine !== 'retell') {
+    return failBatch(`Unknown voice engine "${version.voice_engine}"`);
   }
-  if (!version.retell_agent_id) {
+  if (!isPoc && !version.retell_agent_id) {
     return failBatch('This agent version has no linked Retell agent to place calls with');
   }
 
   // From-number: prefer a phone number the tenant has explicitly routed to
   // this version's outbound slot (the Phone Numbers screen), so a batch dials
-  // from the number that "belongs" to this agent; fall back to the shared demo
-  // number the rest of the app uses for outbound.
+  // from the number that "belongs" to this agent. Retell falls back to the
+  // shared demo number the rest of the app uses for outbound; a poc-engine
+  // number has no such fallback — it's a real Twilio number on our own
+  // account, so there's no "shared demo" equivalent to fall back to.
   const { data: outboundNumber } = await supabase
     .from('calldesk_phone_numbers')
     .select('number')
@@ -96,12 +105,20 @@ export async function POST(
     .eq('outbound_agent_version_id', version.id)
     .limit(1)
     .maybeSingle();
-  const fromNumber = outboundNumber?.number || process.env.RETELL_DEMO_PHONE_NUMBER;
+  const fromNumber = outboundNumber?.number || (isPoc ? undefined : process.env.RETELL_DEMO_PHONE_NUMBER);
   if (!fromNumber) {
     return failBatch(
-      'No from-number available: route a phone number to this version for outbound, or set RETELL_DEMO_PHONE_NUMBER',
+      isPoc
+        ? 'No from-number available: route a phone number to this version\'s outbound slot on the Phone Numbers page first'
+        : 'No from-number available: route a phone number to this version for outbound, or set RETELL_DEMO_PHONE_NUMBER',
       500
     );
+  }
+
+  const callLoopBaseUrl = process.env.CALL_LOOP_POC_BASE_URL;
+  const callLoopSecret = process.env.CALL_LOOP_POC_TEST_CALL_SECRET;
+  if (isPoc && (!callLoopBaseUrl || !callLoopSecret)) {
+    return failBatch('CALL_LOOP_POC_BASE_URL/CALL_LOOP_POC_TEST_CALL_SECRET not configured', 500);
   }
 
   const { data: targets, error: targetsError } = await supabase
@@ -116,35 +133,54 @@ export async function POST(
 
   await supabase.from('calldesk_batch_calls').update({ status: 'running' }).eq('id', batchId);
 
-  const retell = getRetellClient();
+  const retell = isPoc ? null : getRetellClient();
   let placed = 0;
   let failed = 0;
 
-  // Sequential by design — Retell rate-limits outbound and the product spec is
-  // "places outbound calls to each one sequentially." No Promise.all here.
+  // Sequential by design — both Retell and Twilio rate-limit outbound calls,
+  // and the product spec is "places outbound calls to each one sequentially."
+  // No Promise.all here.
   for (const target of targets || []) {
     try {
-      const { call_id } = await retell.createPhoneCall({
-        fromNumber,
-        toNumber: target.phone_number,
-        agentId: version.retell_agent_id,
-      });
+      let callLogId: string | null = null;
 
-      const { data: log } = await supabase
-        .from('calldesk_call_logs')
-        .insert({
-          tenant_id: batch.tenant_id,
-          retell_call_id: call_id,
-          caller_phone: target.phone_number,
-          outcome: 'answered', // placeholder; the Retell webhook fills the real outcome
-          duration_seconds: 0,
-        })
-        .select('id')
-        .single();
+      if (isPoc) {
+        // call-loop-poc's own 'start' handler inserts the calldesk_call_logs
+        // row itself once the call actually connects (same path the Numbers
+        // page's single outbound call uses) — nothing to insert here, and
+        // call_log_id stays null on the target row since that id doesn't
+        // exist yet at REST-call time. It's still fully visible on the Calls
+        // page under this tenant, just not deep-linked from this row.
+        const res = await fetch(`${callLoopBaseUrl}/place-test-call`, {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${callLoopSecret}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ toNumber: target.phone_number, routeAs: fromNumber, direction: 'outbound' }),
+        });
+        const body = await res.json();
+        if (!res.ok) throw new Error(body.error || 'call-loop-poc rejected the call');
+      } else {
+        const { call_id } = await retell!.createPhoneCall({
+          fromNumber,
+          toNumber: target.phone_number,
+          agentId: version.retell_agent_id!,
+        });
+        const { data: log } = await supabase
+          .from('calldesk_call_logs')
+          .insert({
+            tenant_id: batch.tenant_id,
+            retell_call_id: call_id,
+            caller_phone: target.phone_number,
+            outcome: 'answered', // placeholder; the Retell webhook fills the real outcome
+            duration_seconds: 0,
+          })
+          .select('id')
+          .single();
+        callLogId = log?.id ?? null;
+      }
 
       await supabase
         .from('calldesk_batch_call_targets')
-        .update({ status: 'calling', call_log_id: log?.id ?? null })
+        .update({ status: 'calling', call_log_id: callLogId })
         .eq('id', target.id);
       placed++;
     } catch (err) {
