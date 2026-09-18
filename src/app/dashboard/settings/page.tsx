@@ -12,6 +12,8 @@ import { WizardBlocksPicker } from '@/components/flow-builder/WizardBlocksPicker
 import { buildWizardFlow, DEFAULT_WIZARD_BLOCKS, type WizardBlocks } from '@/lib/flowBuilder';
 import type { Agent, AgentVersion } from '@/types';
 
+import ApiKeysSection from './ApiKeysSection';
+
 export default function SettingsPage() {
   const { tenantId, businessName, assignedPhoneNumber, isHydrated } = useOnboarding();
   const [tenant, setTenant] = useState<Tenant | null>(null);
@@ -41,6 +43,7 @@ export default function SettingsPage() {
   // 'everything' + indefinite matches their default.
   const [recordingEnabled, setRecordingEnabled] = useState(true);
   const [recordingRetentionDays, setRecordingRetentionDays] = useState('');
+  const [interruptionSensitivity, setInterruptionSensitivity] = useState('');
 
   // Building blocks — backed by the tenant's default "simple" agent (see
   // src/lib/flowBuilder.ts / the "Two-Tier Onboarding" design doc). This is
@@ -76,6 +79,7 @@ export default function SettingsPage() {
             );
             setRecordingEnabled(settings.recording_enabled !== 'false');
             setRecordingRetentionDays(settings.recording_retention_days || '');
+            setInterruptionSensitivity(settings.interruption_sensitivity || '');
           }
           setCalApiKey(data.cal_api_key || '');
           setCalEventTypeId(data.cal_event_type_id || '');
@@ -202,6 +206,7 @@ export default function SettingsPage() {
           tts_backend: ttsBackend,
           recording_enabled: String(recordingEnabled),
           recording_retention_days: recordingRetentionDays,
+          interruption_sensitivity: interruptionSensitivity,
         },
         cal_api_key: calApiKey || null,
         cal_event_type_id: calEventTypeId || null,
@@ -376,6 +381,30 @@ export default function SettingsPage() {
               <p className="mt-1 text-[11px] text-gray-400">Recordings older than this get deleted automatically. Doesn&apos;t affect transcripts, only audio.</p>
             </div>
           )}
+        </SettingsSection>
+
+        {/* Interruptions (tenant-wide default) */}
+        <SettingsSection title="Interruptions" icon={<IconMic />}>
+          <p className="mb-4 text-[13.5px] text-gray-500">
+            How easily a caller can cut the agent off. Flows and individual steps can override this.
+          </p>
+          <div className="max-w-xs">
+            <select
+              value={interruptionSensitivity}
+              onChange={(e) => setInterruptionSensitivity(e.target.value)}
+              className="w-full rounded-lg border border-gray-200 bg-white px-3.5 py-2.5 text-[13.5px] focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100"
+            >
+              <option value="">Medium (default) — needs ~2 words</option>
+              <option value="high">High — interrupts on any word</option>
+              <option value="low">Low — needs ~3 words</option>
+              <option value="off">Off — agent is never interrupted</option>
+            </select>
+          </div>
+        </SettingsSection>
+
+        {/* API Keys */}
+        <SettingsSection title="API Keys" icon={<IconPlug />}>
+          {tenantId && <ApiKeysSection tenantId={tenantId} />}
         </SettingsSection>
 
         {/* Building Blocks */}
