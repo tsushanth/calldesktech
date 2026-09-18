@@ -1480,6 +1480,9 @@ function NodeSettingsPanel({
         <div>
           <label className="mb-1 block text-[12px] font-medium text-gray-500">JavaScript</label>
           <textarea value={node.params?.code || ''} onChange={(e) => onUpdate({ params: { ...node.params, code: e.target.value } })} rows={8} spellCheck={false} className="w-full resize-y rounded-lg border border-gray-200 bg-white px-3 py-2 font-mono text-[11.5px] focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100" />
+          <p className="mt-1 text-[11px] leading-relaxed text-gray-400">
+            Available: <code>dv</code> (data collected so far), <code>fetch(url, options)</code>, and <code>localTime(&apos;America/Los_Angeles&apos;)</code> which returns {'{'} hour, minute, hourDecimal, weekday (0=Sun), date {'}'} and handles daylight saving. Return an object to save its fields.
+          </p>
         </div>
       )}
 

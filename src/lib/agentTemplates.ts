@@ -734,12 +734,8 @@ NO_RESPONSE_NEEDED`;
 // _buildNodeSystemPrompt). A 'code' node computes it deterministically
 // instead and a 'logic_split' routes off the result.
 //
-// Known, disclosed limitation: fixed UTC-8 (PST) offset — does not account
-// for PDT during daylight saving, since the sandbox isn't guaranteed to
-// have full ICU/Intl timezone data. Good enough as a template starting
-// point; a real deployment should replace this with a proper timezone
-// library call if the code node's sandbox supports one, or a small
-// webhook.
+// Uses the code sandbox's localTime(tz) helper (host-side Intl, so daylight
+// saving is handled). Change TZ in the code node to the business's IANA zone.
 const HUMAN_TRANSFER_TREATMENT_SUBFLOW_SEED: TemplateSubflowSeed = {
   name: 'Human Transfer Treatment',
   startNodeId: 'check_hours',
@@ -749,11 +745,10 @@ const HUMAN_TRANSFER_TREATMENT_SUBFLOW_SEED: TemplateSubflowSeed = {
       type: 'code',
       params: {
         code:
-          `const now = new Date();\n` +
-          `let pstHour = now.getUTCHours() + now.getUTCMinutes() / 60 - 8;\n` +
-          `if (pstHour < 0) pstHour += 24;\n` +
-          `const isWeekday = now.getUTCDay() >= 1 && now.getUTCDay() <= 5;\n` +
-          `const withinHours = isWeekday && pstHour >= 8.5 && pstHour < 17;\n` +
+          `const TZ = 'America/Los_Angeles'; // your business's IANA time zone; handles daylight saving\n` +
+          `const t = localTime(TZ);\n` +
+          `const isWeekday = t.weekday >= 1 && t.weekday <= 5;\n` +
+          `const withinHours = isWeekday && t.hourDecimal >= 8.5 && t.hourDecimal < 17;\n` +
           `return { within_business_hours: withinHours ? 'true' : 'false' };`,
       },
       edges: [{ id: 'e_hours_checked', condition: 'always', target: 'hours_split' }],
@@ -792,7 +787,7 @@ You are an AI phone agent named Chloe for the Retell prior authorization hotline
 
 ## Working Hours
 
-- **Office hours:** Monday to Friday, 8:30 AM to 5:00 PM PST
+- **Office hours:** Monday to Friday, 8:30 AM to 5:00 PM Pacific
 
 ## Human Transfer Treatment
 
@@ -1730,11 +1725,10 @@ const LAW_FIRM_AFTER_QUALIFICATION_SUBFLOW_SEED: TemplateSubflowSeed = {
       type: 'code',
       params: {
         code:
-          `const now = new Date();\n` +
-          `let pstHour = now.getUTCHours() + now.getUTCMinutes() / 60 - 8;\n` +
-          `if (pstHour < 0) pstHour += 24;\n` +
-          `const isWeekday = now.getUTCDay() >= 1 && now.getUTCDay() <= 5;\n` +
-          `const withinHours = isWeekday && pstHour >= 8.5 && pstHour < 17;\n` +
+          `const TZ = 'America/Los_Angeles'; // your business's IANA time zone; handles daylight saving\n` +
+          `const t = localTime(TZ);\n` +
+          `const isWeekday = t.weekday >= 1 && t.weekday <= 5;\n` +
+          `const withinHours = isWeekday && t.hourDecimal >= 8.5 && t.hourDecimal < 17;\n` +
           `return { within_business_hours: withinHours ? 'true' : 'false' };`,
       },
       edges: [{ id: 'e_hours_checked', condition: 'always', target: 'hours_split' }],
@@ -1763,7 +1757,7 @@ const LAW_FIRM_AFTER_QUALIFICATION_SUBFLOW_SEED: TemplateSubflowSeed = {
 
 const AFTER_HOURS_LAW_FIRM_HANDBOOK = `Multilingual handling: you speak English and Spanish. Always begin the call in English. If the customer speaks Spanish or requests it, switch immediately and continue entirely in Spanish.
 
-Office hours: Monday to Friday, 8:30 AM to 5:00 PM PST.
+Office hours: Monday to Friday, 8:30 AM to 5:00 PM Pacific.
 
 No Legal Advice: never provide legal opinions, quote prices, or discuss potential case outcomes.`;
 
@@ -1790,7 +1784,7 @@ You speak **English** and **Spanish**. Always begin the call in English. If the 
 
 ## Working Hours
 
-- **Office hours:** Monday to Friday, 8:30 AM to 5:00 PM PST
+- **Office hours:** Monday to Friday, 8:30 AM to 5:00 PM Pacific
 
 ---
 
