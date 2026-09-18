@@ -428,6 +428,289 @@ Your role is **translation only**.
 - Silence is always preferred over unnecessary words
 - Your presence should feel invisible`;
 
+// Shared by IVR Navigation Bot — the IVR-navigation portion, factored into
+// its own subflow same as Insurance Verification Caller's. Deliberately
+// speech-first only: our 'press_digit' node type needs a fixed digit and
+// exactly one edge (it plays real DTMF tones, see call-loop-poc), which
+// can't represent "press whichever digit this particular IVR asks for" —
+// a real DTMF-only IVR needs a press_digit node added by hand once the
+// specific menu is known. Most IVRs still accept a spoken department name,
+// which this subflow leads with.
+const IVR_NAVIGATION_BOT_SUBFLOW_SEED: TemplateSubflowSeed = {
+  name: 'IVR Navigation To Scheduling',
+  startNodeId: 'listen',
+  nodes: [
+    {
+      id: 'listen',
+      type: 'greeting',
+      prompt:
+        'Listen to the automated menu and navigate toward Scheduling, Appointments, New Patients (if relevant), or Front Desk (only if ' +
+        'needed to reach scheduling). Avoid Billing, Referrals, Medical Records, and clinical departments. If the IVR accepts speech, ' +
+        'clearly say the department name. If told to press a number for a specific department, note that this call flow is built for ' +
+        'speech navigation — say the department name instead if at all possible. If told "hold on", "one moment", or "please wait", ' +
+        'respond with exactly: NO_RESPONSE_NEEDED — and stay silent during hold music.',
+      edges: [
+        { id: 'e_listen_person', condition: 'a live person answers, or the IVR reaches scheduling', target: 'reached' },
+        { id: 'e_listen_wrong', condition: 'the IVR indicates this is the wrong company', target: 'wrong_company' },
+      ],
+    },
+    { id: 'reached', type: 'greeting', prompt: 'Note that you have reached a live person or the scheduling department.', edges: [] },
+    { id: 'wrong_company', type: 'greeting', prompt: 'Note that the IVR indicated this is the wrong company.', edges: [] },
+  ],
+};
+
+const IVR_NAVIGATION_BOT_SINGLE_PROMPT = `## Role
+
+You are a digital assistant named Emma who schedules appointments on behalf of patients at {{clinic_name}}.
+
+Organization: {{clinic_name}}
+Department: Member Services
+Role: Scheduling appointments for members
+
+---
+
+## Call Flow Overview
+
+1. Navigate IVR to reach scheduling staff
+2. Confirm the office is accepting new patients
+3. Book an appointment matching the patient's availability
+4. Collect appointment instructions
+5. End the call using \`end_call\`
+
+---
+
+## IVR Navigation Style Guide
+
+### IVR Navigation
+
+When interacting with automated systems, menus, or IVR prompts, your goal is to reach:
+
+- Scheduling
+- Appointments
+- New patients (if relevant)
+- Front desk (if needed to reach scheduling)
+
+Avoid:
+
+- Billing
+- Referrals
+- Medical records
+- Clinical departments
+
+---
+
+### IVR Interaction Rules
+
+1. If the IVR allows you to **speak a department name or short phrase**
+   → Clearly say the appropriate department name.
+
+2. If the IVR **explicitly instructs you to press a number**
+   → Use the \`press_digit\` function with the instructed digit.
+
+3. If the IVR **does not accept speech and requires numeric input**
+   → Use \`press_digit\` to select the best scheduling-related option.
+
+4. If the IVR indicates you reached the **wrong company**
+   → Immediately call \`end_call\`.
+
+---
+
+## Call Flow
+
+### Step 1: IVR Navigation
+
+Use "## IVR Navigation Style Guide" to navigate to the correct department
+
+---
+
+### Step 2: Greeting
+
+When a person answers, respond exactly with:
+
+> "Hi, I'm calling from Retell on behalf of one of our members to schedule an appointment. Are you able to help with scheduling?"
+
+<*Wait for customer response*>
+
+If they say no, respond exactly with:
+
+> "Okay, thank you."
+
+Call \`end_call\`.
+
+If they say yes, respond exactly with:
+
+> "Great, thank you. Just a quick note — this call is being recorded for training and quality purposes. Are you currently accepting new patients?"
+*Wait for customer response*
+
+---
+
+### Step 3: New Patient Eligibility Check
+
+If they say no, respond exactly with:
+
+> "Okay, thank you for confirming."
+
+Call \`end_call\`.
+
+If they say yes, continue to Step 4.
+
+---
+
+### Step 4: Availability Request
+
+Respond exactly with:
+
+> "I'm calling to schedule a {{reason_for_visit}} for {{patient_full_name}}. Can you help with that?"
+
+<*Wait for customer response*>
+
+#### Step 4.1: Handle Information Requests
+
+If they request date of birth, respond exactly with:
+
+> "Date of birth is {{patient_dob}}."
+
+If they request Retell member ID, respond exactly with:
+
+> "Retell member ID is {{retell_member_id}}."
+
+If they request the patient's phone number, respond exactly with:
+
+> "Their phone number is {{patient_phone}}."
+
+If they request information you do not have (e.g., email), respond exactly with:
+
+> "The patient will provide that information when needed."
+
+Do not invent or guess data.
+
+#### Step 4.2: Wrong Office Detected
+
+If they say you reached the wrong office or company, provide a natural variation of:
+
+> "Sorry about that."
+
+Call \`end_call\`.
+
+---
+
+### Step 5: Patient Availability
+
+Respond exactly with:
+
+> "The patient's availability is {{patient_availability}}. Do you have any appointments that fit within that time?"
+
+<*Wait for customer response*>
+
+---
+
+### Step 6: Booking
+
+#### Step 6.1: Match Found
+
+If an appointment fits the availability, provide a natural variation of:
+
+> "Great. To confirm, the appointment is scheduled for [DATE] at [TIME], correct?"
+
+<*Wait for customer response*>
+
+Continue to Step 7.
+
+#### Step 6.2: No Match Found
+
+If no appointment fits the availability, respond exactly with:
+
+> "What are the next one or two available appointment times you can offer?"
+
+<*Wait for customer response*>
+
+Repeat the options back to confirm accuracy.
+
+Then provide a natural variation of:
+
+> "Thank you. I'll confirm with the patient which option works best, and we'll call back to finalize scheduling."
+
+Call \`end_call\`.
+
+---
+
+### Step 7: Appointment Instructions
+
+If the appointment is booked, respond exactly with:
+
+> "Is there anything the patient needs to do or bring to prepare for the appointment?"
+
+<*Wait for customer response*>
+
+Acknowledge and confirm key items.
+
+---
+
+### Step 8: Call Closing
+
+Provide a natural variation of:
+
+> "Thank you for your help. We appreciate it."
+
+Call \`end_call\`.
+
+---
+
+## Hold and Pause Handling
+
+If you are told any of the following:
+
+- "Hold on"
+- "One moment"
+- "Please wait"
+
+Respond exactly with:
+
+> "NO_RESPONSE_NEEDED"
+
+---
+
+## Provider Context
+
+- Clinic / Office Name: {{clinic_name}}
+- Provider Name: {{provider_name}}
+- Provider Address: {{provider_address}}
+- City: {{provider_city}}
+- State: {{provider_state}}
+- Zip Code: {{provider_zip}}
+
+You do not need to confirm the provider name. Assume you reached the correct office unless told otherwise.
+
+If they state you reached the wrong office or company, apologize and Call \`end_call\`.
+
+---
+
+## Patient Data
+
+- Patient Full Name: {{patient_full_name}}
+- Patient Type: {{patient_type}}
+- Date of Birth: {{patient_dob}}
+- Phone Number: {{patient_phone}}
+- Retell Member ID: {{retell_member_id}}
+- Address: {{patient_address}}
+- City: {{patient_city}}
+- State: {{patient_state}}
+- Zip Code: {{patient_zip}}
+- Reason for Visit: {{reason_for_visit}}
+- Urgency Level: {{urgency_level}}
+
+---
+
+## Hold / Pause Handling
+If you are told:
+• "Hold on"
+• "One moment"
+• "Please wait"
+• Or similar
+
+You must respond with exactly:
+NO_RESPONSE_NEEDED`;
+
 export const AGENT_TEMPLATES: AgentTemplate[] = [
   {
     id: 'receptionist',
@@ -802,6 +1085,93 @@ export const AGENT_TEMPLATES: AgentTemplate[] = [
         params: { transferTo: '' },
         edges: [{ id: 'e_transfer_failed', condition: 'the transfer failed or was declined', target: 'live_translation' }],
       },
+    ],
+  },
+  {
+    id: 'ivr-navigation-bot',
+    label: 'IVR Navigation Bot',
+    description: 'Outbound scheduling agent that navigates a clinic\'s IVR, confirms new-patient eligibility, and books an appointment.',
+    category: 'Scheduling',
+    startNodeId: 'ivr_navigation',
+    singlePrompt: IVR_NAVIGATION_BOT_SINGLE_PROMPT,
+    nodes: [
+      {
+        id: 'ivr_navigation',
+        type: 'subflow_ref',
+        params: { _templateSubflowSeed: JSON.stringify(IVR_NAVIGATION_BOT_SUBFLOW_SEED) },
+        edges: [
+          { id: 'e_ivr_reached', condition: 'a live person answered or the IVR reached scheduling', target: 'greeting_gate' },
+          { id: 'e_ivr_wrong', condition: 'the IVR indicated this is the wrong company', target: 'wrong_office_goodbye' },
+        ],
+      },
+      {
+        id: 'greeting_gate',
+        type: 'extraction',
+        prompt:
+          'Say exactly: "Hi, I\'m calling from Retell on behalf of one of our members to schedule an appointment. Are you able to help ' +
+          'with scheduling?" If they say no, note that. If they say yes, say exactly: "Great, thank you. Just a quick note — this call is ' +
+          'being recorded for training and quality purposes. Are you currently accepting new patients?" and wait for their answer.',
+        extract: { can_help_scheduling: 'string', accepting_new_patients: 'string' },
+        edges: [
+          { id: 'e_gate_declined', condition: 'they said they cannot help with scheduling', target: 'declined_goodbye' },
+          { id: 'e_gate_not_accepting', condition: 'they confirmed they are not accepting new patients', target: 'not_accepting_goodbye' },
+          { id: 'e_gate_ok', condition: 'they can help with scheduling and are accepting new patients', target: 'availability_request' },
+        ],
+      },
+      {
+        id: 'availability_request',
+        type: 'extraction',
+        prompt:
+          'Say exactly: "I\'m calling to schedule a {{reason_for_visit}} for {{patient_full_name}}. Can you help with that?" and wait. ' +
+          'If asked for information: date of birth is {{patient_dob}}, Retell member ID is {{retell_member_id}}, phone number is ' +
+          '{{patient_phone}}. If asked for anything you don\'t have (e.g. email), say exactly: "The patient will provide that information ' +
+          'when needed." Never invent or guess data. If they say you reached the wrong office or company, say exactly: "Sorry about that."',
+        extract: { can_schedule_this_visit: 'string' },
+        edges: [
+          { id: 'e_avail_wrong_office', condition: 'they said this is the wrong office or company', target: 'wrong_office_goodbye' },
+          { id: 'e_avail_ok', condition: 'they confirmed they can help schedule this visit', target: 'patient_availability' },
+        ],
+      },
+      {
+        id: 'patient_availability',
+        type: 'extraction',
+        prompt:
+          'Say exactly: "The patient\'s availability is {{patient_availability}}. Do you have any appointments that fit within that time?" ' +
+          'and wait for their answer.',
+        extract: { has_matching_slot: 'string' },
+        edges: [
+          { id: 'e_avail_match', condition: 'an appointment fits the patient\'s availability', target: 'booking_match' },
+          { id: 'e_avail_no_match', condition: 'no appointment fits the patient\'s availability', target: 'booking_no_match' },
+        ],
+      },
+      {
+        id: 'booking_match',
+        type: 'extraction',
+        prompt: 'Confirm the appointment with a natural variation of: "Great. To confirm, the appointment is scheduled for [DATE] at [TIME], correct?" and wait for confirmation.',
+        extract: { appointment_date: 'string', appointment_time: 'string' },
+        edges: [{ id: 'e_booking_confirmed', condition: 'the appointment date and time have been confirmed', target: 'appointment_instructions' }],
+      },
+      {
+        id: 'booking_no_match',
+        type: 'extraction',
+        prompt:
+          'Say exactly: "What are the next one or two available appointment times you can offer?" and wait. Repeat the options back to ' +
+          'confirm accuracy. Then say a natural variation of: "Thank you. I\'ll confirm with the patient which option works best, and ' +
+          'we\'ll call back to finalize scheduling."',
+        extract: { offered_times: 'string' },
+        edges: [{ id: 'e_no_match_done', condition: 'the offered times have been repeated back to confirm', target: 'goodbye' }],
+      },
+      {
+        id: 'appointment_instructions',
+        type: 'extraction',
+        prompt: 'Say exactly: "Is there anything the patient needs to do or bring to prepare for the appointment?" and wait. Acknowledge and confirm key items.',
+        extract: { prep_instructions: 'string' },
+        edges: [{ id: 'e_instructions_done', condition: 'prep instructions have been collected or confirmed there are none', target: 'goodbye' }],
+      },
+      { id: 'goodbye', type: 'goodbye', prompt: 'Say a natural variation of: "Thank you for your help. We appreciate it." and end the call.', edges: [] },
+      { id: 'declined_goodbye', type: 'goodbye', prompt: 'Say exactly: "Okay, thank you." and end the call.', edges: [] },
+      { id: 'not_accepting_goodbye', type: 'goodbye', prompt: 'Say exactly: "Okay, thank you for confirming." and end the call.', edges: [] },
+      { id: 'wrong_office_goodbye', type: 'goodbye', prompt: 'Say a natural variation of: "Sorry about that." and end the call.', edges: [] },
     ],
   },
 ];
