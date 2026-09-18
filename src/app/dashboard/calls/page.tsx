@@ -11,6 +11,12 @@ export default function CallsPage() {
   const [calls, setCalls] = useState<CallLog[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [filter, setFilter] = useState<string>('all');
+  // Default ON — a mystery-shopper call that dials one of our own tenants'
+  // real numbers genuinely exercises that tenant's live agent, so it's
+  // logged and shown by default rather than silently dropped, but it isn't
+  // a real customer contact either. Hidden by default so the common view
+  // stays customer-contacts-only; explicit toggle to reveal test traffic.
+  const [hideInternal, setHideInternal] = useState(true);
 
   useEffect(() => {
     async function loadCalls() {
@@ -30,14 +36,23 @@ export default function CallsPage() {
     loadCalls();
   }, [tenantId, isHydrated]);
 
-  const filteredCalls = filter === 'all' ? calls : calls.filter((call) => call.outcome === filter);
+  const visibleCalls = hideInternal ? calls.filter((call) => !call.is_internal_test) : calls;
+  const filteredCalls = filter === 'all' ? visibleCalls : visibleCalls.filter((call) => call.outcome === filter);
+  const internalCount = calls.filter((call) => call.is_internal_test).length;
   const outcomes = ['all', 'booked', 'answered', 'transferred', 'voicemail', 'abandoned'];
 
   return (
     <>
       <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-[22px] font-semibold text-[#1a1d29]">Call Logs</h1>
-        <div className="flex flex-wrap gap-1.5">
+        <div className="flex flex-wrap items-center gap-3">
+          {internalCount > 0 && (
+            <label className="flex items-center gap-1.5 text-[12.5px] text-gray-500">
+              <input type="checkbox" checked={hideInternal} onChange={(e) => setHideInternal(e.target.checked)} className="rounded" />
+              Hide internal/test calls ({internalCount})
+            </label>
+          )}
+          <div className="flex flex-wrap gap-1.5">
           {outcomes.map((outcome) => (
             <button
               key={outcome}
@@ -49,6 +64,7 @@ export default function CallsPage() {
               {outcome.charAt(0).toUpperCase() + outcome.slice(1)}
             </button>
           ))}
+          </div>
         </div>
       </div>
 
@@ -80,6 +96,9 @@ export default function CallsPage() {
                           <PhoneIcon />
                         </span>
                         {formatPhoneDisplay(call.caller_phone)}
+                        {call.is_internal_test && (
+                          <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[10.5px] font-medium text-gray-500">Test</span>
+                        )}
                       </Link>
                     </td>
                     <td className="px-5 py-3.5 text-gray-500">{formatRelativeTime(call.created_at)}</td>
@@ -101,13 +120,13 @@ export default function CallsPage() {
       </div>
 
       {/* Summary Stats */}
-      {!isLoading && calls.length > 0 && (
+      {!isLoading && visibleCalls.length > 0 && (
         <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-5">
           {outcomes
             .filter((o) => o !== 'all')
             .map((outcome) => {
-              const count = calls.filter((c) => c.outcome === outcome).length;
-              const percentage = Math.round((count / calls.length) * 100);
+              const count = visibleCalls.filter((c) => c.outcome === outcome).length;
+              const percentage = Math.round((count / visibleCalls.length) * 100);
               return (
                 <div key={outcome} className="rounded-xl border border-gray-200 bg-white p-4">
                   <p className="text-[12px] capitalize text-gray-500">{outcome}</p>

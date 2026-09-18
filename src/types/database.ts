@@ -200,6 +200,7 @@ export interface Database {
           voice_engine: string | null
           to_number: string | null
           direction: string | null
+          is_internal_test: boolean
         }
         Insert: {
           id?: string
@@ -222,6 +223,7 @@ export interface Database {
           voice_engine?: string | null
           to_number?: string | null
           direction?: string | null
+          is_internal_test?: boolean
         }
         Update: {
           id?: string
@@ -244,6 +246,7 @@ export interface Database {
           voice_engine?: string | null
           to_number?: string | null
           direction?: string | null
+          is_internal_test?: boolean
         }
       }
       bookings: {
