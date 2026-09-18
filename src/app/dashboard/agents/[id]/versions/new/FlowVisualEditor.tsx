@@ -18,6 +18,7 @@ import {
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import type { FlowNode, StructuredCondition } from '@/types';
+import { renderMiniMarkdown } from '@/lib/miniMarkdown';
 
 type DraftNode = FlowNode & { _key: string };
 
@@ -142,7 +143,7 @@ function FlowNodeCard({ data }: NodeProps) {
           {node.type.replace('_', ' ')}
         </span>
         {node.prompt && (
-          <p className="mt-2.5 whitespace-pre-wrap text-[12.5px] leading-relaxed text-gray-600">{node.prompt}</p>
+          <div className="mt-2.5 text-[12.5px] leading-relaxed text-gray-600">{renderMiniMarkdown(node.prompt)}</div>
         )}
         {node.extract && Object.keys(node.extract).length > 0 && (
           <div className="mt-2.5 flex flex-wrap gap-1">
@@ -158,6 +159,19 @@ function FlowNodeCard({ data }: NodeProps) {
                 <span className="font-medium text-gray-500">{key}:</span> {String(value)}
               </p>
             ))}
+          </div>
+        )}
+        {node.edges.length > 0 && (
+          <div className="mt-2.5 border-t border-gray-100 pt-2">
+            <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-gray-400">Transition</p>
+            <div className="space-y-1">
+              {node.edges.map((edge) => (
+                <p key={edge.id} className="flex items-start gap-1.5 text-[11px] text-gray-500">
+                  <span className="mt-0.5 flex-none text-gray-300">≡</span>
+                  <span className="line-clamp-2">{conditionLabel(edge.condition)} <span className="text-gray-300">→</span> <span className="font-mono">{edge.target || '?'}</span></span>
+                </p>
+              ))}
+            </div>
           </div>
         )}
       </div>

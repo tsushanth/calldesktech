@@ -7,6 +7,8 @@ import { api } from '@/lib/api';
 import type { RetellVoice } from '@/lib/retell';
 import type { Agent, AgentVersion, FlowNode, FlowEdge, StructuredCondition, TtsBackend } from '@/types';
 import { AGENT_TEMPLATES } from '@/lib/agentTemplates';
+import { estimatePocCallCost } from '@/lib/costEstimate';
+import { renderMiniMarkdown } from '@/lib/miniMarkdown';
 import FlowVisualEditor from './versions/new/FlowVisualEditor';
 
 type DraftNode = FlowNode & { _key: string };
@@ -626,6 +628,27 @@ export default function AgentBuilderPage() {
                     </div>
                   </>
                 )}
+
+                <div className="mt-auto space-y-2 border-t border-gray-100 pt-3">
+                  <p className="px-1 text-[11px] font-medium uppercase tracking-wide text-gray-400">Agent details</p>
+                  {voiceEngine === 'poc' ? (
+                    <>
+                      <div className="flex items-center justify-between px-1 text-[12.5px]">
+                        <span className="text-gray-500">Cost</span>
+                        <span className="font-medium text-[#1a1d29]">${estimatePocCallCost(ttsBackend || 'kokoro').costPerMin.toFixed(3)}/min</span>
+                      </div>
+                      <div className="flex items-center justify-between px-1 text-[12.5px]">
+                        <span className="text-gray-500">Latency</span>
+                        <span className="font-medium text-[#1a1d29]">
+                          {estimatePocCallCost(ttsBackend || 'kokoro').latencyRangeMs[0]}-{estimatePocCallCost(ttsBackend || 'kokoro').latencyRangeMs[1]}ms
+                        </span>
+                      </div>
+                      <p className="px-1 text-[10.5px] text-gray-400">Estimated from a typical minute of conversation, not this call&apos;s actual usage.</p>
+                    </>
+                  ) : (
+                    <p className="px-1 text-[11.5px] text-gray-400">Retell-engine cost/latency is governed by Retell&apos;s own usage-based pricing — see their dashboard, not estimated here.</p>
+                  )}
+                </div>
               </div>
 
               {/* Canvas / single-prompt textarea */}
