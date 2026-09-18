@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { getSupabaseAdmin } from '@/lib/supabase';
 import { getRetellClient } from '@/lib/retell';
+import { acquireTokenBlocking, RETELL_GLOBAL, RETELL_TENANT, TWILIO_TENANT } from '@/lib/rateLimiter';
 
 // POST /api/batch-calls/[id]/run — actually places the batch. Walks the
 // batch's pending targets IN ORDER and dials each one. A number that can't be
@@ -142,6 +143,18 @@ export async function POST(
   // No Promise.all here.
   for (const target of targets || []) {
     try {
+      // Per-tenant pacing regardless of engine — see rateLimiter.ts and
+      // migration 023 for why this AND a global cap are both needed (Twilio/
+      // Retell are each one account shared across every tenant, so a
+      // per-tenant limiter alone can't stop two tenants' batches together
+      // exceeding the real account-level limit; the global cap for that is
+      // enforced at the actual dial choke point — inside call-loop-poc for
+      // Twilio, right below for Retell).
+      const tenantKey = `${isPoc ? 'twilio' : 'retell'}-tenant-${batch.tenant_id}`;
+      const tenantConfig = isPoc ? TWILIO_TENANT : RETELL_TENANT;
+      const gotTenantToken = await acquireTokenBlocking(tenantKey, tenantConfig);
+      if (!gotTenantToken) throw new Error('Rate limit wait timed out for this tenant');
+
       let callLogId: string | null = null;
 
       if (isPoc) {
@@ -159,6 +172,8 @@ export async function POST(
         const body = await res.json();
         if (!res.ok) throw new Error(body.error || 'call-loop-poc rejected the call');
       } else {
+        const gotGlobalToken = await acquireTokenBlocking('retell-global', RETELL_GLOBAL);
+        if (!gotGlobalToken) throw new Error('Rate limit wait timed out (platform-wide Retell cap)');
         const { call_id } = await retell!.createPhoneCall({
           fromNumber,
           toNumber: target.phone_number,
