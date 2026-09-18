@@ -366,6 +366,13 @@ class ApiClient {
     return body;
   }
 
+  async getQaOverview(tenantId: string, days: 7 | 30 | 90 = 30): Promise<QaOverviewResponse> {
+    const res = await fetch(`/api/tenants/${tenantId}/qa/overview?days=${days}`);
+    const body = await res.json();
+    if (!res.ok) throw new ApiError(body.error || 'Failed to load QA overview');
+    return body;
+  }
+
   // Bookings - Direct Supabase queries
   async getBookings(tenantId: string, limit = 50): Promise<Booking[]> {
     const supabase = this.getSupabaseClient();
@@ -461,6 +468,16 @@ export interface AnalyticsResponse {
   duration: Array<{ date: string; avgDuration: number | null }>;
   outcomes: Array<{ outcome: CallOutcome; count: number }>;
   byHour: Array<{ hour: number; calls: number }>;
+}
+
+export interface QaOverviewResponse {
+  windowDays: number;
+  totalCalls: number;
+  completedQa: number;
+  avgScore: number | null;
+  resolutionRate: number | null;
+  avgScoreSeries: Array<{ date: string; avgScore: number | null }>;
+  resolutionRateSeries: Array<{ date: string; resolutionRate: number | null }>;
 }
 
 // Custom error class
