@@ -239,11 +239,50 @@ export default function AgentBuilderPage() {
     );
   };
 
+  // Mirrors materializeTemplateSubflows — a knowledge_base template node
+  // carries its FAQ content inline (params._templateKnowledgeBaseSeed)
+  // since the KB doesn't exist as a tenant+agent row until now. Creates a
+  // real calldesk_knowledge_bases row (source_type: 'manual', agent_id set
+  // — see the real bug fixed in /api/tenants/[id]/knowledge-bases/route.ts,
+  // agent_id was never being set anywhere before this) plus its items, and
+  // rewrites the node to reference the real knowledgeBaseId.
+  const materializeTemplateKnowledgeBases = async (templateNodes: FlowNode[]): Promise<FlowNode[]> => {
+    if (!agent) return templateNodes;
+    return Promise.all(
+      templateNodes.map(async (node) => {
+        const seedJson = node.params?._templateKnowledgeBaseSeed;
+        if (node.type !== 'knowledge_base' || !seedJson) return node;
+        try {
+          const seed = JSON.parse(seedJson) as { name: string; items: { question: string; answer: string }[] };
+          const kbRes = await fetch(`/api/tenants/${agent.tenant_id}/knowledge-bases`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name: seed.name, source_type: 'manual', agent_id: agentId }),
+          });
+          const kbBody = await kbRes.json();
+          if (!kbRes.ok) throw new Error(kbBody.error);
+          const knowledgeBaseId = kbBody.knowledgeBase.id;
+          const itemsRes = await fetch(`/api/knowledge-bases/${knowledgeBaseId}/items`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ items: seed.items }),
+          });
+          if (!itemsRes.ok) throw new Error((await itemsRes.json()).error);
+          return { ...node, params: { knowledgeBaseId } };
+        } catch (err) {
+          console.error('Failed to materialize template knowledge base', err);
+          return node; // falls back to an unconfigured knowledge_base node — still editable by hand
+        }
+      })
+    );
+  };
+
   const applyTemplate = async (templateId: string) => {
     const template = AGENT_TEMPLATES.find((t) => t.id === templateId);
     if (!template) return;
     setAgentType('conversational_flow');
-    const materializedNodes = await materializeTemplateSubflows(template.nodes);
+    const withSubflows = await materializeTemplateSubflows(template.nodes);
+    const materializedNodes = await materializeTemplateKnowledgeBases(withSubflows);
     setNodes(draftNodesFromTemplate(materializedNodes));
     setStartNodeId(template.startNodeId);
     setAppliedTemplateId(template.id);

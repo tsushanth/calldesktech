@@ -2,6 +2,34 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/supabase';
 import { getRetellClient } from '@/lib/retell';
 
+// Attaches (or re-attaches) this KB to an agent — required for a
+// knowledge_base node to ever see its content (see the agent_id comment in
+// tenants/[id]/knowledge-bases/route.ts's POST). Also the only way an
+// existing, already-created KB can be bound after the fact, since the
+// dashboard's Knowledge page has no agent picker yet.
+export async function PATCH(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const { id: knowledgeBaseId } = await params;
+  const supabase = getSupabaseAdmin();
+  const body = await request.json();
+  const updates: Record<string, unknown> = {};
+  if ('agent_id' in body) updates.agent_id = body.agent_id || null;
+  if (body.name !== undefined) updates.name = body.name;
+  if (Object.keys(updates).length === 0) {
+    return NextResponse.json({ error: 'No updatable fields provided' }, { status: 400 });
+  }
+  const { data, error } = await supabase
+    .from('calldesk_knowledge_bases')
+    .update(updates)
+    .eq('id', knowledgeBaseId)
+    .select()
+    .single();
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  return NextResponse.json({ knowledgeBase: data });
+}
+
 // DELETE a knowledge base. calldesk_knowledge_items has ON DELETE CASCADE
 // on knowledge_base_id (see supabase/migrations/004_...), so deleting the
 // row here also removes its items — no separate items cleanup needed.

@@ -55,6 +55,17 @@ export interface TemplateSubflowSeed {
   startNodeId: string;
 }
 
+// A knowledge_base node's referenced KB doesn't exist yet at template
+// definition time either, same reasoning as subflows — a template embeds
+// the FAQ content directly via this seed, and applyTemplate creates a real
+// tenant+agent-scoped calldesk_knowledge_bases row (source_type: 'manual')
+// plus its items, then rewrites the node's params to a real
+// knowledgeBaseId (see materializeTemplateKnowledgeBases).
+export interface TemplateKnowledgeBaseSeed {
+  name: string;
+  items: { question: string; answer: string }[];
+}
+
 // The IVR-navigation portion of Insurance Verification Caller, factored out
 // as a subflow — matches Retell's own template, where this exact block
 // ("IVR Navigation And Provider Auth") is a reusable Agent Subflow rather
@@ -961,6 +972,133 @@ Provide a natural variation of:
 
 - If yes, go to "## Human Transfer Treatment"`;
 
+const SUPPORT_TRIAGE_BOT_KB_SEED: TemplateKnowledgeBaseSeed = {
+  name: 'Windows OS Support FAQ',
+  items: [
+    { question: 'How do I check my Windows version?', answer: 'Press Windows + R, type winver, and press Enter. A window will display your Windows version and build number.' },
+    { question: 'How do I activate Windows?', answer: 'Go to Settings → System → Activation, then enter your product key or sign in with the Microsoft account linked to your license.' },
+    { question: 'How do I create a new user account?', answer: 'Navigate to Settings → Accounts → Family & other users → Add account, then follow the prompts to set up a new user.' },
+    { question: 'How do I change my password or PIN?', answer: 'Go to Settings → Accounts → Sign-in options, then choose Password or PIN and follow the instructions.' },
+    { question: 'How do I take a screenshot?', answer: 'Press Windows + Shift + S to open the Snipping Tool and select the area you want to capture.' },
+    { question: 'How do I check for Windows updates?', answer: 'Open Settings → Windows Update, then click Check for updates.' },
+    { question: 'Why is my Windows update stuck or failing?', answer: 'Restart your computer, ensure you have a stable internet connection, and run the Windows Update Troubleshooter from Settings.' },
+    { question: 'How do I upgrade to Windows 11?', answer: 'Go to Settings → Windows Update and check if your device is eligible. If so, you\'ll see an option to download and install.' },
+    { question: 'How do I roll back to a previous Windows version?', answer: 'Navigate to Settings → System → Recovery → Go back, if the rollback option is still available.' },
+    { question: 'Why is my computer running slow?', answer: 'Open Task Manager (Ctrl + Shift + Esc) to check resource usage, disable unnecessary startup apps, and run Disk Cleanup.' },
+    { question: 'How do I free up disk space?', answer: 'Go to Settings → System → Storage → Temporary files, select items you want to remove, then click Remove files.' },
+    { question: 'How do I fix apps that keep crashing?', answer: 'Try updating the app, reinstalling it, or running the Windows Troubleshooter.' },
+    { question: 'How do I restart or shut down my computer?', answer: 'Click Start → Power, then choose Restart or Shut down.' },
+    { question: "What should I do if Windows won't boot?", answer: 'Restart your PC multiple times to enter Advanced Startup, then use Startup Repair or System Restore.' },
+    { question: 'How do I connect to Wi-Fi?', answer: 'Click the network icon on the taskbar, select your Wi-Fi network, and enter the password.' },
+    { question: "Why is my internet not working?", answer: 'Restart your modem/router and computer, run the Network Troubleshooter, and ensure airplane mode is turned off.' },
+    { question: 'How do I run a virus scan?', answer: 'Open Windows Security → Virus & threat protection, then click Quick scan.' },
+    { question: 'How do I enable firewall protection?', answer: 'Go to Windows Security → Firewall & network protection, then turn on the firewall for your active network.' },
+    { question: 'How do I back up my files?', answer: 'Enable Windows Backup or File History from Settings → Accounts or Settings → System → Storage → Advanced backup options.' },
+    { question: 'How do I restore deleted files?', answer: 'Open the Recycle Bin, locate the file, right-click it, and select Restore. If unavailable, restore from backup.' },
+  ],
+};
+
+const SUPPORT_TRIAGE_BOT_SINGLE_PROMPT = `## Role
+
+You are Anna, a Windows OS Support Agent. Your job is to help customers troubleshoot issues on Windows devices by guiding them step-by-step through solutions using the knowledge from FAQ sections.
+
+
+## Troubleshooting Response Guidelines
+### ONE ACTION PER MESSAGE (CRITICAL)
+This is the most important rule. Violating it = failure.
+
+- **NEVER combine actions.** Each message = ONE instruction OR ONE question.
+- **ALWAYS wait for customer response before proceeding to the next step.**
+- **Numbered steps in this prompt are sequential** — deliver ONE step, wait for response, then deliver the next. Never output multiple steps at once.
+
+## Escalation
+
+If the patient requests to speak with a human, asks for another department, or appears frustrated or angry, Call \`transfer_call\`.
+
+## FAQ Knowledge Base
+
+### Getting Started
+
+**Q: How do I check my Windows version?**
+A: Press **Windows + R**, type \`winver\`, and press Enter. A window will display your Windows version and build number.
+
+**Q: How do I activate Windows?**
+A: Go to **Settings → System → Activation**, then enter your product key or sign in with the Microsoft account linked to your license.
+
+**Q: How do I create a new user account?**
+A: Navigate to **Settings → Accounts → Family & other users → Add account**, then follow the prompts to set up a new user.
+
+**Q: How do I change my password or PIN?**
+A: Go to **Settings → Accounts → Sign-in options**, then choose Password or PIN and follow the instructions.
+
+**Q: How do I take a screenshot?**
+A: Press **Windows + Shift + S** to open the Snipping Tool and select the area you want to capture.
+
+---
+
+### Updates And Installation
+
+**Q: How do I check for Windows updates?**
+A: Open **Settings → Windows Update**, then click **Check for updates**.
+
+**Q: Why is my Windows update stuck or failing?**
+A: Restart your computer, ensure you have a stable internet connection, and run the **Windows Update Troubleshooter** from Settings.
+
+**Q: How do I upgrade to Windows 11?**
+A: Go to **Settings → Windows Update** and check if your device is eligible. If so, you'll see an option to download and install.
+
+**Q: How do I roll back to a previous Windows version?**
+A: Navigate to **Settings → System → Recovery → Go back**, if the rollback option is still available.
+
+---
+
+### Performance And Troubleshooting
+
+**Q: Why is my computer running slow?**
+A: Open **Task Manager (Ctrl + Shift + Esc)** to check resource usage, disable unnecessary startup apps, and run Disk Cleanup.
+
+**Q: How do I free up disk space?**
+A: Go to **Settings → System → Storage → Temporary files**, select items you want to remove, then click **Remove files**.
+
+**Q: How do I fix apps that keep crashing?**
+A: Try updating the app, reinstalling it, or running the **Windows Troubleshooter**.
+
+**Q: How do I restart or shut down my computer?**
+A: Click **Start → Power**, then choose **Restart** or **Shut down**.
+
+**Q: What should I do if Windows won't boot?**
+A: Restart your PC multiple times to enter **Advanced Startup**, then use **Startup Repair** or **System Restore**.
+
+---
+
+### Network And Connectivity
+
+**Q: How do I connect to Wi-Fi?**
+A: Click the **network icon** on the taskbar, select your Wi-Fi network, and enter the password.
+
+**Q: Why is my internet not working?**
+A: Restart your modem/router and computer, run the **Network Troubleshooter**, and ensure airplane mode is turned off.
+
+---
+
+### Security And Privacy
+
+**Q: How do I run a virus scan?**
+A: Open **Windows Security → Virus & threat protection**, then click **Quick scan**.
+
+**Q: How do I enable firewall protection?**
+A: Go to **Windows Security → Firewall & network protection**, then turn on the firewall for your active network.
+
+---
+
+### Files And Backup
+
+**Q: How do I back up my files?**
+A: Enable **Windows Backup** or **File History** from **Settings → Accounts** or **Settings → System → Storage → Advanced backup options**.
+
+**Q: How do I restore deleted files?**
+A: Open the **Recycle Bin**, locate the file, right-click it, and select **Restore**. If unavailable, restore from backup.`;
+
 export const AGENT_TEMPLATES: AgentTemplate[] = [
   {
     id: 'receptionist',
@@ -1602,6 +1740,43 @@ export const AGENT_TEMPLATES: AgentTemplate[] = [
         type: 'subflow_ref',
         params: { _templateSubflowSeed: JSON.stringify(HUMAN_TRANSFER_TREATMENT_SUBFLOW_SEED) },
         edges: [], // always ends the call itself (transfer or after-hours goodbye) — nothing to hand back to
+      },
+    ],
+  },
+  {
+    // Structurally the simplest yet — one self-looping knowledge_base node
+    // (same self-loop shape as Live Call Translator) backed by a REAL
+    // FAQ knowledge base, not inline prompt text. Building this one
+    // surfaced a genuine pre-existing bug: calldesk_knowledge_bases.agent_id
+    // was never set anywhere in the codebase, so every knowledge_base node
+    // for every poc-engine tenant has silently run with zero KB content
+    // since that node type shipped — see the fix in
+    // /api/tenants/[id]/knowledge-bases/route.ts and the new PATCH on
+    // /api/knowledge-bases/[id]/route.ts.
+    id: 'support-triage-bot',
+    label: 'Support Triage Bot',
+    description: 'Windows OS support agent that walks callers through FAQ troubleshooting steps one at a time, escalating on request or frustration.',
+    category: 'Support',
+    startNodeId: 'triage',
+    singlePrompt: SUPPORT_TRIAGE_BOT_SINGLE_PROMPT,
+    nodes: [
+      {
+        id: 'triage',
+        type: 'knowledge_base',
+        prompt:
+          'You are Anna, a Windows OS Support Agent. Help the caller troubleshoot using the FAQ knowledge base content provided. ONE ' +
+          'ACTION PER MESSAGE — this is critical: never combine steps, never ask more than one question at once. Always wait for the ' +
+          "caller's response before giving the next step. If the FAQ has multiple steps for an issue, deliver them one at a time in " +
+          "order. If nothing in the knowledge base matches, say you're not sure and offer to have someone follow up.",
+        params: { _templateKnowledgeBaseSeed: JSON.stringify(SUPPORT_TRIAGE_BOT_KB_SEED) },
+        edges: [{ id: 'e_to_transfer', condition: 'the caller asks for a human, asks for another department, or seems frustrated or angry', target: 'transfer_call' }],
+      },
+      {
+        id: 'transfer_call',
+        type: 'transfer',
+        prompt: "Let the caller know you're connecting them to someone who can help now.",
+        params: { transferTo: '' },
+        edges: [],
       },
     ],
   },

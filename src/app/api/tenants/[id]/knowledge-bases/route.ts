@@ -51,7 +51,18 @@ export async function POST(
   const { id: tenantId } = await params;
   const supabase = getSupabaseAdmin();
   const body = await request.json();
-  const { name, source_type: sourceType, source_url: sourceUrl } = body;
+  // Real bug found 2026-09-18: calldesk_knowledge_bases has an agent_id
+  // column, and call-loop-poc's attachKnowledgeBaseIds REQUIRES it
+  // (queries agent_id=eq.<agentId>) to resolve a knowledge_base node's
+  // actual content at call time — but nothing in this route (or anywhere
+  // else in the codebase) ever set it. Every knowledge_base node for every
+  // poc-engine tenant has silently run with zero KB content since this
+  // node type shipped; attachKnowledgeBaseIds' own fallback (no match ->
+  // return nodes unchanged) meant this failed completely silently, no
+  // error surfaced anywhere. agentId is optional here (a KB can still be
+  // created unattached, e.g. from a future tenant-wide library view) but
+  // must be set for any knowledge_base node to actually see its content.
+  const { name, source_type: sourceType, source_url: sourceUrl, agent_id: agentId } = body;
 
   const { data: tenant, error: tenantError } = await supabase
     .from('calldesk_tenants')
@@ -86,7 +97,7 @@ export async function POST(
 
   const { data: knowledgeBase, error } = await supabase
     .from('calldesk_knowledge_bases')
-    .insert({ name, source_type: sourceType, source_url: sourceUrl, retell_kb_id: retellKbId, tenant_id: tenantId })
+    .insert({ name, source_type: sourceType, source_url: sourceUrl, retell_kb_id: retellKbId, tenant_id: tenantId, agent_id: agentId || null })
     .select()
     .single();
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
