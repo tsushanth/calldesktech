@@ -5,7 +5,7 @@ import { useParams, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { api } from '@/lib/api';
 import type { RetellVoice } from '@/lib/retell';
-import type { Agent, AgentVersion, FlowNode, FlowEdge, StructuredCondition, TtsBackend } from '@/types';
+import type { Agent, AgentVersion, FlowNode, FlowEdge, StructuredCondition, TtsBackend, Subflow } from '@/types';
 import { AGENT_TEMPLATES } from '@/lib/agentTemplates';
 import { estimatePocCallCost } from '@/lib/costEstimate';
 import { renderMiniMarkdown } from '@/lib/miniMarkdown';
@@ -37,6 +37,7 @@ const NODE_TYPES: { type: FlowNode['type']; label: string }[] = [
   { type: 'knowledge_base', label: 'Knowledge Base' },
   { type: 'payment', label: 'Payment' },
   { type: 'goodbye', label: 'Ending' },
+  { type: 'subflow_ref', label: 'Subflow' },
 ];
 
 const CONDITION_OPERATORS: StructuredCondition['operator'][] = ['==', '!=', '>', '<', '>=', '<='];
@@ -64,6 +65,7 @@ export default function AgentBuilderPage() {
   const [isGraduating, setIsGraduating] = useState(false);
   const [showVersionHistory, setShowVersionHistory] = useState(false);
   const [versions, setVersions] = useState<AgentVersion[]>([]);
+  const [subflows, setSubflows] = useState<Subflow[]>([]);
 
   const loadAgent = useCallback(async () => {
     try {
@@ -75,6 +77,13 @@ export default function AgentBuilderPage() {
       if (agentRes.ok) setAgent(agentBody.agent);
       const versionsBody = await versionsRes.json();
       if (versionsRes.ok) setVersions(versionsBody.versions || []);
+      // Subflows are tenant-scoped (library) + agent-scoped, so this needs
+      // the tenant id off the agent row we just fetched, not agentId alone.
+      if (agentRes.ok && agentBody.agent?.tenant_id) {
+        const sfRes = await fetch(`/api/tenants/${agentBody.agent.tenant_id}/subflows?agentId=${agentId}`);
+        const sfBody = await sfRes.json();
+        if (sfRes.ok) setSubflows(sfBody.subflows || []);
+      }
     } catch {
       // Non-fatal — the builder below still works off its own version fetch.
     }
@@ -266,6 +275,36 @@ export default function AgentBuilderPage() {
     setNodes((prev) => [...prev, node]);
     setSelectedKey(node._key);
     setRightTab('node');
+  };
+
+  // Creates a real (empty, single-node) subflow row so a subflow_ref node
+  // has something to point at right away — the user then fills it in via
+  // "Edit" (which opens /dashboard/agents/[id]/subflows/[subflowId]).
+  // scope='agent' by default; promoting to a library subflow is a PATCH from
+  // that same page, not something this quick-create flow needs to expose.
+  const handleCreateSubflow = async (name: string): Promise<Subflow | null> => {
+    if (!agent) return null;
+    const startId = `n${Date.now()}`;
+    try {
+      const res = await fetch(`/api/tenants/${agent.tenant_id}/subflows`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          agentId,
+          scope: 'agent',
+          name: name || 'New subflow',
+          nodes: [{ id: startId, type: 'greeting', prompt: '', edges: [] }],
+          startNodeId: startId,
+        }),
+      });
+      const body = await res.json();
+      if (!res.ok) throw new Error(body.error);
+      setSubflows((prev) => [body.subflow, ...prev]);
+      return body.subflow as Subflow;
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to create subflow');
+      return null;
+    }
   };
 
   const updateEdge = (nodeKey: string, edgeIndex: number, patch: Partial<FlowEdge>) => {
@@ -843,6 +882,8 @@ export default function AgentBuilderPage() {
                       onAddExtractField={() => addExtractField(selectedNode._key)}
                       onUpdateExtractField={(oldKey, newKey, type) => updateExtractField(selectedNode._key, oldKey, newKey, type)}
                       onRemoveExtractField={(key) => removeExtractField(selectedNode._key, key)}
+                      subflows={subflows}
+                      onCreateSubflow={handleCreateSubflow}
                     />
                   ) : (
                     <p className="text-[13px] text-gray-400">Select a node on the canvas to edit it, or add one from the left panel.</p>
@@ -910,6 +951,8 @@ function NodeSettingsPanel({
   onAddExtractField,
   onUpdateExtractField,
   onRemoveExtractField,
+  subflows,
+  onCreateSubflow,
 }: {
   node: DraftNode;
   allNodes: DraftNode[];
@@ -921,6 +964,8 @@ function NodeSettingsPanel({
   onAddExtractField: () => void;
   onUpdateExtractField: (oldKey: string, newKey: string, type: string) => void;
   onRemoveExtractField: (key: string) => void;
+  subflows?: Subflow[];
+  onCreateSubflow?: (name: string) => Promise<Subflow | null>;
 }) {
   return (
     <div className="space-y-4">
@@ -1051,6 +1096,10 @@ function NodeSettingsPanel({
         </div>
       )}
 
+      {node.type === 'subflow_ref' && (
+        <SubflowRefFields node={node} onUpdate={onUpdate} subflows={subflows || []} onCreateSubflow={onCreateSubflow} />
+      )}
+
       {node.type !== 'logic_split' && node.type !== 'press_digit' && (
         <div className="space-y-3 border-t border-gray-100 pt-3">
           <div>
@@ -1133,6 +1182,74 @@ function NodeSettingsPanel({
       <div className="border-t border-gray-100 pt-3">
         <button onClick={onRemove} className="text-[12.5px] font-medium text-red-500 hover:text-red-600">Remove node</button>
       </div>
+    </div>
+  );
+}
+
+// A subflow_ref node's only real config is which subflow it points at —
+// everything else about it (its edges/conditions) is defined on THIS node
+// exactly like any other node's edges, and doubles as the subflow's exit
+// paths once execution returns from inside it (see call-loop-poc's
+// _enterSubflow/_applyTransition — the subflow's own terminal nodes hand
+// control back to this node's real edges, not a synthetic "return").
+function SubflowRefFields({
+  node,
+  onUpdate,
+  subflows,
+  onCreateSubflow,
+}: {
+  node: DraftNode;
+  onUpdate: (patch: Partial<DraftNode>) => void;
+  subflows: Subflow[];
+  onCreateSubflow?: (name: string) => Promise<Subflow | null>;
+}) {
+  const [isCreating, setIsCreating] = useState(false);
+  const selected = subflows.find((s) => s.id === node.params?.subflowId);
+
+  const handleCreate = async () => {
+    if (!onCreateSubflow) return;
+    setIsCreating(true);
+    try {
+      const created = await onCreateSubflow(`Subflow for ${node.id || 'node'}`);
+      if (created) onUpdate({ params: { ...node.params, subflowId: created.id } });
+    } finally {
+      setIsCreating(false);
+    }
+  };
+
+  return (
+    <div className="space-y-3">
+      <div>
+        <label className="mb-1 block text-[12px] font-medium text-gray-500">Subflow</label>
+        <div className="flex gap-2">
+          <select
+            value={node.params?.subflowId || ''}
+            onChange={(e) => onUpdate({ params: { ...node.params, subflowId: e.target.value } })}
+            className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-[12.5px] focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100"
+          >
+            <option value="">Select a subflow…</option>
+            {subflows.map((s) => (
+              <option key={s.id} value={s.id}>{s.name} ({s.nodes.length} nodes{s.scope === 'library' ? ' — library' : ''})</option>
+            ))}
+          </select>
+          <button type="button" onClick={handleCreate} disabled={isCreating} className="shrink-0 rounded-lg border border-gray-200 px-3 py-2 text-[12.5px] font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-40">
+            {isCreating ? 'Creating…' : '+ New'}
+          </button>
+        </div>
+      </div>
+      {selected && (
+        <a
+          href={`/dashboard/subflows/${selected.id}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-block text-[12.5px] font-medium text-blue-600 hover:text-blue-700"
+        >
+          Edit &ldquo;{selected.name}&rdquo; ({selected.nodes.length} node{selected.nodes.length === 1 ? '' : 's'}) →
+        </a>
+      )}
+      {!node.params?.subflowId && (
+        <p className="text-[12px] text-amber-600">Pick or create a subflow — this node won&apos;t do anything until it references one.</p>
+      )}
     </div>
   );
 }

@@ -3,6 +3,57 @@ import { getSupabaseAdmin } from '@/lib/supabase';
 import { syncVoicePriceForTenant } from '@/lib/stripe';
 import type { FlowNode, TtsBackend } from '@/types';
 
+// For every 'subflow_ref' node, snapshot the referenced subflow's current
+// nodes straight into that node's own params — server.js executes purely
+// off this embedded snapshot at call time, never a live subflow lookup, so
+// editing or deleting a subflow later can't break an already-published
+// version. Node ids are prefixed per subflow_ref instance
+// (__sf_{subflowRefNodeId}__{originalId}) so two different subflow_ref
+// nodes — or a subflow node id that happens to collide with a parent-flow
+// node id — never collide inside the one published flow's combined id
+// space; edge targets are rewritten to match.
+async function embedSubflowSnapshots(
+  nodes: FlowNode[],
+  tenantId: string
+): Promise<{ nodes: FlowNode[]; error?: string }> {
+  const refNodes = nodes.filter((n) => n.type === 'subflow_ref' && n.params?.subflowId);
+  if (refNodes.length === 0) return { nodes };
+
+  const supabase = getSupabaseAdmin();
+  const subflowIds = [...new Set(refNodes.map((n) => n.params!.subflowId))];
+  const { data: subflows, error } = await supabase
+    .from('calldesk_subflows')
+    .select('*')
+    .eq('tenant_id', tenantId)
+    .in('id', subflowIds);
+  if (error) return { nodes, error: error.message };
+
+  const byId = new Map((subflows || []).map((s) => [s.id, s]));
+  const result = nodes.map((node) => {
+    if (node.type !== 'subflow_ref' || !node.params?.subflowId) return node;
+    const subflow = byId.get(node.params.subflowId);
+    if (!subflow || !Array.isArray(subflow.nodes) || subflow.nodes.length === 0 || !subflow.start_node_id) {
+      return node;
+    }
+    const prefix = `__sf_${node.id}__`;
+    const rewriteId = (id: string) => `${prefix}${id}`;
+    const embeddedNodes = (subflow.nodes as FlowNode[]).map((n: FlowNode) => ({
+      ...n,
+      id: rewriteId(n.id),
+      edges: n.edges.map((e) => ({ ...e, target: rewriteId(e.target) })),
+    }));
+    return {
+      ...node,
+      params: {
+        ...node.params,
+        subflowNodes: JSON.stringify(embeddedNodes),
+        subflowStartNodeId: rewriteId(subflow.start_node_id),
+      },
+    };
+  });
+  return { nodes: result };
+}
+
 // GET /api/agents/[id]/versions — list an agent's versions, newest first
 export async function GET(
   _request: NextRequest,
@@ -85,13 +136,16 @@ export async function POST(
     return NextResponse.json({ error: agentError?.message || 'Agent not found' }, { status: 404 });
   }
 
+  const { nodes: embeddedNodes, error: embedError } = await embedSubflowSnapshots(nodes, agent.tenant_id);
+  if (embedError) return NextResponse.json({ error: embedError }, { status: 500 });
+
   const { data: flow, error: flowError } = await supabase
     .from('calldesk_conversation_flows')
     .insert({
       tenant_id: agent.tenant_id,
       agent_id: agentId,
       name: flowName,
-      nodes,
+      nodes: embeddedNodes,
       global_settings: { allowInterruptions: true, returnToFlow: true, startNodeId, ...globalSettings },
       is_active: false,
     })

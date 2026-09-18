@@ -14,7 +14,7 @@ export interface Tenant {
 // Conversation Flow Types
 export interface FlowNode {
   id: string;
-  type: 'greeting' | 'extraction' | 'function' | 'knowledge_base' | 'transfer' | 'goodbye' | 'payment' | 'logic_split' | 'press_digit' | 'sms' | 'code' | 'mcp' | 'subagent';
+  type: 'greeting' | 'extraction' | 'function' | 'knowledge_base' | 'transfer' | 'goodbye' | 'payment' | 'logic_split' | 'press_digit' | 'sms' | 'code' | 'mcp' | 'subagent' | 'subflow_ref';
   // Optional only for 'logic_split' and 'press_digit' — neither speaks or
   // calls the LLM (call-loop-poc's server.js routes them in code: logic_split
   // from collectedData, press_digit via a real DTMF-tone detour), so
@@ -22,9 +22,32 @@ export interface FlowNode {
   prompt?: string;
   extract?: Record<string, string>;
   function?: string;
+  // 'subflow_ref' params: subflowId (the referenced calldesk_subflows row),
+  // plus subflowNodes/subflowStartNodeId which are populated at PUBLISH time
+  // by embedding a snapshot of the referenced subflow's own nodes (see
+  // publishSubflowRefs in versions/route.ts) — server.js executes purely off
+  // that embedded snapshot, never a live subflow lookup, so a flow keeps
+  // working even if the subflow is edited or deleted later.
   params?: Record<string, string>;
   edges: FlowEdge[];
   position?: { x: number; y: number };
+}
+
+// A reusable sub-graph of nodes, editable independently of any one flow and
+// embeddable into a 'subflow_ref' node. 'library' scope is reusable across
+// every agent in the tenant; 'agent' scope is visible only to the one agent
+// that created it — matches the two tiers Retell's own UI exposes
+// ("Agent Subflows" vs "Library Subflows").
+export interface Subflow {
+  id: string;
+  tenantId: string;
+  agentId: string | null; // null for library-scoped subflows
+  scope: 'agent' | 'library';
+  name: string;
+  nodes: FlowNode[];
+  startNodeId: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
 // A 'logic_split' node's edges use StructuredCondition instead of free text
