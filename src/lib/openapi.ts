@@ -1,0 +1,154 @@
+// Hand-maintained OpenAPI 3.1 description of the public API (/api/v1/*).
+// Deliberately covers the supported surface, not all ~70 internal routes
+// (mobile, admin, billing checkout and the like are not public API).
+// Served at /api/v1/openapi.json and rendered at /docs.
+
+type Method = 'get' | 'post' | 'patch' | 'put' | 'delete';
+interface Op {
+  tag: string;
+  summary: string;
+  description?: string;
+  query?: Record<string, string>;
+  body?: Record<string, string>;
+  bodyRequired?: string[];
+  returns?: string;
+}
+
+const T = '{tenantId}';
+const ops: Record<string, Partial<Record<Method, Op>>> = {
+  '/me': { get: { tag: 'Account', summary: 'Who am I?', description: 'For an API key, returns the tenant it is pinned to — use that id in the paths below.', returns: '{ auth, tenantId, tenantName }' } },
+
+  [`/tenants/${T}/agents`]: {
+    get: { tag: 'Agents', summary: 'List agents', description: 'Each agent includes its latest version’s engine/voice and any routed phone numbers.', returns: '{ agents: Agent[] }' },
+    post: { tag: 'Agents', summary: 'Create an agent', body: { name: 'string', mode: "'simple' | 'advanced'" }, bodyRequired: ['name'], returns: '{ agent }' },
+  },
+  '/agents/{agentId}': {
+    get: { tag: 'Agents', summary: 'Get an agent', returns: '{ agent }' },
+    patch: { tag: 'Agents', summary: 'Rename an agent', body: { name: 'string' }, returns: '{ agent }' },
+    delete: { tag: 'Agents', summary: 'Delete an agent', description: 'Also deletes its versions, subflows and knowledge bases.', returns: '{ success }' },
+  },
+  '/agents/{agentId}/versions': {
+    get: { tag: 'Agents', summary: 'List versions', returns: '{ versions: AgentVersion[] }' },
+    post: {
+      tag: 'Agents', summary: 'Publish a new version',
+      description: 'Versions are immutable. `nodes` is the conversation-flow graph; `subflow_ref` nodes are embedded as snapshots at publish time.',
+      body: { flowName: 'string', startNodeId: 'string', nodes: 'FlowNode[]', globalSettings: 'object', voiceEngine: "'poc' | 'retell'", voiceId: 'string', ttsBackend: "'kokoro' | 'elevenlabs' | 'cartesia' | 'minimax'" },
+      bodyRequired: ['flowName', 'startNodeId', 'nodes', 'voiceEngine'], returns: '{ version, flow }',
+    },
+  },
+  [`/tenants/${T}/subflows`]: {
+    get: { tag: 'Subflows', summary: 'List subflows', query: { agentId: 'Only library subflows plus this agent’s own' }, returns: '{ subflows: Subflow[] }' },
+    post: { tag: 'Subflows', summary: 'Create a subflow', body: { name: 'string', scope: "'agent' | 'library'", agentId: 'string (agent scope)', nodes: 'FlowNode[]', startNodeId: 'string' }, bodyRequired: ['name'], returns: '{ subflow }' },
+  },
+  [`/tenants/${T}/subflows/{subflowId}`]: {
+    get: { tag: 'Subflows', summary: 'Get a subflow', returns: '{ subflow }' },
+    patch: { tag: 'Subflows', summary: 'Update a subflow', description: 'Already-published versions keep the snapshot they embedded.', body: { name: 'string', nodes: 'FlowNode[]', startNodeId: 'string', scope: 'string' }, returns: '{ subflow }' },
+    delete: { tag: 'Subflows', summary: 'Delete a subflow', returns: '{ ok }' },
+  },
+
+  [`/tenants/${T}/knowledge-bases`]: {
+    get: { tag: 'Knowledge bases', summary: 'List knowledge bases', returns: '{ knowledgeBases }' },
+    post: { tag: 'Knowledge bases', summary: 'Create a knowledge base', description: 'Set `agent_id` — a knowledge_base node only sees content from a KB attached to its agent.', body: { name: 'string', source_type: "'website' | 'pdf' | 'manual'", source_url: 'string', agent_id: 'string' }, bodyRequired: ['name', 'source_type'], returns: '{ knowledgeBase }' },
+  },
+  '/knowledge-bases/{knowledgeBaseId}': {
+    patch: { tag: 'Knowledge bases', summary: 'Rename or re-attach to an agent', body: { name: 'string', agent_id: 'string | null' }, returns: '{ knowledgeBase }' },
+    delete: { tag: 'Knowledge bases', summary: 'Delete a knowledge base', returns: '{ success }' },
+  },
+  '/knowledge-bases/{knowledgeBaseId}/items': {
+    get: { tag: 'Knowledge bases', summary: 'List Q&A items', returns: '{ items }' },
+    post: { tag: 'Knowledge bases', summary: 'Add Q&A items', body: { items: '{ question: string, answer: string }[]' }, bodyRequired: ['items'], returns: '{ items }' },
+  },
+
+  [`/tenants/${T}/phone-numbers`]: { get: { tag: 'Phone numbers', summary: 'List phone numbers', returns: '{ phoneNumbers }' } },
+  '/phone-numbers/{phoneNumberId}/routing': {
+    post: { tag: 'Phone numbers', summary: 'Route a number to an agent version', body: { direction: "'inbound' | 'outbound'", agentVersionId: 'string | null' }, bodyRequired: ['direction'], returns: '{ phoneNumber }' },
+  },
+  '/phone-numbers/{phoneNumberId}/call': {
+    post: { tag: 'Calls', summary: 'Place an outbound call', description: 'Calls `toNumber` from this number using its outbound agent. Rate-limited per workspace (429).', body: { toNumber: 'E.164 string' }, bodyRequired: ['toNumber'], returns: '{ call: { sid, to } }' },
+  },
+
+  [`/tenants/${T}/calls`]: { get: { tag: 'Calls', summary: 'List calls', query: { limit: 'default 50' }, returns: '{ callLogs: CallLog[] }' } },
+  '/calls/{callId}': { get: { tag: 'Calls', summary: 'Get a call', description: 'Includes transcript, outcome, duration, transfer status.', returns: '{ callLog }' } },
+  '/calls/{callId}/recording': { get: { tag: 'Calls', summary: 'Stream a call recording', returns: 'audio' } },
+
+  [`/tenants/${T}/batch-calls`]: {
+    get: { tag: 'Batch calls', summary: 'List batch calls', returns: '{ batches }' },
+    post: { tag: 'Batch calls', summary: 'Create a batch', body: { agentVersionId: 'string', phoneNumbers: 'string[] (E.164)' }, bodyRequired: ['agentVersionId', 'phoneNumbers'], returns: '{ batch }' },
+  },
+  '/batch-calls/{batchId}/run': { post: { tag: 'Batch calls', summary: 'Start a batch', description: 'Dials paced by the platform-wide and per-workspace rate limits.', returns: '{ started, ... }' } },
+
+  [`/tenants/${T}/webhooks`]: {
+    get: { tag: 'Webhooks', summary: 'List webhooks', returns: '{ webhooks }' },
+    post: { tag: 'Webhooks', summary: 'Register a webhook', description: 'Events: `call.completed`, `call.transferred`. Deliveries are signed with the returned `whsec_` secret (X-CallDesk-Event header names the event).', body: { url: 'https URL', events: "('call.completed' | 'call.transferred')[]" }, bodyRequired: ['url'], returns: '{ webhook }' },
+  },
+  [`/tenants/${T}/webhooks/{webhookId}`]: {
+    patch: { tag: 'Webhooks', summary: 'Update a webhook', body: { url: 'string', events: 'string[]', enabled: 'boolean' }, returns: '{ webhook }' },
+    delete: { tag: 'Webhooks', summary: 'Delete a webhook', returns: '{ success }' },
+  },
+  [`/tenants/${T}/webhooks/{webhookId}/test`]: { post: { tag: 'Webhooks', summary: 'Send a test delivery', returns: '{ ok }' } },
+
+  [`/tenants/${T}/contacts`]: { get: { tag: 'Contacts', summary: 'List contacts', returns: '{ contacts }' } },
+  [`/tenants/${T}/analytics`]: { get: { tag: 'Analytics', summary: 'Call analytics by day', query: { days: '7 | 30 | 90' }, returns: '{ series, totals }' } },
+  [`/tenants/${T}/qa/overview`]: { get: { tag: 'Quality', summary: 'QA scores, resolution and transfer metrics', query: { days: '7 | 30 | 90' }, returns: '{ avgScore, resolutionRate, transferSuccessRate, ... }' } },
+  '/agents/{agentId}/test-cases': {
+    get: { tag: 'Quality', summary: 'List simulation test cases', returns: '{ testCases }' },
+    post: { tag: 'Quality', summary: 'Create a test case', body: { name: 'string', persona: 'string', successCriteria: 'string' }, returns: '{ testCase }' },
+  },
+  '/agents/{agentId}/test-cases/{testCaseId}/run': { post: { tag: 'Quality', summary: 'Run a simulation', returns: '{ passed, transcript, reasoning }' } },
+};
+
+function paramsFor(path: string) {
+  return [...path.matchAll(/\{(\w+)\}/g)].map((m) => ({
+    name: m[1], in: 'path', required: true, schema: { type: 'string' },
+    description: m[1] === 'tenantId' ? 'Workspace id — from GET /me' : undefined,
+  }));
+}
+
+export function buildOpenApi(serverUrl: string) {
+  const paths: Record<string, unknown> = {};
+  for (const [path, methods] of Object.entries(ops)) {
+    const entry: Record<string, unknown> = {};
+    for (const [method, op] of Object.entries(methods) as [Method, Op][]) {
+      const parameters = [
+        ...paramsFor(path),
+        ...Object.entries(op.query || {}).map(([name, description]) => ({ name, in: 'query', required: false, description, schema: { type: 'string' } })),
+      ];
+      entry[method] = {
+        tags: [op.tag],
+        summary: op.summary,
+        ...(op.description ? { description: op.description } : {}),
+        ...(parameters.length ? { parameters } : {}),
+        ...(op.body ? {
+          requestBody: {
+            required: !!op.bodyRequired?.length,
+            content: { 'application/json': { schema: {
+              type: 'object',
+              properties: Object.fromEntries(Object.entries(op.body).map(([k, v]) => [k, { description: v }])),
+              ...(op.bodyRequired?.length ? { required: op.bodyRequired } : {}),
+            } } },
+          },
+        } : {}),
+        responses: {
+          '200': { description: op.returns ? `Returns ${op.returns}` : 'OK' },
+          '401': { description: 'Missing or invalid credentials' },
+          '404': { description: 'Not found, or not in your workspace' },
+          '429': { description: 'Rate limited' },
+        },
+      };
+    }
+    paths[path] = entry;
+  }
+  return {
+    openapi: '3.1.0',
+    info: {
+      title: 'CallDeskTech API',
+      version: '1.0.0',
+      description:
+        'Build, publish and operate voice agents. Authenticate with `Authorization: Bearer cdk_live_…` (create keys in Settings → API Keys). A key is pinned to one workspace; call `GET /me` to get its tenant id.',
+    },
+    servers: [{ url: serverUrl }],
+    security: [{ apiKey: [] }],
+    components: { securitySchemes: { apiKey: { type: 'http', scheme: 'bearer', description: 'cdk_live_… API key' } } },
+    paths,
+  };
+}

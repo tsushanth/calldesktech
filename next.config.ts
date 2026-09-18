@@ -20,6 +20,13 @@ const nextConfig: NextConfig = {
   // playwright-core's browsers.json ("Cannot find module
   // '.../playwright-core/browsers.json'" — caught by actually running the
   // built Docker image locally before deploying, not just a type-check).
+  // Public, versioned API surface: /api/v1/* is the same set of routes the
+  // dashboard uses, now authenticated (session, mobile JWT, or API key).
+  // A rewrite instead of a second copy of every handler; when a route's
+  // contract needs to diverge for v2, that route gets its own file.
+  async rewrites() {
+    return [{ source: '/api/v1/:path*', destination: '/api/:path*' }];
+  },
   serverExternalPackages: ['pdf-parse', 'pdfjs-dist', 'playwright-core'],
 };
 

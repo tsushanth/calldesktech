@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
+import { authorizeResource } from '@/lib/authz';
 import { getSupabaseAdmin } from '@/lib/supabase';
 import { getRetellClient } from '@/lib/retell';
 import { acquireTokenBlocking, RETELL_GLOBAL, RETELL_TENANT, TWILIO_TENANT } from '@/lib/rateLimiter';
@@ -24,7 +23,7 @@ import { acquireTokenBlocking, RETELL_GLOBAL, RETELL_TENANT, TWILIO_TENANT } fro
 // either, so creating a batch against a poc-engine agent silently succeeded
 // and only failed confusingly at Run time.
 export async function POST(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id: batchId } = await params;
@@ -35,11 +34,8 @@ export async function POST(
   // previously wide open: no session check at all, matching a pattern
   // several other routes on this surface still have, but the cost/risk here
   // (real PSTN calls, not just a data read) made it the one worth fixing.
-  const session = await getServerSession(authOptions);
-  const userId = session?.user?.id;
-  if (!userId) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
+  const __auth = await authorizeResource(request, 'calldesk_batch_calls', batchId);
+  if (!__auth.ok) return __auth.response;
 
   const { data: batch, error: batchError } = await supabase
     .from('calldesk_batch_calls')
@@ -47,15 +43,6 @@ export async function POST(
     .eq('id', batchId)
     .single();
   if (batchError || !batch) {
-    return NextResponse.json({ error: 'Batch call not found' }, { status: 404 });
-  }
-
-  const { data: tenant } = await supabase
-    .from('calldesk_tenants')
-    .select('user_id')
-    .eq('id', batch.tenant_id)
-    .single();
-  if (!tenant || tenant.user_id !== userId) {
     return NextResponse.json({ error: 'Batch call not found' }, { status: 404 });
   }
 

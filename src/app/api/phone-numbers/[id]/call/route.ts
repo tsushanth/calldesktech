@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/supabase';
 import { getRetellClient } from '@/lib/retell';
 import { authorizeResource } from '@/lib/authz';
+import { tryAcquireToken, TWILIO_TENANT } from '@/lib/rateLimiter';
 
 // POST /api/phone-numbers/[id]/call — places a real outbound call FROM this
 // number, to test what its own outbound_agent_version_id actually says.
@@ -27,6 +28,11 @@ export async function POST(
   if (!__auth.ok) return __auth.response;
 
   const { id: phoneNumberId } = await params;
+  // Outbound calls cost real money and are now reachable with an API key —
+  // pace them per tenant (same bucket batch calling uses), fail closed.
+  if (__auth.tenantId && !(await tryAcquireToken(`twilio-tenant-${__auth.tenantId}`, TWILIO_TENANT))) {
+    return NextResponse.json({ error: 'Too many calls placed too quickly — retry shortly' }, { status: 429 });
+  }
   const { toNumber } = await request.json();
 
   if (!toNumber || typeof toNumber !== 'string' || !toNumber.trim()) {
