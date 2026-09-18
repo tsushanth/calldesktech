@@ -38,7 +38,7 @@ export async function GET(
 
   const { data, error } = await supabase
     .from('calldesk_call_logs')
-    .select('created_at, outcome, qa_status, qa_score')
+    .select('created_at, outcome, qa_status, qa_score, transfer_status, transfer_wait_ms')
     .eq('tenant_id', tenantId)
     .gte('created_at', windowStart.toISOString())
     .order('created_at', { ascending: true });
@@ -68,6 +68,16 @@ export async function GET(
   let totalScoreSum = 0;
   let totalScoreCount = 0;
   let totalResolved = 0;
+  // Transfer Success Rate/Wait Time — 'answered' means the transfer target
+  // actually picked up (see deriveTransferStatus for retell-engine calls,
+  // /twilio/dial-status for poc-engine ones); anything else (busy/no_answer/
+  // failed/canceled) counts as a failed attempt. transfer_wait_ms only
+  // exists for poc-engine calls — Retell doesn't expose transfer timing, so
+  // this average is implicitly poc-only whenever a tenant mixes engines.
+  let transferAttempts = 0;
+  let transferAnswered = 0;
+  let transferWaitSum = 0;
+  let transferWaitCount = 0;
 
   for (const row of rows) {
     const key = dayKey(new Date(row.created_at));
@@ -86,6 +96,15 @@ export async function GET(
       dayScoreCount.set(key, (dayScoreCount.get(key) || 0) + 1);
       totalScoreSum += row.qa_score;
       totalScoreCount++;
+    }
+
+    if (row.transfer_status) {
+      transferAttempts++;
+      if (row.transfer_status === 'answered') transferAnswered++;
+      if (row.transfer_wait_ms != null) {
+        transferWaitSum += row.transfer_wait_ms;
+        transferWaitCount++;
+      }
     }
   }
 
@@ -109,5 +128,9 @@ export async function GET(
     resolutionRate: rows.length > 0 ? Number(((totalResolved / rows.length) * 100).toFixed(1)) : null,
     avgScoreSeries,
     resolutionRateSeries,
+    transferAttempts,
+    transferAnswered,
+    transferSuccessRate: transferAttempts > 0 ? Number(((transferAnswered / transferAttempts) * 100).toFixed(1)) : null,
+    avgTransferWaitMs: transferWaitCount > 0 ? Math.round(transferWaitSum / transferWaitCount) : null,
   });
 }

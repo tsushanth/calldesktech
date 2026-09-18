@@ -478,6 +478,10 @@ export interface QaOverviewResponse {
   resolutionRate: number | null;
   avgScoreSeries: Array<{ date: string; avgScore: number | null }>;
   resolutionRateSeries: Array<{ date: string; resolutionRate: number | null }>;
+  transferAttempts: number;
+  transferAnswered: number;
+  transferSuccessRate: number | null;
+  avgTransferWaitMs: number | null;
 }
 
 // Custom error class

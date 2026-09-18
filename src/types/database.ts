@@ -201,6 +201,8 @@ export interface Database {
           to_number: string | null
           direction: string | null
           is_internal_test: boolean
+          transfer_status: string | null
+          transfer_wait_ms: number | null
         }
         Insert: {
           id?: string
@@ -224,6 +226,8 @@ export interface Database {
           to_number?: string | null
           direction?: string | null
           is_internal_test?: boolean
+          transfer_status?: string | null
+          transfer_wait_ms?: number | null
         }
         Update: {
           id?: string
@@ -247,6 +251,8 @@ export interface Database {
           to_number?: string | null
           direction?: string | null
           is_internal_test?: boolean
+          transfer_status?: string | null
+          transfer_wait_ms?: number | null
         }
       }
       bookings: {

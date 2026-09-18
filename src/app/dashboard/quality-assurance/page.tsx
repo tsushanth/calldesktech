@@ -357,6 +357,30 @@ function QaOverviewTab({
           <p className="text-[11.5px] text-gray-400">
             Resolved = outcome was booked, answered, or transferred. Voicemail/abandoned calls count as unresolved.
           </p>
+
+          {overview.transferAttempts > 0 && (
+            <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+              <div className="rounded-xl border border-gray-200 bg-white p-5">
+                <h2 className="mb-1 text-[13.5px] font-medium text-gray-500">Transfer Success Rate</h2>
+                <div className="flex items-baseline gap-3">
+                  <p className="text-[24px] font-semibold text-[#1a1d29]">{overview.transferSuccessRate}%</p>
+                  <p className="text-[12.5px] text-gray-400">
+                    Total: {overview.transferAttempts} <span className="text-gray-300">·</span> Success: {overview.transferAnswered}{' '}
+                    <span className="text-gray-300">·</span> Failure: {overview.transferAttempts - overview.transferAnswered}
+                  </p>
+                </div>
+              </div>
+              <div className="rounded-xl border border-gray-200 bg-white p-5">
+                <h2 className="mb-1 text-[13.5px] font-medium text-gray-500">Transfer Wait Time</h2>
+                <p className="text-[24px] font-semibold text-[#1a1d29]">
+                  {overview.avgTransferWaitMs != null ? `${(overview.avgTransferWaitMs / 1000).toFixed(1)}s` : '—'}
+                </p>
+                {overview.avgTransferWaitMs == null && (
+                  <p className="mt-1 text-[12px] text-gray-400">No wait-time data — only tracked for CallDeskTech-engine transfers, not Retell.</p>
+                )}
+              </div>
+            </div>
+          )}
         </>
       )}
     </div>

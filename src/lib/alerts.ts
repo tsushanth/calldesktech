@@ -37,6 +37,27 @@ export function deriveOutcome(call: Pick<RetellCallData, 'disconnection_reason'>
   }
 }
 
+// Transfer Success Rate (2026-09-18) — Retell distinguishes transfer_bridged
+// (the destination actually answered) from transfer_cancelled (it didn't:
+// no answer, rejected, or the caller hung up first) in disconnection_reason,
+// separately from the plain 'call_transfer' value deriveOutcome already
+// treats as a generic "a transfer happened" signal. No wait-time equivalent
+// is exposed here — Retell's docs don't include transfer ring/connect
+// timing, unlike our own poc-engine transfer path (see call-loop-poc's
+// /twilio/dial-status), so transfer_wait_ms stays null for retell-engine
+// calls.
+export function deriveTransferStatus(call: Pick<RetellCallData, 'disconnection_reason'>): 'answered' | 'canceled' | null {
+  switch (call.disconnection_reason) {
+    case 'transfer_bridged':
+    case 'call_transfer':
+      return 'answered';
+    case 'transfer_cancelled':
+      return 'canceled';
+    default:
+      return null;
+  }
+}
+
 interface AlertRuleRow {
   id: string;
   email: string;

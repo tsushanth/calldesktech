@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/supabase';
 import { getRetellClient } from '@/lib/retell';
 import { runAndStoreCallQa } from '@/lib/callQa';
-import { deriveOutcome, fireAlertsForCall } from '@/lib/alerts';
+import { deriveOutcome, deriveTransferStatus, fireAlertsForCall } from '@/lib/alerts';
 import { dispatchWebhookEvent } from '@/lib/webhooks';
 import type { RetellWebhookEvent } from '@/types';
 
@@ -50,6 +50,7 @@ export async function POST(request: NextRequest) {
         // null for a normal completed call — leave the existing outcome as-is
         // in that case so we never clobber a 'booked'/'answered' with nothing.
         const finalizedOutcome = deriveOutcome(event.call);
+        const transferStatus = deriveTransferStatus(event.call);
 
         await supabase
           .from('calldesk_call_logs')
@@ -62,6 +63,9 @@ export async function POST(request: NextRequest) {
             // database, so nobody could ever play it back.
             recording_url: event.call.recording_url ?? null,
             ...(finalizedOutcome ? { outcome: finalizedOutcome } : {}),
+            // No transfer_wait_ms here — Retell doesn't expose transfer
+            // ring/connect timing (see deriveTransferStatus's own comment).
+            ...(transferStatus ? { transfer_status: transferStatus } : {}),
           })
           .eq('retell_call_id', event.call.call_id);
 
