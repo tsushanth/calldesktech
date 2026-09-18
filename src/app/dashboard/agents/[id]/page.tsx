@@ -208,14 +208,47 @@ export default function AgentBuilderPage() {
     return () => { cancelled = true; };
   }, [agentId]);
 
-  const applyTemplate = (templateId: string) => {
+  // A template's subflow_ref nodes carry an inline seed (params._templateSubflowSeed)
+  // instead of a real subflowId, since the subflow doesn't exist as a tenant
+  // row until now. Creates a real agent-scoped subflow per seed and rewrites
+  // the node to reference it, so from here on it behaves exactly like a
+  // subflow the user built by hand (editable via "Edit" on the node, same
+  // API, same publish-time embedding).
+  const materializeTemplateSubflows = async (templateNodes: FlowNode[]): Promise<FlowNode[]> => {
+    if (!agent) return templateNodes;
+    return Promise.all(
+      templateNodes.map(async (node) => {
+        const seedJson = node.params?._templateSubflowSeed;
+        if (node.type !== 'subflow_ref' || !seedJson) return node;
+        try {
+          const seed = JSON.parse(seedJson) as { name: string; nodes: FlowNode[]; startNodeId: string };
+          const res = await fetch(`/api/tenants/${agent.tenant_id}/subflows`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ agentId, scope: 'agent', name: seed.name, nodes: seed.nodes, startNodeId: seed.startNodeId }),
+          });
+          const body = await res.json();
+          if (!res.ok) throw new Error(body.error);
+          setSubflows((prev) => [body.subflow, ...prev]);
+          return { ...node, params: { subflowId: body.subflow.id } };
+        } catch (err) {
+          console.error('Failed to materialize template subflow', err);
+          return node; // falls back to an unconfigured subflow_ref node — still editable by hand
+        }
+      })
+    );
+  };
+
+  const applyTemplate = async (templateId: string) => {
     const template = AGENT_TEMPLATES.find((t) => t.id === templateId);
     if (!template) return;
     setAgentType('conversational_flow');
-    setNodes(draftNodesFromTemplate(template.nodes));
+    const materializedNodes = await materializeTemplateSubflows(template.nodes);
+    setNodes(draftNodesFromTemplate(materializedNodes));
     setStartNodeId(template.startNodeId);
     setAppliedTemplateId(template.id);
     setFlowName(template.id);
+    if (template.singlePrompt) setSinglePrompt(template.singlePrompt);
     setShowEditor(true);
   };
 
@@ -632,7 +665,10 @@ export default function AgentBuilderPage() {
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
                 {visibleTemplates.map((t) => (
                   <button key={t.id} type="button" onClick={() => applyTemplate(t.id)} className="rounded-xl border border-gray-200 bg-white px-5 py-5 text-left transition hover:border-blue-300 hover:bg-blue-50/30">
-                    <p className="text-[11px] font-medium uppercase tracking-wide text-blue-600">{t.category}</p>
+                    <div className="flex items-center justify-between">
+                      <p className="text-[11px] font-medium uppercase tracking-wide text-blue-600">{t.category}</p>
+                      {t.singlePrompt && <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-medium text-gray-500">also has single-prompt version</span>}
+                    </div>
                     <p className="mt-1 text-[13.5px] font-medium text-[#1a1d29]">{t.label}</p>
                     <p className="mt-0.5 text-[12px] text-gray-500">{t.description}</p>
                   </button>

@@ -33,7 +33,239 @@ export interface AgentTemplate {
   category: string;
   nodes: FlowNode[];
   startNodeId: string;
+  // Retell ships every template as BOTH a single giant prompt AND an
+  // equivalent conversation-flow graph — the same underlying behavior,
+  // two different editing surfaces. Optional since most of our existing
+  // templates predate this and are simple enough that the flow IS the
+  // natural form; only added where a real single-prompt version exists to
+  // compare against (see insurance-verification-caller).
+  singlePrompt?: string;
 }
+
+// A subflow_ref node's referenced subflow doesn't exist yet at template
+// definition time (subflows are real tenant-scoped DB rows, created at
+// apply time) — so a template embeds the subflow's own nodes/start id
+// directly on the node via these template-only params, and applyTemplate
+// (agents/[id]/page.tsx) POSTs a real calldesk_subflows row for each one
+// before handing the nodes to the editor, then rewrites the node's params
+// to a real subflowId (see materializeTemplateSubflows).
+export interface TemplateSubflowSeed {
+  name: string;
+  nodes: FlowNode[];
+  startNodeId: string;
+}
+
+// The IVR-navigation portion of Insurance Verification Caller, factored out
+// as a subflow — matches Retell's own template, where this exact block
+// ("IVR Navigation And Provider Auth") is a reusable Agent Subflow rather
+// than inline nodes. Real subroutine semantics (see call-loop-poc's
+// _enterSubflow): reaching either of its own terminal nodes below hands
+// control back to the ivr_navigation subflow_ref node's own two edges in
+// the main flow (reached-a-rep vs. closed/unreachable) — the model picks
+// whichever actually matches what happened on the call.
+const IVR_NAVIGATION_SUBFLOW_SEED: TemplateSubflowSeed = {
+  name: 'IVR Navigation And Provider Auth',
+  startNodeId: 'listen',
+  nodes: [
+    {
+      id: 'listen',
+      type: 'greeting',
+      prompt:
+        'When the call connects and an automated system answers, do not speak — listen to each prompt carefully. Navigate toward ' +
+        'Eligibility and Benefits, Provider Services, Authorizations, or (only if those are unavailable) Claims. Avoid Member Services, ' +
+        'Billing, Medical Records, and clinical departments. Speak menu options out loud when the IVR is speech-driven; use a keypad press ' +
+        'when it is DTMF-driven. If asked to say your NPI, provide a natural variation of "{{provider_npi}}". If told to hold, respond ' +
+        'with exactly: NO_RESPONSE_NEEDED — and do not speak during hold music or hold announcements.',
+      edges: [
+        { id: 'e_listen_rep', condition: 'a live representative greets you or an automated eligibility response is reached', target: 'authenticate' },
+        { id: 'e_listen_closed', condition: 'an after-hours message confirms the office is closed', target: 'closed' },
+      ],
+    },
+    {
+      id: 'authenticate',
+      type: 'greeting',
+      prompt:
+        'Respond with a natural variation of: "Hi there, I\'m calling from {{provider_name}}. We\'re a healthcare provider and I need to ' +
+        'verify insurance benefits for one of our patients. Our NPI is {{provider_npi}}. Could you help me with an eligibility and ' +
+        'benefits check?" Cooperate if the representative needs to transfer you to the right department, and provide any additional ' +
+        'authentication details requested.',
+      edges: [],
+    },
+    { id: 'closed', type: 'greeting', prompt: 'Note that the office appears closed or unreachable right now.', edges: [] },
+  ],
+};
+
+const INSURANCE_VERIFICATION_SINGLE_PROMPT = `## Role
+
+You are **Alex**, an **Insurance Verification Specialist** calling on behalf of **{{provider_name}}**. You are an AI-powered voice agent built to call insurance payer lines, navigate IVR systems, authenticate as a calling provider, and collect patient benefit information efficiently and accurately.
+
+### Role Boundaries
+You are always the **caller** in this conversation. The person on the other end is an insurance company representative (or automated system). You are calling them for help — never offer to help them. Do not mirror phrases like "How can I help you?" back at the representative. When greeted or asked how they can assist, respond by stating your purpose: verifying benefits for a patient.
+
+---
+
+## Call Flow Overview
+
+- Navigate the insurance company's IVR system to reach the eligibility and benefits department
+- Authenticate as a calling provider using the NPI and practice details on file
+- Verify the patient's eligibility and active coverage
+- Collect benefit details: deductible, copay/coinsurance, out-of-pocket maximum, and prior authorization requirements
+- Confirm and read back any authorization numbers or reference IDs using the NATO phonetic alphabet
+- Log all verified benefit information via \`submit_verification\`
+
+---
+
+## Insurance Verification Workflow
+
+> **Note:** Before this call, you have access to: patient first name, last name, date of birth, member ID, group number, insurance company name, provider name ({{provider_name}}), and provider NPI. Use this data throughout without asking the representative to repeat themselves.
+
+### Step 1: IVR Navigation
+
+When the call connects and an automated system answers, do not speak — listen to each prompt carefully.
+
+Navigate toward:
+- Eligibility and Benefits
+- Provider Services
+- Authorizations
+- Claims (only if Eligibility and Benefits is unavailable)
+
+Avoid:
+- Member Services (patient-facing lines)
+- Billing
+- Medical Records
+- Clinical departments
+
+Speak menu options out loud when the IVR is speech-driven. Use a keypad press when the IVR is DTMF-driven.
+
+If the IVR asks you to say your NPI, provide a natural variation of:
+
+> "{{provider_npi}}"
+
+Continue navigating until you reach a live representative or an automated eligibility response.
+
+## Hold And Pause Handling
+
+If you are told "hold on," "one moment," "please wait," or similar:
+
+Respond with exactly:
+
+> NO_RESPONSE_NEEDED
+
+Do not speak during hold music or hold announcements.
+
+### Step 2: Provider Authentication
+
+Once a live representative greets you, respond with a natural variation of:
+
+> "Hi there, I'm calling from {{provider_name}}. We're a healthcare provider and I need to verify insurance benefits for one of our patients. Our NPI is {{provider_npi}}. Could you help me with an eligibility and benefits check?"
+
+<*Wait for representative response*>
+
+If the representative needs to transfer you to the right department, cooperate and wait.
+
+Provide any additional authentication details requested.
+
+### Step 3: Patient Verification
+
+When the representative asks for patient information, provide:
+
+- Patient name: {{patient_first_name}} {{patient_last_name}}
+- Date of birth: {{patient_dob}}
+- Member ID: {{member_id}}
+- Group number: {{group_number}}
+
+If the representative reads back a member ID or any alphanumeric string, confirm it character by character using the NATO Phonetic Alphabet.
+
+Call \`lookup_patient_record\` once the representative has confirmed the patient's identity.
+
+### Step 4: Benefits Collection
+
+Ask one question at a time — never combine.
+
+#### Step 4.1: Confirm Eligibility
+
+Respond exactly with:
+
+> "Is the patient currently active and eligible as of today?"
+
+<*Wait for representative response*>
+
+#### Step 4.2: Collect Deductible
+
+Respond exactly with:
+
+> "What's the in-network deductible, and how much has been met?"
+
+<*Wait for representative response*>
+
+#### Step 4.3: Collect Out-Of-Pocket Maximum
+
+Respond exactly with:
+
+> "What's the out-of-pocket maximum, and how much has been met?"
+
+<*Wait for representative response*>
+
+#### Step 4.4: Collect Copay Or Coinsurance
+
+Respond exactly with:
+
+> "What's the copay or coinsurance for {{service_type}}?"
+
+<*Wait for representative response*>
+
+#### Step 4.5: Confirm Prior Authorization
+
+Respond exactly with:
+
+> "Is a prior authorization required for this service?"
+
+<*Wait for representative response*>
+
+#### Step 4.6: Collect Authorization Number (If Required)
+
+If prior authorization is required, respond exactly with:
+
+> "Can I get that authorization number?"
+
+<*Wait for representative response*>
+
+When the representative gives you an auth number or reference ID, read it back using the NATO Phonetic Alphabet to confirm accuracy.
+
+Respond exactly with:
+
+> "Just to confirm — that's [number]. Did I get that right?"
+
+### Step 5: Summary Confirmation
+
+Provide a natural variation of:
+
+> "Just to confirm — {{patient_first_name}} {{patient_last_name}} is [active/inactive], in-network deductible is [amount] with [amount] met, out-of-pocket max is [amount] with [amount] met, [copay/coinsurance] applies to {{service_type}}, and prior auth [is / is not] required. Is that all correct?"
+
+<*Wait for representative response*>
+
+Then ask:
+
+> "Can I get your name and a call reference number for my records?"
+
+<*Wait for representative response*>
+
+### Step 6: Log And End
+
+Call \`submit_verification\` with all collected benefit details.
+
+Respond exactly with:
+
+> "Thanks so much — I appreciate your help. Have a good one."
+
+Call \`end_call\`
+
+---
+
+## Failure Conditions
+
+Call \`end_call\` if:
+- An after-hours message confirms the office is closed`;
 
 export const AGENT_TEMPLATES: AgentTemplate[] = [
   {
@@ -254,46 +486,93 @@ export const AGENT_TEMPLATES: AgentTemplate[] = [
     ],
   },
   {
+    // Rebuilt 2026-09-18 to match Retell's real template (screenshot
+    // comparison): this is an OUTBOUND call — WE are the provider's agent
+    // calling the INSURANCE COMPANY's payer line, not a patient calling us.
+    // The previous version of this template had the role backwards
+    // (inbound, patient-facing) — a real gap found doing this comparison,
+    // not just a parity nice-to-have.
     id: 'insurance-verification-caller',
     label: 'Insurance Verification Caller',
-    description: 'Collect insurance details and verify coverage against a real lookup before confirming.',
+    description: "Calls an insurance payer line as the provider's agent, navigates the IVR, authenticates, and collects benefit details.",
     category: 'Insurance Verification',
-    startNodeId: 'greeting',
+    startNodeId: 'ivr_navigation',
+    singlePrompt: INSURANCE_VERIFICATION_SINGLE_PROMPT,
     nodes: [
       {
-        id: 'greeting',
+        id: 'ivr_navigation',
+        type: 'subflow_ref',
+        // See materializeTemplateSubflows — this seed becomes a real
+        // agent-scoped subflow the first time this template is applied.
+        params: { _templateSubflowSeed: JSON.stringify(IVR_NAVIGATION_SUBFLOW_SEED) },
+        edges: [
+          { id: 'e_ivr_reached_rep', condition: 'a live representative answered and you introduced yourself and your NPI', target: 'patient_verification' },
+          { id: 'e_ivr_closed', condition: 'an after-hours message confirmed the office is closed, or you could not reach a representative', target: 'failure_close' },
+        ],
+      },
+      {
+        id: 'patient_verification',
         type: 'greeting',
-        prompt: "Greet the caller and let them know you'll need their insurance details to verify coverage.",
-        edges: [{ id: 'e_to_collect', condition: 'always', target: 'collect' }],
+        prompt:
+          "Provide the following patient details as the representative needs them: patient name {{patient_first_name}} {{patient_last_name}}, " +
+          "date of birth {{patient_dob}}, member ID {{member_id}}, group number {{group_number}}. If the representative reads back the member " +
+          "ID or any alphanumeric string, confirm it character by character using the NATO phonetic alphabet. Wait for the representative to " +
+          "confirm the patient's identity before moving on.",
+        edges: [{ id: 'e_patient_confirmed', condition: 'the representative has confirmed the patient identity', target: 'lookup_patient_record' }],
       },
       {
-        id: 'collect',
-        type: 'extraction',
-        prompt: "Ask for the member's full name, date of birth, insurance provider, and member ID.",
-        extract: { name: 'string', date_of_birth: 'string', provider: 'string', member_id: 'string' },
-        edges: [{ id: 'e_collect_done', condition: 'name, date_of_birth, provider, and member_id have all been collected', target: 'verify' }],
-      },
-      {
-        id: 'verify',
-        // A real function-node webhook, not a fake/hardcoded "verified!" —
-        // params.webhookUrl points at whatever real eligibility-check
-        // system a tenant actually has; this template ships pointed at
-        // nothing (blank), same as every other function-node template
-        // node, since there's no real insurance API this product owns.
+        id: 'lookup_patient_record',
+        // Same "real webhook, not a fake success" pattern as every other
+        // function-node template — ships pointed at nothing until a tenant
+        // wires a real EHR/PM system lookup here.
         type: 'function',
-        prompt: "Let the caller know you're checking their coverage now.",
-        function: 'verify_insurance',
+        function: 'lookup_patient_record',
         params: { webhookUrl: '' },
-        edges: [{ id: 'e_verify_done', condition: 'the coverage check has come back, whether verified or not', target: 'report' }],
+        edges: [{ id: 'e_lookup_done', condition: 'always', target: 'benefits_collection' }],
       },
       {
-        id: 'report',
+        id: 'benefits_collection',
         type: 'extraction',
-        prompt: "Tell the caller what the coverage check found (see the system note from the previous step) — confirmed active coverage, or a problem verifying it. If it couldn't be verified, ask if they'd like a callback instead.",
-        extract: { coverage_confirmed: 'string' },
-        edges: [{ id: 'e_report_done', condition: 'the caller has been told the result and the call is wrapping up', target: 'goodbye' }],
+        prompt:
+          'Ask one question at a time, never combined: (1) "Is the patient currently active and eligible as of today?" (2) "What\'s the ' +
+          'in-network deductible, and how much has been met?" (3) "What\'s the out-of-pocket maximum, and how much has been met?" (4) "What\'s ' +
+          'the copay or coinsurance for {{service_type}}?" (5) "Is a prior authorization required for this service?" — and if so, "Can I get ' +
+          'that authorization number?", reading any auth number or reference ID back using the NATO phonetic alphabet to confirm it.',
+        extract: {
+          eligible: 'string', deductible: 'string', deductible_met: 'string', oop_max: 'string', oop_max_met: 'string',
+          copay_or_coinsurance: 'string', prior_auth_required: 'string', auth_number: 'string',
+        },
+        edges: [{
+          id: 'e_benefits_done',
+          condition: 'eligibility, deductible, out-of-pocket max, copay/coinsurance, and prior auth status have all been collected (and the auth number too, if one was required)',
+          target: 'summary_confirmation',
+        }],
       },
-      { id: 'goodbye', type: 'goodbye', prompt: 'Thank the caller and say goodbye.', edges: [] },
+      {
+        id: 'summary_confirmation',
+        type: 'extraction',
+        prompt:
+          'Read back the full benefit summary to the representative for confirmation: eligibility status, deductible and amount met, ' +
+          "out-of-pocket max and amount met, copay/coinsurance for {{service_type}}, and whether prior auth is required. Then ask for the " +
+          "representative's name and a call reference number for your records.",
+        extract: { rep_name: 'string', reference_number: 'string' },
+        edges: [{ id: 'e_summary_done', condition: 'the representative confirmed the summary and provided their name and a reference number', target: 'submit_verification' }],
+      },
+      {
+        id: 'submit_verification',
+        type: 'function',
+        function: 'submit_verification',
+        params: { webhookUrl: '' },
+        edges: [{ id: 'e_submit_done', condition: 'always', target: 'goodbye' }],
+      },
+      { id: 'goodbye', type: 'goodbye', prompt: 'Thank the representative for their help and say a brief goodbye.', edges: [] },
+      {
+        id: 'failure_close',
+        type: 'greeting',
+        prompt: "Acknowledge the after-hours message or that a representative couldn't be reached, without leaving a message unless clearly appropriate.",
+        edges: [{ id: 'e_failure_end', condition: 'always', target: 'end_call_failure' }],
+      },
+      { id: 'end_call_failure', type: 'goodbye', prompt: 'Politely end the call — this verification attempt will need to be retried.', edges: [] },
     ],
   },
   {
