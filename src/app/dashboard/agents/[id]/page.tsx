@@ -144,6 +144,7 @@ export default function AgentBuilderPage() {
   // sit in the UI.
   const [handbook, setHandbook] = useState('');
   const [transitionFlexibility, setTransitionFlexibility] = useState<'' | 'strict' | 'flexible'>('');
+  const [interruptionSensitivity, setInterruptionSensitivity] = useState<'' | 'high' | 'medium' | 'low' | 'off'>('');
   const [startNodeId, setStartNodeId] = useState('');
   const [voiceEngine, setVoiceEngine] = useState<'retell' | 'poc'>('poc');
   const [voiceId, setVoiceId] = useState('');
@@ -194,6 +195,8 @@ export default function AgentBuilderPage() {
         setHandbook(flowBody.flow?.global_settings?.handbook || '');
         const savedFlexibility = flowBody.flow?.global_settings?.transitionFlexibility;
         if (savedFlexibility === 'strict' || savedFlexibility === 'flexible') setTransitionFlexibility(savedFlexibility);
+        const savedInterruption = flowBody.flow?.global_settings?.interruptionSensitivity;
+        if (['high', 'medium', 'low', 'off'].includes(savedInterruption)) setInterruptionSensitivity(savedInterruption);
         setAgentType('conversational_flow');
         setBasedOnVersionNumber(latest.version_number);
         setFlowName(`v${latest.version_number + 1}`);
@@ -474,6 +477,14 @@ export default function AgentBuilderPage() {
         if (n.type === 'press_digit' && n.edges.length !== 1) {
           return setError(`Node "${n.id}" (press digit) needs exactly one edge — it always advances to the same place once the tones finish.`);
         }
+        if (n.type === 'mcp' && n.params?.headers?.trim()) {
+          try {
+            const h = JSON.parse(n.params.headers.replace(/\{\{[^}]*\}\}/g, 'x'));
+            if (!h || typeof h !== 'object' || Array.isArray(h)) throw new Error('not an object');
+          } catch {
+            return setError(`Node "${n.id}" (mcp) — headers must be a JSON object like {"Authorization": "Bearer ..."}.`);
+          }
+        }
         if (n.type === 'subagent') {
           let subagentTools: unknown;
           try {
@@ -532,6 +543,7 @@ export default function AgentBuilderPage() {
             ...(transcriptionMode ? { transcriptionMode } : {}),
             ...(handbook.trim() ? { handbook: handbook.trim() } : {}),
             ...(transitionFlexibility ? { transitionFlexibility } : {}),
+            ...(interruptionSensitivity ? { interruptionSensitivity } : {}),
           },
         }),
       });
@@ -892,6 +904,23 @@ export default function AgentBuilderPage() {
                       )}
                       {voiceEngine === 'poc' && (
                         <div>
+                          <label className="mb-1 block text-[12.5px] font-medium text-gray-500">Interruption sensitivity (flow default)</label>
+                          <select
+                            value={interruptionSensitivity}
+                            onChange={(e) => setInterruptionSensitivity(e.target.value as typeof interruptionSensitivity)}
+                            className="w-full rounded-lg border border-gray-200 bg-white px-3.5 py-2.5 text-[13.5px] focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100"
+                          >
+                            <option value="">Account default (Medium unless changed in Settings)</option>
+                            <option value="high">High — interrupt on any word</option>
+                            <option value="medium">Medium — needs ~2 words</option>
+                            <option value="low">Low — needs ~3 words</option>
+                            <option value="off">Off — never interrupt the agent</option>
+                          </select>
+                          <p className="mt-1 text-[11.5px] text-gray-400">Individual steps can override this in their own settings.</p>
+                        </div>
+                      )}
+                      {voiceEngine === 'poc' && (
+                        <div>
                           <label className="mb-1 block text-[12.5px] font-medium text-gray-500">Agent Handbook</label>
                           <textarea
                             value={handbook}
@@ -1162,6 +1191,11 @@ function NodeSettingsPanel({
             <label className="mb-1 block text-[12px] font-medium text-gray-500">Arguments (JSON)</label>
             <input value={node.params?.toolArguments || ''} onChange={(e) => onUpdate({ params: { ...node.params, toolArguments: e.target.value } })} className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 font-mono text-[12.5px] focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100" />
           </div>
+          <div>
+            <label className="mb-1 block text-[12px] font-medium text-gray-500">Headers (JSON, optional)</label>
+            <input value={node.params?.headers || ''} onChange={(e) => onUpdate({ params: { ...node.params, headers: e.target.value } })} placeholder='{"Authorization": "Bearer sk-..."}' className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 font-mono text-[12.5px] focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100" />
+            <p className="mt-1 text-[11.5px] text-gray-400">For MCP servers that need an API key. Stored with the flow; supports {'{{field}}'} values.</p>
+          </div>
         </div>
       )}
 
@@ -1180,10 +1214,12 @@ function NodeSettingsPanel({
         <div className="space-y-3 border-t border-gray-100 pt-3">
           <div>
             <label className="mb-1 block text-[12px] font-medium text-gray-500">Interruption sensitivity</label>
-            <select value={node.params?.interruptionSensitivity || 'medium'} onChange={(e) => onUpdate({ params: { ...node.params, interruptionSensitivity: e.target.value } })} className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-[12.5px] focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100">
+            <select value={node.params?.interruptionSensitivity || ''} onChange={(e) => onUpdate({ params: { ...node.params, interruptionSensitivity: e.target.value } })} className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-[12.5px] focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100">
+              <option value="">Use flow default</option>
               <option value="high">High (interrupt on any word)</option>
-              <option value="medium">Medium (default — needs ~2 words)</option>
+              <option value="medium">Medium (needs ~2 words)</option>
               <option value="low">Low (needs ~3 words)</option>
+              <option value="off">Off (never interrupt this step)</option>
             </select>
           </div>
           <div>
