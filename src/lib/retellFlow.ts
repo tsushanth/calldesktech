@@ -9,6 +9,8 @@
 // have no direct Retell equivalent and become placeholder conversation nodes
 // (reported in `warnings`).
 
+import { substituteDeep, substituteVariables } from './templateVariables';
+
 type Edge = { id?: string; target: string; condition?: string | { field: string; operator: string; value: string } };
 type Node = { id: string; type: string; prompt?: string; edges?: Edge[]; extract?: Record<string, string>; params?: Record<string, any> }; // eslint-disable-line @typescript-eslint/no-explicit-any
 
@@ -19,6 +21,8 @@ export interface RetellFlowInput {
   defaultFunctionUrl?: string;
   knowledgeBaseIds?: string[];
   model?: string;
+  /** {{name}} values substituted into node text and the global prompt (Retell only knows its own dynamic variables). Unknown placeholders stay. */
+  variables?: Record<string, string>;
 }
 
 const safe = (s: string) => s.replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 60);
@@ -48,7 +52,8 @@ function inlineSubflows(nodes: Node[], startNodeId: string, warnings: string[]):
 
 export function toRetellFlow(input: RetellFlowInput) {
   const warnings: string[] = [];
-  const { nodes: graph, startNodeId } = inlineSubflows(input.nodes, input.startNodeId, warnings);
+  const vars = input.variables;
+  const { nodes: graph, startNodeId } = inlineSubflows(substituteDeep(input.nodes, vars), input.startNodeId, warnings);
   const tools: Record<string, unknown>[] = [];
   let firstEnd = graph.find((n) => n.type === 'goodbye')?.id;
   const nodes: Record<string, unknown>[] = [];
@@ -139,7 +144,7 @@ export function toRetellFlow(input: RetellFlowInput) {
     flow: {
       start_node_id: startNodeId,
       start_speaker: 'agent',
-      global_prompt: input.handbook || '',
+      global_prompt: substituteVariables(input.handbook || '', vars),
       model_choice: { type: 'cascading', model: input.model || 'claude-4.5-haiku' },
       nodes,
       tools,

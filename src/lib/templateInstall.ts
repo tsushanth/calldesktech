@@ -8,6 +8,7 @@ import { POST as createSubflowRoute } from '@/app/api/tenants/[id]/subflows/rout
 import { POST as createKbRoute } from '@/app/api/tenants/[id]/knowledge-bases/route';
 import { POST as addKbItemsRoute } from '@/app/api/knowledge-bases/[id]/items/route';
 import type { FlowNode } from '@/types';
+import { collectPlaceholders, substituteVariables } from '@/lib/templateVariables';
 
 // Creates a ready-to-call agent from a built-in template through the same
 // route handlers the dashboard uses, re-invoked in-process with the caller's
@@ -34,16 +35,63 @@ export interface InstallOptions {
   transferTo?: string;
   /** Replaces empty function-node webhook URLs. */
   functionUrl?: string;
+  /** Values for the template's {{placeholders}}, e.g. { business_name, agent_name }. Override defaults and the tenant name. */
+  variables?: Record<string, string>;
+}
+
+/** {{placeholders}} a template uses, excluding names its own extraction fields produce. */
+function templatePlaceholders(t: (typeof AGENT_TEMPLATES)[number]): string[] {
+  const used = new Set<string>();
+  const produced = new Set<string>();
+  const scan = (nodes: FlowNode[]) => {
+    for (const n of nodes) {
+      Object.keys(n.extract || {}).forEach((k) => produced.add(k.toLowerCase()));
+      const { _templateSubflowSeed, _templateKnowledgeBaseSeed, ...rest } = (n.params || {}) as Record<string, string>;
+      collectPlaceholders({ prompt: n.prompt, edges: n.edges, params: rest }, used);
+      if (_templateKnowledgeBaseSeed) collectPlaceholders(JSON.parse(_templateKnowledgeBaseSeed), used);
+      if (_templateSubflowSeed) {
+        const seed = JSON.parse(_templateSubflowSeed) as { nodes: FlowNode[] };
+        scan(seed.nodes);
+      }
+    }
+  };
+  scan(t.nodes);
+  collectPlaceholders(t.handbook, used);
+  return [...used].filter((k) => !produced.has(k)).sort();
 }
 
 export function listTemplates() {
-  return AGENT_TEMPLATES.map((t) => ({ id: t.id, label: t.label, description: t.description, category: t.category }));
+  return AGENT_TEMPLATES.map((t) => ({
+    id: t.id, label: t.label, description: t.description, category: t.category,
+    defaultVariables: t.defaultVariables || {},
+    variables: templatePlaceholders(t),
+  }));
+}
+
+async function tenantName(tenantId: string): Promise<string | undefined> {
+  const { data } = await getSupabaseAdmin().from('calldesk_tenants').select('name').eq('id', tenantId).maybeSingle();
+  const name = (data as { name?: string } | null)?.name?.trim();
+  return name || undefined;
 }
 
 export async function installTemplate(req: NextRequest, tenantId: string, opts: InstallOptions) {
   const template = AGENT_TEMPLATES.find((t) => t.id === opts.templateId);
   if (!template) throw new Error(`Unknown template "${opts.templateId}"`);
   const label = opts.name?.trim() || template.label;
+
+  // Defaults < tenant name (as business_name, when the template has that concept) < explicit variables.
+  const defaults = template.defaultVariables || {};
+  const explicit = opts.variables || {};
+  const variables: Record<string, string> = { ...defaults };
+  if ('business_name' in defaults) {
+    const tn = await tenantName(tenantId).catch(() => undefined);
+    if (tn) variables.business_name = tn;
+  }
+  Object.assign(variables, explicit);
+  // A shorter form of the business name (e.g. "Retell Care") follows business_name unless set explicitly.
+  if ('business_short_name' in defaults && !explicit.business_short_name && variables.business_name !== defaults.business_name) {
+    variables.business_short_name = variables.business_name;
+  }
 
   const { agent } = await json<{ agent: { id: string } }>(
     await createAgentRoute(withBody(req, `/api/tenants/${tenantId}/agents`, { name: label, mode: 'advanced' }), ctx(tenantId))
@@ -69,7 +117,9 @@ export async function installTemplate(req: NextRequest, tenantId: string, opts: 
         n.params = { subflowId: subflow.id };
       }
       if (n.type === 'knowledge_base' && p._templateKnowledgeBaseSeed) {
-        const seed = JSON.parse(p._templateKnowledgeBaseSeed) as { name: string; items: { question: string; answer: string }[] };
+        const rawSeed = JSON.parse(p._templateKnowledgeBaseSeed) as { name: string; items: { question: string; answer: string }[] };
+        // KB items are stored as static text, so placeholders are resolved now.
+        const seed = { name: substituteVariables(rawSeed.name, variables), items: rawSeed.items.map((i) => ({ question: substituteVariables(i.question, variables), answer: substituteVariables(i.answer, variables) })) };
         if (opts.voiceEngine === 'retell') kbSeed = seed;
         const { knowledgeBase } = await json<{ knowledgeBase: { id: string } }>(
           await createKbRoute(withBody(req, `/api/tenants/${tenantId}/knowledge-bases`, { name: seed.name, source_type: 'manual', agent_id: agent.id }), ctx(tenantId))
@@ -93,7 +143,7 @@ export async function installTemplate(req: NextRequest, tenantId: string, opts: 
       const r = await createRetellAgentFromFlow({
         apiKey, agentName: label, voiceId: 'retell-Cimo',
         knowledgeBase: kbSeed && { name: `${label}-kb`, items: kbSeed.items },
-        input: { nodes: nodes.map((n) => (subflowSeeds[n.id] ? ({ ...n, params: { subflowNodes: subflowSeeds[n.id].nodes, subflowStartNodeId: subflowSeeds[n.id].startNodeId } } as unknown as FlowNode) : n)), startNodeId: template.startNodeId, handbook: template.handbook, defaultFunctionUrl: opts.functionUrl },
+        input: { nodes: nodes.map((n) => (subflowSeeds[n.id] ? ({ ...n, params: { subflowNodes: subflowSeeds[n.id].nodes, subflowStartNodeId: subflowSeeds[n.id].startNodeId } } as unknown as FlowNode) : n)), startNodeId: template.startNodeId, handbook: template.handbook, defaultFunctionUrl: opts.functionUrl, variables },
       });
       retell = { agentId: r.agentId, warnings: r.warnings };
     }
@@ -104,7 +154,7 @@ export async function installTemplate(req: NextRequest, tenantId: string, opts: 
           flowName: template.id, startNodeId: template.startNodeId, nodes,
           voiceEngine: opts.voiceEngine,
           ...(retell ? { retellAgentId: retell.agentId } : {}),
-          globalSettings: template.handbook ? { handbook: template.handbook } : {},
+          globalSettings: { ...(template.handbook ? { handbook: template.handbook } : {}), ...(Object.keys(variables).length ? { variables } : {}) },
         }),
         ctx(agent.id)
       )
