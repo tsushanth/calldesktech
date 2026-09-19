@@ -36,6 +36,15 @@ const ops: Record<string, Partial<Record<Method, Op>>> = {
       bodyRequired: ['flowName', 'startNodeId', 'nodes', 'voiceEngine'], returns: '{ version, flow }',
     },
   },
+  '/agent-templates': { get: { tag: 'Agents', summary: 'List agent templates', description: 'Built-in templates (receptionist, medical receptionist, payment collection, IVR navigation and more) that can be installed as an agent.', returns: '{ templates: { id, label, description, category }[] }' } },
+  [`/tenants/${T}/agents/from-template`]: {
+    post: {
+      tag: 'Agents', summary: 'Create an agent from a template',
+      description: 'Creates the agent, its subflows and knowledge base, and publishes version 1. `voiceEngine` "poc" runs on CallDesk; "retell" also creates the equivalent Retell conversation-flow agent (some node types are approximated; see `warnings`). `transferTo` and `functionUrl` fill empty transfer numbers and function webhooks.',
+      body: { templateId: 'string (from GET /agent-templates)', name: 'string', voiceEngine: "'poc' | 'retell'", transferTo: 'E.164 string', functionUrl: 'https URL' },
+      bodyRequired: ['templateId'], returns: '{ agentId, versionId, versionNumber, template, voiceEngine, retellAgentId?, warnings? }',
+    },
+  },
   [`/tenants/${T}/subflows`]: {
     get: { tag: 'Subflows', summary: 'List subflows', query: { agentId: 'Only library subflows plus this agent’s own' }, returns: '{ subflows: Subflow[] }' },
     post: { tag: 'Subflows', summary: 'Create a subflow', body: { name: 'string', scope: "'agent' | 'library'", agentId: 'string (agent scope)', nodes: 'FlowNode[]', startNodeId: 'string' }, bodyRequired: ['name'], returns: '{ subflow }' },
