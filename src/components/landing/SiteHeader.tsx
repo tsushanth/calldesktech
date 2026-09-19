@@ -4,11 +4,12 @@ import Link from 'next/link';
 import { useEffect, useState } from 'react';
 
 const NAV_LINKS = [
-  { href: '#templates', label: 'Templates' },
-  { href: '#platform', label: 'Platform' },
-  { href: '#capabilities', label: 'Capabilities' },
-  { href: '#developers', label: 'Developers' },
-  { href: '#faq', label: 'FAQ' },
+  { href: '/#templates', label: 'Templates' },
+  { href: '/#platform', label: 'Platform' },
+  { href: '/#capabilities', label: 'Capabilities' },
+  { href: '/#developers', label: 'Developers' },
+  { href: '/#faq', label: 'FAQ' },
+  { href: '/docs', label: 'API docs' },
   { href: '/pricing', label: 'Pricing' },
 ];
 
