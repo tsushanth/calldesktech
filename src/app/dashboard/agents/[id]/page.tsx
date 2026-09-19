@@ -1,6 +1,6 @@
 'use client';
 
-import { Fragment, useEffect, useState, useCallback } from 'react';
+import { Fragment, useEffect, useState, useCallback, useRef } from 'react';
 import { useParams, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { api } from '@/lib/api';
@@ -391,8 +391,31 @@ export default function AgentBuilderPage() {
     api.getRetellVoices().then(setRetellVoices).catch((err) => console.error('Failed to load Retell voices:', err));
   }, [voiceEngine, retellVoices.length]);
 
+  // Renaming a node's id keeps everything that pointed at it (arrows, the
+  // start node) pointing at it. An id emptied mid-edit is remembered so the
+  // next non-empty id still re-targets from the original.
+  const renamedFrom = useRef<Record<string, string>>({});
   const updateNode = (key: string, patch: Partial<DraftNode>) => {
-    setNodes((prev) => prev.map((n) => (n._key === key ? { ...n, ...patch } : n)));
+    let retarget: { from: string; to: string } | null = null;
+    if (typeof patch.id === 'string') {
+      const cur = nodes.find((n) => n._key === key)?.id ?? '';
+      const next = patch.id;
+      const from = cur || renamedFrom.current[key] || '';
+      if (cur && !next) renamedFrom.current[key] = cur;
+      if (next && from && from !== next) {
+        retarget = { from, to: next };
+        delete renamedFrom.current[key];
+      }
+    }
+    setNodes((prev) =>
+      prev.map((n) => {
+        const updated = n._key === key ? { ...n, ...patch } : n;
+        return retarget && updated.edges.some((e) => e.target === retarget!.from)
+          ? { ...updated, edges: updated.edges.map((e) => (e.target === retarget!.from ? { ...e, target: retarget!.to } : e)) }
+          : updated;
+      })
+    );
+    if (retarget && startNodeId === retarget.from) setStartNodeId(retarget.to);
   };
   const removeNode = (key: string) => {
     setNodes((prev) => prev.filter((n) => n._key !== key));
@@ -697,8 +720,8 @@ export default function AgentBuilderPage() {
             if (e.condition && typeof e.condition === 'object' && !e.condition.field.trim()) {
               return setError(`Node "${n.id}" has a logic split edge with an operator but no field.`);
             }
-          } else if (n.type === 'press_digit') {
-            // no condition
+          } else if (n.type === 'press_digit' || n.type === 'extract_variable') {
+            // no condition: these steps always advance along their arrow
           } else if (!e.condition || typeof e.condition !== 'string' || !e.condition.trim()) {
             return setError(`Node "${n.id}" has an edge with no condition.`);
           }
