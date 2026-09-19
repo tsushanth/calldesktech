@@ -9,6 +9,7 @@ import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
 import Link from 'next/link';
+import { PRICING } from '@/lib/constants';
 
 export default function PricingPage() {
   return (
@@ -124,7 +125,7 @@ function PricingPageContent() {
           <PricingCard onSubscribe={handleSubscribe} loading={loading} />
         </div>
 
-        {/* vs. Retell — the $0.02/min kokoro number is our own priced rate
+        {/* vs. Retell — the default-voice number is our own priced rate
             (USAGE_PRICES/PRICING in src/lib/constants.ts); the Retell figure
             is real observed blended cost-per-minute from an actual Retell
             account's own billing dashboard (voice infra + LLM + phone +
@@ -139,7 +140,7 @@ function PricingPageContent() {
           <div className="grid grid-cols-2 gap-4">
             <div className="rounded-xl bg-[#00122e] p-4 text-center">
               <p className="text-[12px] font-medium text-white/70 mb-1">This platform (default voice)</p>
-              <p className="text-[28px] font-semibold tracking-[-0.03em] text-white">$0.02</p>
+              <p className="text-[28px] font-semibold tracking-[-0.03em] text-white">${PRICING.usage.voicePerMinute.kokoro.toFixed(2)}</p>
               <p className="text-[12px] text-white/70">per minute</p>
             </div>
             <div className="rounded-xl bg-white p-4 text-center">
@@ -149,7 +150,7 @@ function PricingPageContent() {
             </div>
           </div>
           <p className="mt-4 text-center text-[12px] text-gray-400">
-            Premium voices (ElevenLabs, Cartesia) run $0.08–$0.16/min here — still no monthly minimum either way.
+            Premium voices (ElevenLabs, Cartesia, MiniMax) run ${PRICING.usage.voicePerMinute.elevenlabs.toFixed(2)}–${PRICING.usage.voicePerMinute.minimax.toFixed(2)}/min here — still no monthly minimum either way.
           </p>
         </div>
 

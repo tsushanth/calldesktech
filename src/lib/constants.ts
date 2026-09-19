@@ -83,10 +83,14 @@ export type CallStatus = keyof typeof CALL_STATUSES;
 // Stripe prices on product "CallDeskTech Usage" (voice priced per backend,
 // since only one price per meter can be attached to a subscription at once
 // — see syncVoicePriceForTenant in lib/stripe.ts, which swaps it):
-//   price_1U8tJeKFBTQTkmztTPNMcLKe  kokoro_voice_seconds     $0.02/min
-//   price_1U8tJfKFBTQTkmztIu8fXDxa  elevenlabs_voice_seconds $0.08/min
-//   price_1UCsz6KFBTQTkmztuAOaxCRM  cartesia_voice_seconds   $0.08/min
-//   price_1UCszEKFBTQTkmztXKqkApW7  minimax_voice_seconds    $0.16/min
+//   price_1UHXOqKFBTQTkmztIPlG72Wy  kokoro_voice_seconds_v2     $0.10/min
+//   price_1UHXOrKFBTQTkmzt8nJK5u1b  elevenlabs_voice_seconds_v2 $0.12/min
+//   price_1UHXOrKFBTQTkmztD1ehUQFd  cartesia_voice_seconds_v2   $0.12/min
+//   price_1UCszEKFBTQTkmztXKqkApW7  minimax_voice_seconds      $0.16/min
+// 2026-09-19: voice repriced from $0.02/$0.08/$0.08 to $0.10/$0.12/$0.12 per minute. Measured costs
+// (Twilio voice + streaming $0.0129, Deepgram $0.0065, Claude ~$0.025 = ~$0.044/min before the
+// voice server) exceeded the old $0.02 default price. The superseded prices
+// (price_1U8tJeKF..., price_1U8tJfKF..., price_1UCsz6KF...) remain in Stripe, unused by new checkouts.
 //   price_1U8tJtKFBTQTkmzt8CqFVIDs  booking_completed        $0.007/event
 //   price_1U8tJtKFBTQTkmztdgtdAu8n  transfer_completed       $0.01/event
 //   price_1U8tJuKFBTQTkmztzhIqUrg3  message_taken            $0.004/event
@@ -102,9 +106,9 @@ export type CallStatus = keyof typeof CALL_STATUSES;
 // new checkouts go on the usage-based plan below.
 export const USAGE_PRICES = {
   voice: {
-    kokoro: 'price_1U8tJeKFBTQTkmztTPNMcLKe',
-    elevenlabs: 'price_1U8tJfKFBTQTkmztIu8fXDxa',
-    cartesia: 'price_1UCsz6KFBTQTkmztuAOaxCRM',
+    kokoro: 'price_1UHXOqKFBTQTkmztIPlG72Wy',
+    elevenlabs: 'price_1UHXOrKFBTQTkmzt8nJK5u1b',
+    cartesia: 'price_1UHXOrKFBTQTkmztD1ehUQFd',
     minimax: 'price_1UCszEKFBTQTkmztXKqkApW7',
   },
   booking: 'price_1U8tJtKFBTQTkmzt8CqFVIDs',
@@ -114,7 +118,7 @@ export const USAGE_PRICES = {
 
 export const PRICING = {
   usage: {
-    voicePerMinute: { kokoro: 0.02, elevenlabs: 0.08, cartesia: 0.08, minimax: 0.16 },
+    voicePerMinute: { kokoro: 0.10, elevenlabs: 0.12, cartesia: 0.12, minimax: 0.16 },
     perBookingEvent: 0.007,
     perTransferEvent: 0.01,
     perMessageEvent: 0.004,
