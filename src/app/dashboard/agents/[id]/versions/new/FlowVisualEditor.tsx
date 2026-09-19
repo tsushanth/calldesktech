@@ -134,7 +134,7 @@ function FlowNodeCard({ data }: NodeProps) {
         className="w-[240px] cursor-pointer rounded-md border bg-yellow-100 p-3 shadow-md"
         style={{ borderColor: isSelected ? '#2563eb' : '#facc15', borderWidth: isSelected ? 2 : 1 }}
       >
-        <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-yellow-700">Note · not published</p>
+        <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-yellow-700">Note · not sent to calls</p>
         <p className="whitespace-pre-wrap text-[12.5px] leading-relaxed text-yellow-900">{node.prompt || 'Empty note — edit it in the right panel.'}</p>
       </div>
     );
