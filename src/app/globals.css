@@ -3,6 +3,30 @@
 :root {
   --background: #ffffff;
   --foreground: #171717;
+  --brand-50: #eff6ff;
+  --brand-100: #dbeafe;
+  --brand-200: #bfdbfe;
+  --brand-300: #93c5fd;
+  --brand-400: #60a5fa;
+  --brand-500: #3b82f6;
+  --brand-600: #2563eb;
+  --brand-700: #1d4ed8;
+  --brand-800: #1e40af;
+  --brand-900: #1e3a8a;
+}
+
+/* Public pages (pricing, demo) use the navy palette of the landing page. */
+.brand-navy {
+  --brand-50: #f4f4fa;
+  --brand-100: #ebebf5;
+  --brand-200: #d3d6ea;
+  --brand-300: #9aa3c9;
+  --brand-400: #4b5b8f;
+  --brand-500: #1d3a7a;
+  --brand-600: #00122e;
+  --brand-700: #0a2450;
+  --brand-800: #00122e;
+  --brand-900: #00122e;
 }
 
 @theme inline {
@@ -12,16 +36,16 @@
   --font-mono: var(--font-geist-mono);
 
   /* Primary brand colors */
-  --color-primary-50: #eff6ff;
-  --color-primary-100: #dbeafe;
-  --color-primary-200: #bfdbfe;
-  --color-primary-300: #93c5fd;
-  --color-primary-400: #60a5fa;
-  --color-primary-500: #3b82f6;
-  --color-primary-600: #2563eb;
-  --color-primary-700: #1d4ed8;
-  --color-primary-800: #1e40af;
-  --color-primary-900: #1e3a8a;
+  --color-primary-50: var(--brand-50);
+  --color-primary-100: var(--brand-100);
+  --color-primary-200: var(--brand-200);
+  --color-primary-300: var(--brand-300);
+  --color-primary-400: var(--brand-400);
+  --color-primary-500: var(--brand-500);
+  --color-primary-600: var(--brand-600);
+  --color-primary-700: var(--brand-700);
+  --color-primary-800: var(--brand-800);
+  --color-primary-900: var(--brand-900);
 }
 
 @media (prefers-color-scheme: dark) {

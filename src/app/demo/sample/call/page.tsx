@@ -67,7 +67,7 @@ export default function SampleDemoCallPage() {
   const isFailed = callStatus === 'failed' || callStatus === 'busy' || callStatus === 'no-answer';
 
   return (
-    <div className="min-h-screen bg-gray-50 py-12 px-4">
+    <div className="min-h-[calc(100vh-72px)] bg-white py-12 px-4">
       <div className="max-w-lg mx-auto">
         {/* Progress indicator */}
         <div className="flex justify-center mb-8">

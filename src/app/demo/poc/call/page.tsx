@@ -240,7 +240,7 @@ export default function PocDemoCallPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 py-12 px-4">
+    <div className="min-h-[calc(100vh-72px)] bg-white py-12 px-4">
       <div className="max-w-lg mx-auto">
         <div className="mb-4 text-center">
           <span className="inline-block text-xs font-medium text-amber-700 bg-amber-100 rounded-full px-3 py-1">

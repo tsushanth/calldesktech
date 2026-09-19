@@ -12,7 +12,7 @@ export default function FocusedDemoBlocksPage() {
   const canContinue = !wizardBlocks.transfer || transferToNumber.trim().length > 0;
 
   return (
-    <div className="min-h-screen bg-gray-50 py-12 px-4">
+    <div className="min-h-[calc(100vh-72px)] bg-white py-12 px-4">
       <div className="max-w-lg mx-auto">
         {/* Progress indicator */}
         <div className="flex justify-center mb-8">

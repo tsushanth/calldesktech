@@ -20,14 +20,14 @@ export default function DemoSelectionPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 py-12 px-4">
+    <div className="min-h-[calc(100vh-72px)] bg-white py-12 px-4">
       <div className="max-w-4xl mx-auto">
         {/* Header */}
         <div className="text-center mb-12">
-          <h1 className="text-3xl font-bold text-gray-900 mb-4">
-            Try Our AI Receptionist
+          <h1 className="text-[36px] font-normal leading-[1.02] tracking-[-0.05em] text-[#00122e] mb-4 md:text-[56px]">
+            Try a live demo.
           </h1>
-          <p className="text-lg text-gray-600">
+          <p className="text-[17px] text-gray-500">
             Choose how you&apos;d like to experience our AI phone assistant
           </p>
         </div>
@@ -118,15 +118,6 @@ export default function DemoSelectionPage() {
           </Card>
         </div>
 
-        {/* Back link */}
-        <div className="text-center mt-8">
-          <button
-            onClick={() => router.push('/')}
-            className="text-gray-500 hover:text-gray-700 text-sm"
-          >
-            &larr; Back to Home
-          </button>
-        </div>
       </div>
     </div>
   );

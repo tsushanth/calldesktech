@@ -11,11 +11,11 @@ interface PricingCardProps {
 
 export function PricingCard({ onSubscribe, loading }: PricingCardProps) {
   return (
-    <Card className="max-w-md w-full p-8">
+    <Card className="max-w-md w-full rounded-2xl border-[#e4e4f0] p-8 shadow-none">
       <div className="text-center mb-6">
-        <h2 className="text-2xl font-bold text-gray-900">AI Receptionist</h2>
+        <h2 className="text-2xl font-semibold tracking-[-0.03em] text-[#00122e]">AI Receptionist</h2>
         <div className="mt-4">
-          <span className="text-5xl font-bold text-gray-900">$0</span>
+          <span className="text-6xl font-normal tracking-[-0.05em] text-[#00122e]">$0</span>
           <span className="text-gray-500"> base — pay only for usage</span>
         </div>
         <p className="mt-2 text-sm text-gray-500">

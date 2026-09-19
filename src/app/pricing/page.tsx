@@ -12,7 +12,7 @@ import Link from 'next/link';
 
 export default function PricingPage() {
   return (
-    <Suspense fallback={<main className="min-h-screen bg-[#f7f8fa] flex items-center justify-center"><LoadingSpinner size="lg" /></main>}>
+    <Suspense fallback={<main className="min-h-[60vh] bg-white flex items-center justify-center"><LoadingSpinner size="lg" /></main>}>
       <PricingPageContent />
     </Suspense>
   );
@@ -100,21 +100,21 @@ function PricingPageContent() {
 
   if (status === 'loading') {
     return (
-      <main className="min-h-screen bg-[#f7f8fa] flex items-center justify-center">
+      <main className="min-h-[60vh] bg-white flex items-center justify-center">
         <LoadingSpinner size="lg" />
       </main>
     );
   }
 
   return (
-    <main className="min-h-screen bg-[#f7f8fa] py-16 px-4">
+    <main className="bg-white py-14 px-4 md:py-20">
       <div className="max-w-4xl mx-auto">
         {/* Header */}
         <div className="text-center mb-12">
-          <h1 className="text-4xl font-semibold text-[#1a1d29] mb-4">
-            Simple, Usage-Based Pricing
+          <h1 className="text-[40px] font-normal leading-[1.02] tracking-[-0.05em] text-[#00122e] md:text-[64px]">
+            Simple, usage-based pricing.
           </h1>
-          <p className="text-xl text-gray-500">
+          <p className="mx-auto mt-5 max-w-[560px] text-[17px] leading-[1.5] text-gray-500">
             No monthly minimum. Pay only for talk time and completed actions.
           </p>
         </div>
@@ -131,20 +131,20 @@ function PricingPageContent() {
             telephony + TTS combined), not a published Retell price sheet —
             worded that way deliberately so this stays honest if Retell's
             own pricing changes. */}
-        <div className="max-w-2xl mx-auto mb-12 rounded-2xl border border-gray-200 bg-white p-6">
+        <div className="max-w-2xl mx-auto mb-12 rounded-2xl bg-[#f4f4fa] p-6 md:p-8">
           <h3 className="text-center text-[15px] font-semibold text-[#1a1d29] mb-1">How this compares</h3>
           <p className="text-center text-[12.5px] text-gray-400 mb-5">
             Retell figure is real observed blended cost-per-minute from an actual account&apos;s own billing dashboard, not a published price sheet.
           </p>
           <div className="grid grid-cols-2 gap-4">
-            <div className="rounded-xl bg-blue-50 p-4 text-center">
-              <p className="text-[12px] font-medium text-blue-700 mb-1">This platform (default voice)</p>
-              <p className="text-[28px] font-bold text-blue-900">$0.02</p>
-              <p className="text-[12px] text-blue-700">per minute</p>
+            <div className="rounded-xl bg-[#00122e] p-4 text-center">
+              <p className="text-[12px] font-medium text-white/70 mb-1">This platform (default voice)</p>
+              <p className="text-[28px] font-semibold tracking-[-0.03em] text-white">$0.02</p>
+              <p className="text-[12px] text-white/70">per minute</p>
             </div>
-            <div className="rounded-xl bg-gray-50 p-4 text-center">
+            <div className="rounded-xl bg-white p-4 text-center">
               <p className="text-[12px] font-medium text-gray-500 mb-1">Retell (observed blended avg)</p>
-              <p className="text-[28px] font-bold text-gray-700">~$0.16</p>
+              <p className="text-[28px] font-semibold tracking-[-0.03em] text-gray-700">~$0.16</p>
               <p className="text-[12px] text-gray-500">per minute</p>
             </div>
           </div>
@@ -187,21 +187,12 @@ function PricingPageContent() {
           <p className="text-gray-500 mb-2">Want to try before you buy?</p>
           <Link
             href="/demo"
-            className="text-blue-600 font-medium hover:underline"
+            className="text-[#00122e] font-medium underline underline-offset-4 hover:text-blue-600"
           >
             Try a free demo call
           </Link>
         </div>
 
-        {/* Back to Home */}
-        <div className="text-center mt-8">
-          <Link
-            href="/"
-            className="text-gray-400 hover:text-[#1a1d29] text-sm"
-          >
-            &larr; Back to home
-          </Link>
-        </div>
       </div>
     </main>
   );
