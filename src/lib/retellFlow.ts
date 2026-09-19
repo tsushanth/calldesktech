@@ -144,6 +144,7 @@ export function toRetellFlow(input: RetellFlowInput) {
       nodes,
       tools,
       ...(input.knowledgeBaseIds?.length ? { knowledge_base_ids: input.knowledgeBaseIds } : {}),
+      kb_config: { top_k: 5, filter_score: 0.2 },
     },
   };
 }
