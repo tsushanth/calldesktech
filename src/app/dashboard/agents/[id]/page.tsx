@@ -1417,7 +1417,7 @@ function NodeSettingsPanel({
         <div>
           <label className="mb-1 block text-[12px] font-medium text-gray-500">Note</label>
           <textarea value={node.prompt || ''} onChange={(e) => onUpdate({ prompt: e.target.value })} rows={5} placeholder="A sticky note for you and your team." className="w-full resize-none rounded-lg border border-gray-200 bg-white px-3 py-2 text-[12.5px] focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100" />
-          <p className="mt-1 text-[11.5px] text-gray-400">Canvas-only. Notes are removed when you publish — they are never sent to the call engine, and are not kept in the published version.</p>
+          <p className="mt-1 text-[11.5px] text-gray-400">Canvas-only. Notes are saved with the version but never sent to the call engine.</p>
         </div>
       ) : node.type === 'logic_split' ? (
         <p className="text-[12px] text-gray-400">Logic split has no instructions and never talks to the caller — it evaluates the edges below directly against previously collected data.</p>
@@ -1432,7 +1432,7 @@ function NodeSettingsPanel({
 
       {(node.type === 'extraction' || node.type === 'extract_variable') && (
         <div>
-          <p className="mb-2 text-[11.5px] text-gray-400">{node.type === 'extract_variable' ? 'Silent: reads these values from what the caller has already said, saves them as variables, then follows the first arrow. It never speaks or waits. ' : ''}Extract Variable: the agent asks for and captures these values into named variables, usable in later steps as {'{{field}}'} and in Logic Split conditions.</p>
+          <p className="mb-2 text-[11.5px] text-gray-400">{node.type === 'extract_variable' ? 'Silent: reads these values from what the caller has already said, saves them as variables, then follows the first arrow. It never speaks or waits. Use them in later steps as {{field}} and in Logic Split conditions.' : 'Extraction: the agent asks for and captures these values into named variables, usable in later steps as {{field}} and in Logic Split conditions.'}</p>
           <div className="mb-1.5 flex items-center justify-between">
             <label className="text-[12px] font-medium text-gray-500">Fields to collect</label>
             <button onClick={onAddExtractField} className="text-[12px] font-medium text-blue-600 hover:text-blue-700">+ Add</button>
