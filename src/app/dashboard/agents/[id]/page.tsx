@@ -25,12 +25,10 @@ function draftNodesFromTemplate(nodes: FlowNode[]): DraftNode[] {
   return nodes.map((n) => ({ ...n, _key: newKey() }));
 }
 
-// `preset` entries are palette shortcuts onto an existing engine type, not new
-// engine types (Extract Variable is a pre-filled 'extraction' node).
-const NODE_TYPES: { type: FlowNode['type']; label: string; preset?: 'extract_variable' }[] = [
+const NODE_TYPES: { type: FlowNode['type']; label: string }[] = [
   { type: 'greeting', label: 'Conversation' },
   { type: 'extraction', label: 'Extraction' },
-  { type: 'extraction', label: 'Extract Variable', preset: 'extract_variable' },
+  { type: 'extract_variable', label: 'Extract Variable' },
   { type: 'subagent', label: 'Subagent' },
   { type: 'function', label: 'Function' },
   { type: 'transfer', label: 'Call Transfer' },
@@ -198,7 +196,10 @@ export default function AgentBuilderPage() {
   // Loads a version's nodes + global settings into the builder state. Used on
   // first load and by "Restore".
   const applyVersionToBuilder = useCallback((latest: AgentVersion, gs: Record<string, any>, loadedNodes: FlowNode[]) => { // eslint-disable-line @typescript-eslint/no-explicit-any
-    setNodes(draftNodesFromTemplate(loadedNodes));
+    const savedNotes: DraftNode[] = Array.isArray(gs.notes)
+      ? gs.notes.filter((n: { id?: unknown }) => typeof n?.id === 'string').map((n: { id: string; text?: string; position?: { x: number; y: number } }) => ({ _key: newKey(), id: n.id, type: 'note' as const, prompt: n.text || '', edges: [], position: n.position }))
+      : [];
+    setNodes([...draftNodesFromTemplate(loadedNodes), ...savedNotes]);
     setStartNodeId(gs.startNodeId || loadedNodes[0].id);
     setVoiceEngine(latest.voice_engine);
     setVoiceId(latest.voice_id || '');
@@ -407,16 +408,9 @@ export default function AgentBuilderPage() {
     while (taken.has(`${base}_${i}`)) i += 1;
     return `${base}_${i}`;
   };
-  const addNodeOfType = (type: FlowNode['type'], preset?: 'extract_variable') => {
+  const addNodeOfType = (type: FlowNode['type']) => {
     const base = emptyNodeOfType(type);
-    const node = preset === 'extract_variable'
-      ? {
-          ...base,
-          id: uniqueNodeId('extract_variable'),
-          prompt: 'Ask the caller for the value(s) listed under "Fields to collect" and confirm them before moving on. Only extract what the caller actually said.',
-          extract: { variable_name: 'string' },
-        }
-      : { ...base, id: uniqueNodeId(type === 'greeting' ? 'conversation' : type) };
+    const node = { ...base, id: uniqueNodeId(type === 'greeting' ? 'conversation' : type), ...(type === 'extract_variable' ? { extract: { variable_name: 'string' } } : {}) };
     setNodes((prev) => [...prev, node]);
     setSelectedKey(node._key);
     setRightTab('node');
@@ -550,6 +544,8 @@ export default function AgentBuilderPage() {
   // omitted (unset).
   const buildNewGlobalSettings = (): Record<string, unknown> => {
     const out: Record<string, unknown> = {};
+    const notes = nodes.filter((n) => n.type === 'note').map((n) => ({ id: n.id, text: n.prompt || '', position: n.position }));
+    if (notes.length) out.notes = notes;
     const fields = postCallFields
       .map((f) => ({
         name: f.name.trim(),
@@ -995,8 +991,8 @@ export default function AgentBuilderPage() {
                     <div className="space-y-1">
                       {NODE_TYPES.filter((nt) => nt.type !== 'subflow_ref').map((nt) => (
                         <button
-                          key={nt.preset || nt.type}
-                          onClick={() => addNodeOfType(nt.type, nt.preset)}
+                          key={nt.type}
+                          onClick={() => addNodeOfType(nt.type)}
                           className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-[13px] text-[#1a1d29] transition hover:bg-gray-50"
                         >
                           <NodeTypeIcon type={nt.type} />
@@ -1410,7 +1406,7 @@ function NodeSettingsPanel({
         <div>
           <label className="mb-1 block text-[12px] font-medium text-gray-500">Type</label>
           <select value={node.type} onChange={(e) => onUpdate({ type: e.target.value as FlowNode['type'] })} className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-[12.5px] focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100">
-            {NODE_TYPES.filter((t) => !t.preset).map((t) => (
+            {NODE_TYPES.map((t) => (
               <option key={t.type} value={t.type}>{t.label}</option>
             ))}
           </select>
@@ -1434,9 +1430,9 @@ function NodeSettingsPanel({
         </div>
       )}
 
-      {node.type === 'extraction' && (
+      {(node.type === 'extraction' || node.type === 'extract_variable') && (
         <div>
-          <p className="mb-2 text-[11.5px] text-gray-400">Extract Variable: the agent asks for and captures these values into named variables, usable in later steps as {'{{field}}'} and in Logic Split conditions.</p>
+          <p className="mb-2 text-[11.5px] text-gray-400">{node.type === 'extract_variable' ? 'Silent: reads these values from what the caller has already said, saves them as variables, then follows the first arrow. It never speaks or waits. ' : ''}Extract Variable: the agent asks for and captures these values into named variables, usable in later steps as {'{{field}}'} and in Logic Split conditions.</p>
           <div className="mb-1.5 flex items-center justify-between">
             <label className="text-[12px] font-medium text-gray-500">Fields to collect</label>
             <button onClick={onAddExtractField} className="text-[12px] font-medium text-blue-600 hover:text-blue-700">+ Add</button>
@@ -1465,11 +1461,11 @@ function NodeSettingsPanel({
         </div>
       )}
 
-      {(node.type === 'transfer' || node.type === 'goodbye' || node.type === 'agent_transfer') && (
+      {(node.type === 'transfer' || node.type === 'goodbye' || node.type === 'agent_transfer' || node.type === 'greeting') && (
         <div>
           <label className="mb-1 block text-[12px] font-medium text-gray-500">Exact words to say (optional)</label>
-          <textarea rows={2} value={(node.params?.spokenMessage as string) || ''} onChange={(e) => onUpdate({ params: { ...node.params, spokenMessage: e.target.value } })} placeholder={node.type === 'goodbye' ? 'Thanks for calling, goodbye!' : 'Transferring you to a colleague now, one moment.'} className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-[12.5px] focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100" />
-          <p className="mt-1 text-[11px] text-gray-400">Spoken word for word. Leave blank and the AI writes the line from the step&apos;s instructions.</p>
+          <textarea rows={2} value={(node.params?.spokenMessage as string) || ''} onChange={(e) => onUpdate({ params: { ...node.params, spokenMessage: e.target.value } })} placeholder={node.type === 'goodbye' ? 'Thanks for calling, goodbye!' : node.type === 'greeting' ? 'This call may be recorded. How can I help you today?' : 'Transferring you to a colleague now, one moment.'} className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-[12.5px] focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100" />
+          <p className="mt-1 text-[11px] text-gray-400">Spoken word for word when the call reaches this step; the caller can then reply and the arrows apply as usual. Leave blank and the AI writes the line from the step&apos;s instructions.</p>
         </div>
       )}
 

@@ -50,6 +50,7 @@ const TYPE_COLORS: Record<string, { accent: string; badgeBg: string; badgeText: 
   subagent: { accent: '#6366f1', badgeBg: '#eef2ff', badgeText: '#4f46e5' },
   knowledge_base: { accent: '#14b8a6', badgeBg: '#f0fdfa', badgeText: '#0d9488' },
   transfer: { accent: '#f97316', badgeBg: '#fff7ed', badgeText: '#ea580c' },
+  extract_variable: { accent: '#0d9488', badgeBg: '#f0fdfa', badgeText: '#0f766e' },
   agent_transfer: { accent: '#ea580c', badgeBg: '#fff7ed', badgeText: '#c2410c' },
   press_digit: { accent: '#f97316', badgeBg: '#fff7ed', badgeText: '#ea580c' },
   payment: { accent: '#22c55e', badgeBg: '#f0fdf4', badgeText: '#16a34a' },
