@@ -40,6 +40,14 @@ const FAQS = [
     a: 'Google Calendar, Outlook and iCal, connected through Cal.com. Availability is read at call time, so it never offers a slot that has already gone.',
   },
   {
+    q: 'Can I build my own agent instead of using a template?',
+    a: 'Yes. Start from a blank flow or from any template, edit the steps and conditions in the visual builder, test it with a call to yourself, then publish. Nothing goes live until you publish a version.',
+  },
+  {
+    q: 'Is there an API?',
+    a: 'Yes. Everything in the app is available through a versioned REST API with an OpenAPI description, signed webhooks, and an MCP server for AI assistants. Keys are created in Settings and scoped to one workspace.',
+  },
+  {
     q: 'What does it do outside business hours?',
     a: 'Whatever you configure. Common setups answer questions and take messages overnight, then resume booking and transfers when you open.',
   },
@@ -163,6 +171,12 @@ export function SiteFooter() {
               className="transition-colors duration-150 hover:text-[#1a1d29]"
             >
               Demo
+            </Link>
+            <Link
+              href="/docs"
+              className="transition-colors duration-150 hover:text-[#1a1d29]"
+            >
+              API docs
             </Link>
             <Link
               href="/dashboard"

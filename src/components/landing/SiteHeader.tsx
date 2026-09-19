@@ -4,9 +4,10 @@ import Link from 'next/link';
 import { useEffect, useState } from 'react';
 
 const NAV_LINKS = [
+  { href: '#templates', label: 'Templates' },
+  { href: '#platform', label: 'Platform' },
   { href: '#capabilities', label: 'Capabilities' },
-  { href: '#building-blocks', label: 'Building blocks' },
-  { href: '#how-it-works', label: 'How it works' },
+  { href: '#developers', label: 'Developers' },
   { href: '#faq', label: 'FAQ' },
   { href: '/pricing', label: 'Pricing' },
 ];

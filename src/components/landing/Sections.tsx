@@ -33,8 +33,8 @@ function IconTile({ name }: { name: IconName }) {
 const CAPABILITIES = [
   {
     icon: 'bolt' as IconName,
-    title: 'Sub-500ms latency',
-    body: 'Semantic turn detection instead of dead-air silence timers. No awkward robot pauses mid-sentence.',
+    title: 'Natural turn-taking',
+    body: 'Semantic turn detection instead of dead-air silence timers, with replies in about a second in our own call tests.',
   },
   {
     icon: 'calendar' as IconName,
