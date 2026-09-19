@@ -118,8 +118,11 @@ export async function installTemplate(req: NextRequest, tenantId: string, opts: 
       }
       if (n.type === 'knowledge_base' && p._templateKnowledgeBaseSeed) {
         const rawSeed = JSON.parse(p._templateKnowledgeBaseSeed) as { name: string; items: { question: string; answer: string }[] };
-        // KB items are stored as static text, so placeholders are resolved now.
-        const seed = { name: substituteVariables(rawSeed.name, variables), items: rawSeed.items.map((i) => ({ question: substituteVariables(i.question, variables), answer: substituteVariables(i.answer, variables) })) };
+        // On our engine the stored text keeps its {{placeholders}} and the engine fills them at answer time,
+        // so changing a variable later takes effect. Retell has no such variables, so its copy is resolved now.
+        const seed = opts.voiceEngine === 'retell'
+          ? { name: substituteVariables(rawSeed.name, variables), items: rawSeed.items.map((i) => ({ question: substituteVariables(i.question, variables), answer: substituteVariables(i.answer, variables) })) }
+          : { name: substituteVariables(rawSeed.name, variables), items: rawSeed.items };
         if (opts.voiceEngine === 'retell') kbSeed = seed;
         const { knowledgeBase } = await json<{ knowledgeBase: { id: string } }>(
           await createKbRoute(withBody(req, `/api/tenants/${tenantId}/knowledge-bases`, { name: seed.name, source_type: 'manual', agent_id: agent.id }), ctx(tenantId))
