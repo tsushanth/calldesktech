@@ -400,11 +400,16 @@ export default function AgentBuilderPage() {
     if (typeof patch.id === 'string') {
       const cur = nodes.find((n) => n._key === key)?.id ?? '';
       const next = patch.id;
-      const from = cur || renamedFrom.current[key] || '';
-      if (cur && !next) renamedFrom.current[key] = cur;
-      if (next && from && from !== next) {
-        retarget = { from, to: next };
+      // The id this node had before the current edit began. While the field
+      // is empty or momentarily equals another node's id (typing "a_2" passes
+      // through "a"), nothing is re-targeted, so those arrows can't be hijacked.
+      const from = renamedFrom.current[key] || cur;
+      const collides = nodes.some((n) => n._key !== key && n.id === next);
+      if (!next || collides) {
+        if (from) renamedFrom.current[key] = from;
+      } else {
         delete renamedFrom.current[key];
+        if (from && from !== next) retarget = { from, to: next };
       }
     }
     setNodes((prev) =>
