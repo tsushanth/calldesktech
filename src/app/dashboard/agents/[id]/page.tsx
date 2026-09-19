@@ -164,6 +164,12 @@ export default function AgentBuilderPage() {
   const [voicemailDetection, setVoicemailDetection] = useState<'' | 'hangup' | 'leave_message'>('');
   const [voicemailMessage, setVoicemailMessage] = useState('');
   const [fillerWords, setFillerWords] = useState('');
+  // Configured {{placeholders}} (business_name, agent_name, custom). Stored in
+  // globalSettings.variables; blank entries are never persisted.
+  const [variables, setVariables] = useState<Record<string, string>>({});
+  const [newVarKey, setNewVarKey] = useState('');
+  const [newVarValue, setNewVarValue] = useState('');
+  const [newVarError, setNewVarError] = useState<string | null>(null);
   const [responsiveness, setResponsiveness] = useState('');
   const [backchannel, setBackchannel] = useState<'' | 'on' | 'off'>('');
   const [backchannelFrequency, setBackchannelFrequency] = useState('');
@@ -216,6 +222,11 @@ export default function AgentBuilderPage() {
     setVoicemailDetection(gs.voicemailDetection === 'hangup' || gs.voicemailDetection === 'leave_message' ? gs.voicemailDetection : '');
     setVoicemailMessage(typeof gs.voicemailMessage === 'string' ? gs.voicemailMessage : '');
     setFillerWords(Array.isArray(gs.fillerWords) ? gs.fillerWords.join(', ') : '');
+    setVariables(
+      gs.variables && typeof gs.variables === 'object' && !Array.isArray(gs.variables)
+        ? Object.fromEntries(Object.entries(gs.variables as Record<string, unknown>).filter(([, v]) => typeof v === 'string').map(([k, v]) => [k, v as string]))
+        : {},
+    );
     setResponsiveness(typeof gs.responsiveness === 'number' ? String(gs.responsiveness) : '');
     setBackchannel(gs.backchannelEnabled === true ? 'on' : gs.backchannelEnabled === false ? 'off' : '');
     setBackchannelFrequency(typeof gs.backchannelFrequency === 'number' ? String(gs.backchannelFrequency) : '');
@@ -344,6 +355,7 @@ export default function AgentBuilderPage() {
     setFlowName(template.id);
     if (template.singlePrompt) setSinglePrompt(template.singlePrompt);
     if (template.handbook) setHandbook(template.handbook);
+    setVariables(template.defaultVariables ? { ...template.defaultVariables } : {});
     setShowEditor(true);
   };
 
@@ -594,6 +606,8 @@ export default function AgentBuilderPage() {
     }
     const fillers = fillerWords.split(',').map((w) => w.trim()).filter(Boolean);
     if (fillers.length) out.fillerWords = fillers;
+    const vars = Object.fromEntries(Object.entries(variables).map(([k, v]) => [k, v.trim()]).filter(([, v]) => v));
+    if (Object.keys(vars).length) out.variables = vars;
     const resp = num(responsiveness);
     if (resp !== null) out.responsiveness = Math.min(1, Math.max(0, resp));
     if (backchannel) out.backchannelEnabled = backchannel === 'on';
@@ -648,8 +662,38 @@ export default function AgentBuilderPage() {
     }
   };
 
+  // Every {{placeholder}} referenced anywhere in the current flow text.
+  const flowText = (() => {
+    const parts: string[] = [handbook, voicemailMessage];
+    if (agentType === 'single_prompt') parts.push(singlePrompt);
+    else {
+      for (const n of nodes) {
+        if (n.type === 'note') continue;
+        parts.push(n.prompt || '', n.params?.spokenMessage || '');
+        for (const e of n.edges) if (typeof e.condition === 'string') parts.push(e.condition);
+      }
+    }
+    return parts.join('\n');
+  })();
+  const extractedNames = new Set(nodes.flatMap((n) => Object.keys(n.extract || {})));
+  const detectedVars = Array.from(new Set(Array.from(flowText.matchAll(/\{\{\s*([a-zA-Z_][a-zA-Z0-9_]*)\s*\}\}/g)).map((m) => m[1])))
+    .filter((k) => k !== 'business_name' && k !== 'agent_name' && !extractedNames.has(k));
+  const otherVarNames = Array.from(new Set([...detectedVars, ...Object.keys(variables).filter((k) => k !== 'business_name' && k !== 'agent_name')]));
+  const usesBusinessName = /\{\{\s*business_name\s*\}\}/.test(flowText);
+
+  const addCustomVariable = () => {
+    const k = newVarKey.trim();
+    if (!/^[a-z][a-z0-9_]{0,40}$/.test(k)) return setNewVarError('Name must start with a lowercase letter and use only a-z, 0-9, _ (max 41 chars).');
+    if (newVarValue.length > 200) return setNewVarError('Value must be 200 characters or fewer.');
+    setVariables((p) => ({ ...p, [k]: newVarValue }));
+    setNewVarKey(''); setNewVarValue(''); setNewVarError(null);
+  };
+
   const handleSave = async () => {
     setError(null);
+    if (usesBusinessName && !(variables.business_name || '').trim()) {
+      return setError('Set a business name before publishing (Global Settings → Business details).');
+    }
 
     let cleanNodes: FlowNode[];
     let effectiveStartNodeId: string;
@@ -1104,6 +1148,61 @@ export default function AgentBuilderPage() {
                 <div className="flex-1 p-4">
                   {rightTab === 'global' ? (
                     <div className="space-y-4">
+                      <div className="space-y-3 rounded-xl border border-blue-100 bg-blue-50/40 p-3.5" data-testid="business-details">
+                        <div className="text-[13px] font-semibold text-gray-800">Business details</div>
+                        <div>
+                          <label className="mb-1 block text-[12.5px] font-medium text-gray-600">Business name</label>
+                          <input
+                            value={variables.business_name || ''}
+                            maxLength={200}
+                            onChange={(e) => setVariables((p) => ({ ...p, business_name: e.target.value }))}
+                            placeholder="e.g. Sunrise Dental"
+                            className="w-full rounded-lg border border-gray-200 bg-white px-3.5 py-2.5 text-[14px] focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100"
+                          />
+                          {usesBusinessName && !(variables.business_name || '').trim() && (
+                            <p className="mt-1 text-[11.5px] font-medium text-amber-600">This flow uses {'{{business_name}}'} — set it before publishing.</p>
+                          )}
+                        </div>
+                        <div>
+                          <label className="mb-1 block text-[12.5px] font-medium text-gray-600">Agent name</label>
+                          <input
+                            value={variables.agent_name || ''}
+                            maxLength={200}
+                            onChange={(e) => setVariables((p) => ({ ...p, agent_name: e.target.value }))}
+                            placeholder="e.g. Sam"
+                            className="w-full rounded-lg border border-gray-200 bg-white px-3.5 py-2.5 text-[14px] focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100"
+                          />
+                        </div>
+                        <p className="text-[11.5px] text-gray-500">What callers will hear. Used wherever the agent introduces itself or names the business.</p>
+                        <div className="border-t border-blue-100 pt-3">
+                          <div className="mb-2 text-[12.5px] font-medium text-gray-600">Other variables</div>
+                          <div className="space-y-2">
+                            {otherVarNames.map((name) => (
+                              <div key={name}>
+                                <label className="mb-0.5 block font-mono text-[11.5px] text-gray-500">{name}</label>
+                                <div className="flex gap-1.5">
+                                  <input
+                                    value={variables[name] || ''}
+                                    maxLength={200}
+                                    onChange={(e) => setVariables((p) => ({ ...p, [name]: e.target.value }))}
+                                    className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-[13px] focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100"
+                                  />
+                                  {!detectedVars.includes(name) && (
+                                    <button type="button" onClick={() => setVariables((p) => { const { [name]: _drop, ...rest } = p; void _drop; return rest; })} className="px-1.5 text-[12px] text-gray-400 hover:text-red-500" aria-label={`Remove ${name}`}>✕</button>
+                                  )}
+                                </div>
+                              </div>
+                            ))}
+                            <div className="flex gap-1.5">
+                              <input value={newVarKey} onChange={(e) => setNewVarKey(e.target.value)} placeholder="name" className="w-2/5 rounded-lg border border-gray-200 bg-white px-3 py-2 font-mono text-[12px] focus:border-blue-400 focus:outline-none" />
+                              <input value={newVarValue} onChange={(e) => setNewVarValue(e.target.value)} placeholder="value" className="flex-1 rounded-lg border border-gray-200 bg-white px-3 py-2 text-[13px] focus:border-blue-400 focus:outline-none" />
+                              <button type="button" onClick={addCustomVariable} className="whitespace-nowrap rounded-lg border border-gray-200 bg-white px-2.5 text-[12px] font-medium text-blue-600 hover:bg-blue-50">+ Add variable</button>
+                            </div>
+                            {newVarError && <p className="text-[11.5px] text-red-500">{newVarError}</p>}
+                          </div>
+                          <p className="mt-2 text-[11.5px] text-gray-400">Blank variables are not replaced.</p>
+                        </div>
+                      </div>
                       <div>
                         <label className="mb-1 block text-[12.5px] font-medium text-gray-500">Version name</label>
                         <input
