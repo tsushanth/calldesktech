@@ -28,6 +28,8 @@ import type { FlowNode } from '@/types';
 
 export interface AgentTemplate {
   id: string;
+  /** Values for {{placeholders}} the template uses, such as business_name and agent_name. Copied into the agent's variables on install. */
+  defaultVariables?: Record<string, string>;
   label: string;
   description: string;
   category: string;
