@@ -1,5 +1,3 @@
-import Link from "next/link";
-
 import { SiteHeader } from "@/components/landing/SiteHeader";
 import { Hero } from "@/components/landing/Hero";
 import { CallPreview } from "@/components/landing/CallPreview";
@@ -39,7 +37,7 @@ function useCaseGroups(): { groups: UseCaseGroup[]; total: number } {
 export default function Home() {
   const { groups, total } = useCaseGroups();
   return (
-    <div className="min-h-screen bg-[#f7f8fa] text-[#1a1d29]">
+    <div className="min-h-screen bg-white text-[#00122e]">
       <SiteHeader />
 
       <main>
@@ -56,19 +54,6 @@ export default function Home() {
         <FAQ />
         <FinalCTA />
       </main>
-
-      {/* Persistent demo CTA — pre-existing, retained. */}
-      <Link
-        href="/demo"
-        className="fixed bottom-6 right-6 z-40 flex items-center gap-2 rounded-full bg-blue-600 py-3 pl-4 pr-5 text-white shadow-lg shadow-blue-900/40 transition-[background-color,transform] duration-150 hover:-translate-y-0.5 hover:bg-blue-500"
-      >
-        <span aria-hidden className="text-lg">
-          🎧
-        </span>
-        <span className="text-sm font-semibold tracking-[-0.01em]">
-          Try Live Demo
-        </span>
-      </Link>
 
       <SiteFooter />
     </div>

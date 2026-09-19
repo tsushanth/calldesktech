@@ -70,7 +70,7 @@ export function SectionTitle({
 }) {
   return (
     <h2
-      className={`text-[30px] md:text-[37.5px] font-semibold leading-[1.05] tracking-[-0.03em] text-[#1a1d29] ${className}`}
+      className={`text-[32px] md:text-[44px] font-normal leading-[1.04] tracking-[-0.045em] text-[#00122e] ${className}`}
     >
       {children}
     </h2>
@@ -101,7 +101,7 @@ export function PrimaryButton({
   return (
     <Link
       href={href}
-      className={`${BTN_BASE} ${s} bg-blue-600 text-white hover:bg-blue-700`}
+      className={`${BTN_BASE} ${s} bg-[#00122e] text-white hover:bg-[#0a2450]`}
     >
       {children}
     </Link>
@@ -121,7 +121,7 @@ export function SecondaryButton({
   return (
     <Link
       href={href}
-      className={`${BTN_BASE} ${s} border border-gray-200 bg-white text-[#1a1d29] hover:border-gray-300 hover:bg-gray-50`}
+      className={`${BTN_BASE} ${s} border border-transparent bg-[#f0f0f8] text-[#00122e] hover:bg-[#e6e6f2]`}
     >
       {children}
     </Link>
@@ -162,5 +162,24 @@ export function CardTitle({ children }: { children: React.ReactNode }) {
 export function CardBody({ children }: { children: React.ReactNode }) {
   return (
     <p className="mt-3 text-[15px] leading-[1.55] text-gray-500">{children}</p>
+  );
+}
+
+/** Buttons for use on the dark gradient cards. */
+export function LightButton({ href, children, size = 'md' }: { href: string; children: React.ReactNode; size?: 'md' | 'lg' }) {
+  const s = size === 'lg' ? 'text-[15px] px-6 py-3.5' : 'text-[13px] px-4 py-2.5';
+  return (
+    <Link href={href} className={`${BTN_BASE} ${s} bg-white text-[#00122e] hover:bg-[#f0f0f8]`}>
+      {children}
+    </Link>
+  );
+}
+
+export function GlassButton({ href, children, size = 'md' }: { href: string; children: React.ReactNode; size?: 'md' | 'lg' }) {
+  const s = size === 'lg' ? 'text-[15px] px-6 py-3.5' : 'text-[13px] px-4 py-2.5';
+  return (
+    <Link href={href} className={`${BTN_BASE} ${s} border border-white/30 bg-white/10 text-white backdrop-blur hover:bg-white/20`}>
+      {children}
+    </Link>
   );
 }

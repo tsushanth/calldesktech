@@ -56,7 +56,7 @@ export default function DocsPage() {
   const tags = [...groups.keys()];
 
   return (
-    <div className="min-h-screen bg-[#f7f8fa] text-[#1a1d29]">
+    <div className="min-h-screen bg-white text-[#00122e]">
       <SiteHeader />
       <main className="pb-24 pt-[120px] md:pt-[136px]">
         <Container>

@@ -37,12 +37,12 @@ export function UseCasePicker({ groups }: { groups: UseCaseGroup[] }) {
               onClick={() => setActive(g.id)}
               className={`rounded-full border px-4 py-2 text-[14px] font-medium tracking-[-0.01em] transition-colors duration-150 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 ${
                 selected
-                  ? 'border-blue-600 bg-blue-600 text-white'
+                  ? 'border-[#00122e] bg-[#00122e] text-white'
                   : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300 hover:text-[#1a1d29]'
               }`}
             >
               {g.label}
-              <span className={`ml-2 tabular-nums ${selected ? 'text-blue-100' : 'text-gray-400'}`}>{g.templates.length}</span>
+              <span className={`ml-2 tabular-nums ${selected ? 'text-white/60' : 'text-gray-400'}`}>{g.templates.length}</span>
             </button>
           );
         })}

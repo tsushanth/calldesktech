@@ -2,11 +2,12 @@ import Link from 'next/link';
 import {
   Container,
   Eyebrow,
-  PrimaryButton,
-  SecondaryButton,
+  GlassButton,
+  LightButton,
   Section,
   SectionTitle,
 } from './primitives';
+import { MESH } from './gradient';
 import { Reveal } from './Reveal';
 
 /**
@@ -105,87 +106,57 @@ export function FAQ() {
 
 export function FinalCTA() {
   return (
-    <Section size="secondary">
-      <Reveal>
-        <div className="relative overflow-hidden rounded-2xl border border-gray-200 bg-white px-8 py-16 text-center shadow-sm md:px-16 md:py-24">
-          <div
-            aria-hidden
-            className="pointer-events-none absolute inset-0"
-            style={{
-              // Centered at 50% 45% (not 50% 0%) with a large enough radius
-              // to reach every corner — the original was anchored to the
-              // top edge, so the ellipse's lower lobe never reached the
-              // card's bottom half, leaving it visibly dead/flat.
-              background:
-                'radial-gradient(120% 140% at 50% 45%, rgba(37,99,235,0.10) 0%, rgba(37,99,235,0.04) 40%, rgba(37,99,235,0.01) 70%, transparent 100%)',
-            }}
-          />
-          <div className="relative">
-            <SectionTitle className="mx-auto max-w-[620px]">
+    <section className="px-2 pb-2">
+      <div className="relative isolate overflow-hidden rounded-[28px] text-center text-white" style={{ background: '#0a2a86' }}>
+        <div aria-hidden className="mesh-drift absolute -inset-[8%] -z-10" style={{ background: MESH }} />
+        <Reveal>
+          <div className="mx-auto max-w-[820px] px-6 py-24 md:py-36">
+            <h2 className="font-[family-name:var(--font-serif)] text-[44px] font-normal leading-[0.98] tracking-[-0.03em] md:text-[80px]">
               Hear it handle your first call in under a minute.
-            </SectionTitle>
-            <p className="mx-auto mt-5 max-w-[500px] text-[16px] leading-[1.55] text-gray-500">
-              No install, no card, no sales call. Pick a building block and
-              listen to it run.
+            </h2>
+            <p className="mx-auto mt-7 max-w-[500px] text-[16px] leading-[1.55] text-white/80">
+              No install, no card, no sales call. Pick a template and listen to it run.
             </p>
             <div className="mt-9 flex flex-wrap justify-center gap-3">
-              <PrimaryButton href="/demo" size="lg">
-                Try free demo
-              </PrimaryButton>
-              <SecondaryButton href="/pricing" size="lg">
-                See pricing
-              </SecondaryButton>
+              <LightButton href="/demo" size="lg">Try free demo</LightButton>
+              <GlassButton href="/pricing" size="lg">See pricing</GlassButton>
             </div>
           </div>
-        </div>
-      </Reveal>
-    </Section>
+        </Reveal>
+      </div>
+    </section>
   );
 }
 
+const FOOTER_LINKS: { title: string; links: { href: string; label: string }[] }[] = [
+  { title: 'Product', links: [{ href: '/#templates', label: 'Templates' }, { href: '/#platform', label: 'Platform' }, { href: '/pricing', label: 'Pricing' }, { href: '/demo', label: 'Live demo' }] },
+  { title: 'Developers', links: [{ href: '/docs', label: 'API reference' }, { href: '/api/v1/openapi.json', label: 'OpenAPI file' }, { href: 'https://www.npmjs.com/package/calldesktech-mcp', label: 'MCP server' }] },
+  { title: 'Account', links: [{ href: '/auth/login', label: 'Sign in' }, { href: '/dashboard', label: 'Dashboard' }] },
+];
+
 export function SiteFooter() {
   return (
-    <footer className="border-t border-gray-200 py-12">
+    <footer className="mt-16 border-t border-gray-200 py-14">
       <Container>
-        <div className="flex flex-col items-center justify-between gap-6 sm:flex-row">
-          <div className="flex items-center gap-3">
-            <Link
-              href="/"
-              className="text-[15px] font-semibold tracking-[-0.03em] text-[#1a1d29]"
-            >
-              CallDeskTech
-            </Link>
-            <span className="text-[13px] text-gray-400">
-              © {new Date().getFullYear()}
-            </span>
+        <div className="grid gap-10 md:grid-cols-[minmax(0,1.4fr)_repeat(3,minmax(0,1fr))]">
+          <div>
+            <Link href="/" className="text-[18px] font-semibold tracking-[-0.04em] text-[#00122e]">CallDeskTech</Link>
+            <p className="mt-3 max-w-[280px] text-[14px] leading-[1.5] text-gray-500">Voice agents that answer, book, transfer and follow up on your phone calls.</p>
           </div>
-          <div className="flex items-center gap-7 text-[13px] text-gray-400">
-            <Link
-              href="/pricing"
-              className="transition-colors duration-150 hover:text-[#1a1d29]"
-            >
-              Pricing
-            </Link>
-            <Link
-              href="/demo"
-              className="transition-colors duration-150 hover:text-[#1a1d29]"
-            >
-              Demo
-            </Link>
-            <Link
-              href="/docs"
-              className="transition-colors duration-150 hover:text-[#1a1d29]"
-            >
-              API docs
-            </Link>
-            <Link
-              href="/dashboard"
-              className="transition-colors duration-150 hover:text-[#1a1d29]"
-            >
-              Dashboard
-            </Link>
-          </div>
+          {FOOTER_LINKS.map((g) => (
+            <nav key={g.title} aria-label={g.title}>
+              <p className="text-[13px] font-medium text-[#00122e]">{g.title}</p>
+              <ul className="mt-3 space-y-2">
+                {g.links.map((l) => (
+                  <li key={l.label}>
+                    <Link href={l.href} className="text-[14px] text-gray-500 transition-colors duration-150 hover:text-[#00122e]">{l.label}</Link>
+                  </li>
+                ))}
+              </ul>
+            </nav>
+          ))}
         </div>
+        <p className="mt-12 text-[13px] text-gray-400">© {new Date().getFullYear()} CallDeskTech</p>
       </Container>
     </footer>
   );

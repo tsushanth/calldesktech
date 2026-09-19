@@ -33,26 +33,24 @@ export function SiteHeader() {
 
   return (
     <header
-      className={`fixed top-0 left-0 right-0 z-50 h-[72px] flex items-center transition-[background-color,border-color,backdrop-filter] duration-300 ${
-        scrolled
-          ? 'bg-white/85 backdrop-blur-xl border-b border-gray-200'
-          : 'bg-transparent border-b border-transparent'
+      className={`fixed top-0 left-0 right-0 z-50 h-[72px] flex items-center bg-white transition-[border-color] duration-300 ${
+        scrolled ? 'border-b border-gray-200' : 'border-b border-transparent'
       }`}
     >
       <nav className="mx-auto w-full max-w-[1160px] px-6 flex items-center justify-between">
         <Link
           href="/"
-          className="text-[17px] font-semibold tracking-[-0.03em] text-[#1a1d29]"
+          className="text-[18px] font-semibold tracking-[-0.04em] text-[#00122e]"
         >
           CallDeskTech
         </Link>
 
-        <div className="hidden lg:flex items-center gap-7 text-[13px] text-gray-600">
+        <div className="hidden lg:flex items-center gap-7 text-[13px] font-medium text-[#00122e]">
           {NAV_LINKS.map((link) => (
             <a
               key={link.href}
               href={link.href}
-              className="tracking-[-0.01em] hover:text-[#1a1d29] transition-colors duration-150"
+              className="tracking-[-0.01em] hover:text-blue-600 transition-colors duration-150"
             >
               {link.label}
             </a>
@@ -61,16 +59,16 @@ export function SiteHeader() {
 
         <div className="flex items-center gap-2">
           <Link
-            href="/dashboard"
-            className="hidden sm:block text-[13px] text-gray-600 hover:text-[#1a1d29] px-3 py-2 transition-colors duration-150"
+            href="/auth/login"
+            className="hidden sm:block text-[13px] font-medium text-[#00122e] hover:text-blue-600 px-3 py-2 transition-colors duration-150"
           >
-            Dashboard
+            Sign in
           </Link>
           <Link
-            href="/auth/login"
-            className="text-[13px] font-medium text-white bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded-md transition-[opacity,transform,background-color] duration-150 hover:-translate-y-px active:translate-y-0"
+            href="/demo"
+            className="text-[13px] font-medium text-white bg-[#00122e] hover:bg-[#0a2450] px-4 py-2 rounded-md transition-[opacity,transform,background-color] duration-150 hover:-translate-y-px active:translate-y-0"
           >
-            Sign In
+            Try free demo
           </Link>
         </div>
       </nav>

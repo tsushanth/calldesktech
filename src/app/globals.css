@@ -36,3 +36,11 @@ body {
   color: var(--foreground);
   font-family: var(--font-sans), Arial, Helvetica, sans-serif;
 }
+
+/* Landing hero: slow drift of the gradient mesh (one ambient motion, off for reduced-motion users). */
+@keyframes mesh-drift {
+  0%, 100% { transform: translate3d(0, 0, 0) scale(1.05); }
+  50% { transform: translate3d(-2.5%, 2%, 0) scale(1.12); }
+}
+.mesh-drift { animation: mesh-drift 22s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) { .mesh-drift { animation: none; } }
