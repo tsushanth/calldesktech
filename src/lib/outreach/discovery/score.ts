@@ -8,18 +8,15 @@ export interface ScoreInput {
   description: string | null;
 }
 
-// GDPR/UK-GDPR/Swiss-DPA: leads in these regions are excluded from
-// outreach until a lawful-basis process exists.
-const BLOCKED_REGION_HINTS = [
-  'austria', 'belgium', 'bulgaria', 'croatia', 'cyprus', 'czech', 'denmark', 'estonia', 'finland', 'france',
-  'germany', 'greece', 'hungary', 'ireland', 'italy', 'latvia', 'lithuania', 'luxembourg', 'malta',
-  'netherlands', 'poland', 'portugal', 'romania', 'slovakia', 'slovenia', 'spain', 'sweden',
-  'norway', 'iceland', 'liechtenstein', 'united kingdom', 'england', 'scotland', 'wales', 'switzerland', 'europe', ', uk', 'gmbh',
-];
+// Regions excluded from cold email. Germany, Austria and Switzerland require prior
+// consent even for B2B marketing email (unfair-competition law), so we skip them.
+// Everywhere else (incl. the UK and the rest of the EU) is allowed, relying on B2B
+// legitimate interest plus sender identity, postal address and an unsubscribe link
+// in every email. Review this list with counsel before scaling volume.
+const BLOCKED_REGION_HINTS = ['germany', 'deutschland', 'austria', 'switzerland', 'liechtenstein', 'gmbh'];
 
-// Country-code domains for the same excluded regions; catches agencies whose
-// directory listing has no location.
-const BLOCKED_TLDS = ['.uk', '.de', '.fr', '.es', '.it', '.nl', '.be', '.at', '.ch', '.se', '.dk', '.fi', '.ie', '.pt', '.pl', '.cz', '.gr', '.hu', '.ro', '.bg', '.hr', '.sk', '.si', '.lt', '.lv', '.ee', '.lu', '.mt', '.cy', '.eu'];
+// Country-code domains for the same regions; catches agencies whose listing has no location.
+const BLOCKED_TLDS = ['.de', '.at', '.ch', '.li'];
 
 export function isBlockedDomain(domain: string | null): boolean {
   const d = (domain || '').toLowerCase();

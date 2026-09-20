@@ -20,10 +20,10 @@ function escapeHtml(s: string): string {
 
 export function buildFooter(email: string, postalAddress: string): { text: string; html: string } {
   const link = unsubscribeUrl(email);
-  const text = `\n\n--\nSushanth, Calldesk (calldesk.tech)\n${postalAddress}\nNot interested? Unsubscribe: ${link}`;
+  const text = `\n\n--\nSushanth, Calldesk (calldesk.tech)\n${postalAddress}\nYou're receiving this because your business contact address is published on your website. Not interested? Unsubscribe: ${link}`;
   const html =
     `<p style="color:#6b7280;font-size:12px;margin-top:24px">Sushanth, Calldesk (calldesk.tech)<br/>` +
-    `${escapeHtml(postalAddress)}<br/>Not interested? <a href="${link}">Unsubscribe</a></p>`;
+    `${escapeHtml(postalAddress)}<br/>You're receiving this because your business contact address is published on your website. Not interested? <a href="${link}">Unsubscribe</a></p>`;
   return { text, html };
 }
 
@@ -45,8 +45,8 @@ export async function sendApprovedMessage(supabase: SupabaseClient<any>, message
 
   const { data: lead } = await supabase.from('calldesk_outreach_leads').select('region_blocked').eq('id', msg.lead_id).maybeSingle();
   if (lead?.region_blocked) {
-    await supabase.from('calldesk_outreach_messages').update({ status: 'failed', error: 'lead is in an excluded region (EU/UK)' }).eq('id', messageId);
-    return { ok: false, error: 'This lead is in an excluded region (EU/UK); not sending' };
+    await supabase.from('calldesk_outreach_messages').update({ status: 'failed', error: 'lead is in an excluded region (DE/AT/CH)' }).eq('id', messageId);
+    return { ok: false, error: 'This lead is in an excluded region (Germany/Austria/Switzerland); not sending' };
   }
 
   const toEmail = String(msg.to_email).trim().toLowerCase();

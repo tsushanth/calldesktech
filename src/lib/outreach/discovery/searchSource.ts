@@ -22,10 +22,18 @@ const VERTICALS = [
   'chiropractors', 'veterinary clinics', 'contractors and trades', 'financial advisors', 'senior living and home care',
 ];
 const PHRASINGS = ['AI voice agent agency for', 'AI receptionist company for', 'AI phone answering service built for'];
+const REGIONS = [
+  'the United Kingdom', 'Ireland', 'the Netherlands', 'France', 'Spain', 'Italy', 'Poland', 'Sweden and the Nordics',
+  'Canada', 'Australia and New Zealand', 'India', 'the UAE and Middle East', 'Singapore and Southeast Asia',
+  'Brazil and Latin America', 'South Africa',
+];
 
 // Deterministic rotation: each day advances through vertical x phrasing combos.
 export function queriesForDay(now = new Date(), perDay = 3): string[] {
-  const combos = VERTICALS.flatMap((v) => PHRASINGS.map((p) => `${p} ${v}`));
+  const combos = [
+    ...VERTICALS.flatMap((v) => PHRASINGS.map((p) => `${p} ${v}`)),
+    ...REGIONS.flatMap((r) => ['AI voice agent agency in', 'AI receptionist and phone agent company in'].map((p) => `${p} ${r}`)),
+  ];
   const dayNumber = Math.floor(now.getTime() / 86_400_000);
   return Array.from({ length: perDay }, (_, i) => combos[(dayNumber * perDay + i) % combos.length]);
 }
