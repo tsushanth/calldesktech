@@ -36,7 +36,7 @@ const PROMPT = (query: string) => `Search the web for: ${query}
 
 I want small and mid-size agencies, studios or consultancies that BUILD or SELL AI voice agents / AI phone receptionists to other businesses. Exclude the voice-AI platforms themselves (Retell, Vapi, Bland, Synthflow, ElevenLabs, PolyAI), big enterprises, directories, and review or listicle sites.
 
-Return ONLY a JSON array (at most 12 items) of objects with keys: name, website (the company's own homepage URL, taken from the search results), location (city and country if shown, else null), blurb (one factual sentence from their own site). Only include companies you actually saw in the search results. No commentary, no markdown fences.`;
+Return ONLY a JSON array (at most 12 items) of objects with keys: name, website (the company's own homepage URL, taken from the search results), location (city and country if shown, else null), blurb (one factual sentence from their own site). Only include companies you actually saw in the search results. Use at most 4 web searches, then answer immediately. No commentary, no markdown fences.`;
 
 function parseJsonArray(text: string): unknown[] {
   const start = text.indexOf('[');
@@ -52,7 +52,7 @@ function parseJsonArray(text: string): unknown[] {
 
 async function runQuery(query: string): Promise<unknown[]> {
   if (usingCli()) {
-    return extractJson<unknown[]>(cliComplete(PROMPT(query), { webSearch: true, maxTurns: 8, timeoutMs: 300_000 }), 'array') ?? [];
+    return extractJson<unknown[]>(cliComplete(PROMPT(query), { webSearch: true, maxTurns: 14, timeoutMs: 300_000 }), 'array') ?? [];
   }
   const client = getAnthropicClient();
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
