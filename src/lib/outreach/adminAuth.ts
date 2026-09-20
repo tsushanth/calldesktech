@@ -1,6 +1,7 @@
 import { getServerSession } from 'next-auth';
 import { timingSafeEqual } from 'crypto';
 import { authOptions } from '@/lib/auth';
+import { adminEmails } from './config';
 
 // Outreach data isn't tenant-scoped customer data — it's internal sales
 // tooling, so it doesn't fit the existing tenant/RLS auth model. Gated
@@ -15,13 +16,6 @@ export async function requireAdminSession(): Promise<{ email: string } | null> {
   const allowlist = adminEmails();
   if (!allowlist.includes(email.toLowerCase())) return null;
   return { email };
-}
-
-export function adminEmails(): string[] {
-  return (process.env.ADMIN_EMAILS || '')
-    .split(',')
-    .map((e) => e.trim().toLowerCase())
-    .filter(Boolean);
 }
 
 // The daily harness (GitHub Actions cron) has no browser session, so it

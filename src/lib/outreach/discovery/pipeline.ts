@@ -1,6 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { sendEmail } from '@/lib/email';
-import { adminEmails } from '../adminAuth';
+import { adminEmails } from '../config';
 import { draftAgencyEmail } from '../agencyDraft';
 import { fetchDirectory } from './retellDirectory';
 import { findAgencyDomain } from './findDomain';
