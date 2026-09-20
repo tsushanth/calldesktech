@@ -352,11 +352,22 @@ export function OnboardingProvider({ children }: { children: React.ReactNode }) 
   }, []);
 
   // Create tenant and start demo call
+  const placeLiveDemoCall = useCallback(async (tid: string) => {
+    const res = await fetch('/api/demo-call/live', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ tenant_id: tid, phone_number: formatPhoneE164(ownerPhone), blocks: wizardBlocks, transfer_to: transferToNumber || undefined }),
+    });
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(body.error || 'Could not place the call');
+    return body as { call_id: string; status: string };
+  }, [ownerPhone, wizardBlocks, transferToNumber]);
+
   const createTenantAndStartDemo = useCallback(async () => {
     const isFocusedDemo = demoType === 'focused';
 
     if (isFocusedDemo) {
-      if (!businessName || !ownerPhone) {
+      if (!businessName || (demoMechanism === 'phone' && !ownerPhone)) {
         setError('Please enter your business name and phone number');
         return;
       }
@@ -451,6 +462,14 @@ export function OnboardingProvider({ children }: { children: React.ReactNode }) 
         }
 
         if (isPocEngine({ voice_engine: getVoiceEngine() })) {
+          if (demoMechanism === 'phone') {
+            const live = await placeLiveDemoCall(tenantResponse.id);
+            setCallId(live.call_id);
+            setCallStatus(live.status);
+            setIsCallInProgress(true);
+            router.push('/demo/focused/call');
+            return;
+          }
           setIsCallInProgress(true);
           setCallStatus('in-progress');
           setIsLoading(false);
@@ -508,7 +527,7 @@ export function OnboardingProvider({ children }: { children: React.ReactNode }) 
     } finally {
       setIsLoading(false);
     }
-  }, [selectedProfileId, ownerPhone, businessName, demoType, router, wizardBlocks, transferToNumber, demoMechanism]);
+  }, [selectedProfileId, ownerPhone, businessName, demoType, router, wizardBlocks, transferToNumber, demoMechanism, placeLiveDemoCall]);
 
   // Retry demo call
   const retryDemoCall = useCallback(async () => {
@@ -543,6 +562,14 @@ export function OnboardingProvider({ children }: { children: React.ReactNode }) 
       if (isFocusedDemo) {
         const tenant = await api.getTenant(tenantId!);
         if (isPocEngine(tenant?.settings as { voice_engine?: string } | null)) {
+          if (demoMechanism === 'phone') {
+            const live = await placeLiveDemoCall(tenantId!);
+            setCallId(live.call_id);
+            setCallStatus(live.status);
+            setIsCallInProgress(true);
+            setIsLoading(false);
+            return;
+          }
           setIsCallInProgress(true);
           setCallStatus('in-progress');
           setIsLoading(false);
@@ -565,7 +592,7 @@ export function OnboardingProvider({ children }: { children: React.ReactNode }) 
     } finally {
       setIsLoading(false);
     }
-  }, [tenantId, ownerPhone, demoType, selectedProfileId, router]);
+  }, [tenantId, ownerPhone, demoType, selectedProfileId, router, demoMechanism, placeLiveDemoCall]);
 
   // Stop polling
   const stopCallPolling = useCallback(() => {

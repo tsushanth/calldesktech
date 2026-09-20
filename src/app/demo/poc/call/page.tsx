@@ -190,7 +190,7 @@ export default function PocDemoCallPage() {
           silentSink.connect(ctx.destination);
           micNodeRef.current = node;
         } catch (err) {
-          appendLog(`[mic error] ${err instanceof Error ? err.message : String(err)}`, 'muted');
+          appendLog(`[mic error] ${err instanceof Error ? err.message : String(err)} — no microphone found or allowed. Go back and choose "Call my phone" instead.`, 'muted');
         }
       };
 

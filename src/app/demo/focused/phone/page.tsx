@@ -15,6 +15,8 @@ export default function FocusedDemoPhonePage() {
     ownerPhone,
     setOwnerPhone,
     createTenantAndStartDemo,
+    demoMechanism,
+    setDemoMechanism,
     isLoading,
     error,
     clearError
@@ -22,7 +24,8 @@ export default function FocusedDemoPhonePage() {
 
   const [localError, setLocalError] = useState('');
 
-  const isPhoneValid = isValidUSPhone(ownerPhone);
+  const isBrowser = demoMechanism === 'browser';
+  const isPhoneValid = isBrowser || isValidUSPhone(ownerPhone);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -94,16 +97,36 @@ export default function FocusedDemoPhonePage() {
             Enter Your Phone Number
           </h2>
           <p className="text-gray-600 mb-6">
-            We&apos;ll call you so you can experience your AI receptionist
+            Pick how you want to try it: we call your phone, or you talk in the browser.
           </p>
 
+          <div className="flex justify-center mb-6">
+            <div className="inline-flex bg-gray-100 rounded-lg p-1">
+              {(['phone', 'browser'] as const).map((m) => (
+                <button
+                  key={m}
+                  type="button"
+                  onClick={() => setDemoMechanism(m)}
+                  className={`px-4 py-2 rounded-md text-sm font-medium transition ${demoMechanism === m ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+                >
+                  {m === 'phone' ? 'Call my phone' : 'Talk in browser'}
+                </button>
+              ))}
+            </div>
+          </div>
+
           <form onSubmit={handleSubmit}>
-            <PhoneInput
-              value={ownerPhone}
-              onChange={setOwnerPhone}
-              error={localError || error || undefined}
-              className="mb-6"
-            />
+            {isBrowser ? (
+              <p className="mb-6 text-sm text-gray-500">Uses your microphone. No phone call is placed. If your browser reports a microphone error, switch to &ldquo;Call my phone&rdquo;.</p>
+            ) : (
+              <PhoneInput
+                value={ownerPhone}
+                onChange={setOwnerPhone}
+                error={localError || error || undefined}
+                className="mb-6"
+              />
+            )}
+            {isBrowser && (localError || error) && <p className="mb-4 text-sm text-red-600">{localError || error}</p>}
 
             <div className="bg-green-50 rounded-lg p-4 mb-6">
               <div className="flex gap-3">
@@ -124,7 +147,7 @@ export default function FocusedDemoPhonePage() {
               disabled={!isPhoneValid}
               isLoading={isLoading}
             >
-              Call Me Now
+              {isBrowser ? 'Start browser call' : 'Call Me Now'}
             </Button>
           </form>
         </Card>

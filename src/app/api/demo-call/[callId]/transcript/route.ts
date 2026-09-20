@@ -18,6 +18,8 @@ export async function GET(
       );
     }
 
+    if (/^CA[0-9a-f]{32}$/.test(callId)) return twilioTranscript(callId);
+
     const retellApiKey = process.env.RETELL_API_KEY;
     if (!retellApiKey) {
       return NextResponse.json(
@@ -266,4 +268,19 @@ async function generateInsights(transcript: string, businessName: string): Promi
       caller_profile_summary,
     },
   };
+}
+
+async function twilioTranscript(callId: string) {
+  const { data: log } = await getSupabaseAdmin().from('calldesk_call_logs').select('tenant_id, duration_seconds, transcript, created_at').eq('retell_call_id', callId).maybeSingle();
+  if (!log) return NextResponse.json({ error: 'Call not found' }, { status: 404 });
+  const { data: tenant } = await getSupabaseAdmin().from('calldesk_tenants').select('name').eq('id', log.tenant_id).maybeSingle();
+  const turns = (Array.isArray(log.transcript) ? log.transcript : [])
+    .filter((t: { role: string; content: string }) => t.content && !t.content.startsWith('['))
+    .map((t: { role: string; content: string }, i: number) => ({ role: t.role === 'user' ? 'user' : 'assistant', text: t.content, turn_number: i + 1 }));
+  const flat = turns.map((t: { role: string; text: string }) => `${t.role}: ${t.text}`).join('\n');
+  const insights = await generateInsights(flat, tenant?.name || 'Your Business');
+  return NextResponse.json({
+    call_id: callId, tenant_id: log.tenant_id, business_name: tenant?.name || 'Your Business',
+    duration: log.duration_seconds || 0, started_at: log.created_at, transcript: turns, ...insights, turn_count: turns.length,
+  });
 }

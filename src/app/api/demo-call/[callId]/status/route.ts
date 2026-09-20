@@ -18,6 +18,8 @@ export async function GET(
       );
     }
 
+    if (/^CA[0-9a-f]{32}$/.test(callId)) return twilioStatus(callId);
+
     const retellApiKey = process.env.RETELL_API_KEY;
     if (!retellApiKey) {
       return NextResponse.json(
@@ -143,4 +145,20 @@ function determineOutcome(callData: Record<string, unknown>): string {
   }
 
   return 'answered';
+}
+
+// Calls placed by our own voice engine (Twilio SID): status from call-loop-poc, transcript from our call log.
+async function twilioStatus(callId: string) {
+  const base = process.env.CALL_LOOP_POC_BASE_URL;
+  const secret = process.env.CALL_LOOP_POC_TEST_CALL_SECRET;
+  if (!base || !secret) return NextResponse.json({ error: 'Calling is not configured' }, { status: 500 });
+  const r = await fetch(`${base}/call-status/${callId}`, { headers: { Authorization: `Bearer ${secret}` } }).then((x) => x.json()).catch(() => ({} as { status?: string; duration?: number }));
+  const map: Record<string, string> = { queued: 'ringing', initiated: 'ringing', ringing: 'ringing', 'in-progress': 'in-progress', completed: 'completed', busy: 'busy', 'no-answer': 'no-answer', failed: 'failed', canceled: 'failed' };
+  const status = map[r.status as string] || 'ringing';
+  let transcript = null;
+  if (status === 'completed') {
+    const { data } = await getSupabaseAdmin().from('calldesk_call_logs').select('transcript').eq('retell_call_id', callId).maybeSingle();
+    if (Array.isArray(data?.transcript)) transcript = data.transcript;
+  }
+  return NextResponse.json({ call_id: callId, status, duration: r.duration || 0, transcript, recording_url: null });
 }
