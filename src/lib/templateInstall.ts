@@ -28,6 +28,8 @@ async function json<T>(res: Response): Promise<T> {
 }
 
 export interface InstallOptions {
+  /** false turns off live calendar lookups and bookings for this agent (default: on when the workspace has a calendar). */
+  calendarTools?: boolean;
   templateId: string;
   name?: string;
   voiceEngine: 'poc' | 'retell';
@@ -157,7 +159,7 @@ export async function installTemplate(req: NextRequest, tenantId: string, opts: 
           flowName: template.id, startNodeId: template.startNodeId, nodes,
           voiceEngine: opts.voiceEngine,
           ...(retell ? { retellAgentId: retell.agentId } : {}),
-          globalSettings: { ...(template.handbook ? { handbook: template.handbook } : {}), ...(Object.keys(variables).length ? { variables } : {}) },
+          globalSettings: { ...(template.handbook ? { handbook: template.handbook } : {}), ...(Object.keys(variables).length ? { variables } : {}), ...(opts.calendarTools === false ? { calendarTools: false } : {}) },
         }),
         ctx(agent.id)
       )

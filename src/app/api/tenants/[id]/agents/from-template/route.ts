@@ -35,7 +35,7 @@ export async function POST(
   }
   try {
     const result = await installTemplate(request, tenantId, {
-      templateId: body.templateId, name: body.name, voiceEngine, transferTo: body.transferTo, functionUrl: body.functionUrl, variables,
+      templateId: body.templateId, name: body.name, voiceEngine, transferTo: body.transferTo, functionUrl: body.functionUrl, variables, calendarTools: body.calendarTools === false ? false : undefined,
     });
     return NextResponse.json(result, { status: 201 });
   } catch (err) {
