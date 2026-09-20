@@ -129,8 +129,9 @@ export function FinalCTA() {
 }
 
 const FOOTER_LINKS: { title: string; links: { href: string; label: string }[] }[] = [
-  { title: 'Product', links: [{ href: '/#templates', label: 'Templates' }, { href: '/#platform', label: 'Platform' }, { href: '/pricing', label: 'Pricing' }, { href: '/demo', label: 'Live demo' }] },
+  { title: 'Product', links: [{ href: '/#templates', label: 'Templates' }, { href: '/#platform', label: 'Platform' }, { href: '/pricing', label: 'Pricing' }, { href: '/demo', label: 'Live demo' }, { href: '/partners', label: 'Partner program' }] },
   { title: 'Developers', links: [{ href: '/docs', label: 'API reference' }, { href: '/api/v1/openapi.json', label: 'OpenAPI file' }, { href: 'https://www.npmjs.com/package/calldesktech-mcp', label: 'MCP server' }] },
+  { title: 'Company', links: [{ href: '/privacy', label: 'Privacy' }, { href: '/terms', label: 'Terms' }, { href: '/partners', label: 'Partners' }] },
   { title: 'Account', links: [{ href: '/auth/login', label: 'Sign in' }, { href: '/dashboard', label: 'Dashboard' }] },
 ];
 
@@ -138,7 +139,7 @@ export function SiteFooter() {
   return (
     <footer className="mt-16 border-t border-gray-200 py-14">
       <Container>
-        <div className="grid gap-10 md:grid-cols-[minmax(0,1.4fr)_repeat(3,minmax(0,1fr))]">
+        <div className="grid gap-10 md:grid-cols-[minmax(0,1.4fr)_repeat(4,minmax(0,1fr))]">
           <div>
             <Link href="/" className="text-[18px] font-semibold tracking-[-0.04em] text-[#00122e]">CallDeskTech</Link>
             <p className="mt-3 max-w-[280px] text-[14px] leading-[1.5] text-gray-500">Voice agents that answer, book, transfer and follow up on your phone calls.</p>
