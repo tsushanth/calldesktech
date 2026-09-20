@@ -5,7 +5,7 @@ import { draftAgencyEmail } from '../agencyDraft';
 import { fetchDirectory } from './retellDirectory';
 import { findAgencyDomain } from './findDomain';
 import { findContact } from './contactPages';
-import { isRegionBlocked, scoreLead } from './score';
+import { isBlockedDomain, isRegionBlocked, scoreLead } from './score';
 import { LeadIndex } from './dedupe';
 
 // The daily discovery harness. One call = one full pass:
@@ -189,6 +189,12 @@ async function stageEnrich(
       if (!domain) {
         summary.sample.enriched.push({ name: lead.company_name, domain: null, email: null, status: 'no-website' });
         if (!dryRun) await db.from('calldesk_outreach_leads').update({ contact_status: 'none', enriched_at: now }).eq('id', lead.id);
+        continue;
+      }
+
+      if (isBlockedDomain(domain)) {
+        summary.sample.enriched.push({ name: lead.company_name, domain, email: null, status: 'region-blocked-domain' });
+        if (!dryRun) await db.from('calldesk_outreach_leads').update({ domain, region_blocked: true, enriched_at: now }).eq('id', lead.id);
         continue;
       }
 

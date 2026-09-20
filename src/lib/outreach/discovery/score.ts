@@ -17,6 +17,15 @@ const BLOCKED_REGION_HINTS = [
   'united kingdom', 'england', 'scotland', 'wales', 'switzerland', 'europe', ', uk', 'gmbh',
 ];
 
+// Country-code domains for the same excluded regions; catches agencies whose
+// directory listing has no location.
+const BLOCKED_TLDS = ['.uk', '.de', '.fr', '.es', '.it', '.nl', '.be', '.at', '.ch', '.se', '.dk', '.fi', '.ie', '.pt', '.pl', '.cz', '.gr', '.hu', '.ro', '.bg', '.hr', '.sk', '.si', '.lt', '.lv', '.ee', '.lu', '.mt', '.cy', '.eu'];
+
+export function isBlockedDomain(domain: string | null): boolean {
+  const d = (domain || '').toLowerCase();
+  return BLOCKED_TLDS.some((t) => d.endsWith(t));
+}
+
 export function isRegionBlocked(location: string | null, name = ''): boolean {
   const hay = `${location || ''} ${name}`.toLowerCase();
   return BLOCKED_REGION_HINTS.some((h) => hay.includes(h));
