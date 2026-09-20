@@ -20,6 +20,7 @@ export interface AgencyDraftInput {
   tier?: string | null;
   location?: string | null;
   description?: string | null;
+  dossier?: { summary: string; verticals: string[]; services: string[]; hook: string | null } | null;
 }
 
 export interface AgencyDraft {
@@ -58,6 +59,9 @@ export async function draftAgencyEmail(input: AgencyDraftInput): Promise<AgencyD
     `Agency: ${input.name}${input.domain ? ` (${input.domain})` : ''}`,
     input.location ? `Location: ${input.location}` : '',
     input.description ? `Their own description of what they do:\n"""\n${input.description}\n"""` : '',
+    input.dossier
+      ? `Verified facts from their own website (mention at most ONE, exactly as stated, no embellishment):\n- ${input.dossier.summary}${input.dossier.hook ? `\n- Specific detail: ${input.dossier.hook}` : ''}${input.dossier.verticals.length ? `\n- Verticals: ${input.dossier.verticals.join(', ')}` : ''}`
+      : '',
     '',
     'Offer facts you may use (and nothing else):',
     ...OFFER_FACTS.map((f) => `- ${f}`),

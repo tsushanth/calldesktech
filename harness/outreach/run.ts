@@ -9,8 +9,8 @@ import { runDiscovery } from '@/lib/outreach/discovery/pipeline';
 // Guard rails, all enforced here rather than trusted to config:
 //   STOP file       -> run nothing (touch ~/.calldesk-outreach/STOP to halt everything)
 //   once per day    -> refuses a second real run on the same local date (FORCE=1 overrides)
-//   hard ceilings   -> enrichment <= 30, drafts <= 10 per run, whatever the env says
-//   soft deadline   -> winds down cleanly after 25 minutes
+//   hard ceilings   -> enrichment <= 30, research <= 8, drafts <= 10 per run, whatever the env says
+//   soft deadline   -> winds down cleanly after 40 minutes
 //   disk floor      -> skips if the machine has under 400 MB free
 // It only reads public pages and writes leads/drafts. It has no send path.
 
@@ -18,7 +18,7 @@ const BASE = join(homedir(), '.calldesk-outreach');
 const STOP = join(BASE, 'STOP');
 const LAST = join(BASE, 'last_run_date');
 const RUNS = join(BASE, 'runs.jsonl');
-const DEADLINE_MS = 25 * 60_000;
+const DEADLINE_MS = 40 * 60_000;
 const MIN_FREE_MB = 400;
 
 const clamp = (v: unknown, max: number, fallback: number) => {
@@ -61,6 +61,7 @@ async function main(): Promise<number> {
     dryRun,
     enrichLimit: clamp(process.env.OUTREACH_ENRICH_LIMIT, 30, 15),
     draftLimit: clamp(process.env.OUTREACH_DRAFT_LIMIT, 10, 5),
+    researchLimit: clamp(process.env.OUTREACH_RESEARCH_LIMIT, 8, 5),
     shouldStop: () => existsSync(STOP) || Date.now() - startedAt > DEADLINE_MS,
   });
 

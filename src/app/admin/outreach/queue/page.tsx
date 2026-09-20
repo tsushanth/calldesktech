@@ -10,6 +10,7 @@ interface Message {
   body_text: string;
   status: string;
   error: string | null;
+  sources?: string[];
   lead: { company_name: string; domain: string | null; score: number | null; tier: string | null; contact_source_url: string | null } | null;
 }
 
@@ -103,6 +104,16 @@ export default function OutreachQueuePage() {
               value={draft.body_text}
               onChange={(e) => setEdits((s) => ({ ...s, [m.id]: { ...draft, body_text: e.target.value } }))}
             />
+            {m.sources && m.sources.length > 0 && (
+              <p className="mt-2 text-[12px] text-gray-400">
+                Based on:{' '}
+                {m.sources.map((u, i) => (
+                  <a key={u} href={u} target="_blank" rel="noreferrer" className="text-blue-600 hover:underline">
+                    {i > 0 ? ', ' : ''}{u.replace(/^https?:\/\//, '').slice(0, 48)}
+                  </a>
+                ))}
+              </p>
+            )}
             {m.error && <p className="mt-2 text-[12.5px] text-red-600">{m.error}</p>}
 
             <div className="mt-3 flex flex-wrap gap-2">

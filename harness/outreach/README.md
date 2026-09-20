@@ -15,7 +15,7 @@ Uses the `claude` CLI on the mini (OAuth, no API key) via `OUTREACH_LLM=cli`.
 
 ## Limits (enforced in code, `run.ts` / `pipeline.ts`)
 one run per day - enrichment <= 30 and drafts <= 10 per run - stops drafting at 25 unreviewed drafts -
-25-minute deadline - skips under 400 MB free disk - lock prevents overlapping runs.
+40-minute deadline - skips under 400 MB free disk - lock prevents overlapping runs.
 
 ## Env (`~/.calldesk-outreach/env`, chmod 600)
 `NEXT_PUBLIC_SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `OUTREACH_LLM=cli`, optional `OUTREACH_ENRICH_LIMIT`,

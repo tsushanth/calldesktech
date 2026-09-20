@@ -11,9 +11,9 @@ export function usingCli(): boolean {
   return process.env.OUTREACH_LLM === 'cli';
 }
 
-export function cliComplete(prompt: string, opts: { webSearch?: boolean; maxTurns?: number; timeoutMs?: number } = {}): string {
+export function cliComplete(prompt: string, opts: { webSearch?: boolean; tools?: string; maxTurns?: number; timeoutMs?: number } = {}): string {
   const args = ['-p', '--output-format', 'text', '--model', process.env.OUTREACH_CLI_MODEL || 'sonnet', '--max-turns', String(opts.maxTurns ?? 3)];
-  args.push('--allowedTools', opts.webSearch ? 'WebSearch' : 'Read');
+  args.push('--allowedTools', opts.tools ?? (opts.webSearch ? 'WebSearch' : 'Read'));
 
   const result = spawnSync(process.env.CLAUDE_BIN || 'claude', args, {
     input: prompt,

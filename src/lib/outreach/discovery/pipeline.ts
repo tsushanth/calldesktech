@@ -7,6 +7,7 @@ import { findAgencyDomain } from './findDomain';
 import { findContact } from './contactPages';
 import { isBlockedDomain, isRegionBlocked, scoreLead } from './score';
 import { LeadIndex } from './dedupe';
+import { researchAgency, type Dossier } from '../research';
 import { findSearchCandidates, queriesForDay } from './searchSource';
 
 // The daily discovery harness. One call = one full pass:
@@ -25,6 +26,7 @@ export interface RunOptions {
   dryRun?: boolean;
   enrichLimit?: number;
   draftLimit?: number;
+  researchLimit?: number;
   // Kill switch: polled between stages and inside loops; when true the run winds down cleanly.
   shouldStop?: () => boolean;
 }
@@ -42,8 +44,13 @@ export interface RunSummary {
   duplicatesSkipped: number;
   contactsFound: number;
   draftsCreated: number;
+  researched: number;
+  lowFit: number;
   errors: string[];
-  sample: { enriched: { name: string; domain: string | null; email: string | null; status: string }[] };
+  sample: {
+    enriched: { name: string; domain: string | null; email: string | null; status: string }[];
+    researched: { name: string; fit: string; hook: string | null; sources: number }[];
+  };
 }
 
 const MIN_DRAFT_SCORE = 40;
@@ -63,6 +70,7 @@ interface LeadRow {
   description: string | null;
   score: number | null;
   enriched_at: string | null;
+  research?: Dossier | null;
 }
 
 export async function runDiscovery(db: Db, opts: RunOptions = {}): Promise<RunSummary> {
@@ -76,7 +84,7 @@ export async function runDiscovery(db: Db, opts: RunOptions = {}): Promise<RunSu
 
   const summary: RunSummary = {
     runId: null, dryRun, status: 'ok', directoryCount: 0, searchCandidates: 0, searchDebug: null, stopped: false, leadsSeen: 0, leadsNew: 0,
-    duplicatesSkipped: 0, contactsFound: 0, draftsCreated: 0, errors: [], sample: { enriched: [] },
+    duplicatesSkipped: 0, contactsFound: 0, draftsCreated: 0, researched: 0, lowFit: 0, errors: [], sample: { enriched: [], researched: [] },
   };
 
   if (!dryRun) {
@@ -88,7 +96,9 @@ export async function runDiscovery(db: Db, opts: RunOptions = {}): Promise<RunSu
     const { entries, index } = await stageDirectory(db, summary, dryRun);
     const searchEntries = stop() ? [] : await stageSearch(db, summary, dryRun, index, stop);
     if (!stop()) await stageEnrich(db, summary, dryRun, enrichLimit, [...entries, ...searchEntries], index, stop);
-    if (!stop()) await stageDraft(db, summary, dryRun, draftLimit, stop);
+    const researchOn = process.env.OUTREACH_RESEARCH === '1';
+    if (researchOn && !stop()) await stageResearch(db, summary, dryRun, opts.researchLimit ?? 5, stop);
+    if (!stop()) await stageDraft(db, summary, dryRun, draftLimit, stop, researchOn);
   } catch (error) {
     summary.status = 'error';
     summary.errors.push(error instanceof Error ? error.message : String(error));
@@ -294,16 +304,47 @@ async function stageEnrich(
   }
 }
 
-async function stageDraft(db: Db, summary: RunSummary, dryRun: boolean, limit: number, stop: () => boolean) {
+// Research stage (Mac mini harness only, OUTREACH_RESEARCH=1): a restricted Claude
+// agent reads each qualified lead's own site and stores a dossier. Low-fit leads are
+// retired here so they never reach the review queue.
+async function stageResearch(db: Db, summary: RunSummary, dryRun: boolean, limit: number, stop: () => boolean) {
+  if (limit <= 0) return;
+  const { data } = await db.from('calldesk_outreach_leads').select('*')
+    .eq('status', 'new').eq('contact_status', 'found').eq('region_blocked', false)
+    .is('researched_at', null).not('domain', 'is', null).gte('score', MIN_DRAFT_SCORE)
+    .order('score', { ascending: false }).limit(limit);
+
+  for (const lead of (data ?? []) as LeadRow[]) {
+    if (stop()) break;
+    try {
+      const dossier = researchAgency({ name: lead.company_name, domain: lead.domain as string, description: lead.description });
+      summary.researched++;
+      if (dossier.fit === 'low') summary.lowFit++;
+      summary.sample.researched.push({ name: lead.company_name, fit: dossier.fit, hook: dossier.hook, sources: dossier.sources.length });
+      if (dryRun) continue;
+      const { error } = await db.from('calldesk_outreach_leads').update({
+        research: dossier, researched_at: new Date().toISOString(), fit: dossier.fit,
+        ...(dossier.fit === 'low' ? { status: 'dead', signal_detail: `Low fit: ${dossier.fit_reason}`.slice(0, 300) } : {}),
+      }).eq('id', lead.id);
+      if (error) summary.errors.push(`research store ${lead.company_name}: ${error.message}`);
+    } catch (error) {
+      summary.errors.push(`research ${lead.company_name}: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  }
+}
+
+async function stageDraft(db: Db, summary: RunSummary, dryRun: boolean, limit: number, stop: () => boolean, researchOn = false) {
   if (dryRun) return;
   // Never let unreviewed drafts pile up: stop drafting once this many are waiting.
   const MAX_PENDING_DRAFTS = Number(process.env.OUTREACH_MAX_PENDING_DRAFTS || 25);
   const { count: pending } = await db.from('calldesk_outreach_messages').select('id', { count: 'exact', head: true }).eq('status', 'draft');
   limit = Math.min(limit, Math.max(0, MAX_PENDING_DRAFTS - (pending ?? 0)));
   if (limit <= 0) return;
-  const { data } = await db.from('calldesk_outreach_leads').select('*')
-    .eq('status', 'new').eq('contact_status', 'found').eq('region_blocked', false).gte('score', MIN_DRAFT_SCORE)
-    .order('score', { ascending: false }).limit(200);
+  let query = db.from('calldesk_outreach_leads').select('*')
+    .eq('status', 'new').eq('contact_status', 'found').eq('region_blocked', false).gte('score', MIN_DRAFT_SCORE);
+  // With research on, only researched, non-low-fit leads get drafted.
+  if (researchOn) query = query.not('researched_at', 'is', null).in('fit', ['high', 'medium', 'unclear']);
+  const { data } = await query.order('score', { ascending: false }).limit(200);
   const leads = (data ?? []) as LeadRow[];
   if (!leads.length) return;
 
@@ -321,9 +362,11 @@ async function stageDraft(db: Db, summary: RunSummary, dryRun: boolean, limit: n
     try {
       const draft = await draftAgencyEmail({
         name: lead.company_name, domain: lead.domain, tier: lead.tier, location: lead.location, description: lead.description,
+        dossier: lead.research ?? null,
       });
       const { error } = await db.from('calldesk_outreach_messages').insert({
         lead_id: lead.id, to_email: email, subject: draft.subject, body_text: draft.body, status: 'draft',
+        sources: lead.research?.sources ?? [],
       });
       if (error) throw new Error(error.message);
       await db.from('calldesk_outreach_leads').update({ status: 'report_generated', updated_at: new Date().toISOString() }).eq('id', lead.id);
