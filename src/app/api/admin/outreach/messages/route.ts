@@ -1,0 +1,21 @@
+import { NextRequest, NextResponse } from 'next/server';
+import { getSupabaseAdmin } from '@/lib/supabase';
+import { requireAdminSession } from '@/lib/outreach/adminAuth';
+
+// GET /api/admin/outreach/messages?status=draft — the review queue, with the
+// lead's name/domain/score joined on for context.
+export async function GET(request: NextRequest) {
+  const admin = await requireAdminSession();
+  if (!admin) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
+  const status = request.nextUrl.searchParams.get('status') || 'draft';
+  const supabase = getSupabaseAdmin();
+  const { data, error } = await supabase
+    .from('calldesk_outreach_messages')
+    .select('*, lead:calldesk_outreach_leads(company_name, domain, score, tier, contact_source_url)')
+    .eq('status', status)
+    .order('created_at', { ascending: false })
+    .limit(100);
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  return NextResponse.json({ messages: data });
+}

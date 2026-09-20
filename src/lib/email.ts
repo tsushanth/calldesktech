@@ -18,6 +18,11 @@ export interface SendEmailParams {
   subject: string;
   html: string;
   text?: string;
+  // Optional overrides (used by outreach): sender, reply-to, extra headers
+  // such as List-Unsubscribe. Alerting callers leave these unset.
+  from?: string;
+  replyTo?: string;
+  headers?: Record<string, string>;
 }
 
 export interface SendEmailResult {
@@ -29,14 +34,14 @@ export interface SendEmailResult {
 
 // Never throws — email failures should degrade gracefully (a missed alert
 // must not, for instance, fail the webhook that finalizes a call).
-export async function sendEmail({ to, subject, html, text }: SendEmailParams): Promise<SendEmailResult> {
+export async function sendEmail({ to, subject, html, text, from: fromOverride, replyTo, headers }: SendEmailParams): Promise<SendEmailResult> {
   const apiKey = process.env.RESEND_API_KEY;
   if (!apiKey) {
     console.warn('[email] RESEND_API_KEY not configured — skipping send to', to);
     return { ok: false, skipped: true, error: 'RESEND_API_KEY not configured' };
   }
 
-  const from = process.env.ALERT_FROM_EMAIL || 'Calldesk Alerts <onboarding@resend.dev>';
+  const from = fromOverride || process.env.ALERT_FROM_EMAIL || 'Calldesk Alerts <onboarding@resend.dev>';
 
   try {
     const res = await fetch(RESEND_ENDPOINT, {
@@ -45,7 +50,7 @@ export async function sendEmail({ to, subject, html, text }: SendEmailParams): P
         Authorization: `Bearer ${apiKey}`,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ from, to, subject, html, text }),
+      body: JSON.stringify({ from, to, subject, html, text, ...(replyTo ? { reply_to: replyTo } : {}), ...(headers ? { headers } : {}) }),
     });
 
     if (!res.ok) {

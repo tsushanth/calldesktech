@@ -89,6 +89,12 @@ export default function OutreachLeadsPage() {
         </div>
       )}
 
+      <div className="flex justify-end">
+        <Link href="/admin/outreach/queue" className="rounded-lg border border-gray-300 px-3 py-1.5 text-[13px] font-medium text-gray-700 hover:bg-gray-50">
+          Review queue
+        </Link>
+      </div>
+
       <div className="flex flex-wrap items-end gap-3 rounded-xl border border-gray-200 bg-white p-4">
         <div>
           <label className="block text-[12px] font-medium text-gray-500">Company name</label>
