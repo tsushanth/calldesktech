@@ -10,7 +10,7 @@ export const OFFER_FACTS = [
   'Calldesk (calldesk.tech) is an AI voice-agent platform: inbound and outbound phone agents, knowledge base, call analytics.',
   'We are looking for a small number of agency design partners to try it with their clients.',
   'Partners receive a 20% revenue share on usage from customers they refer.',
-  'Partners get a free trial and direct access to the founder.',
+  'Partners get a free trial and direct access to the founders.',
   'Partner terms beyond the 20% share (duration, payout timing, minimums) are being finalized with the first partners.',
 ];
 
@@ -37,12 +37,12 @@ const DRAFT_SCHEMA = {
     body: {
       type: 'string',
       description:
-        'Plain-text email body, 90-140 words, 2-3 short paragraphs, no greeting name guess (start with "Hi there," if no name is known), signed "Sushanth". No links, no footer.',
+        'Plain-text email body, 90-140 words, 2-3 short paragraphs, no greeting name guess (start with "Hi there," if no name is known). No sign-off or signature, no links, no footer.',
     },
   },
 } as const;
 
-const SYSTEM_PROMPT = `You write short, specific, honest first-touch emails from the founder of Calldesk to owners of AI voice-agent agencies.
+const SYSTEM_PROMPT = `You write short, specific, honest first-touch emails from the co-founders of Calldesk (Sushanth and Deepika) to owners of AI voice-agent agencies.
 
 Rules:
 - State ONLY facts from the provided offer facts. Never invent prices, numbers, customers, integrations, benchmark results or quality claims.
@@ -52,16 +52,21 @@ Rules:
 - One clear, low-friction ask: a 15-minute call or a reply to try it.
 - Do not promise terms that are not in the offer facts; if asked about terms, say they are being finalized with the first partners.
 - No hype words, no emojis, no exclamation marks.
-- Any sentence that asks something must end with a question mark. Sign off with just "Sushanth" on its own last line.`;
+- Write in the first person plural ("we", "us", "our"). Never use "I", "me" or "my", and never introduce yourselves by name or title.
+- Do NOT write a sign-off or signature; one is added automatically.
+- Any sentence that asks something must end with a question mark.`;
 
-// Normalizes model output: one consistent sign-off, and questions end with a question mark.
+export const SIGNATURE = 'Sushanth & Deepika\nCo-founders, Calldesk';
+
+// Normalizes model output: strips any model-written sign-off, fixes question marks,
+// and appends the one fixed signature so every email closes identically.
 export function tidyBody(body: string): string {
-  let b = body.trim();
-  b = b.replace(/\n+(best|regards|kind regards|thanks|cheers|sincerely)[,.]?\s*\n+(founder[^\n]*|sushanth[^\n]*)\s*$/i, '');
-  b = b.replace(/\n+founder,?\s*calldesk\s*$/i, '');
+  const lines = body.trim().split('\n');
+  const signoff = /^(best|regards|kind regards|thanks|thank you|cheers|sincerely|warmly|best regards)[,.]?$|^sushanth\b.*$|^deepika\b.*$|^(co-?)?founders?\b.*$|^calldesk\s*$|^--+$/i;
+  while (lines.length && (lines[lines.length - 1].trim() === '' || signoff.test(lines[lines.length - 1].trim()))) lines.pop();
+  let b = lines.join('\n').trim();
   b = b.replace(/((?:Would|Could|Can|Are|Do|Is|Might)\b[^.?!\n]*)\.(\s*)$/gm, '$1?$2');
-  b = b.trim();
-  return /\bSushanth\s*$/.test(b) ? b : `${b}\n\nSushanth`;
+  return `${b}\n\n${SIGNATURE}`;
 }
 
 export async function draftAgencyEmail(input: AgencyDraftInput): Promise<AgencyDraft> {

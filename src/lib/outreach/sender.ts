@@ -20,9 +20,9 @@ function escapeHtml(s: string): string {
 
 export function buildFooter(email: string, postalAddress: string): { text: string; html: string } {
   const link = unsubscribeUrl(email);
-  const text = `\n\n--\nSushanth, Calldesk (calldesk.tech)\n${postalAddress}\nYou're receiving this because your business contact address is published on your website. Not interested? Unsubscribe: ${link}`;
+  const text = `\n\n--\nCalldesk (calldesk.tech)\n${postalAddress}\nYou're receiving this because your business contact address is published on your website. Not interested? Unsubscribe: ${link}`;
   const html =
-    `<p style="color:#6b7280;font-size:12px;margin-top:24px">Sushanth, Calldesk (calldesk.tech)<br/>` +
+    `<p style="color:#6b7280;font-size:12px;margin-top:24px">Calldesk (calldesk.tech)<br/>` +
     `${escapeHtml(postalAddress)}<br/>You're receiving this because your business contact address is published on your website. Not interested? <a href="${link}">Unsubscribe</a></p>`;
   return { text, html };
 }
