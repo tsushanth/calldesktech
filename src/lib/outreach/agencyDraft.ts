@@ -1,4 +1,5 @@
 import { getAnthropicClient } from '@/lib/anthropic';
+import { cliComplete, extractJson, usingCli } from './llm';
 
 // Drafts a short first-touch email to a voice-AI agency. Facts the model may
 // state are limited to OFFER_FACTS below; everything else (payout timing,
@@ -52,7 +53,6 @@ Rules:
 - No hype words, no emojis, no exclamation marks.`;
 
 export async function draftAgencyEmail(input: AgencyDraftInput): Promise<AgencyDraft> {
-  const client = getAnthropicClient();
 
   const userPrompt = [
     `Agency: ${input.name}${input.domain ? ` (${input.domain})` : ''}`,
@@ -65,6 +65,17 @@ export async function draftAgencyEmail(input: AgencyDraftInput): Promise<AgencyD
     .filter((l) => l !== '')
     .join('\n');
 
+  if (usingCli()) {
+    const text = cliComplete(
+      `${SYSTEM_PROMPT}\n\n${userPrompt}\n\nReply with ONLY a JSON object {"subject": string, "body": string}. No markdown fences, no commentary.`,
+      { maxTurns: 2 },
+    );
+    const parsed = extractJson<AgencyDraft>(text, 'object');
+    if (!parsed || typeof parsed.subject !== 'string' || typeof parsed.body !== 'string') throw new Error('Draft reply was not valid JSON');
+    return { subject: parsed.subject.trim(), body: parsed.body.trim() };
+  }
+
+  const client = getAnthropicClient();
   const response = await client.messages.create({
     model: 'claude-sonnet-5',
     max_tokens: 800,

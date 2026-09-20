@@ -1,0 +1,11 @@
+{
+  "name": "calldesk-outreach-harness",
+  "private": true,
+  "description": "Mac mini runner for the daily outreach discovery pass (see README.md)",
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.124.0",
+    "@supabase/supabase-js": "^2.90.1",
+    "cheerio": "^1.2.0",
+    "tsx": "^4.20.0"
+  }
+}

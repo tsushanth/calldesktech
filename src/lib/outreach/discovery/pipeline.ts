@@ -25,6 +25,8 @@ export interface RunOptions {
   dryRun?: boolean;
   enrichLimit?: number;
   draftLimit?: number;
+  // Kill switch: polled between stages and inside loops; when true the run winds down cleanly.
+  shouldStop?: () => boolean;
 }
 
 export interface RunSummary {
@@ -33,6 +35,8 @@ export interface RunSummary {
   status: 'ok' | 'error';
   directoryCount: number;
   searchCandidates: number;
+  searchDebug: { raw: number; rejected: string[] } | null;
+  stopped: boolean;
   leadsSeen: number;
   leadsNew: number;
   duplicatesSkipped: number;
@@ -65,9 +69,13 @@ export async function runDiscovery(db: Db, opts: RunOptions = {}): Promise<RunSu
   const dryRun = !!opts.dryRun;
   const enrichLimit = opts.enrichLimit ?? 25;
   const draftLimit = opts.draftLimit ?? 10;
+  const stop = () => {
+    if (opts.shouldStop?.()) summary.stopped = true;
+    return summary.stopped;
+  };
 
   const summary: RunSummary = {
-    runId: null, dryRun, status: 'ok', directoryCount: 0, searchCandidates: 0, leadsSeen: 0, leadsNew: 0,
+    runId: null, dryRun, status: 'ok', directoryCount: 0, searchCandidates: 0, searchDebug: null, stopped: false, leadsSeen: 0, leadsNew: 0,
     duplicatesSkipped: 0, contactsFound: 0, draftsCreated: 0, errors: [], sample: { enriched: [] },
   };
 
@@ -78,9 +86,9 @@ export async function runDiscovery(db: Db, opts: RunOptions = {}): Promise<RunSu
 
   try {
     const { entries, index } = await stageDirectory(db, summary, dryRun);
-    const searchEntries = await stageSearch(db, summary, dryRun, index);
-    await stageEnrich(db, summary, dryRun, enrichLimit, [...entries, ...searchEntries], index);
-    await stageDraft(db, summary, dryRun, draftLimit);
+    const searchEntries = stop() ? [] : await stageSearch(db, summary, dryRun, index, stop);
+    if (!stop()) await stageEnrich(db, summary, dryRun, enrichLimit, [...entries, ...searchEntries], index, stop);
+    if (!stop()) await stageDraft(db, summary, dryRun, draftLimit, stop);
   } catch (error) {
     summary.status = 'error';
     summary.errors.push(error instanceof Error ? error.message : String(error));
@@ -176,14 +184,15 @@ async function stageDirectory(
 // Second source: rotating web searches for agencies on any platform. Every
 // candidate is website-verified inside findSearchCandidates before it gets here.
 async function stageSearch(
-  db: Db, summary: RunSummary, dryRun: boolean, index: LeadIndex<LeadRow>,
+  db: Db, summary: RunSummary, dryRun: boolean, index: LeadIndex<LeadRow>, stop: () => boolean,
 ): Promise<DirectoryEntry[]> {
   if (process.env.OUTREACH_SEARCH_ENABLED === 'false') return [];
   const perDay = Math.min(6, Math.max(0, Number(process.env.OUTREACH_SEARCH_QUERIES_PER_DAY ?? 3)));
   if (!perDay) return [];
 
-  const { candidates, errors } = await findSearchCandidates(queriesForDay(new Date(), perDay));
+  const { candidates, errors, raw, rejected } = await findSearchCandidates(queriesForDay(new Date(), perDay), stop);
   summary.errors.push(...errors);
+  summary.searchDebug = { raw, rejected: rejected.slice(0, 10) };
   summary.searchCandidates = candidates.length;
 
   const entries: DirectoryEntry[] = [];
@@ -221,7 +230,7 @@ async function stageSearch(
 }
 
 async function stageEnrich(
-  db: Db, summary: RunSummary, dryRun: boolean, limit: number, entries: DirectoryEntry[], index: LeadIndex<LeadRow>,
+  db: Db, summary: RunSummary, dryRun: boolean, limit: number, entries: DirectoryEntry[], index: LeadIndex<LeadRow>, stop: () => boolean,
 ) {
   const recheckBefore = Date.now() - RECHECK_DAYS * 86_400_000;
 
@@ -232,6 +241,7 @@ async function stageEnrich(
     .slice(0, limit);
 
   for (const { row: lead, slug } of candidates) {
+    if (stop()) break;
     try {
       const domain = lead.domain ?? (slug ? await findAgencyDomain(slug) : null);
       const now = new Date().toISOString();
@@ -284,8 +294,13 @@ async function stageEnrich(
   }
 }
 
-async function stageDraft(db: Db, summary: RunSummary, dryRun: boolean, limit: number) {
+async function stageDraft(db: Db, summary: RunSummary, dryRun: boolean, limit: number, stop: () => boolean) {
   if (dryRun) return;
+  // Never let unreviewed drafts pile up: stop drafting once this many are waiting.
+  const MAX_PENDING_DRAFTS = Number(process.env.OUTREACH_MAX_PENDING_DRAFTS || 25);
+  const { count: pending } = await db.from('calldesk_outreach_messages').select('id', { count: 'exact', head: true }).eq('status', 'draft');
+  limit = Math.min(limit, Math.max(0, MAX_PENDING_DRAFTS - (pending ?? 0)));
+  if (limit <= 0) return;
   const { data } = await db.from('calldesk_outreach_leads').select('*')
     .eq('status', 'new').eq('contact_status', 'found').eq('region_blocked', false).gte('score', MIN_DRAFT_SCORE)
     .order('score', { ascending: false }).limit(200);
@@ -300,7 +315,7 @@ async function stageDraft(db: Db, summary: RunSummary, dryRun: boolean, limit: n
 
   let made = 0;
   for (const lead of leads) {
-    if (made >= limit) break;
+    if (made >= limit || stop()) break;
     const email = (lead.contact_email ?? '').toLowerCase();
     if (!email || drafted.has(lead.id) || emailed.has(email) || suppressed.has(email)) continue;
     try {

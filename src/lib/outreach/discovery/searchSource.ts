@@ -1,6 +1,7 @@
 import { getAnthropicClient } from '@/lib/anthropic';
 import { hostOf } from './findDomain';
 import { politeFetchText } from './http';
+import { cliComplete, extractJson, usingCli } from '../llm';
 
 // Finds agencies that build/sell AI voice agents on ANY platform by running a
 // few rotating web searches per day through Claude's server-side web search.
@@ -50,6 +51,9 @@ function parseJsonArray(text: string): unknown[] {
 }
 
 async function runQuery(query: string): Promise<unknown[]> {
+  if (usingCli()) {
+    return extractJson<unknown[]>(cliComplete(PROMPT(query), { webSearch: true, maxTurns: 8, timeoutMs: 300_000 }), 'array') ?? [];
+  }
   const client = getAnthropicClient();
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let messages: any[] = [{ role: 'user', content: PROMPT(query) }];
@@ -84,14 +88,21 @@ export async function verifyCandidateSite(domain: string): Promise<boolean> {
   return LOOKS_LIKE_VOICE_AI.test(res.text.slice(0, 200_000));
 }
 
-export async function findSearchCandidates(queries: string[]): Promise<{ candidates: SearchCandidate[]; errors: string[] }> {
+export async function findSearchCandidates(
+  queries: string[],
+  shouldStop: () => boolean = () => false,
+): Promise<{ candidates: SearchCandidate[]; errors: string[]; raw: number; rejected: string[] }> {
   const errors: string[] = [];
+  let raw = 0;
   const byDomain = new Map<string, SearchCandidate>();
 
   for (const query of queries) {
+    if (shouldStop()) break;
     try {
-      for (const raw of await runQuery(query)) {
-        const item = raw as { name?: unknown; website?: unknown; location?: unknown; blurb?: unknown };
+      const found = await runQuery(query);
+      raw += found.length;
+      for (const entry of found) {
+        const item = entry as { name?: unknown; website?: unknown; location?: unknown; blurb?: unknown };
         if (typeof item.name !== 'string' || typeof item.website !== 'string') continue;
         const domain = hostOf(item.website);
         if (!domain || PLATFORM_HOSTS.some((h) => domain === h || domain.endsWith(`.${h}`))) continue;
@@ -109,8 +120,11 @@ export async function findSearchCandidates(queries: string[]): Promise<{ candida
   }
 
   const verified: SearchCandidate[] = [];
+  const rejected: string[] = [];
   for (const candidate of byDomain.values()) {
+    if (shouldStop()) break;
     if (await verifyCandidateSite(candidate.domain)) verified.push(candidate);
+    else rejected.push(candidate.domain);
   }
-  return { candidates: verified, errors };
+  return { candidates: verified, errors, raw, rejected };
 }
