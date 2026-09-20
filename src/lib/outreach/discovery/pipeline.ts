@@ -7,6 +7,7 @@ import { findAgencyDomain } from './findDomain';
 import { findContact } from './contactPages';
 import { isBlockedDomain, isRegionBlocked, scoreLead } from './score';
 import { LeadIndex } from './dedupe';
+import { findSearchCandidates, queriesForDay } from './searchSource';
 
 // The daily discovery harness. One call = one full pass:
 //   directory -> dedupe against existing leads -> enrich (domain, contact)
@@ -31,6 +32,7 @@ export interface RunSummary {
   dryRun: boolean;
   status: 'ok' | 'error';
   directoryCount: number;
+  searchCandidates: number;
   leadsSeen: number;
   leadsNew: number;
   duplicatesSkipped: number;
@@ -65,7 +67,7 @@ export async function runDiscovery(db: Db, opts: RunOptions = {}): Promise<RunSu
   const draftLimit = opts.draftLimit ?? 10;
 
   const summary: RunSummary = {
-    runId: null, dryRun, status: 'ok', directoryCount: 0, leadsSeen: 0, leadsNew: 0,
+    runId: null, dryRun, status: 'ok', directoryCount: 0, searchCandidates: 0, leadsSeen: 0, leadsNew: 0,
     duplicatesSkipped: 0, contactsFound: 0, draftsCreated: 0, errors: [], sample: { enriched: [] },
   };
 
@@ -76,7 +78,8 @@ export async function runDiscovery(db: Db, opts: RunOptions = {}): Promise<RunSu
 
   try {
     const { entries, index } = await stageDirectory(db, summary, dryRun);
-    await stageEnrich(db, summary, dryRun, enrichLimit, entries, index);
+    const searchEntries = await stageSearch(db, summary, dryRun, index);
+    await stageEnrich(db, summary, dryRun, enrichLimit, [...entries, ...searchEntries], index);
     await stageDraft(db, summary, dryRun, draftLimit);
   } catch (error) {
     summary.status = 'error';
@@ -102,7 +105,7 @@ export async function runDiscovery(db: Db, opts: RunOptions = {}): Promise<RunSu
 
 interface DirectoryEntry {
   row: LeadRow;
-  slug: string;
+  slug: string | null;
 }
 
 async function stageDirectory(
@@ -170,6 +173,53 @@ async function stageDirectory(
   return { entries, index };
 }
 
+// Second source: rotating web searches for agencies on any platform. Every
+// candidate is website-verified inside findSearchCandidates before it gets here.
+async function stageSearch(
+  db: Db, summary: RunSummary, dryRun: boolean, index: LeadIndex<LeadRow>,
+): Promise<DirectoryEntry[]> {
+  if (process.env.OUTREACH_SEARCH_ENABLED === 'false') return [];
+  const perDay = Math.min(6, Math.max(0, Number(process.env.OUTREACH_SEARCH_QUERIES_PER_DAY ?? 3)));
+  if (!perDay) return [];
+
+  const { candidates, errors } = await findSearchCandidates(queriesForDay(new Date(), perDay));
+  summary.errors.push(...errors);
+  summary.searchCandidates = candidates.length;
+
+  const entries: DirectoryEntry[] = [];
+  const now = new Date().toISOString();
+  for (const c of candidates) {
+    const sourceKey = `search:${c.domain}`;
+    if (index.find({ sourceKey, name: c.name, domain: c.domain })) continue; // already known: never re-add
+
+    const blocked = isRegionBlocked(c.location, c.name) || isBlockedDomain(c.domain);
+    const score = scoreLead({ tier: null, location: c.location, description: c.blurb });
+    summary.leadsNew++;
+
+    const base = {
+      company_name: c.name, domain: c.domain, source_key: sourceKey, tier: null, location: c.location,
+      description: c.blurb, score, region_blocked: blocked,
+    };
+    if (dryRun) {
+      const fake = { id: `dry-${c.domain}`, status: 'new', contact_email: null, contact_status: 'unknown', enriched_at: null, ...base } as LeadRow;
+      index.add(fake);
+      entries.push({ slug: null, row: fake });
+      continue;
+    }
+    const { data: inserted, error } = await db.from('calldesk_outreach_leads').insert({
+      ...base, signal_source: 'search', signal_detail: `Web search: ${(c.blurb ?? '').slice(0, 200)}`, last_seen_at: now,
+    }).select('*').single();
+    if (error) {
+      summary.leadsNew--;
+      summary.errors.push(`insert ${c.name}: ${error.message}`);
+    } else if (inserted) {
+      index.add(inserted as LeadRow);
+      entries.push({ slug: null, row: inserted as LeadRow });
+    }
+  }
+  return entries;
+}
+
 async function stageEnrich(
   db: Db, summary: RunSummary, dryRun: boolean, limit: number, entries: DirectoryEntry[], index: LeadIndex<LeadRow>,
 ) {
@@ -183,7 +233,7 @@ async function stageEnrich(
 
   for (const { row: lead, slug } of candidates) {
     try {
-      const domain = lead.domain ?? (await findAgencyDomain(slug));
+      const domain = lead.domain ?? (slug ? await findAgencyDomain(slug) : null);
       const now = new Date().toISOString();
 
       if (!domain) {

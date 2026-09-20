@@ -37,7 +37,7 @@ jobs:
           curl -sS --fail-with-body --max-time 840 -X POST "$URL" \
             -H "Authorization: Bearer $CRON_SECRET" \
             -H "Content-Type: application/json" \
-            -d "{\"dryRun\": $DRY_RUN}" > out.ndjson
+            -d "{\"dryRun\": $DRY_RUN, \"enrichLimit\": 30}" > out.ndjson
           FINAL=$(grep -v '"heartbeat"' out.ndjson | tail -n 1)
           echo "$FINAL"
           echo "$FINAL" | python3 -c 'import sys,json; d=json.loads(sys.stdin.read()); s=d.get("summary"); sys.exit(0 if s and s["status"]=="ok" else 1)'
