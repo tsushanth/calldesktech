@@ -9,6 +9,32 @@ import { unsubscribeUrl } from './unsubscribe';
 
 const DEFAULT_DAILY_CAP = 20;
 
+// The cap resets at local midnight in OUTREACH_TZ (default Pacific), not at UTC midnight.
+export function startOfDayInTz(now = new Date(), tz = process.env.OUTREACH_TZ || 'America/Los_Angeles'): Date {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false,
+  }).formatToParts(now);
+  const get = (t: string) => Number(parts.find((p) => p.type === t)?.value);
+  const localAsUtc = Date.UTC(get('year'), get('month') - 1, get('day'), get('hour') % 24, get('minute'), get('second'));
+  const offset = localAsUtc - now.getTime();
+  return new Date(Date.UTC(get('year'), get('month') - 1, get('day')) - offset);
+}
+
+export function capResetLabel(now = new Date(), tz = process.env.OUTREACH_TZ || 'America/Los_Angeles'): string {
+  const reset = new Date(startOfDayInTz(now, tz).getTime() + 24 * 3600_000);
+  return reset.toLocaleString('en-US', { timeZone: tz, weekday: 'short', hour: 'numeric', minute: '2-digit', timeZoneName: 'short' });
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export async function sentTodayCount(supabase: SupabaseClient<any>): Promise<number> {
+  const { count } = await supabase
+    .from('calldesk_outreach_messages')
+    .select('id', { count: 'exact', head: true })
+    .eq('status', 'sent')
+    .gte('sent_at', startOfDayInTz().toISOString());
+  return count ?? 0;
+}
+
 export function dailyCap(): number {
   const n = Number(process.env.OUTREACH_DAILY_CAP);
   return Number.isFinite(n) && n > 0 ? Math.floor(n) : DEFAULT_DAILY_CAP;
@@ -57,15 +83,8 @@ export async function sendApprovedMessage(supabase: SupabaseClient<any>, message
     return { ok: false, error: 'Recipient has unsubscribed' };
   }
 
-  const startOfDay = new Date();
-  startOfDay.setUTCHours(0, 0, 0, 0);
-  const { count } = await supabase
-    .from('calldesk_outreach_messages')
-    .select('id', { count: 'exact', head: true })
-    .eq('status', 'sent')
-    .gte('sent_at', startOfDay.toISOString());
-  if ((count ?? 0) >= dailyCap()) {
-    return { ok: false, error: `Daily send cap (${dailyCap()}) reached; try again tomorrow` };
+  if ((await sentTodayCount(supabase)) >= dailyCap()) {
+    return { ok: false, error: `Daily send cap (${dailyCap()}) reached. It resets ${capResetLabel()}.` };
   }
 
   const footer = buildFooter(toEmail, postalAddress);

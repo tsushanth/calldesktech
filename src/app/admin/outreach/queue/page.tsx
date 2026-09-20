@@ -21,13 +21,18 @@ export default function OutreachQueuePage() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState<string | null>(null);
-  const [notice, setNotice] = useState<string | null>(null);
+  const [notice, setNotice] = useState<{ text: string; ok: boolean } | null>(null);
+  const [quota, setQuota] = useState<{ sentToday: number; cap: number; resets: string } | null>(null);
   const [edits, setEdits] = useState<Record<string, { subject: string; body_text: string }>>({});
 
   const refresh = useCallback(async () => {
     setLoading(true);
     const res = await fetch(`/api/admin/outreach/messages?status=${tab}`);
-    if (res.ok) setMessages((await res.json()).messages ?? []);
+    if (res.ok) {
+      const body = await res.json();
+      setMessages(body.messages ?? []);
+      setQuota({ sentToday: body.sentToday, cap: body.cap, resets: body.resets });
+    }
     setLoading(false);
   }, [tab]);
 
@@ -40,7 +45,7 @@ export default function OutreachQueuePage() {
     setNotice(null);
     const res = await fn();
     const body = await res.json().catch(() => ({}));
-    setNotice(res.ok ? okText : body.error || 'Something went wrong');
+    setNotice({ ok: res.ok, text: res.ok ? okText : body.error || 'Something went wrong' });
     setBusy(null);
     refresh();
   };
@@ -65,7 +70,14 @@ export default function OutreachQueuePage() {
         </div>
       </div>
 
-      {notice && <p className="rounded-lg bg-white px-4 py-2 text-[13.5px] text-gray-700 border border-gray-200">{notice}</p>}
+      {quota && (
+        <p className={`rounded-lg px-4 py-2 text-[13.5px] border ${quota.sentToday >= quota.cap ? 'border-amber-300 bg-amber-50 text-amber-800' : 'border-gray-200 bg-white text-gray-700'}`}>
+          Sent today: {quota.sentToday} of {quota.cap}. {quota.sentToday >= quota.cap ? `Daily cap reached; sending resumes ${quota.resets}.` : `Resets ${quota.resets}.`}
+        </p>
+      )}
+      {notice && (
+        <p className={`rounded-lg px-4 py-2 text-[13.5px] border ${notice.ok ? 'border-gray-200 bg-white text-gray-700' : 'border-red-300 bg-red-50 text-red-700'}`}>{notice.text}</p>
+      )}
       {loading && <p className="text-gray-400">Loading…</p>}
       {!loading && messages.length === 0 && <p className="text-gray-400">Nothing in {tab}.</p>}
 
