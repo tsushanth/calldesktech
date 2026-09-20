@@ -33,9 +33,12 @@ export async function POST(
     }
     variables = Object.fromEntries(entries as [string, string][]);
   }
+  if (body.language !== undefined && typeof body.language !== 'string') {
+    return NextResponse.json({ error: 'language must be a string, e.g. "es"' }, { status: 400 });
+  }
   try {
     const result = await installTemplate(request, tenantId, {
-      templateId: body.templateId, name: body.name, voiceEngine, transferTo: body.transferTo, functionUrl: body.functionUrl, variables, calendarTools: body.calendarTools === false ? false : undefined,
+      language: body.language, templateId: body.templateId, name: body.name, voiceEngine, transferTo: body.transferTo, functionUrl: body.functionUrl, variables, calendarTools: body.calendarTools === false ? false : undefined,
     });
     return NextResponse.json(result, { status: 201 });
   } catch (err) {

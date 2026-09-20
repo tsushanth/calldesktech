@@ -3,6 +3,7 @@
 import { Fragment, useEffect, useState, useCallback, useRef } from 'react';
 import { useParams, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
+import { AGENT_LANGUAGES, languageForcesPremiumVoice } from '@/lib/languages';
 import { api } from '@/lib/api';
 import type { RetellVoice } from '@/lib/retell';
 import type { Agent, AgentVersion, FlowNode, FlowEdge, StructuredCondition, TtsBackend, Subflow } from '@/types';
@@ -146,6 +147,7 @@ export default function AgentBuilderPage() {
   const [agentType, setAgentType] = useState<'single_prompt' | 'conversational_flow'>('conversational_flow');
   const [singlePrompt, setSinglePrompt] = useState('');
   const [flowName, setFlowName] = useState('v1');
+  const [language, setLanguage] = useState('');
   const [transcriptionMode, setTranscriptionMode] = useState<'' | 'fast' | 'balanced' | 'accurate'>('');
   // Agent Handbook + Transition Flexibility (2026-09-18, builder parity
   // Phase 2) — both live in the flow's existing global_settings JSON, same
@@ -212,6 +214,7 @@ export default function AgentBuilderPage() {
     setTtsBackend((latest.tts_backend as TtsBackend) || '');
     setRetellAgentId(latest.retell_agent_id || '');
     setRetellLlmId(latest.retell_llm_id || '');
+    setLanguage(AGENT_LANGUAGES.some((l) => l.code === gs.language) ? gs.language : '');
     setTranscriptionMode(gs.transcriptionMode === 'fast' || gs.transcriptionMode === 'balanced' || gs.transcriptionMode === 'accurate' ? gs.transcriptionMode : '');
     setHandbook(gs.handbook || '');
     setTransitionFlexibility(gs.transitionFlexibility === 'strict' || gs.transitionFlexibility === 'flexible' ? gs.transitionFlexibility : '');
@@ -796,6 +799,7 @@ export default function AgentBuilderPage() {
           retellAgentId: retellAgentId || undefined,
           retellLlmId: retellLlmId || undefined,
           globalSettings: {
+            ...(language ? { language } : {}),
             ...(transcriptionMode ? { transcriptionMode } : {}),
             ...(handbook.trim() ? { handbook: handbook.trim() } : {}),
             ...(transitionFlexibility ? { transitionFlexibility } : {}),
@@ -1083,12 +1087,12 @@ export default function AgentBuilderPage() {
                     <>
                       <div className="flex items-center justify-between px-1 text-[12.5px]">
                         <span className="text-gray-500">Cost</span>
-                        <span className="font-medium text-[#1a1d29]">${estimatePocCallCost(ttsBackend || 'kokoro').costPerMin.toFixed(3)}/min</span>
+                        <span className="font-medium text-[#1a1d29]">${estimatePocCallCost(ttsBackend || (languageForcesPremiumVoice(language) ? 'elevenlabs' : 'kokoro')).costPerMin.toFixed(3)}/min</span>
                       </div>
                       <div className="flex items-center justify-between px-1 text-[12.5px]">
                         <span className="text-gray-500">Latency</span>
                         <span className="font-medium text-[#1a1d29]">
-                          {estimatePocCallCost(ttsBackend || 'kokoro').latencyRangeMs[0]}-{estimatePocCallCost(ttsBackend || 'kokoro').latencyRangeMs[1]}ms
+                          {estimatePocCallCost(ttsBackend || (languageForcesPremiumVoice(language) ? 'elevenlabs' : 'kokoro')).latencyRangeMs[0]}-{estimatePocCallCost(ttsBackend || (languageForcesPremiumVoice(language) ? 'elevenlabs' : 'kokoro')).latencyRangeMs[1]}ms
                         </span>
                       </div>
                       <p className="px-1 text-[10.5px] text-gray-400">Estimated from a typical minute of conversation, not this call&apos;s actual usage.</p>
@@ -1237,6 +1241,26 @@ export default function AgentBuilderPage() {
                             <option value="poc">CallDeskTech</option>
                             <option value="retell">Retell</option>
                           </select>
+                        </div>
+                      )}
+                      {channel === 'voice' && voiceEngine === 'poc' && (
+                        <div>
+                          <label className="mb-1 block text-[12.5px] font-medium text-gray-500">Language</label>
+                          <select
+                            value={language}
+                            onChange={(e) => setLanguage(e.target.value)}
+                            className="w-full rounded-lg border border-gray-200 bg-white px-3.5 py-2.5 text-[13.5px] focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100"
+                          >
+                            <option value="">English (default)</option>
+                            {AGENT_LANGUAGES.map((l) => (
+                              <option key={l.code} value={l.code}>{l.label}</option>
+                            ))}
+                          </select>
+                          {languageForcesPremiumVoice(language) && (
+                            <p className="mt-1 text-[12px] text-amber-700">
+                              {AGENT_LANGUAGES.find((l) => l.code === language)?.label} uses a premium multilingual voice (ElevenLabs), billed at the ElevenLabs voice rate instead of the default voice rate.
+                            </p>
+                          )}
                         </div>
                       )}
                       {channel === 'voice' && agentType === 'conversational_flow' && voiceEngine === 'poc' && (

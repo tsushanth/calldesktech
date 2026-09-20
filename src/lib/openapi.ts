@@ -31,7 +31,7 @@ const ops: Record<string, Partial<Record<Method, Op>>> = {
     get: { tag: 'Agents', summary: 'List versions', returns: '{ versions: AgentVersion[] }' },
     post: {
       tag: 'Agents', summary: 'Publish a new version',
-      description: 'Versions are immutable. `nodes` is the conversation-flow graph; `subflow_ref` nodes are embedded as snapshots at publish time.',
+      description: 'Versions are immutable. Set `globalSettings.language` (en default; es, fr, pt-BR, it, nl, hi, de, pl, id, ar) for a non-English agent: the engine switches speech recognition, the reply language and the voice, and a non-English poc agent is pinned to the ElevenLabs voice (billed at the ElevenLabs rate). `nodes` is the conversation-flow graph; `subflow_ref` nodes are embedded as snapshots at publish time.',
       body: { flowName: 'string', startNodeId: 'string', nodes: 'FlowNode[]', globalSettings: 'object', voiceEngine: "'poc' | 'retell'", voiceId: 'string', ttsBackend: "'kokoro' | 'elevenlabs' | 'cartesia' | 'minimax'" },
       bodyRequired: ['flowName', 'startNodeId', 'nodes', 'voiceEngine'], returns: '{ version, flow }',
     },
@@ -41,7 +41,7 @@ const ops: Record<string, Partial<Record<Method, Op>>> = {
     post: {
       tag: 'Agents', summary: 'Create an agent from a template',
       description: 'Creates the agent, its subflows and knowledge base, and publishes version 1. `voiceEngine` "poc" runs on CallDesk; "retell" also creates the equivalent Retell conversation-flow agent (some node types are approximated; see `warnings`). `transferTo` and `functionUrl` fill empty transfer numbers and function webhooks. `variables` sets the template\'s {{placeholders}} (see GET /agent-templates); business_name defaults to the tenant name.',
-      body: { templateId: 'string (from GET /agent-templates)', name: 'string', voiceEngine: "'poc' | 'retell'", transferTo: 'E.164 string', functionUrl: 'https URL', calendarTools: 'false to turn off live calendar lookups and bookings', variables: 'object, e.g. {"business_name": "Acme Dental", "agent_name": "Sam"}' },
+      body: { templateId: 'string (from GET /agent-templates)', name: 'string', voiceEngine: "'poc' | 'retell'", transferTo: 'E.164 string', functionUrl: 'https URL', calendarTools: 'false to turn off live calendar lookups and bookings', language: "agent language: 'en' (default), 'es', 'fr', 'pt-BR', 'it', 'nl', 'hi', 'de', 'pl', 'id' or 'ar'", variables: 'object, e.g. {"business_name": "Acme Dental", "agent_name": "Sam"}' },
       bodyRequired: ['templateId'], returns: '{ agentId, versionId, versionNumber, template, voiceEngine, retellAgentId?, warnings? }',
     },
   },

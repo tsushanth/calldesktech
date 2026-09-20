@@ -3,6 +3,7 @@ import { getSupabaseAdmin } from '@/lib/supabase';
 import { syncVoicePriceForTenant } from '@/lib/stripe';
 import type { FlowNode, TtsBackend } from '@/types';
 import { authorizeResource } from '@/lib/authz';
+import { normalizeLanguage, LANGUAGE_VALUES } from '@/lib/languages';
 
 // For every 'subflow_ref' node, snapshot the referenced subflow's current
 // nodes straight into that node's own params — server.js executes purely
@@ -144,6 +145,22 @@ export async function POST(
     }
   }
 
+  // Language (globalSettings.language): validate, and pin the voice backend a non-English language
+  // needs (the default voice is English-only) so the stored tts_backend, and the billing price synced
+  // from it below, match what the engine will really use. An explicit ttsBackend other than kokoro wins.
+  let effectiveTtsBackend = ttsBackend;
+  if (globalSettings && 'language' in globalSettings) {
+    const lang = normalizeLanguage(globalSettings.language);
+    if (!lang) {
+      return NextResponse.json({ error: `Unsupported language "${String(globalSettings.language)}". Supported: ${LANGUAGE_VALUES.join(', ')}` }, { status: 400 });
+    }
+    if (lang === 'en') delete globalSettings.language;
+    else {
+      globalSettings.language = lang;
+      if (voiceEngine === 'poc' && (!effectiveTtsBackend || effectiveTtsBackend === 'kokoro')) effectiveTtsBackend = 'elevenlabs';
+    }
+  }
+
   const { data: agent, error: agentError } = await supabase
     .from('calldesk_agents')
     .select('tenant_id')
@@ -189,17 +206,17 @@ export async function POST(
       retell_agent_id: retellAgentId || null,
       retell_llm_id: retellLlmId || null,
       voice_id: voiceId || null,
-      tts_backend: ttsBackend || null,
+      tts_backend: effectiveTtsBackend || null,
       wizard_config: wizardConfig || null,
     })
     .select()
     .single();
   if (versionError) return NextResponse.json({ error: versionError.message }, { status: 500 });
 
-  if (voiceEngine === 'poc' && ttsBackend) {
+  if (voiceEngine === 'poc' && effectiveTtsBackend) {
     // Best-effort — a Stripe hiccup here shouldn't fail creating the agent
     // version itself, just leave the subscription's voice price as-is.
-    await syncVoicePriceForTenant(agent.tenant_id, ttsBackend).catch((err) =>
+    await syncVoicePriceForTenant(agent.tenant_id, effectiveTtsBackend).catch((err) =>
       console.error('Failed to sync voice price for tenant', agent.tenant_id, err)
     );
   }

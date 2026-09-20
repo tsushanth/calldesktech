@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server';
 import { AGENT_TEMPLATES } from '@/lib/agentTemplates';
-import { createRetellAgentFromFlow } from '@/lib/retellFlow';
+import { createRetellAgentFromFlow, retellVoiceFor } from '@/lib/retellFlow';
 import { getSupabaseAdmin } from '@/lib/supabase';
 import { POST as createAgentRoute } from '@/app/api/tenants/[id]/agents/route';
 import { POST as createVersionRoute } from '@/app/api/agents/[id]/versions/route';
@@ -8,6 +8,7 @@ import { POST as createSubflowRoute } from '@/app/api/tenants/[id]/subflows/rout
 import { POST as createKbRoute } from '@/app/api/tenants/[id]/knowledge-bases/route';
 import { POST as addKbItemsRoute } from '@/app/api/knowledge-bases/[id]/items/route';
 import type { FlowNode } from '@/types';
+import { normalizeLanguage, AGENT_LANGUAGES } from '@/lib/languages';
 import { collectPlaceholders, substituteVariables } from '@/lib/templateVariables';
 
 // Creates a ready-to-call agent from a built-in template through the same
@@ -28,6 +29,8 @@ async function json<T>(res: Response): Promise<T> {
 }
 
 export interface InstallOptions {
+  /** Agent language, e.g. "es", "fr", "pt-BR" (default English). Non-English agents use a multilingual voice. */
+  language?: string;
   /** false turns off live calendar lookups and bookings for this agent (default: on when the workspace has a calendar). */
   calendarTools?: boolean;
   templateId: string;
@@ -80,6 +83,9 @@ export async function installTemplate(req: NextRequest, tenantId: string, opts: 
   const template = AGENT_TEMPLATES.find((t) => t.id === opts.templateId);
   if (!template) throw new Error(`Unknown template "${opts.templateId}"`);
   const label = opts.name?.trim() || template.label;
+  const language = normalizeLanguage(opts.language);
+  if (!language) throw new Error(`Unsupported language "${opts.language}"`);
+  const retellLang = AGENT_LANGUAGES.find((l) => l.code === language)?.retell;
 
   // Defaults < tenant name (as business_name, when the template has that concept) < explicit variables.
   const defaults = template.defaultVariables || {};
@@ -146,9 +152,9 @@ export async function installTemplate(req: NextRequest, tenantId: string, opts: 
       const apiKey = process.env.RETELL_API_KEY;
       if (!apiKey) throw new Error('RETELL_API_KEY is not configured on this server');
       const r = await createRetellAgentFromFlow({
-        apiKey, agentName: label, voiceId: 'retell-Cimo',
+        apiKey, agentName: label, voiceId: retellVoiceFor(language), language: retellLang,
         knowledgeBase: kbSeed && { name: `${label}-kb`, items: kbSeed.items },
-        input: { nodes: nodes.map((n) => (subflowSeeds[n.id] ? ({ ...n, params: { subflowNodes: subflowSeeds[n.id].nodes, subflowStartNodeId: subflowSeeds[n.id].startNodeId } } as unknown as FlowNode) : n)), startNodeId: template.startNodeId, handbook: template.handbook, defaultFunctionUrl: opts.functionUrl, variables },
+        input: { nodes: nodes.map((n) => (subflowSeeds[n.id] ? ({ ...n, params: { subflowNodes: subflowSeeds[n.id].nodes, subflowStartNodeId: subflowSeeds[n.id].startNodeId } } as unknown as FlowNode) : n)), startNodeId: template.startNodeId, handbook: template.handbook, defaultFunctionUrl: opts.functionUrl, variables, languageName: AGENT_LANGUAGES.find((l) => l.code === language)?.label },
       });
       retell = { agentId: r.agentId, warnings: r.warnings };
     }
@@ -159,7 +165,7 @@ export async function installTemplate(req: NextRequest, tenantId: string, opts: 
           flowName: template.id, startNodeId: template.startNodeId, nodes,
           voiceEngine: opts.voiceEngine,
           ...(retell ? { retellAgentId: retell.agentId } : {}),
-          globalSettings: { ...(template.handbook ? { handbook: template.handbook } : {}), ...(Object.keys(variables).length ? { variables } : {}), ...(opts.calendarTools === false ? { calendarTools: false } : {}) },
+          globalSettings: { ...(template.handbook ? { handbook: template.handbook } : {}), ...(Object.keys(variables).length ? { variables } : {}), ...(opts.calendarTools === false ? { calendarTools: false } : {}), ...(language !== 'en' ? { language } : {}) },
         }),
         ctx(agent.id)
       )

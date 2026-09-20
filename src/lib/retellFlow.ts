@@ -21,6 +21,8 @@ export interface RetellFlowInput {
   defaultFunctionUrl?: string;
   knowledgeBaseIds?: string[];
   model?: string;
+  /** Human name of a non-English agent language (e.g. "Spanish"); adds a reply-in-this-language instruction to the global prompt. */
+  languageName?: string;
   /** {{name}} values substituted into node text and the global prompt (Retell only knows its own dynamic variables). Unknown placeholders stay. */
   variables?: Record<string, string>;
 }
@@ -144,7 +146,7 @@ export function toRetellFlow(input: RetellFlowInput) {
     flow: {
       start_node_id: startNodeId,
       start_speaker: 'agent',
-      global_prompt: substituteVariables(input.handbook || '', vars),
+      global_prompt: substituteVariables(input.handbook || '', vars) + (input.languageName ? `\n\nLANGUAGE: This phone call is conducted in ${input.languageName}. Speak and reply ONLY in ${input.languageName}, in natural colloquial spoken ${input.languageName}. Step instructions may be written in English; translate any wording you are told to say. Do not mix in English.` : ''),
       model_choice: { type: 'cascading', model: input.model || 'claude-4.5-haiku' },
       nodes,
       tools,
@@ -165,8 +167,18 @@ async function retell(path: string, body: unknown, apiKey: string, form?: FormDa
   return JSON.parse(text);
 }
 
+// Retell voice per agent language: a native-accent voice where Retell has one, otherwise the
+// multilingual ElevenLabs 'Lily' (ours uses one multilingual ElevenLabs voice for those too).
+const RETELL_VOICES: Record<string, string> = {
+  es: '11labs-Gaby', fr: 'cartesia-Hailey-French', 'pt-BR': 'cartesia-Hailey-Portugese-Brazilian', hi: '11labs-Monika', de: '11labs-Carola',
+};
+export function retellVoiceFor(language: string): string {
+  if (language === 'en') return 'retell-Cimo';
+  return RETELL_VOICES[language] || '11labs-Lily';
+}
+
 export async function createRetellAgentFromFlow(opts: {
-  apiKey: string; agentName: string; voiceId: string; input: RetellFlowInput;
+  apiKey: string; agentName: string; voiceId: string; language?: string; input: RetellFlowInput;
   knowledgeBase?: { name: string; items: { question: string; answer: string }[] };
 }) {
   const { flow, warnings } = toRetellFlow(opts.input);
@@ -181,7 +193,7 @@ export async function createRetellAgentFromFlow(opts: {
   const agent = await retell('/create-agent', {
     agent_name: opts.agentName,
     voice_id: opts.voiceId,
-    language: 'en-US',
+    language: opts.language || 'en-US',
     response_engine: { type: 'conversation-flow', conversation_flow_id: created.conversation_flow_id },
   }, opts.apiKey);
   return { agentId: agent.agent_id as string, conversationFlowId: created.conversation_flow_id as string, knowledgeBaseId: kbId, warnings };
