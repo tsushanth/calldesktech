@@ -41,7 +41,7 @@ const ops: Record<string, Partial<Record<Method, Op>>> = {
     post: {
       tag: 'Agents', summary: 'Create an agent from a template',
       description: 'Creates the agent, its subflows and knowledge base, and publishes version 1. `voiceEngine` "poc" runs on CallDesk; "retell" also creates the equivalent Retell conversation-flow agent (some node types are approximated; see `warnings`). `transferTo` and `functionUrl` fill empty transfer numbers and function webhooks. `variables` sets the template\'s {{placeholders}} (see GET /agent-templates); business_name defaults to the tenant name.',
-      body: { templateId: 'string (from GET /agent-templates)', name: 'string', voiceEngine: "'poc' | 'retell'", transferTo: 'E.164 string', functionUrl: 'https URL', variables: 'object, e.g. {"business_name": "Acme Dental", "agent_name": "Sam"}' },
+      body: { templateId: 'string (from GET /agent-templates)', name: 'string', voiceEngine: "'poc' | 'retell'", transferTo: 'E.164 string', functionUrl: 'https URL', calendarTools: 'false to turn off live calendar lookups and bookings', variables: 'object, e.g. {"business_name": "Acme Dental", "agent_name": "Sam"}' },
       bodyRequired: ['templateId'], returns: '{ agentId, versionId, versionNumber, template, voiceEngine, retellAgentId?, warnings? }',
     },
   },
