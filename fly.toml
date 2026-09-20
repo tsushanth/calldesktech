@@ -16,6 +16,7 @@ primary_region = 'iad'
   NEXT_PUBLIC_APP_URL = "https://calldesk.tech"
   NEXT_PUBLIC_CALL_LOOP_WS_URL = "wss://call-loop-poc.fly.dev/call"
   NEXT_PUBLIC_VOICE_ENGINE = "poc"
+  NEXT_PUBLIC_POSTHOG_KEY = "phc_rusZvdY7jczUGJWzQh2dZneuHN3uEiueYTimkNvNQGLR"
 
 [build]
 
