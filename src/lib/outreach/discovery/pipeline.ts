@@ -110,6 +110,7 @@ async function stageDirectory(
 ): Promise<{ entries: DirectoryEntry[]; index: LeadIndex<LeadRow> }> {
   const partners = await fetchDirectory();
   const entries: DirectoryEntry[] = [];
+  const handled = new Set<string>();
   summary.directoryCount = partners.length;
 
   const { data: existing } = await db.from('calldesk_outreach_leads').select('*');
@@ -123,6 +124,9 @@ async function stageDirectory(
     const match = index.find({ sourceKey, name: p.name });
 
     if (match) {
+      // Two directory listings can map to one lead (e.g. a company listed twice): handle it once.
+      if (handled.has(match.id)) continue;
+      handled.add(match.id);
       summary.leadsSeen++;
       entries.push({
         slug: p.slug,
