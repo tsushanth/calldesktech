@@ -36,7 +36,7 @@ export function parseDirectory(html: string): DirectoryPartner[] {
       slug,
       name,
       tier: $el.attr('data-partner-tier')?.trim() || null,
-      location: $el.attr('data-location')?.trim() || null,
+      location: $el.attr('data-location')?.trim() || $el.attr('data-location-legacy')?.trim() || null,
       priceRange: $el.attr('data-price-range')?.trim() || null,
       description: $el.find('.text-14px').first().text().trim().slice(0, 600) || null,
     });

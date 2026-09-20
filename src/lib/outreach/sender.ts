@@ -43,6 +43,12 @@ export async function sendApprovedMessage(supabase: SupabaseClient<any>, message
   if (!msg) return { ok: false, error: 'Message not found' };
   if (msg.status !== 'approved') return { ok: false, error: `Message is "${msg.status}", only approved messages can be sent` };
 
+  const { data: lead } = await supabase.from('calldesk_outreach_leads').select('region_blocked').eq('id', msg.lead_id).maybeSingle();
+  if (lead?.region_blocked) {
+    await supabase.from('calldesk_outreach_messages').update({ status: 'failed', error: 'lead is in an excluded region (EU/UK)' }).eq('id', messageId);
+    return { ok: false, error: 'This lead is in an excluded region (EU/UK); not sending' };
+  }
+
   const toEmail = String(msg.to_email).trim().toLowerCase();
 
   const { data: suppressed } = await supabase.from('calldesk_outreach_suppressions').select('id').eq('email', toEmail).maybeSingle();

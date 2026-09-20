@@ -14,7 +14,7 @@ const BLOCKED_REGION_HINTS = [
   'austria', 'belgium', 'bulgaria', 'croatia', 'cyprus', 'czech', 'denmark', 'estonia', 'finland', 'france',
   'germany', 'greece', 'hungary', 'ireland', 'italy', 'latvia', 'lithuania', 'luxembourg', 'malta',
   'netherlands', 'poland', 'portugal', 'romania', 'slovakia', 'slovenia', 'spain', 'sweden',
-  'united kingdom', 'england', 'scotland', 'wales', 'switzerland', 'europe', ', uk', 'gmbh',
+  'norway', 'iceland', 'liechtenstein', 'united kingdom', 'england', 'scotland', 'wales', 'switzerland', 'europe', ', uk', 'gmbh',
 ];
 
 // Country-code domains for the same excluded regions; catches agencies whose

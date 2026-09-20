@@ -51,7 +51,18 @@ Rules:
 - Personalize with one concrete detail from the agency's own description, without flattery.
 - One clear, low-friction ask: a 15-minute call or a reply to try it.
 - Do not promise terms that are not in the offer facts; if asked about terms, say they are being finalized with the first partners.
-- No hype words, no emojis, no exclamation marks.`;
+- No hype words, no emojis, no exclamation marks.
+- Any sentence that asks something must end with a question mark. Sign off with just "Sushanth" on its own last line.`;
+
+// Normalizes model output: one consistent sign-off, and questions end with a question mark.
+export function tidyBody(body: string): string {
+  let b = body.trim();
+  b = b.replace(/\n+(best|regards|kind regards|thanks|cheers|sincerely)[,.]?\s*\n+(founder[^\n]*|sushanth[^\n]*)\s*$/i, '');
+  b = b.replace(/\n+founder,?\s*calldesk\s*$/i, '');
+  b = b.replace(/((?:Would|Could|Can|Are|Do|Is|Might)\b[^.?!\n]*)\.(\s*)$/gm, '$1?$2');
+  b = b.trim();
+  return /\bSushanth\s*$/.test(b) ? b : `${b}\n\nSushanth`;
+}
 
 export async function draftAgencyEmail(input: AgencyDraftInput): Promise<AgencyDraft> {
 
@@ -76,7 +87,7 @@ export async function draftAgencyEmail(input: AgencyDraftInput): Promise<AgencyD
     );
     const parsed = extractJson<AgencyDraft>(text, 'object');
     if (!parsed || typeof parsed.subject !== 'string' || typeof parsed.body !== 'string') throw new Error('Draft reply was not valid JSON');
-    return { subject: parsed.subject.trim(), body: parsed.body.trim() };
+    return { subject: parsed.subject.trim(), body: tidyBody(parsed.body) };
   }
 
   const client = getAnthropicClient();
@@ -94,5 +105,5 @@ export async function draftAgencyEmail(input: AgencyDraftInput): Promise<AgencyD
   }
   if (!raw.trim()) throw new Error('Draft model returned no text content');
   const parsed = JSON.parse(raw) as AgencyDraft;
-  return { subject: parsed.subject.trim(), body: parsed.body.trim() };
+  return { subject: parsed.subject.trim(), body: tidyBody(parsed.body) };
 }

@@ -39,7 +39,7 @@ Return ONLY a JSON object with these keys:
 - platforms: array of voice/AI platforms or tools they mention using (e.g. Vapi, Retell, GoHighLevel); empty if none named
 - fit: "high" if they clearly build or deploy AI voice/phone agents for client businesses; "medium" if they do AI automation/chatbots and voice is plausible; "low" if they are not an agency or have no AI voice relevance (product company, unrelated business, or a competing platform); "unclear" if the site could not be read
 - fit_reason: one sentence
-- hook: ONE specific, verifiable detail from their site worth mentioning in an email (a named vertical, integration, or offer), or null
+- hook: ONE specific, verifiable qualitative detail from their site worth mentioning in an email (a service, vertical, integration, or named offer), or null. Do NOT use statistics, dollar amounts, or percentages as the hook.
 - sources: the exact URLs you fetched
 
 No commentary, no markdown fences.`;
