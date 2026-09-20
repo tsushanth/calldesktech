@@ -1,5 +1,6 @@
 'use client';
 
+import { track } from '@/components/Analytics';
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { api, type TranscriptResponse } from '@/lib/api';
@@ -353,6 +354,7 @@ export function OnboardingProvider({ children }: { children: React.ReactNode }) 
 
   // Create tenant and start demo call
   const placeLiveDemoCall = useCallback(async (tid: string) => {
+    track('demo_call_requested', { mode: 'phone' });
     const res = await fetch('/api/demo-call/live', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -470,6 +472,7 @@ export function OnboardingProvider({ children }: { children: React.ReactNode }) 
             router.push('/demo/focused/call');
             return;
           }
+          track('demo_call_requested', { mode: 'browser' });
           setIsCallInProgress(true);
           setCallStatus('in-progress');
           setIsLoading(false);

@@ -32,6 +32,7 @@ export default function PrivacyPage() {
           <li>Modal and, when selected, ElevenLabs, Cartesia or MiniMax (text to speech)</li>
           <li>Supabase and Fly.io (database and hosting)</li>
           <li>Stripe (payments) and Google (sign-in)</li>
+          <li>PostHog (website analytics: pages visited and, for signed-in users, actions such as starting a demo; no session recordings)</li>
           <li>Cal.com and any other tool a customer chooses to connect</li>
         </ul>
       </section>

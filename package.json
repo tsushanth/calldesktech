@@ -22,6 +22,7 @@
     "next-auth": "^4.24.5",
     "pdf-parse": "^2.4.5",
     "playwright-core": "^1.63.0",
+    "posthog-js": "^1.434.2",
     "react": "19.2.3",
     "react-dom": "19.2.3",
     "recharts": "^3.10.1",
