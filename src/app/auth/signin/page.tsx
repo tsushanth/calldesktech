@@ -96,6 +96,26 @@ function SignInContent() {
           Continue with Google
         </Button>
 
+        {/* SSO Sign In Button (only rendered when an SSO IdP is configured) */}
+        {process.env.NEXT_PUBLIC_SSO_ENABLED === 'true' && (
+          <Button
+            onClick={() => signIn('sso', { callbackUrl })}
+            variant="secondary"
+            className="w-full flex items-center justify-center gap-3 mt-3"
+            size="lg"
+          >
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
+              />
+            </svg>
+            {process.env.NEXT_PUBLIC_SSO_NAME || 'Sign in with SSO'}
+          </Button>
+        )}
+
         {/* Divider */}
         <div className="mt-8 text-center">
           <p className="text-sm text-gray-500">
