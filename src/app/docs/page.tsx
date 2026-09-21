@@ -75,6 +75,7 @@ export default function DocsPage() {
               <ul className="flex flex-wrap gap-2 lg:block lg:space-y-1">
                 <li><a href="#quickstart" className="block rounded-md px-3 py-1.5 text-[14px] text-gray-600 transition-colors hover:bg-white hover:text-[#1a1d29]">Quick start</a></li>
                 <li><a href="#mcp" className="block rounded-md px-3 py-1.5 text-[14px] text-gray-600 transition-colors hover:bg-white hover:text-[#1a1d29]">MCP server</a></li>
+                <li><a href="#sdks" className="block rounded-md px-3 py-1.5 text-[14px] text-gray-600 transition-colors hover:bg-white hover:text-[#1a1d29]">Official SDKs</a></li>
                 {tags.map((t) => (
                   <li key={t}><a href={`#${slug(t)}`} className="block rounded-md px-3 py-1.5 text-[14px] text-gray-600 transition-colors hover:bg-white hover:text-[#1a1d29]">{t}</a></li>
                 ))}
@@ -109,6 +110,18 @@ export default function DocsPage() {
                   <Code label="Claude, Cursor and other clients: add a remote MCP server with this URL">{`https://calldesk.tech/mcp`}</Code>
                 </div>
                 <p className="mt-4 text-[14px] text-gray-500">Each connection is a workspace API key named after the app. Revoke it under Settings, API Keys. Clients that only support keys can send one as <code className="rounded bg-white px-1.5 py-0.5 text-[13px]">Authorization: Bearer cdk_live_...</code>.</p>
+              </section>
+
+              <section id="sdks" className="mt-14 scroll-mt-[96px]">
+                <h2 className="text-[24px] font-semibold tracking-[-0.02em]">Official SDKs</h2>
+                <p className="mt-2 max-w-[600px] text-[15px] leading-[1.55] text-gray-500">
+                  Client libraries that wrap this API. Both are thin, typed wrappers — the routes below are the source of truth.
+                </p>
+                <div className="mt-5 space-y-4">
+                  <Code label="Python">{`pip install calldesktech
+# or: pip install git+https://github.com/calldesktech/calldesktech-python`}</Code>
+                  <Code label="TypeScript / Node">{`// TypeScript SDK in progress — check calldesk.tech for the npm package name`}</Code>
+                </div>
               </section>
 
               {tags.map((tag) => (
