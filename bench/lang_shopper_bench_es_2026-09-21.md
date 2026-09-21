@@ -97,3 +97,24 @@ immediate transfer), also not language-specific, and worth fixing in the templat
 language ships next.
 
 Cleaned up (agent deleted, routing cleared, temp key revoked) same as prior tests.
+
+## Fix applied and verified (2026-09-21)
+
+Changed the `receptionist` template (src/lib/agentTemplates.ts): added a seeded, editable
+`{{business_name}} services & pricing` knowledge base as a real `knowledge_base` node (placeholder
+content, meant to be edited per business — same mechanism other templates like FAQ/medical use), and
+reworded the greeting/booking prompts so an unanswered specific question routes to booking/message
+collection instead of apologizing and transferring immediately.
+
+Re-ran the identical English shopper call (same persona/goal) against the fixed template, deployed to
+production: **126s, agent didn't just bail** — when it still didn't have specifics, it moved to collect
+a callback number and closed with "someone will call you back with pricing and service details,"
+rather than transferring with nothing resolved. Real improvement, same shape as Retell's
+graceful-degrade behavior from the earlier A/B (Retell offered a booking slot instead; ours here offers
+a callback — both are a resolved next step instead of a dead end).
+
+Not re-run in Spanish yet — the fix is in the shared template file (language-independent, translated at
+install time same as before), so it should carry over automatically, but that's not yet verified with a
+real Spanish call.
+
+Cleaned up (agent deleted, routing cleared, temp key revoked).
