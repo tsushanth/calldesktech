@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/supabase';
 import { authorizeTenant, requireTenantRole } from '@/lib/authz';
+import { logAudit } from '@/lib/auditLog';
 
 // GET /api/tenants/[id]/team — list members (active + pending invites).
 // Any active team member (or the owner, or a tenant-scoped API key) can
@@ -93,6 +94,15 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     .select('id, user_id, invited_email, role, status, invited_by, created_at, updated_at')
     .single();
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+  await logAudit({
+    tenantId,
+    actorUserId: auth.principal.userId,
+    action: 'team.invite',
+    resourceType: 'calldesk_team_members',
+    resourceId: data.id,
+    metadata: { email, role, status: data.status },
+  });
 
   return NextResponse.json({ member: data }, { status: 201 });
 }

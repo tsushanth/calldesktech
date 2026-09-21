@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/supabase';
 import { requireTenantRole } from '@/lib/authz';
+import { logAudit } from '@/lib/auditLog';
 
 // PATCH /api/tenants/[id]/team/[memberId] — change a member's role.
 // owner/admin only. The owner row (calldesk_tenants.user_id) has no
@@ -38,6 +39,16 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     .select('id, user_id, invited_email, role, status, invited_by, created_at, updated_at')
     .single();
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+  await logAudit({
+    tenantId,
+    actorUserId: auth.principal.userId,
+    action: 'team.role_change',
+    resourceType: 'calldesk_team_members',
+    resourceId: memberId,
+    metadata: { from_role: target.role, to_role: role },
+  });
+
   return NextResponse.json({ member: data });
 }
 
@@ -62,5 +73,15 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
 
   const { error } = await supabase.from('calldesk_team_members').delete().eq('id', memberId);
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+  await logAudit({
+    tenantId,
+    actorUserId: auth.principal.userId,
+    action: 'team.remove',
+    resourceType: 'calldesk_team_members',
+    resourceId: memberId,
+    metadata: { role: target.role },
+  });
+
   return NextResponse.json({ ok: true });
 }

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/supabase';
 import { authorizeResource } from '@/lib/authz';
+import { logAudit } from '@/lib/auditLog';
 
 // GET /api/agents/[id] — fetch one agent
 export async function GET(
@@ -64,7 +65,18 @@ export async function DELETE(
 
   const { id: agentId } = await params;
   const supabase = getSupabaseAdmin();
+  const { data: agent } = await supabase.from('calldesk_agents').select('name').eq('id', agentId).maybeSingle();
   const { error } = await supabase.from('calldesk_agents').delete().eq('id', agentId);
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+  await logAudit({
+    tenantId: __auth.tenantId ?? null,
+    actorUserId: __auth.principal.userId,
+    action: 'agent.delete',
+    resourceType: 'calldesk_agents',
+    resourceId: agentId,
+    metadata: agent?.name ? { name: agent.name } : {},
+  });
+
   return NextResponse.json({ success: true });
 }

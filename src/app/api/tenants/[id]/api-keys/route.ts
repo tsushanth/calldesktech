@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { randomBytes } from 'crypto';
 import { getSupabaseAdmin } from '@/lib/supabase';
 import { requireTenantRole, hashApiKey, API_KEY_PREFIX } from '@/lib/authz';
+import { logAudit } from '@/lib/auditLog';
 
 // Key management is session/mobile, owner/admin only — an API key can never
 // list, mint, or revoke keys (so a leaked key can't create a durable
@@ -56,5 +57,15 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     .select('id, name, key_prefix, created_at')
     .single();
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+  await logAudit({
+    tenantId,
+    actorUserId: auth.principal.userId,
+    action: 'apikey.create',
+    resourceType: 'calldesk_api_keys',
+    resourceId: data.id,
+    metadata: { name: label },
+  });
+
   return NextResponse.json({ key: { ...data, secret: key } }, { status: 201 });
 }
