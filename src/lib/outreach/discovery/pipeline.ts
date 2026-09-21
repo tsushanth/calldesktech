@@ -306,6 +306,14 @@ async function stageJobPostings(
 // Review-site signal: agencies named in public G2/Capterra/Clutch reviews as
 // voice-AI providers. See reviewSitesSearch.ts for the compliance note (this
 // stage's candidate blurbs are always generic labels, never review text).
+// Fixed, hardcoded generic label used as `description` for every review-site
+// lead. `description` reaches agencyDraft.ts's prompt as "their own
+// description of what they do" — it must never carry review-site blurb text
+// (which came from someone else's review of the company, not the company's
+// own words). c.blurb is still used for signal_detail below (admin-facing log
+// only, never fed to the drafting prompt).
+const REVIEW_SITE_DESCRIPTION = 'Named in a public review as a voice-AI provider.';
+
 async function stageReviewSites(
   db: Db, summary: RunSummary, dryRun: boolean, index: LeadIndex<LeadRow>, stop: () => boolean,
 ): Promise<DirectoryEntry[]> {
@@ -330,7 +338,7 @@ async function stageReviewSites(
 
     const base = {
       company_name: c.name, domain: c.domain, source_key: sourceKey, tier: null, location: c.location,
-      description: c.blurb, score, region_blocked: blocked, signals: { reasons, techPlatforms: [] },
+      description: REVIEW_SITE_DESCRIPTION, score, region_blocked: blocked, signals: { reasons, techPlatforms: [] },
     };
     if (dryRun) {
       const fake = { id: `dry-${c.domain}`, status: 'new', contact_email: null, contact_status: 'unknown', enriched_at: null, ...base } as LeadRow;
@@ -339,7 +347,7 @@ async function stageReviewSites(
       continue;
     }
     const { data: inserted, error } = await db.from('calldesk_outreach_leads').insert({
-      ...base, signal_source: 'review_site', signal_detail: (c.blurb ?? 'Named in a public review as a voice-AI provider').slice(0, 200), last_seen_at: now,
+      ...base, signal_source: 'review_site', signal_detail: (c.blurb ?? REVIEW_SITE_DESCRIPTION).slice(0, 200), last_seen_at: now,
     }).select('*').single();
     if (error) {
       summary.leadsNew--;
@@ -449,7 +457,11 @@ async function stageEnrich(
 
       const techPlatforms = await checkDomainForPlatforms(domain);
       if (techPlatforms.length) summary.techFingerprintHits++;
-      const evidence: ScoreEvidence = { techPlatforms };
+      const evidence: ScoreEvidence = {
+        techPlatforms,
+        viaJobPosting: lead.source_key?.startsWith('job_posting:') ?? false,
+        viaReviewSite: lead.source_key?.startsWith('review_site:') ?? false,
+      };
       const { score: rescored, reasons } = scoreLead({ tier: lead.tier, location: lead.location, description: lead.description }, evidence);
 
       if (dryRun) continue;
