@@ -15,9 +15,20 @@ interface Message {
 }
 
 const TABS = ['draft', 'approved', 'sent', 'failed'] as const;
+const PRODUCTS = [
+  { key: 'calldesk', label: 'Calldesk' },
+  { key: 'kreativekoala:voxkey', label: 'VoxKey' },
+  { key: 'kreativekoala:pixora', label: 'Pixora' },
+  { key: 'kreativekoala:gymlog', label: 'GymLog' },
+  { key: 'kreativekoala:simplyapply', label: 'SimplyApply' },
+  { key: 'kreativekoala:scribeai', label: 'Scribe AI' },
+  { key: 'kreativekoala:meetingmind', label: 'Meeting Mind' },
+  { key: 'kreativekoala:vibebuild', label: 'VibeBuild' },
+] as const;
 
 export default function OutreachQueuePage() {
   const [tab, setTab] = useState<(typeof TABS)[number]>('draft');
+  const [product, setProduct] = useState<string>('calldesk');
   const [messages, setMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState<string | null>(null);
@@ -27,14 +38,14 @@ export default function OutreachQueuePage() {
 
   const refresh = useCallback(async () => {
     setLoading(true);
-    const res = await fetch(`/api/admin/outreach/messages?status=${tab}`);
+    const res = await fetch(`/api/admin/outreach/messages?status=${tab}&product=${encodeURIComponent(product)}`);
     if (res.ok) {
       const body = await res.json();
       setMessages(body.messages ?? []);
       setQuota({ sentToday: body.sentToday, cap: body.cap, resets: body.resets });
     }
     setLoading(false);
-  }, [tab]);
+  }, [tab, product]);
 
   useEffect(() => {
     refresh();
@@ -55,8 +66,17 @@ export default function OutreachQueuePage() {
 
   return (
     <div className="mx-auto max-w-3xl space-y-5">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-3">
         <Link href="/admin/outreach" className="text-[13px] text-blue-600 hover:underline">← All leads</Link>
+        <select
+          value={product}
+          onChange={(e) => setProduct(e.target.value)}
+          className="rounded-lg border border-gray-300 px-2 py-1 text-[13px]"
+        >
+          {PRODUCTS.map((p) => (
+            <option key={p.key} value={p.key}>{p.label}</option>
+          ))}
+        </select>
         <div className="flex gap-1">
           {TABS.map((t) => (
             <button
