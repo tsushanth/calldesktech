@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import Stripe from 'stripe';
 import { getStripe } from '@/lib/stripe';
 import { getSupabaseAdmin } from '@/lib/supabase';
-import { authorizeTenant } from '@/lib/authz';
+import { requireTenantRole } from '@/lib/authz';
 
 // GET /api/tenants/[id]/billing — server-side (service-role Supabase +
 // Stripe SDK). Returns the tenant's current plan, this-period usage,
@@ -60,7 +60,9 @@ export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const __auth = await authorizeTenant(request, (await params).id);
+  // Billing is owner-only per RBAC spec (admin can do everything except
+  // billing/deleting the workspace/removing the owner).
+  const __auth = await requireTenantRole(request, (await params).id, ['owner'], { apiKeysAllowed: false });
   if (!__auth.ok) return __auth.response;
 
   const { id: tenantId } = await params;

@@ -1,14 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/supabase';
 import { WEBHOOK_EVENT_IDS } from '@/lib/webhooks';
-import { authorizeTenant } from '@/lib/authz';
+import { requireTenantRole } from '@/lib/authz';
 
 // PATCH /api/tenants/[id]/webhooks/[webhookId] — toggle enabled or edit events.
 export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string; webhookId: string }> }
 ) {
-  const __auth = await authorizeTenant(request, (await params).id);
+  const __auth = await requireTenantRole(request, (await params).id, ['owner', 'admin'], { apiKeysAllowed: false });
   if (!__auth.ok) return __auth.response;
 
   const { id: tenantId, webhookId } = await params;
@@ -46,7 +46,7 @@ export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string; webhookId: string }> }
 ) {
-  const __auth = await authorizeTenant(request, (await params).id);
+  const __auth = await requireTenantRole(request, (await params).id, ['owner', 'admin'], { apiKeysAllowed: false });
   if (!__auth.ok) return __auth.response;
 
   const { id: tenantId, webhookId } = await params;

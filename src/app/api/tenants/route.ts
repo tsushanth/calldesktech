@@ -22,7 +22,7 @@ export async function GET() {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { data: tenants, error } = await supabase
+    const { data: ownedTenants, error } = await supabase
       .from('calldesk_tenants')
       .select('*')
       .eq('user_id', userId)
@@ -31,6 +31,31 @@ export async function GET() {
     if (error) {
       throw error;
     }
+
+    // Also include tenants where this user is an active team member
+    // (calldesk_team_members, migration 038) but not the literal owner —
+    // otherwise an invited member could never actually see the workspace
+    // they were added to.
+    const { data: memberships } = await supabase
+      .from('calldesk_team_members')
+      .select('tenant_id')
+      .eq('user_id', userId)
+      .eq('status', 'active');
+    const ownedIds = new Set((ownedTenants ?? []).map((t) => t.id));
+    const memberTenantIds = (memberships ?? [])
+      .map((m) => m.tenant_id)
+      .filter((id) => !ownedIds.has(id));
+
+    let memberTenants: typeof ownedTenants = [];
+    if (memberTenantIds.length > 0) {
+      const { data } = await supabase
+        .from('calldesk_tenants')
+        .select('*')
+        .in('id', memberTenantIds);
+      memberTenants = data ?? [];
+    }
+
+    const tenants = [...(ownedTenants ?? []), ...(memberTenants ?? [])];
 
     return NextResponse.json({ tenants });
   } catch (error) {

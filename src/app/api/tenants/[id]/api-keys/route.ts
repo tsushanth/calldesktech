@@ -1,18 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { randomBytes } from 'crypto';
 import { getSupabaseAdmin } from '@/lib/supabase';
-import { authorizeTenant, hashApiKey, API_KEY_PREFIX } from '@/lib/authz';
+import { requireTenantRole, hashApiKey, API_KEY_PREFIX } from '@/lib/authz';
 
-// Key management is session/mobile only — an API key can never list, mint,
-// or revoke keys, so a leaked key can't be used to create a durable
-// backdoor with a longer life than the one that leaked.
+// Key management is session/mobile, owner/admin only — an API key can never
+// list, mint, or revoke keys (so a leaked key can't create a durable
+// backdoor), and a plain 'member' can't mint credentials for the tenant
+// either (RBAC: API keys are an admin-and-up capability).
 async function ownerOnly(request: NextRequest, tenantId: string) {
-  const auth = await authorizeTenant(request, tenantId);
-  if (!auth.ok) return auth;
-  if (auth.principal.via === 'apikey') {
-    return { ok: false as const, response: NextResponse.json({ error: 'API keys cannot manage API keys' }, { status: 403 }) };
-  }
-  return auth;
+  return requireTenantRole(request, tenantId, ['owner', 'admin'], { apiKeysAllowed: false });
 }
 
 // GET /api/tenants/[id]/api-keys — list keys (prefix only, never the secret)

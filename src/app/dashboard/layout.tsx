@@ -146,6 +146,7 @@ export default function DashboardLayout({
       items: [
         { href: '/dashboard/billing', label: 'Billing' },
         { href: '/dashboard/settings', label: 'Settings' },
+        { href: '/dashboard/settings/team', label: 'Team' },
         { href: '/docs', label: 'API Docs' },
       ],
     },

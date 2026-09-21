@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getStripe } from '@/lib/stripe';
 import { getSupabaseAdmin } from '@/lib/supabase';
-import { authorizeTenant } from '@/lib/authz';
+import { requireTenantRole } from '@/lib/authz';
 
 // POST /api/tenants/[id]/billing/portal — creates a Stripe Billing Portal
 // session for the tenant's customer and returns its URL.
@@ -19,7 +19,9 @@ export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const __auth = await authorizeTenant(request, (await params).id);
+  // Billing/payment-method management is owner-only (RBAC: admin covers
+  // everything except billing/deleting the workspace/removing the owner).
+  const __auth = await requireTenantRole(request, (await params).id, ['owner'], { apiKeysAllowed: false });
   if (!__auth.ok) return __auth.response;
 
   const { id: tenantId } = await params;

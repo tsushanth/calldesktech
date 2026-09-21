@@ -26,6 +26,11 @@ export interface Principal {
   apiKeyId?: string;
 }
 
+/** Team roles, from calldesk_team_members (migration 038). 'owner' is also
+ * synthesized for the literal calldesk_tenants.user_id, which predates the
+ * team_members table and is never itself demoted. */
+export type TeamRole = 'owner' | 'admin' | 'member';
+
 export const API_KEY_PREFIX = 'cdk_live_';
 
 export function hashApiKey(key: string): string {
@@ -85,8 +90,77 @@ export async function authorizeTenant(request: NextRequest, tenantId: string): P
     .eq('id', tenantId)
     .eq('user_id', principal.userId!)
     .maybeSingle();
-  if (!data) return deny(404, 'Not found');
+  if (data) return { ok: true, principal, tenantId };
+
+  // Not the literal owner column — but they may be a real team member
+  // (calldesk_team_members, migration 038). Any ACTIVE row for this
+  // tenant/user grants access; role-specific gating happens in
+  // requireTenantRole for the routes that need it.
+  const { data: member } = await getSupabaseAdmin()
+    .from('calldesk_team_members')
+    .select('id')
+    .eq('tenant_id', tenantId)
+    .eq('user_id', principal.userId!)
+    .eq('status', 'active')
+    .maybeSingle();
+  if (!member) return deny(404, 'Not found');
   return { ok: true, principal, tenantId };
+}
+
+/**
+ * Resolve the caller's role for a tenant. The literal calldesk_tenants
+ * owner is always 'owner' even if (for some reason) they have no
+ * team_members row — that column predates the table and stays authoritative
+ * for that one case. Otherwise looks up the active team_members row.
+ * Returns null if the caller has no role at all (shouldn't happen after
+ * authorizeTenant already passed, but callers should treat null as deny).
+ */
+export async function getRole(userId: string, tenantId: string): Promise<TeamRole | null> {
+  const supabase = getSupabaseAdmin();
+  const { data: tenant } = await supabase
+    .from('calldesk_tenants')
+    .select('id')
+    .eq('id', tenantId)
+    .eq('user_id', userId)
+    .maybeSingle();
+  if (tenant) return 'owner';
+
+  const { data: member } = await supabase
+    .from('calldesk_team_members')
+    .select('role')
+    .eq('tenant_id', tenantId)
+    .eq('user_id', userId)
+    .eq('status', 'active')
+    .maybeSingle();
+  return (member?.role as TeamRole | undefined) ?? null;
+}
+
+/**
+ * authorizeTenant, plus a role check — for routes restricted to owner/admin
+ * (API keys, team management, billing-adjacent stuff). An API key principal
+ * has no team role of its own, so it's treated as the tenant owner's key
+ * (matches existing behavior: keys are already tenant-scoped, not member-
+ * scoped) unless `apiKeysAllowed` is false.
+ */
+export async function requireTenantRole(
+  request: NextRequest,
+  tenantId: string,
+  allowed: TeamRole[],
+  opts: { apiKeysAllowed?: boolean } = {}
+): Promise<AuthResult> {
+  const auth = await authorizeTenant(request, tenantId);
+  if (!auth.ok) return auth;
+  if (auth.principal.via === 'apikey') {
+    if (opts.apiKeysAllowed === false) {
+      return deny(403, 'API keys cannot perform this action');
+    }
+    return auth;
+  }
+  const role = await getRole(auth.principal.userId!, tenantId);
+  if (!role || !allowed.includes(role)) {
+    return deny(403, 'Forbidden — insufficient role');
+  }
+  return auth;
 }
 
 /** Resolve a row's tenant (directly, or through its agent) and authorize against it. */
