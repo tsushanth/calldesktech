@@ -68,9 +68,16 @@ const ops: Record<string, Partial<Record<Method, Op>>> = {
     post: { tag: 'Knowledge bases', summary: 'Add Q&A items', body: { items: '{ question: string, answer: string }[]' }, bodyRequired: ['items'], returns: '{ items }' },
   },
 
+  '/agents/{agentId}/environments': {
+    get: { tag: 'Agents', summary: 'List an agent\'s environments', description: 'Every agent has "staging" and "production", each pointing at the version it currently runs (null if nothing has been promoted into it yet).', returns: '{ environments: { id, name, version_id, updated_at }[] }' },
+  },
+  '/agents/{agentId}/environments/{name}/promote': {
+    post: { tag: 'Agents', summary: 'Promote a version into staging or production', description: 'Every phone number (or batch call) routed to this environment picks up the new version immediately — no need to re-route. Rolling back is promoting an older version again.', body: { versionId: 'string' }, bodyRequired: ['versionId'], returns: '{ environment, resynced }' },
+  },
+
   [`/tenants/${T}/phone-numbers`]: { get: { tag: 'Phone numbers', summary: 'List phone numbers', returns: '{ phoneNumbers }' } },
   '/phone-numbers/{phoneNumberId}/routing': {
-    post: { tag: 'Phone numbers', summary: 'Route a number to an agent version', body: { direction: "'inbound' | 'outbound'", agentVersionId: 'string | null' }, bodyRequired: ['direction'], returns: '{ phoneNumber }' },
+    post: { tag: 'Phone numbers', summary: 'Route a number to an agent version or environment', description: 'Pass exactly one of agentVersionId (a specific version, direct pin) or environmentId (staging/production — the number always runs whatever version that environment currently points to, so promoting later needs no further call here).', body: { direction: "'inbound' | 'outbound'", agentVersionId: 'string | null', environmentId: 'string' }, bodyRequired: ['direction'], returns: '{ phoneNumber }' },
   },
   '/phone-numbers/{phoneNumberId}/call': {
     post: { tag: 'Calls', summary: 'Place an outbound call', description: 'Calls `toNumber` from this number using its outbound agent. Rate-limited per workspace (429).', body: { toNumber: 'E.164 string' }, bodyRequired: ['toNumber'], returns: '{ call: { sid, to } }' },
@@ -118,6 +125,14 @@ const ops: Record<string, Partial<Record<Method, Op>>> = {
     post: { tag: 'Quality', summary: 'Create a test case', body: { name: 'string', persona: 'string', successCriteria: 'string' }, returns: '{ testCase }' },
   },
   '/agents/{agentId}/test-cases/{testCaseId}/run': { post: { tag: 'Quality', summary: 'Run a simulation', returns: '{ passed, transcript, reasoning }' } },
+  '/agents/{agentId}/copilot/analyze': {
+    get: { tag: 'Quality', summary: 'List Copilot suggestions', returns: '{ suggestions }' },
+    post: {
+      tag: 'Quality', summary: 'Analyze recent calls for flow-edit suggestions',
+      description: 'Looks at this agent\'s recent real calls (transcripts + QA critiques, whichever number is currently routed to it) for recurring problems and proposes concrete node-level prompt edits, each grounded in specific call transcripts. Requires at least 5 usable calls, otherwise returns a `not_enough_history` status instead of guessing. Never writes to the flow — suggestions are persisted as `pending` and must be accepted or dismissed via the suggestions route.',
+      returns: '{ status, callCount, summary, suggestions: { id, node_id, current_text, suggested_text, rationale, supporting_call_ids, status }[] }',
+    },
+  },
 };
 
 function paramsFor(path: string) {

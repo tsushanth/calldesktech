@@ -868,6 +868,7 @@ export default function AgentBuilderPage() {
         <RailButton active={activeTab === 'agent'} onClick={() => setActiveTab('agent')} icon={<AgentRailIcon />} label="Agent" />
         <RailButton active={activeTab === 'workflow'} onClick={() => setActiveTab('workflow')} icon={<WorkflowIcon />} label="Workflow" />
         <RailButton active={activeTab === 'simulation'} onClick={() => setActiveTab('simulation')} icon={<SimulationIcon />} label="Simulation" />
+        <RailButton active={activeTab === 'copilot'} onClick={() => setActiveTab('copilot')} icon={<CopilotIcon />} label="Copilot" />
       </div>
 
       <div className="flex min-w-0 flex-1 flex-col">
@@ -1030,6 +1031,8 @@ export default function AgentBuilderPage() {
           )}
 
           {activeTab === 'simulation' && <SimulationTab agentId={agentId} />}
+
+          {activeTab === 'copilot' && <CopilotPanel agentId={agentId} />}
 
           {activeTab === 'agent' && !showEditor && (
             <div className="h-full overflow-y-auto p-6">
