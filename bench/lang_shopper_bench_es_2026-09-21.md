@@ -79,3 +79,21 @@ real, measured gap is task completion on this specific template/flow, not the la
 that gap favors Retell. Needs a flow-content fix (give the `receptionist` template real service/price
 info, or make the "I don't know" path try to still offer a booking like Retell's does) rather than a
 language-layer fix. Barge-in and outbound-direction remain unverified with real calls.
+
+## Follow-up: English control on the same unmodified template (2026-09-21)
+
+Ran the identical shopper goal (ask pricing + book this week) in **English**, same `receptionist`
+template, no language setting at all — isolates whether the Spanish failure was language-related.
+
+Result: **same failure.** 72s call, agent never named a single service or price, said "I don't have
+our full service menu in front of me," and transferred the caller with nothing resolved — same shape
+as the Spanish call (admit no info, transfer).
+
+**Conclusion: confirmed template/flow gap, not a language issue.** The `receptionist` template's
+flow/KB simply has no actual service or price content seeded into it by default, in any language.
+Retell's agent in the earlier test handled this better (offered a specific appointment slot despite
+the same lack of pricing info) — that's a flow-design difference (graceful degrade to booking vs.
+immediate transfer), also not language-specific, and worth fixing in the template regardless of which
+language ships next.
+
+Cleaned up (agent deleted, routing cleared, temp key revoked) same as prior tests.
