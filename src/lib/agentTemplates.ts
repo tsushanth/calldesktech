@@ -2852,6 +2852,16 @@ You are {{agent_name}}, a bilingual Level 1 technical support specialist for {{b
 
 Open bilingually and continue entirely in whichever language they choose. Identify the device and issue, confirm understanding, then troubleshoot one step at a time (power check, restart, reset), checking resolution after each and escalating to advanced support if all three don't fix it. Also answer FAQ questions about common issues at any point. See the handbook for the full scope boundary and approved acknowledgment phrases.`;
 
+const RECEPTIONIST_KB_SEED: TemplateKnowledgeBaseSeed = {
+  name: '{{business_name}} services & pricing',
+  items: [
+    { question: 'What services do you offer?', answer: 'Edit this answer in the knowledge base to list {{business_name}}\'s actual services — this placeholder exists so the agent has something concrete to say instead of "I don\'t know" on the very first call.' },
+    { question: 'How much do your services cost?', answer: 'Pricing depends on the specific service. Edit this answer with {{business_name}}\'s real rates, or a general range, so the agent can quote something instead of deflecting.' },
+    { question: 'What are your hours?', answer: 'Edit this answer with {{business_name}}\'s real hours.' },
+    { question: 'Where are you located?', answer: 'Edit this answer with {{business_name}}\'s real address or service area.' },
+  ],
+};
+
 export const AGENT_TEMPLATES: AgentTemplate[] = [
   {
     id: 'receptionist',
@@ -2865,19 +2875,33 @@ export const AGENT_TEMPLATES: AgentTemplate[] = [
         type: 'greeting',
         prompt:
           'Greet the caller warmly and ask how you can help. Answer any questions about the business (hours, ' +
-          'services, pricing, location) directly using what you know about it. Only move to a different step ' +
-          'for one of the actionable outcomes listed below.',
+          'services, pricing, location) directly using the knowledge base. If the knowledge base genuinely has ' +
+          "no answer to something specific (e.g. an exact price for a service not listed), say so briefly, then " +
+          "immediately offer to book an appointment or take a message so someone can follow up with the exact " +
+          "details — never just apologize and stop. Only move to a different step for one of the actionable " +
+          'outcomes listed below.',
         edges: [
-          { id: 'e_to_booking', condition: 'caller wants to book or schedule an appointment', target: 'booking' },
+          { id: 'e_to_kb', condition: 'caller asks a question about the business (hours, services, pricing, location)', target: 'knowledge_base' },
+          { id: 'e_to_booking', condition: 'caller wants to book or schedule an appointment, or the knowledge base could not answer a specific question and they are open to following up', target: 'booking' },
           { id: 'e_to_message', condition: 'caller wants to leave a message or have someone call them back', target: 'take_message' },
           { id: 'e_to_transfer', condition: 'caller asks to speak to a real person right away', target: 'transfer' },
           { id: 'e_to_goodbye', condition: 'caller is done and ready to hang up', target: 'goodbye' },
         ],
       },
       {
+        id: 'knowledge_base',
+        type: 'knowledge_base',
+        prompt: "Answer the caller's question from the knowledge base, then ask if there's anything else or if they'd like to book an appointment.",
+        params: { _templateKnowledgeBaseSeed: JSON.stringify(RECEPTIONIST_KB_SEED) },
+        edges: [
+          { id: 'e_kb_to_booking', condition: 'caller wants to book or schedule an appointment, or a specific detail was not in the knowledge base and they want someone to follow up', target: 'booking' },
+          { id: 'e_kb_to_goodbye', condition: 'caller has what they need and is ready to hang up', target: 'goodbye' },
+        ],
+      },
+      {
         id: 'booking',
         type: 'extraction',
-        prompt: "Ask for the caller's name and their preferred appointment date/time.",
+        prompt: "Ask for the caller's name and their preferred appointment date/time. If they came here because a detail wasn't available, confirm someone will follow up with the specifics when they call to confirm.",
         extract: { name: 'string', preferred_time: 'string' },
         edges: [{ id: 'e_booking_done', condition: 'both name and preferred_time have been collected', target: 'goodbye' }],
       },
