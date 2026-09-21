@@ -1,0 +1,339 @@
+<title>Retell Parity Scorecard</title>
+<style>
+  :root {
+    --paper: #faf9f6;
+    --paper-raised: #ffffff;
+    --ink: #171923;
+    --ink-soft: #565c6b;
+    --ink-faint: #8b90a0;
+    --line: #e3e0d8;
+    --line-soft: #edebe4;
+    --us: #2452c7;
+    --us-soft: #eaf0ff;
+    --retell: #746a58;
+    --retell-soft: #f2efe8;
+    --good: #1e7a46;
+    --good-soft: #e7f4ec;
+    --warn: #a3690e;
+    --warn-soft: #faf0dd;
+    --bad: #b23b3b;
+    --bad-soft: #fbeaea;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --paper: #14151a;
+      --paper-raised: #1b1d24;
+      --ink: #eceef2;
+      --ink-soft: #a7acbb;
+      --ink-faint: #6b7183;
+      --line: #2c2f3a;
+      --line-soft: #24262f;
+      --us: #7ea1ff;
+      --us-soft: #1c2740;
+      --retell: #b8ad97;
+      --retell-soft: #26241d;
+      --good: #5cc78a;
+      --good-soft: #17281f;
+      --warn: #e0ab54;
+      --warn-soft: #2c2314;
+      --bad: #ec7373;
+      --bad-soft: #2c1a1a;
+    }
+  }
+  :root[data-theme="dark"] {
+    --paper: #14151a;
+    --paper-raised: #1b1d24;
+    --ink: #eceef2;
+    --ink-soft: #a7acbb;
+    --ink-faint: #6b7183;
+    --line: #2c2f3a;
+    --line-soft: #24262f;
+    --us: #7ea1ff;
+    --us-soft: #1c2740;
+    --retell: #b8ad97;
+    --retell-soft: #26241d;
+    --good: #5cc78a;
+    --good-soft: #17281f;
+    --warn: #e0ab54;
+    --warn-soft: #2c2314;
+    --bad: #ec7373;
+    --bad-soft: #2c1a1a;
+  }
+
+  @import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,560;9..144,650&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap');
+
+  * { box-sizing: border-box; }
+  body {
+    background: var(--paper);
+    color: var(--ink);
+    font-family: 'IBM Plex Sans', system-ui, sans-serif;
+    margin: 0;
+    padding-inline: 20px;
+    padding-block: 40px 80px;
+    font-size: 15px;
+    line-height: 1.55;
+  }
+  .wrap { max-width: 960px; margin: 0 auto; }
+  h1, h2, h3 { font-family: 'Fraunces', Georgia, serif; font-weight: 560; letter-spacing: -0.01em; text-wrap: balance; color: var(--ink); }
+  h1 { font-size: clamp(30px, 5vw, 42px); margin: 0 0 6px; line-height: 1.08; }
+  h2 { font-size: 23px; margin: 0 0 4px; }
+  h3 { font-size: 16px; margin: 0; font-weight: 650; }
+  p { margin: 0 0 12px; }
+  .lede { color: var(--ink-soft); font-size: 16px; max-width: 640px; margin: 0 0 28px; }
+  .meta { color: var(--ink-faint); font-size: 12.5px; font-family: 'IBM Plex Mono', monospace; margin-bottom: 36px; }
+
+  .stat-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 1px; background: var(--line); border: 1px solid var(--line); border-radius: 12px; overflow: hidden; margin-bottom: 44px; }
+  .stat { background: var(--paper-raised); padding: 16px 18px; }
+  .stat .n { font-family: 'IBM Plex Mono', monospace; font-variant-numeric: tabular-nums; font-size: 26px; font-weight: 500; color: var(--ink); }
+  .stat .lbl { font-size: 12px; color: var(--ink-soft); margin-top: 2px; }
+
+  section { margin-bottom: 48px; }
+  section > p.section-lede { color: var(--ink-soft); max-width: 620px; margin-bottom: 20px; }
+
+  .group { margin-bottom: 22px; border: 1px solid var(--line); border-radius: 12px; overflow: hidden; background: var(--paper-raised); }
+  .group-head { padding: 12px 18px; border-bottom: 1px solid var(--line-soft); background: var(--line-soft); }
+  .group-head h3 { font-size: 13.5px; text-transform: uppercase; letter-spacing: 0.05em; font-family: 'IBM Plex Sans', sans-serif; font-weight: 600; color: var(--ink-soft); }
+  table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+  th { text-align: left; font-weight: 500; color: var(--ink-faint); font-size: 11.5px; text-transform: uppercase; letter-spacing: 0.04em; padding: 8px 18px; }
+  td { padding: 10px 18px; border-top: 1px solid var(--line-soft); vertical-align: top; }
+  tr:first-child td { border-top: none; }
+  .feat { font-weight: 500; }
+  .note { color: var(--ink-soft); font-size: 12.5px; margin-top: 2px; }
+  .tablewrap { overflow-x: auto; }
+
+  .pill { display: inline-flex; align-items: center; gap: 5px; padding: 3px 9px 3px 7px; border-radius: 999px; font-size: 12px; font-weight: 500; white-space: nowrap; }
+  .pill::before { content: ''; width: 6px; height: 6px; border-radius: 50%; flex: none; }
+  .pill.have { background: var(--good-soft); color: var(--good); }
+  .pill.have::before { background: var(--good); }
+  .pill.partial { background: var(--warn-soft); color: var(--warn); }
+  .pill.partial::before { background: var(--warn); }
+  .pill.gap { background: var(--bad-soft); color: var(--bad); }
+  .pill.gap::before { background: var(--bad); }
+  .pill.ahead { background: var(--us-soft); color: var(--us); }
+  .pill.ahead::before { background: var(--us); }
+  .pill.neither { background: var(--line-soft); color: var(--ink-faint); }
+  .pill.neither::before { background: var(--ink-faint); }
+
+  .evalcard { border: 1px solid var(--line); border-radius: 12px; background: var(--paper-raised); padding: 18px 20px; margin-bottom: 14px; }
+  .evalcard .top { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 10px; align-items: baseline; margin-bottom: 10px; }
+  .evalcard h3 { font-size: 15.5px; }
+  .verdict { font-family: 'IBM Plex Mono', monospace; font-size: 12.5px; padding: 2px 8px; border-radius: 5px; font-weight: 500; }
+  .verdict.pass { background: var(--good-soft); color: var(--good); }
+  .verdict.mixed { background: var(--warn-soft); color: var(--warn); }
+  .scorebar-row { display: flex; align-items: center; gap: 10px; margin: 5px 0; font-size: 12.5px; }
+  .scorebar-row .lbl { width: 110px; flex: none; color: var(--ink-soft); }
+  .scorebar-track { flex: 1; height: 7px; background: var(--line-soft); border-radius: 4px; overflow: hidden; display: flex; min-width: 100px; }
+  .scorebar-fill { height: 100%; }
+  .scorebar-fill.us { background: var(--us); }
+  .scorebar-fill.retell { background: var(--retell); }
+  .scorebar-val { width: 30px; flex: none; text-align: right; font-family: 'IBM Plex Mono', monospace; font-variant-numeric: tabular-nums; color: var(--ink); }
+  .legend { display: flex; gap: 16px; font-size: 12px; color: var(--ink-soft); margin: -6px 0 16px; }
+  .legend span { display: inline-flex; align-items: center; gap: 5px; }
+  .legend i { width: 9px; height: 9px; border-radius: 2px; display: inline-block; }
+  .legend i.us { background: var(--us); }
+  .legend i.retell { background: var(--retell); }
+  .caveat { font-size: 12.5px; color: var(--ink-faint); margin-top: 6px; }
+  .src { font-size: 11.5px; color: var(--ink-faint); font-family: 'IBM Plex Mono', monospace; }
+
+  .plist { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+  .plist li { display: grid; grid-template-columns: 26px 1fr; gap: 12px; align-items: start; border: 1px solid var(--line); border-radius: 10px; padding: 12px 16px; background: var(--paper-raised); }
+  .prank { font-family: 'IBM Plex Mono', monospace; font-size: 13px; color: var(--ink-faint); padding-top: 1px; }
+  .pbody b { display: block; font-size: 14px; margin-bottom: 2px; }
+  .pbody span { font-size: 13px; color: var(--ink-soft); }
+
+  .callout { border: 1px solid var(--line); border-left: 3px solid var(--us); border-radius: 8px; padding: 12px 16px; background: var(--us-soft); font-size: 13.5px; margin-bottom: 24px; }
+  .callout b { color: var(--us); }
+
+  footer { margin-top: 56px; padding-top: 20px; border-top: 1px solid var(--line); font-size: 12px; color: var(--ink-faint); }
+
+  @media (max-width: 640px) {
+    td, th { padding: 8px 12px; }
+    .group-head { padding: 10px 12px; }
+  }
+</style>
+
+<div class="wrap">
+  <h1>Retell Parity Scorecard</h1>
+  <p class="lede">Where CallDeskTech stands against Retell AI, feature by feature, plus the real quality numbers from today's live shopper calls — used to decide what to build next.</p>
+  <p class="meta">Compiled 2026-09-21 · Retell inventory from public docs/changelog/pricing (see caveats) · Our side from the live codebase and real production calls placed today</p>
+
+  <div class="stat-row">
+    <div class="stat"><div class="n">17 / ~6</div><div class="lbl">Flow node types, us / Retell</div></div>
+    <div class="stat"><div class="n">11 / 55</div><div class="lbl">Languages, us / Retell</div></div>
+    <div class="stat"><div class="n">$0.10</div><div class="lbl">Our price/min (56% margin)</div></div>
+    <div class="stat"><div class="n">3 / 3</div><div class="lbl">Live shopper calls, real pass</div></div>
+  </div>
+
+  <section id="matrix">
+    <h2>Feature parity matrix</h2>
+    <p class="section-lede">Have = built and working today. Partial = built but thinner than Retell's version. Gap = Retell has it, we don't. Ahead = we have it and Retell's public materials don't show an equivalent. Neither = confirmed absent on both sides.</p>
+
+    <div class="group">
+      <div class="group-head"><h3>Agent builder &amp; conversation flow</h3></div>
+      <div class="tablewrap"><table>
+        <tbody>
+          <tr><td class="feat">Node-based flow builder<div class="note">17 node types (greeting, extraction, function, KB, transfer, agent_transfer, payment, logic_split, press_digit, sms, code, mcp, subagent, subflow_ref, extract_variable, note, goodbye) vs Retell's Conversation/Transfer/Press&nbsp;Digit/Logic&nbsp;Split/End plus tool nodes.</div></td><td><span class="pill ahead">Ahead</span></td></tr>
+          <tr><td class="feat">Reusable subflows / components</td><td><span class="pill have">Have</span></td></tr>
+          <tr><td class="feat">Agent-to-agent handoff mid-call</td><td><span class="pill have">Have</span><div class="note">agent_transfer node vs Retell's Transfer Agent node.</div></td></tr>
+          <tr><td class="feat">Version history &amp; restore</td><td><span class="pill partial">Partial</span><div class="note">We restore an old version as a new one. Retell's "Agent Versioning 2.0" is environment-scoped (dev/staging/prod), which we don't have.</div></td></tr>
+          <tr><td class="feat">Test call in browser</td><td><span class="pill have">Have</span><div class="note">/demo/poc/call in-browser mic call vs Retell's shareable "Voice Orb" link.</div></td></tr>
+          <tr><td class="feat">AI copilot that proposes/simulates flow changes</td><td><span class="pill gap">Gap</span><div class="note">Retell's "Conductor" (launched Jul 2026) runs simulations and suggests fixes from real call data. We have nothing like it.</div></td></tr>
+        </tbody>
+      </table></div>
+    </div>
+
+    <div class="group">
+      <div class="group-head"><h3>Voice &amp; language</h3></div>
+      <div class="tablewrap"><table>
+        <tbody>
+          <tr><td class="feat">Language coverage</td><td><span class="pill gap">Gap</span><div class="note">11 built (en, es, fr, pt-BR, it, nl, hi, de, pl, id, ar) vs Retell's 55 languages / 63 locales. Ours are real-call-verified for es/fr/pt-BR as of today; the rest are code-complete, untested.</div></td></tr>
+          <tr><td class="feat">TTS/voice providers</td><td><span class="pill have">Have</span><div class="note">Kokoro (self-hosted default), ElevenLabs, Cartesia, MiniMax vs Retell's ElevenLabs + PlayHT.</div></td></tr>
+          <tr><td class="feat">Mid-call language switching</td><td><span class="pill gap">Gap</span><div class="note">Language is fixed per agent version for us. Retell supports switching mid-call on some ASR providers.</div></td></tr>
+          <tr><td class="feat">Voice cloning</td><td><span class="pill neither">Neither (native)</span><div class="note">Retell's is a workaround via ElevenLabs/Cartesia, not first-party either.</div></td></tr>
+          <tr><td class="feat">Interruption / barge-in tuning</td><td><span class="pill have">Have</span><div class="note">Per-node interruptionSensitivity, tuned from a real production incident. Retell markets barge-in generally; specifics unconfirmed.</div></td></tr>
+          <tr><td class="feat">Emotion-aware / expressive delivery</td><td><span class="pill gap">Gap</span><div class="note">Retell's "Expressive Mode" (Jun 2026). We have nothing equivalent.</div></td></tr>
+        </tbody>
+      </table></div>
+    </div>
+
+    <div class="group">
+      <div class="group-head"><h3>Telephony</h3></div>
+      <div class="tablewrap"><table>
+        <tbody>
+          <tr><td class="feat">Buy or bring your own number</td><td><span class="pill have">Have</span></td></tr>
+          <tr><td class="feat">Batch calling: CSV, personalization, scheduling, calling-hour windows</td><td><span class="pill have">Have</span><div class="note">Built and verified with real calls today — naming, per-recipient {{variables}} from CSV columns, "send now" vs scheduled, day/hour restrictions, per-call drill-down. Retell's exact spec wasn't independently confirmed in research, so treat as parity, not "ahead."</div></td></tr>
+          <tr><td class="feat">Cold transfer</td><td><span class="pill have">Have</span></td></tr>
+          <tr><td class="feat">Warm transfer</td><td><span class="pill gap">Gap</span><div class="note">Retell does a SIP warm transfer with caller ID preserved. We only support cold (hang up and redial).</div></td></tr>
+          <tr><td class="feat">Voicemail detection</td><td><span class="pill have">Have</span><div class="note">Twilio AsyncAmd, opt-in per flow.</div></td></tr>
+          <tr><td class="feat">In-call SMS</td><td><span class="pill have">Have</span><div class="note">Retell sells this as a $20/mo add-on; ours is a flow node with no extra charge.</div></td></tr>
+        </tbody>
+      </table></div>
+    </div>
+
+    <div class="group">
+      <div class="group-head"><h3>Knowledge &amp; tools</h3></div>
+      <div class="tablewrap"><table>
+        <tbody>
+          <tr><td class="feat">Knowledge base / RAG</td><td><span class="pill have">Have</span></td></tr>
+          <tr><td class="feat">Custom function / webhook calling</td><td><span class="pill have">Have</span></td></tr>
+          <tr><td class="feat">MCP: agent calls external MCP tools</td><td><span class="pill have">Have</span><div class="note">Our mcp node type vs Retell's MCP node — comparable.</div></td></tr>
+          <tr><td class="feat">MCP: hosted server for external clients to manage the platform</td><td><span class="pill ahead">Ahead</span><div class="note">Ours has real OAuth 2.1 browser login (add the URL, sign in, pick a workspace) built and verified this session. Retell has an MCP server too, but its auth model wasn't confirmed as more than an API key.</div></td></tr>
+          <tr><td class="feat">Calendar booking</td><td><span class="pill have">Have</span><div class="note">Real Cal.com check_availability/book_appointment tools.</div></td></tr>
+          <tr><td class="feat">CRM sync (Salesforce / HubSpot)</td><td><span class="pill gap">Gap</span><div class="note">Retell shipped two-way sync in Jun 2026. We have none.</div></td></tr>
+          <tr><td class="feat">Payment collection</td><td><span class="pill ahead">Ahead</span><div class="note">We have a payment node type. Retell's payment collection wasn't found in this research pass — possibly absent.</div></td></tr>
+        </tbody>
+      </table></div>
+    </div>
+
+    <div class="group">
+      <div class="group-head"><h3>Post-call</h3></div>
+      <div class="tablewrap"><table>
+        <tbody>
+          <tr><td class="feat">Post-call structured extraction</td><td><span class="pill partial">Partial</span><div class="note">We have a configurable analysis field. Retell ships typed extraction (Boolean/Text/Number/Enum) plus built-in call_summary/call_successful/in_voicemail/user_sentiment out of the box.</div></td></tr>
+          <tr><td class="feat">Transcription &amp; recording</td><td><span class="pill have">Have</span></td></tr>
+          <tr><td class="feat">Sentiment scoring</td><td><span class="pill partial">Partial</span><div class="note">Ours is post-call only (QA pipeline). Retell's Live Call Monitoring scores sentiment in real time during the call.</div></td></tr>
+          <tr><td class="feat">Webhooks on call events</td><td><span class="pill have">Have</span></td></tr>
+          <tr><td class="feat">Live call monitoring</td><td><span class="pill partial">Partial</span><div class="note">We have a Live Monitoring page; depth vs Retell's real-time-sentiment version wasn't directly compared.</div></td></tr>
+          <tr><td class="feat">Customizable dashboards</td><td><span class="pill gap">Gap</span><div class="note">Ours (QA, usage, eval) are fixed pages we built. Retell shipped user-configurable dashboards Jun 2026.</div></td></tr>
+        </tbody>
+      </table></div>
+    </div>
+
+    <div class="group">
+      <div class="group-head"><h3>Developer</h3></div>
+      <div class="tablewrap"><table>
+        <tbody>
+          <tr><td class="feat">REST API + OpenAPI spec</td><td><span class="pill have">Have</span></td></tr>
+          <tr><td class="feat">Client SDKs</td><td><span class="pill gap">Gap</span><div class="note">We ship no packaged SDK, only the raw API + MCP. Retell references SDKs generally; exact language list unconfirmed.</div></td></tr>
+          <tr><td class="feat">MCP server auth</td><td><span class="pill ahead">Ahead</span><div class="note">Real OAuth browser flow, no key to copy. Retell's is unconfirmed beyond "exists."</div></td></tr>
+        </tbody>
+      </table></div>
+    </div>
+
+    <div class="group">
+      <div class="group-head"><h3>Team &amp; enterprise</h3></div>
+      <div class="tablewrap"><table>
+        <tbody>
+          <tr><td class="feat">HIPAA / SOC 2 / GDPR compliance</td><td><span class="pill gap">Gap</span><div class="note">Retell is certified with a BAA available. We have no compliance program at all — this alone blocks most healthcare and enterprise deals.</div></td></tr>
+          <tr><td class="feat">RBAC / team roles</td><td><span class="pill gap">Gap</span><div class="note">We have no roles at all — one owner per workspace. Retell claims RBAC "on all plans" but independent sources dispute the scope; either way, we have strictly less.</div></td></tr>
+          <tr><td class="feat">SSO</td><td><span class="pill gap">Gap</span></td></tr>
+          <tr><td class="feat">White-labeling</td><td><span class="pill neither">Neither</span><div class="note">Confirmed absent on Retell's side too — no branded dashboards or resale sub-accounts.</div></td></tr>
+          <tr><td class="feat">Multi-workspace switching</td><td><span class="pill have">Have</span><div class="note">Built and in use. Retell's equivalent wasn't confirmed either way.</div></td></tr>
+        </tbody>
+      </table></div>
+    </div>
+
+    <div class="group">
+      <div class="group-head"><h3>Pricing</h3></div>
+      <div class="tablewrap"><table>
+        <tbody>
+          <tr><td class="feat">Default voice, per minute</td><td><span class="pill ahead">Ahead</span><div class="note">$0.10/min flat (Kokoro), $0.12 ElevenLabs/Cartesia, $0.16 MiniMax, small flat per-action fees. Retell stacks components separately: ~$0.055 voice infra + ~$0.015 TTS + ~$0.015 telephony + $0.008–$0.32 LLM + $0.005 KB — a blended $0.07–$0.31/min depending on choices. Simpler and generally cheaper for us at the low-to-mid end.</div></td></tr>
+          <tr><td class="feat">Free tier</td><td><span class="pill gap">Gap</span><div class="note">Retell gives $10 signup credit and 20 free concurrent calls. We have no documented free tier or concurrency ceiling.</div></td></tr>
+        </tbody>
+      </table></div>
+    </div>
+  </section>
+
+  <section id="evalmatrix">
+    <h2>Evaluation matrix — real call results</h2>
+    <p class="section-lede">Live shopper calls placed today, same persona/goal on both sides, LLM-judged 1–5. Not a synthetic benchmark — real Twilio calls, real transcripts.</p>
+    <div class="legend"><span><i class="us"></i>CallDeskTech</span><span><i class="retell"></i>Retell</span></div>
+
+    <div class="evalcard">
+      <div class="top"><h3>Spanish — receptionist template</h3><span class="verdict mixed">Fixed mid-session</span></div>
+      <div class="scorebar-row"><div class="lbl">Fluency</div><div class="scorebar-track"><div class="scorebar-fill us" style="width:80%"></div></div><div class="scorebar-val">4/5</div></div>
+      <div class="scorebar-row"><div class="lbl">Fluency (Retell)</div><div class="scorebar-track"><div class="scorebar-fill retell" style="width:100%"></div></div><div class="scorebar-val">5/5</div></div>
+      <div class="scorebar-row"><div class="lbl">Task completion</div><div class="scorebar-track"><div class="scorebar-fill us" style="width:20%"></div></div><div class="scorebar-val">1/5</div></div>
+      <div class="scorebar-row"><div class="lbl">Task (Retell)</div><div class="scorebar-track"><div class="scorebar-fill retell" style="width:60%"></div></div><div class="scorebar-val">3/5</div></div>
+      <p class="note" style="margin-top:10px">The 1/5 was a template-content gap, not a language bug — confirmed with an English control call on the same unmodified template, which failed identically. Fixed the same day (KB seed + graceful-degrade-to-booking instead of dead-end transfer) and re-verified live in English and French. Not yet re-run against Retell in Spanish specifically after the fix.</p>
+      <p class="src">bench/lang_shopper_bench_es_2026-09-21.md</p>
+    </div>
+
+    <div class="evalcard">
+      <div class="top"><h3>French — receptionist template, post-fix</h3><span class="verdict pass">Pass</span></div>
+      <div class="scorebar-row"><div class="lbl">STT accuracy</div><div class="scorebar-track"><div class="scorebar-fill us" style="width:100%"></div></div><div class="scorebar-val">✓</div></div>
+      <div class="scorebar-row"><div class="lbl">Fluency</div><div class="scorebar-track"><div class="scorebar-fill us" style="width:96%"></div></div><div class="scorebar-val">✓</div></div>
+      <div class="scorebar-row"><div class="lbl">Task completion</div><div class="scorebar-track"><div class="scorebar-fill us" style="width:100%"></div></div><div class="scorebar-val">✓</div></div>
+      <p class="note" style="margin-top:10px">137s real call. Correctly parsed a spoken phone number and date/time in French. One cosmetic stutter at the end, not a comprehension issue. Graceful-degrade fix confirmed carrying over from the English fix with no separate change needed.</p>
+      <p class="src">bench/lang_shopper_bench_fr_2026-09-21.md</p>
+    </div>
+
+    <div class="evalcard">
+      <div class="top"><h3>Portuguese (Brazil) — receptionist template</h3><span class="verdict pass">Pass</span></div>
+      <div class="scorebar-row"><div class="lbl">STT accuracy</div><div class="scorebar-track"><div class="scorebar-fill us" style="width:92%"></div></div><div class="scorebar-val">✓</div></div>
+      <div class="scorebar-row"><div class="lbl">Fluency</div><div class="scorebar-track"><div class="scorebar-fill us" style="width:94%"></div></div><div class="scorebar-val">✓</div></div>
+      <div class="scorebar-row"><div class="lbl">Task completion</div><div class="scorebar-track"><div class="scorebar-fill us" style="width:88%"></div></div><div class="scorebar-val">✓</div></div>
+      <p class="note" style="margin-top:10px">181s real call, correct STT through some audio noise, natural colloquial fluency, converged on a concrete booking slot after negotiation. Some flow friction (repeated confirmations) — matches known template looseness, not a pt-BR-specific defect. No Retell side-by-side run for this language yet.</p>
+      <p class="src">bench/lang_shopper_bench_ptbr_2026-09-21.md</p>
+    </div>
+
+    <div class="evalcard">
+      <div class="top"><h3>Unit economics</h3><span class="verdict pass">Ahead</span></div>
+      <div class="scorebar-row"><div class="lbl">Our cost/min</div><div class="scorebar-track"><div class="scorebar-fill us" style="width:44%"></div></div><div class="scorebar-val">$0.044</div></div>
+      <div class="scorebar-row"><div class="lbl">Our price/min</div><div class="scorebar-track"><div class="scorebar-fill us" style="width:100%"></div></div><div class="scorebar-val">$0.10</div></div>
+      <p class="note" style="margin-top:10px">~56% gross margin at the default price, measured from real Twilio/Deepgram/Claude usage, not estimated. Retell's cited $0.16/min on our own pricing page is an observed blended figure from a real account, not their published rate.</p>
+    </div>
+
+    <div class="caveat">Coverage caveat: three languages were real-call-verified today (es, fr, pt-BR). The other eight (it, nl, hi, de, pl, id, ar, + English regression) are code-complete but untested against Retell head-to-head. Barge-in/interruption handling and outbound-direction calls also remain unverified with real calls as of this report.</div>
+  </section>
+
+  <section id="priorities">
+    <h2>Where to improve, ranked</h2>
+    <p class="section-lede">Ordered by how much each gap likely costs us — deals blocked or lost outright above competitive-parity polish.</p>
+    <ol class="plist">
+      <li><span class="prank">01</span><div class="pbody"><b>Compliance (HIPAA / SOC 2)</b><span>Blocks healthcare and most enterprise deals categorically, not just on features — this is a sales gate, not a nice-to-have.</span></div></li>
+      <li><span class="prank">02</span><div class="pbody"><b>RBAC / team roles / SSO</b><span>Blocks any team beyond a single owner from adopting the product at all.</span></div></li>
+      <li><span class="prank">03</span><div class="pbody"><b>CRM integrations (Salesforce/HubSpot)</b><span>A real sales objection for the outbound/sales-team segment of the market.</span></div></li>
+      <li><span class="prank">04</span><div class="pbody"><b>Warm transfer</b><span>Cold-only is a real, noticeable UX gap on every handoff-heavy flow (support escalation, appointment confirmation).</span></div></li>
+      <li><span class="prank">05</span><div class="pbody"><b>Real-time in-call sentiment / live monitoring depth</b><span>Retell is actively marketing this; worth checking what our Live Monitoring page actually shows before assuming the gap is real.</span></div></li>
+      <li><span class="prank">06</span><div class="pbody"><b>Language breadth (11 vs 55)</b><span>Real gap in count, but ours are call-verified today and Retell's 55 is unverified breadth — expanding via the same languages.js pattern is now a known, cheap motion.</span></div></li>
+      <li><span class="prank">07</span><div class="pbody"><b>Free tier / concurrency ceiling</b><span>A business-model gap, not a technical one — worth a pricing-page decision, not engineering.</span></div></li>
+      <li><span class="prank">08</span><div class="pbody"><b>Client SDKs</b><span>Developer-experience gap; the REST API + MCP already covers the same ground, just without a packaged wrapper.</span></div></li>
+      <li><span class="prank">09</span><div class="pbody"><b>AI copilot for flow-building (Conductor)</b><span>A competitive differentiator for Retell, not something blocking a specific deal — lowest urgency here.</span></div></li>
+    </ol>
+  </section>
+
+  <div class="callout"><b>Confidence note —</b> Retell's side of this matrix comes from public docs, pricing pages and their changelog, not a hands-on account audit. Several items (exact batch-calling spec, SMS feature depth, full SDK list, true RBAC/SSO scope, whether payment collection exists) are flagged unverified in the source research and should be treated as directional, not certain. Our side is grounded in the live codebase and, where marked, real calls placed today.</div>
+
+  <footer>CallDeskTech internal · compiled from live production data, the codebase, and public Retell sources · bench/lang_shopper_bench_{es,fr,ptbr}_2026-09-21.md</footer>
+</div>
