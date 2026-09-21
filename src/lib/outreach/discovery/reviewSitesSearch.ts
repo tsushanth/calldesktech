@@ -38,6 +38,44 @@ const SPEC: SourceSpec = {
   verify: verifyLooksLikeVoiceAi,
 };
 
+// Defense-in-depth: reject blurbs that look like copied/paraphrased review text
+// rather than generic labels. Generic labels like "reviewed on G2 as a voice AI
+// agency" are short and quote-free; actual review text would contain quotes,
+// specific numbers, or lengthy descriptions.
+function looksLikeGenericLabel(blurb: string | null): boolean {
+  if (!blurb) return true; // null blurbs are fine
+
+  // Reject if contains quotation marks (quote-like characters)
+  if (/["""'']/i.test(blurb)) return false;
+
+  // Reject if unusually long for a generic label (threshold: ~120 chars)
+  // Generic: "reviewed on G2 as a voice AI agency" (34 chars)
+  // Generic: "listed on Capterra as AI voice agent provider" (47 chars)
+  // Likely review quote: "They built a robust voice AI platform with excellent customer support and competitive pricing" (92+ chars with adjectives)
+  if (blurb.length > 120) return false;
+
+  return true;
+}
+
 export async function findReviewSiteCandidates(perDay: number, shouldStop: () => boolean = () => false) {
-  return findCandidates(SPEC, perDay, shouldStop);
+  const result = await findCandidates(SPEC, perDay, shouldStop);
+
+  // Post-process: filter candidates through generic-label check, moving
+  // non-generic blurbs to rejected list
+  const filtered: typeof result['candidates'] = [];
+  const additionalRejected: string[] = [];
+
+  for (const candidate of result.candidates) {
+    if (looksLikeGenericLabel(candidate.blurb)) {
+      filtered.push(candidate);
+    } else {
+      additionalRejected.push(candidate.domain);
+    }
+  }
+
+  return {
+    ...result,
+    candidates: filtered,
+    rejected: [...result.rejected, ...additionalRejected],
+  };
 }
