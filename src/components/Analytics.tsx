@@ -29,7 +29,10 @@ function Tracker() {
   useEffect(() => { start(); }, []);
 
   useEffect(() => {
-    if (!KEY) return;
+    // Internal admin pages (dashboards we built for ourselves, e.g. /admin/usage,
+    // /admin/outreach) aren't visitor traffic — capturing them pollutes the
+    // pageview signal we actually care about (real prospects hitting the site).
+    if (!KEY || pathname?.startsWith('/admin')) return;
     posthog.capture('$pageview', { $current_url: window.location.href });
   }, [pathname, params]);
 
