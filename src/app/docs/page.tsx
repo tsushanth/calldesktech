@@ -74,6 +74,7 @@ export default function DocsPage() {
             <nav aria-label="API sections" className="lg:sticky lg:top-[104px] lg:self-start">
               <ul className="flex flex-wrap gap-2 lg:block lg:space-y-1">
                 <li><a href="#quickstart" className="block rounded-md px-3 py-1.5 text-[14px] text-gray-600 transition-colors hover:bg-white hover:text-[#1a1d29]">Quick start</a></li>
+                <li><a href="#mcp" className="block rounded-md px-3 py-1.5 text-[14px] text-gray-600 transition-colors hover:bg-white hover:text-[#1a1d29]">MCP server</a></li>
                 {tags.map((t) => (
                   <li key={t}><a href={`#${slug(t)}`} className="block rounded-md px-3 py-1.5 text-[14px] text-gray-600 transition-colors hover:bg-white hover:text-[#1a1d29]">{t}</a></li>
                 ))}
@@ -96,6 +97,18 @@ export default function DocsPage() {
   -d '{"templateId": "medical-receptionist"}'`}</Code>
                 </div>
                 <p className="mt-4 text-[14px] text-gray-500">Errors return <code className="rounded bg-white px-1.5 py-0.5 text-[13px]">401</code> for missing or bad credentials, <code className="rounded bg-white px-1.5 py-0.5 text-[13px]">404</code> for anything outside your workspace, and <code className="rounded bg-white px-1.5 py-0.5 text-[13px]">429</code> when rate limited.</p>
+              </section>
+
+              <section id="mcp" className="mt-14 scroll-mt-[96px]">
+                <h2 className="text-[24px] font-semibold tracking-[-0.02em]">MCP server</h2>
+                <p className="mt-2 max-w-[600px] text-[15px] leading-[1.55] text-gray-500">
+                  Connect an AI assistant to your workspace. Add the URL, sign in when your browser opens, and pick the workspace to share. No API key needed.
+                </p>
+                <div className="mt-5 space-y-4">
+                  <Code label="Claude Code">{`claude mcp add --transport http calldesktech https://calldesk.tech/mcp`}</Code>
+                  <Code label="Claude, Cursor and other clients: add a remote MCP server with this URL">{`https://calldesk.tech/mcp`}</Code>
+                </div>
+                <p className="mt-4 text-[14px] text-gray-500">Each connection is a workspace API key named after the app. Revoke it under Settings, API Keys. Clients that only support keys can send one as <code className="rounded bg-white px-1.5 py-0.5 text-[13px]">Authorization: Bearer cdk_live_...</code>.</p>
               </section>
 
               {tags.map((tag) => (

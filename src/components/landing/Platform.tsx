@@ -115,9 +115,8 @@ const CURL = `curl -X POST \\
   -H "Content-Type: application/json" \\
   -d '{"templateId": "medical-receptionist"}'`;
 
-const MCP = `claude mcp add calldesktech \\
-  --env CALLDESK_API_KEY=cdk_live_... \\
-  -- npx -y calldesktech-mcp`;
+const MCP = `claude mcp add --transport http \\
+  calldesktech https://calldesk.tech/mcp`;
 
 function Code({ label, children }: { label: string; children: string }) {
   return (
