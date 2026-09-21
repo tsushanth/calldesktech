@@ -46,7 +46,7 @@ immediately after a transition, use an auto-advancing type (function/goodbye/...
 allowInterruptions (false = never interrupt), interruptionSensitivity (high|medium|low|off; a node's params.interruptionSensitivity overrides),
 language (en default | es | fr | pt-BR | it | nl | hi | de | pl | id | ar: sets speech recognition, reply language and voice; non-English poc agents are pinned to the ElevenLabs voice, billed at the ElevenLabs rate), transcriptionMode (fast|balanced|accurate), transitionFlexibility (strict|flexible), handbook (agent-wide reference text), timezone,
 variables (Record<string,string>: values for {{name}} placeholders in prompts, spoken lines and the voicemail message; only non-empty values are substituted, unknown placeholders are left as-is).
-Built-in templates use {{business_name}} and {{agent_name}}; set them via create_agent_from_template's variables argument (list_agent_templates shows each template's defaultVariables and placeholders).
+Built-in templates use {{business_name}} and {{agent_name}}; set them via create_agent_from_template's variables argument (list_agent_templates shows each template's defaultVariables and placeholders). agent_name works even on templates whose own prompt never mentions {{agent_name}} directly — every template gets an identity clause appended automatically (use the name if set, otherwise the agent picks and sticks with one on its own).
 
 ## Workflow
 1) create_agent  2) (optional) create_knowledge_base with agent_id + add_knowledge_items, create_subflow
