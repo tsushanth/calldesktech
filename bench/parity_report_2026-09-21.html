@@ -155,15 +155,15 @@
 <div class="wrap">
   <h1>Retell Parity Scorecard</h1>
   <p class="lede">Where CallDeskTech stands against Retell AI, feature by feature, plus the real quality numbers from today's live shopper calls — used to decide what to build next.</p>
-  <p class="meta">Compiled 2026-09-21, updated same day after closing 6 gaps · Retell inventory from public docs/changelog/pricing (see caveats) · Our side from the live codebase and real production calls placed today</p>
+  <p class="meta">Compiled 2026-09-21, updated twice same day — 13 gaps closed across two rounds · Retell inventory from public docs/changelog/pricing (see caveats) · Our side from the live codebase and real production calls placed today</p>
 
-  <div class="callout"><b>Update —</b> six gaps closed today after the first pass of this report: AI copilot, environment-scoped versioning, Client SDKs (TS + Python), SSO, and RBAC/team roles. Each shipped to production and was verified with a real call or a real API request against live data, not just committed code — see the rows below and the new <a href="#closed-today">Closed today</a> section for what was actually tested.</div>
+  <div class="callout"><b>Round 2 update —</b> seven more items closed: all 11 languages now real-call-verified (a real bug was found and fixed along the way — Arabic and Hindi were silently dropping all speech), mid-call language switching, expressive/emotion-aware delivery, warm transfer, CRM sync (HubSpot), and real compliance groundwork (audit logging + gap analysis, not a certification claim). One finding is a correction, not a win: warm transfer's caller-ID premise didn't hold up under a real test — see that row.</div>
 
   <div class="stat-row">
     <div class="stat"><div class="n">17 / ~6</div><div class="lbl">Flow node types, us / Retell</div></div>
-    <div class="stat"><div class="n">11 / 55</div><div class="lbl">Languages, us / Retell</div></div>
+    <div class="stat"><div class="n">11 / 11</div><div class="lbl">Languages real-call-verified</div></div>
     <div class="stat"><div class="n">$0.10</div><div class="lbl">Our price/min (56% margin)</div></div>
-    <div class="stat"><div class="n">6</div><div class="lbl">Gaps closed today, real-verified</div></div>
+    <div class="stat"><div class="n">13</div><div class="lbl">Gaps closed today, real-verified</div></div>
   </div>
 
   <section id="matrix">
@@ -188,12 +188,12 @@
       <div class="group-head"><h3>Voice &amp; language</h3></div>
       <div class="tablewrap"><table>
         <tbody>
-          <tr><td class="feat">Language coverage</td><td><span class="pill gap">Gap</span><div class="note">11 built (en, es, fr, pt-BR, it, nl, hi, de, pl, id, ar) vs Retell's 55 languages / 63 locales. Ours are real-call-verified for es/fr/pt-BR as of today; the rest are code-complete, untested.</div></td></tr>
+          <tr><td class="feat">Language coverage</td><td><span class="pill gap">Gap</span><div class="note">11 built (en, es, fr, pt-BR, it, nl, hi, de, pl, id, ar) vs Retell's 55 languages / 63 locales — count gap is real and unchanged. But closed today: all 11 are now real-call-verified, not just code-complete. That pass found and fixed a real bug — Arabic and Hindi were silently dropping ALL speech (an ASCII-only content filter treated non-Latin-script text as empty); both now pass full bookings after the fix.</div></td></tr>
           <tr><td class="feat">TTS/voice providers</td><td><span class="pill have">Have</span><div class="note">Kokoro (self-hosted default), ElevenLabs, Cartesia, MiniMax vs Retell's ElevenLabs + PlayHT.</div></td></tr>
-          <tr><td class="feat">Mid-call language switching</td><td><span class="pill gap">Gap</span><div class="note">Language is fixed per agent version for us. Retell supports switching mid-call on some ASR providers.</div></td></tr>
+          <tr><td class="feat">Mid-call language switching</td><td><span class="pill have">Have</span><div class="note">Closed today: opt-in (globalSettings.allowLanguageSwitching), off by default. Verified live: a real EN→ES call showed STT, LLM replies, and TTS backend all switch mid-call from a real caller-transcript trigger. Only EN→ES tested; other pairs and the reverse direction are unverified.</div></td></tr>
           <tr><td class="feat">Voice cloning</td><td><span class="pill neither">Neither (native)</span><div class="note">Retell's is a workaround via ElevenLabs/Cartesia, not first-party either.</div></td></tr>
           <tr><td class="feat">Interruption / barge-in tuning</td><td><span class="pill have">Have</span><div class="note">Per-node interruptionSensitivity, tuned from a real production incident. Retell markets barge-in generally; specifics unconfirmed.</div></td></tr>
-          <tr><td class="feat">Emotion-aware / expressive delivery</td><td><span class="pill gap">Gap</span><div class="note">Retell's "Expressive Mode" (Jun 2026). We have nothing equivalent.</div></td></tr>
+          <tr><td class="feat">Emotion-aware / expressive delivery</td><td><span class="pill have">Have</span><div class="note">Closed today, ElevenLabs-first: real per-backend research (ElevenLabs `style`, Cartesia's current `emotion` enum, MiniMax `emotion`) — Kokoro confirmed to have zero expressiveness support, left an honest no-op rather than faked. Verified live: the actual outbound API request differed between turns (style=0.55 upbeat vs style=0.1 calm). Cartesia/MiniMax mappings are code-correct but not call-verified.</div></td></tr>
         </tbody>
       </table></div>
     </div>
@@ -205,7 +205,7 @@
           <tr><td class="feat">Buy or bring your own number</td><td><span class="pill have">Have</span></td></tr>
           <tr><td class="feat">Batch calling: CSV, personalization, scheduling, calling-hour windows</td><td><span class="pill have">Have</span><div class="note">Built and verified with real calls today — naming, per-recipient {{variables}} from CSV columns, "send now" vs scheduled, day/hour restrictions, per-call drill-down. Retell's exact spec wasn't independently confirmed in research, so treat as parity, not "ahead."</div></td></tr>
           <tr><td class="feat">Cold transfer</td><td><span class="pill have">Have</span></td></tr>
-          <tr><td class="feat">Warm transfer</td><td><span class="pill gap">Gap</span><div class="note">Retell does a SIP warm transfer with caller ID preserved. We only support cold (hang up and redial).</div></td></tr>
+          <tr><td class="feat">Warm transfer</td><td><span class="pill have">Have</span><div class="note">Closed today: `transferMode: 'warm'|'cold'` on the transfer node, explicit caller-ID handling. <b>But a real test found the original framing of this gap may be wrong</b> — both cold AND warm transfer already show the caller's real number on the target leg via Twilio's own `&lt;Dial&gt;` default, unrelated to our change. Marking "Have" for shipping an explicit, documented mechanism, not for closing a proven competitive gap — Retell's actual advantage here (if any) may be live-agent consultation before connecting, which is out of scope.</div></td></tr>
           <tr><td class="feat">Voicemail detection</td><td><span class="pill have">Have</span><div class="note">Twilio AsyncAmd, opt-in per flow.</div></td></tr>
           <tr><td class="feat">In-call SMS</td><td><span class="pill have">Have</span><div class="note">Retell sells this as a $20/mo add-on; ours is a flow node with no extra charge.</div></td></tr>
         </tbody>
@@ -221,7 +221,7 @@
           <tr><td class="feat">MCP: agent calls external MCP tools</td><td><span class="pill have">Have</span><div class="note">Our mcp node type vs Retell's MCP node — comparable.</div></td></tr>
           <tr><td class="feat">MCP: hosted server for external clients to manage the platform</td><td><span class="pill ahead">Ahead</span><div class="note">Ours has real OAuth 2.1 browser login (add the URL, sign in, pick a workspace) built and verified this session. Retell has an MCP server too, but its auth model wasn't confirmed as more than an API key.</div></td></tr>
           <tr><td class="feat">Calendar booking</td><td><span class="pill have">Have</span><div class="note">Real Cal.com check_availability/book_appointment tools.</div></td></tr>
-          <tr><td class="feat">CRM sync (Salesforce / HubSpot)</td><td><span class="pill gap">Gap</span><div class="note">Retell shipped two-way sync in Jun 2026. We have none.</div></td></tr>
+          <tr><td class="feat">CRM sync (Salesforce / HubSpot)</td><td><span class="pill have">Have</span><div class="note">Closed today, HubSpot: OAuth connect flow, sync-out on the call.completed webhook, sync-in via a lookup endpoint + MCP tool for `{{crm_*}}` dynamic variables. Salesforce is documented-only, not built. Caveat: no real live HubSpot account has been exercised end-to-end — code-reviewed and unit-verified, not production-verified.</div></td></tr>
           <tr><td class="feat">Payment collection</td><td><span class="pill ahead">Ahead</span><div class="note">We have a payment node type. Retell's payment collection wasn't found in this research pass — possibly absent.</div></td></tr>
         </tbody>
       </table></div>
@@ -256,7 +256,7 @@
       <div class="group-head"><h3>Team &amp; enterprise</h3></div>
       <div class="tablewrap"><table>
         <tbody>
-          <tr><td class="feat">HIPAA / SOC 2 / GDPR compliance</td><td><span class="pill gap">Gap</span><div class="note">Retell is certified with a BAA available. We have no compliance program at all — this alone blocks most healthcare and enterprise deals.</div></td></tr>
+          <tr><td class="feat">HIPAA / SOC 2 / GDPR compliance</td><td><span class="pill partial">Partial</span><div class="note">Real groundwork shipped today: an audit log (`calldesk_audit_log`, wired into 6 sensitive routes) plus draft subprocessors + readiness gap-analysis docs, both explicitly headed "requires legal/compliance review before any external claim." The gap analysis itself surfaced two real, unfixed issues: the Privacy page claims per-call transcript deletion with no actual endpoint behind it, and the API-key DELETE route uses the wrong authz check. Still no certification, no BAA, no legal review — realistic path is legal review + fixes + BAAs first, then a paid SOC2 Type I audit (~2-3 months) and Type II (another 3-6 months of observation). Do not represent this row as "compliant" externally.</div></td></tr>
           <tr><td class="feat">RBAC / team roles</td><td><span class="pill have">Have</span><div class="note">Closed today: owner/admin/member roles, invites, and role gating on API keys/billing/webhooks/team management. Verified live: an API-key caller can list/read but is correctly blocked (403) from managing keys or inviting members, matching the new role rules exactly.</div></td></tr>
           <tr><td class="feat">SSO</td><td><span class="pill have">Have</span><div class="note">Closed today: generic OIDC provider (works with Okta, Azure AD, any OIDC IdP) via env vars, conditionally registered. Provider-registration logic verified for real; the live OAuth round-trip with an actual external IdP is unverified — no test IdP credentials available this session.</div></td></tr>
           <tr><td class="feat">White-labeling</td><td><span class="pill neither">Neither</span><div class="note">Confirmed absent on Retell's side too — no branded dashboards or resale sub-accounts.</div></td></tr>
@@ -316,33 +316,40 @@
       <p class="note" style="margin-top:10px">~56% gross margin at the default price, measured from real Twilio/Deepgram/Claude usage, not estimated. Retell's cited $0.16/min on our own pricing page is an observed blended figure from a real account, not their published rate.</p>
     </div>
 
-    <div class="caveat">Coverage caveat: three languages were real-call-verified today (es, fr, pt-BR). The other eight (it, nl, hi, de, pl, id, ar, + English regression) are code-complete but untested against Retell head-to-head. Barge-in/interruption handling and outbound-direction calls also remain unverified with real calls as of this report.</div>
+    <div class="caveat">Coverage caveat: all 11 languages are now real-call-verified (up from 3 in round 1) — a real bug was found and fixed along the way (Arabic/Hindi were silently dropping all speech). Barge-in/interruption handling and outbound-direction calls, and mid-call switching pairs other than EN→ES, remain unverified with real calls as of this report.</div>
   </section>
 
   <section id="priorities">
     <h2>What's left, ranked</h2>
-    <p class="section-lede">Six items closed today (see below) came off this list. Ordered by how much each remaining gap likely costs us — deals blocked or lost outright above competitive-parity polish.</p>
+    <p class="section-lede">13 items closed across two rounds today (see below) came off this list. Ordered by how much each remaining gap likely costs us — deals blocked or lost outright above competitive-parity polish.</p>
     <ol class="plist">
-      <li><span class="prank">01</span><div class="pbody"><b>Compliance (HIPAA / SOC 2)</b><span>Still the top gap. Blocks healthcare and most enterprise deals categorically, not just on features — this is a sales gate, not a nice-to-have. Not an engineering sprint — needs an audit/certification process.</span></div></li>
-      <li><span class="prank">02</span><div class="pbody"><b>CRM integrations (Salesforce/HubSpot)</b><span>A real sales objection for the outbound/sales-team segment of the market.</span></div></li>
-      <li><span class="prank">03</span><div class="pbody"><b>Warm transfer</b><span>Cold-only is a real, noticeable UX gap on every handoff-heavy flow (support escalation, appointment confirmation).</span></div></li>
-      <li><span class="prank">04</span><div class="pbody"><b>Real-time in-call sentiment / live monitoring depth</b><span>Confirmed real: checked our Live Monitoring page's code directly — it shows call status only, no sentiment scoring at all (ours is post-call, via QA). Retell scores it live, during the call.</span></div></li>
-      <li><span class="prank">05</span><div class="pbody"><b>Language breadth (11 vs 55)</b><span>Real gap in count, but ours are call-verified (es, fr, pt-BR) and Retell's 55 is unverified breadth. 8 of our 11 languages are code-complete but still untested against Retell — expanding further uses the same known, cheap languages.js pattern.</span></div></li>
-      <li><span class="prank">06</span><div class="pbody"><b>Publish the SDKs</b><span>Downgraded from "build a client SDK" (closed today) to just publishing what already exists — a `npm publish`/`twine upload` away, needs real accounts/tokens, not more engineering.</span></div></li>
-      <li><span class="prank">07</span><div class="pbody"><b>Free tier / concurrency ceiling</b><span>A business-model gap, not a technical one — worth a pricing-page decision, not engineering.</span></div></li>
-      <li><span class="prank">08</span><div class="pbody"><b>Mid-call language switching &amp; expressive/emotion-aware delivery</b><span>Lower urgency — nice-to-have polish Retell markets, not something that blocks a deal on its own.</span></div></li>
+      <li><span class="prank">01</span><div class="pbody"><b>Compliance certification (HIPAA / SOC 2)</b><span>Still the top gap, but the shape of the work is now concrete: legal review of today's drafts, fix the two real gaps the gap-analysis found (missing per-call deletion endpoint, API-key-revoke RBAC bug), get BAAs signed, then a paid SOC2 Type I audit (~2-3 months) and Type II (3-6 more months of observation). Still a sales gate, not a nice-to-have — but no longer a standing start.</span></div></li>
+      <li><span class="prank">02</span><div class="pbody"><b>Fix the real gaps compliance work surfaced</b><span>API-key DELETE route uses the wrong authz check, and the Privacy page claims per-call transcript deletion that doesn't exist as an endpoint. Both are real, both are cheap to fix, and leaving them is a liability independent of any certification timeline.</span></div></li>
+      <li><span class="prank">03</span><div class="pbody"><b>Language breadth (11 vs 55)</b><span>Real gap in count, unchanged — but quality is no longer in question: all 11 are real-call-verified and a serious silent-speech bug (Arabic/Hindi) was found and fixed. Expanding further uses the same known, cheap languages.js pattern.</span></div></li>
+      <li><span class="prank">04</span><div class="pbody"><b>Real-time in-call sentiment / live monitoring depth</b><span>Confirmed real: our Live Monitoring page shows call status only, no live sentiment scoring (ours is post-call, via QA). Retell scores it live, during the call.</span></div></li>
+      <li><span class="prank">05</span><div class="pbody"><b>Publish the SDKs</b><span>A `npm publish`/`twine upload` away — needs real registry accounts/tokens, not more engineering.</span></div></li>
+      <li><span class="prank">06</span><div class="pbody"><b>Salesforce CRM sync</b><span>HubSpot is built; Salesforce is documented-only. Lower priority than HubSpot was, since the harder half of this gap is closed.</span></div></li>
+      <li><span class="prank">07</span><div class="pbody"><b>Live-verify HubSpot sync &amp; Cartesia/MiniMax expressive delivery</b><span>Both are code-complete and unit/API-verified but have never been exercised against a real live HubSpot account or a real Cartesia/MiniMax call respectively — closing the verification gap, not a build gap.</span></div></li>
+      <li><span class="prank">08</span><div class="pbody"><b>Free tier / concurrency ceiling</b><span>A business-model gap, not a technical one — worth a pricing-page decision, not engineering.</span></div></li>
+      <li><span class="prank">09</span><div class="pbody"><b>Warm transfer's actual differentiation</b><span>Built and shipped, but real testing cast doubt on the premise — cold transfer already preserves caller ID via Twilio's default `&lt;Dial&gt;` behavior. If there's a real Retell advantage here it's more likely live-agent consultation before connecting, which is unbuilt and unscoped.</span></div></li>
     </ol>
   </section>
 
   <section id="closed-today">
     <h2>Closed today</h2>
-    <p class="section-lede">Each shipped to production and was verified with a real call or a real API request against live data — not just committed code.</p>
+    <p class="section-lede">Each shipped to production and was verified with a real call or a real API request against live data — not just committed code. Round 2 items are marked.</p>
     <ol class="plist">
       <li><span class="prank">✓</span><div class="pbody"><b>AI copilot (Conductor equivalent)</b><span>Analyzes real call history, proposes grounded flow edits, never auto-publishes. Verified against 36 real calls; caught a real digit-misreading pattern.</span></div></li>
       <li><span class="prank">✓</span><div class="pbody"><b>Environment-scoped versioning</b><span>Staging/production per agent; promoting a version updates every number routed to it instantly. Verified live: a promoted version's new line was spoken on the very next call with no re-routing.</span></div></li>
       <li><span class="prank">✓</span><div class="pbody"><b>Client SDKs (TypeScript + Python)</b><span>Both built from the live OpenAPI spec, both tested against production. Not yet on npm/PyPI (see What's left).</span></div></li>
       <li><span class="prank">✓</span><div class="pbody"><b>SSO</b><span>Generic OIDC provider (Okta, Azure AD, any OIDC IdP) via env vars, conditionally registered. Registration logic verified; a live round-trip against a real customer IdP is not.</span></div></li>
       <li><span class="prank">✓</span><div class="pbody"><b>RBAC / team roles</b><span>Owner/admin/member roles, invites, and real enforcement on API keys/billing/webhooks/team management. Verified live: an API key is correctly blocked from managing keys or inviting members.</span></div></li>
+      <li><span class="prank">✓ R2</span><div class="pbody"><b>Language coverage validated (11/11 real-call-verified)</b><span>Found and fixed a real production bug along the way: an ASCII-only content filter was silently dropping all Arabic and Hindi speech.</span></div></li>
+      <li><span class="prank">✓ R2</span><div class="pbody"><b>Mid-call language switching</b><span>STT reconnect on detected language change, opt-in. Verified with a real EN→ES call; only that one direction/pair tested so far.</span></div></li>
+      <li><span class="prank">✓ R2</span><div class="pbody"><b>Emotion-aware / expressive delivery</b><span>Real per-backend params (ElevenLabs style, Cartesia/MiniMax emotion), honest no-op for Kokoro. ElevenLabs verified live via a changed API request; Cartesia/MiniMax unverified.</span></div></li>
+      <li><span class="prank">✓ R2</span><div class="pbody"><b>Warm transfer</b><span>Shipped, but real testing put the original gap's premise in doubt — see that row and priority #09.</span></div></li>
+      <li><span class="prank">✓ R2</span><div class="pbody"><b>CRM sync (HubSpot)</b><span>OAuth connect, sync-out and sync-in built. Salesforce documented-only. No live account exercised yet.</span></div></li>
+      <li><span class="prank">✓ R2</span><div class="pbody"><b>Compliance groundwork</b><span>Audit logging live on 6 routes, plus draft gap-analysis and subprocessors docs — explicitly not a certification claim. Found two real unfixed issues along the way (see priority #02).</span></div></li>
     </ol>
   </section>
 
