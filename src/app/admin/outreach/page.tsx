@@ -11,6 +11,8 @@ interface Lead {
   signal_detail: string | null;
   status: string;
   created_at: string;
+  score: number | null;
+  signals: { reasons: string[]; techPlatforms: string[] } | null;
 }
 
 interface BenchmarkAggregate {
@@ -141,6 +143,7 @@ export default function OutreachLeadsPage() {
             <tr>
               <th className="px-4 py-2.5">Company</th>
               <th className="px-4 py-2.5">Signal</th>
+              <th className="px-4 py-2.5">Score</th>
               <th className="px-4 py-2.5">Status</th>
               <th className="px-4 py-2.5" />
             </tr>
@@ -148,14 +151,14 @@ export default function OutreachLeadsPage() {
           <tbody>
             {loading && (
               <tr>
-                <td colSpan={4} className="px-4 py-6 text-center text-gray-400">
+                <td colSpan={5} className="px-4 py-6 text-center text-gray-400">
                   Loading…
                 </td>
               </tr>
             )}
             {!loading && leads.length === 0 && (
               <tr>
-                <td colSpan={4} className="px-4 py-6 text-center text-gray-400">
+                <td colSpan={5} className="px-4 py-6 text-center text-gray-400">
                   No leads yet.
                 </td>
               </tr>
@@ -169,6 +172,18 @@ export default function OutreachLeadsPage() {
                 <td className="px-4 py-2.5 text-gray-500">
                   {lead.signal_source}
                   {lead.signal_detail && <p className="text-[12px] text-gray-400">{lead.signal_detail}</p>}
+                </td>
+                <td className="px-4 py-2.5">
+                  {lead.score != null ? (
+                    <span title={lead.signals?.reasons?.join('\n') ?? ''} className="cursor-help font-medium">
+                      {lead.score}
+                    </span>
+                  ) : (
+                    <span className="text-gray-300">—</span>
+                  )}
+                  {lead.signals?.techPlatforms?.length ? (
+                    <p className="text-[11px] text-gray-400">{lead.signals.techPlatforms.join(', ')}</p>
+                  ) : null}
                 </td>
                 <td className="px-4 py-2.5">
                   <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[11.5px] font-medium text-gray-600">

@@ -5,7 +5,11 @@ import { draftAgencyEmail } from '../agencyDraft';
 import { fetchDirectory } from './retellDirectory';
 import { findAgencyDomain } from './findDomain';
 import { findContact } from './contactPages';
-import { isBlockedDomain, isRegionBlocked, scoreLead } from './score';
+import { isBlockedDomain, isRegionBlocked, scoreLead, type ScoreEvidence } from './score';
+import { findJobPostingCandidates } from './jobPostingsSearch';
+import { findReviewSiteCandidates } from './reviewSitesSearch';
+import { findGithubCandidates } from './githubSignal';
+import { checkDomainForPlatforms } from '../signals/techFingerprint';
 import { LeadIndex } from './dedupe';
 import { researchAgency, type Dossier } from '../research';
 import { findSearchCandidates, queriesForDay } from './searchSource';
@@ -37,6 +41,10 @@ export interface RunSummary {
   status: 'ok' | 'error';
   directoryCount: number;
   searchCandidates: number;
+  jobPostingCandidates: number;
+  reviewSiteCandidates: number;
+  githubCandidates: number;
+  techFingerprintHits: number;
   searchDebug: { raw: number; rejected: string[] } | null;
   stopped: boolean;
   leadsSeen: number;
@@ -71,6 +79,7 @@ interface LeadRow {
   score: number | null;
   enriched_at: string | null;
   research?: Dossier | null;
+  signals: { reasons: string[]; techPlatforms: string[] } | null;
 }
 
 export async function runDiscovery(db: Db, opts: RunOptions = {}): Promise<RunSummary> {
@@ -83,7 +92,9 @@ export async function runDiscovery(db: Db, opts: RunOptions = {}): Promise<RunSu
   };
 
   const summary: RunSummary = {
-    runId: null, dryRun, status: 'ok', directoryCount: 0, searchCandidates: 0, searchDebug: null, stopped: false, leadsSeen: 0, leadsNew: 0,
+    runId: null, dryRun, status: 'ok', directoryCount: 0, searchCandidates: 0,
+    jobPostingCandidates: 0, reviewSiteCandidates: 0, githubCandidates: 0, techFingerprintHits: 0,
+    searchDebug: null, stopped: false, leadsSeen: 0, leadsNew: 0,
     duplicatesSkipped: 0, contactsFound: 0, draftsCreated: 0, researched: 0, lowFit: 0, errors: [], sample: { enriched: [], researched: [] },
   };
 
@@ -95,7 +106,11 @@ export async function runDiscovery(db: Db, opts: RunOptions = {}): Promise<RunSu
   try {
     const { entries, index } = await stageDirectory(db, summary, dryRun);
     const searchEntries = stop() ? [] : await stageSearch(db, summary, dryRun, index, stop);
-    if (!stop()) await stageEnrich(db, summary, dryRun, enrichLimit, [...entries, ...searchEntries], index, stop);
+    const jobPostingEntries = stop() ? [] : await stageJobPostings(db, summary, dryRun, index, stop);
+    const reviewSiteEntries = stop() ? [] : await stageReviewSites(db, summary, dryRun, index, stop);
+    const githubEntries = stop() ? [] : await stageGithub(db, summary, dryRun, index, stop);
+    const allEntries = [...entries, ...searchEntries, ...jobPostingEntries, ...reviewSiteEntries, ...githubEntries];
+    if (!stop()) await stageEnrich(db, summary, dryRun, enrichLimit, allEntries, index, stop);
     const researchOn = process.env.OUTREACH_RESEARCH === '1';
     if (researchOn && !stop()) await stageResearch(db, summary, dryRun, opts.researchLimit ?? 5, stop);
     if (!stop()) await stageDraft(db, summary, dryRun, draftLimit, stop, researchOn);
@@ -140,7 +155,7 @@ async function stageDirectory(
 
   for (const p of partners) {
     const sourceKey = `retell:${p.slug}`;
-    const score = scoreLead({ tier: p.tier, location: p.location, description: p.description });
+    const { score, reasons } = scoreLead({ tier: p.tier, location: p.location, description: p.description });
     const blocked = isRegionBlocked(p.location, p.name);
     const match = index.find({ sourceKey, name: p.name });
 
@@ -151,13 +166,13 @@ async function stageDirectory(
       summary.leadsSeen++;
       entries.push({
         slug: p.slug,
-        row: { ...match, source_key: match.source_key ?? sourceKey, tier: p.tier, location: p.location, description: p.description, score, region_blocked: blocked },
+        row: { ...match, source_key: match.source_key ?? sourceKey, tier: p.tier, location: p.location, description: p.description, score, region_blocked: blocked, signals: { reasons, techPlatforms: [] } },
       });
       if (dryRun) continue;
       const { error } = await db.from('calldesk_outreach_leads').update({
         source_key: match.source_key ?? sourceKey,
         tier: p.tier, location: p.location, description: p.description,
-        score, region_blocked: blocked, last_seen_at: now,
+        score, region_blocked: blocked, signals: { reasons, techPlatforms: [] }, last_seen_at: now,
       }).eq('id', match.id);
       if (error) summary.errors.push(`update ${p.name}: ${error.message}`);
       continue;
@@ -168,6 +183,7 @@ async function stageDirectory(
       const fake = {
         id: `dry-${p.slug}`, company_name: p.name, domain: null, source_key: sourceKey, status: 'new', contact_email: null,
         contact_status: 'unknown', region_blocked: blocked, tier: p.tier, location: p.location, description: p.description, score, enriched_at: null,
+        signals: { reasons, techPlatforms: [] },
       } as LeadRow;
       index.add(fake);
       entries.push({ slug: p.slug, row: fake });
@@ -178,7 +194,7 @@ async function stageDirectory(
       signal_source: 'directory',
       signal_detail: `Retell ${p.tier ?? 'partner'}: ${(p.description ?? '').slice(0, 200)}`,
       source_key: sourceKey, tier: p.tier, location: p.location, description: p.description,
-      score, region_blocked: blocked, last_seen_at: now,
+      score, region_blocked: blocked, signals: { reasons, techPlatforms: [] }, last_seen_at: now,
     }).select('*').single();
     if (error) {
       summary.leadsNew--;
@@ -212,12 +228,12 @@ async function stageSearch(
     if (index.find({ sourceKey, name: c.name, domain: c.domain })) continue; // already known: never re-add
 
     const blocked = isRegionBlocked(c.location, c.name) || isBlockedDomain(c.domain);
-    const score = scoreLead({ tier: null, location: c.location, description: c.blurb });
+    const { score, reasons } = scoreLead({ tier: null, location: c.location, description: c.blurb }, { viaReviewSite: false });
     summary.leadsNew++;
 
     const base = {
       company_name: c.name, domain: c.domain, source_key: sourceKey, tier: null, location: c.location,
-      description: c.blurb, score, region_blocked: blocked,
+      description: c.blurb, score, region_blocked: blocked, signals: { reasons, techPlatforms: [] },
     };
     if (dryRun) {
       const fake = { id: `dry-${c.domain}`, status: 'new', contact_email: null, contact_status: 'unknown', enriched_at: null, ...base } as LeadRow;
@@ -227,6 +243,160 @@ async function stageSearch(
     }
     const { data: inserted, error } = await db.from('calldesk_outreach_leads').insert({
       ...base, signal_source: 'search', signal_detail: `Web search: ${(c.blurb ?? '').slice(0, 200)}`, last_seen_at: now,
+    }).select('*').single();
+    if (error) {
+      summary.leadsNew--;
+      summary.errors.push(`insert ${c.name}: ${error.message}`);
+    } else if (inserted) {
+      index.add(inserted as LeadRow);
+      entries.push({ slug: null, row: inserted as LeadRow });
+    }
+  }
+  return entries;
+}
+
+// Job-postings signal: agencies publicly hiring for a voice-AI role. Off by
+// default (OUTREACH_JOBPOSTINGS_QUERIES_PER_DAY=0) until manually enabled.
+async function stageJobPostings(
+  db: Db, summary: RunSummary, dryRun: boolean, index: LeadIndex<LeadRow>, stop: () => boolean,
+): Promise<DirectoryEntry[]> {
+  const perDay = Math.min(6, Math.max(0, Number(process.env.OUTREACH_JOBPOSTINGS_QUERIES_PER_DAY ?? 0)));
+  if (!perDay) return [];
+
+  const { candidates, errors, raw, rejected } = await findJobPostingCandidates(perDay, stop);
+  summary.errors.push(...errors);
+  summary.jobPostingCandidates = candidates.length;
+  if (rejected.length) summary.errors.push(`[job_posting] rejected as non-media/non-voice-AI: ${rejected.slice(0, 5).join(', ')}`);
+  void raw;
+
+  const entries: DirectoryEntry[] = [];
+  const now = new Date().toISOString();
+  for (const c of candidates) {
+    const sourceKey = `job_posting:${c.domain}`;
+    if (index.find({ sourceKey, name: c.name, domain: c.domain })) continue;
+
+    const blocked = isRegionBlocked(c.location, c.name) || isBlockedDomain(c.domain);
+    const { score, reasons } = scoreLead({ tier: null, location: c.location, description: c.blurb }, { viaJobPosting: true });
+    summary.leadsNew++;
+
+    const base = {
+      company_name: c.name, domain: c.domain, source_key: sourceKey, tier: null, location: c.location,
+      description: c.blurb, score, region_blocked: blocked, signals: { reasons, techPlatforms: [] },
+    };
+    if (dryRun) {
+      const fake = { id: `dry-${c.domain}`, status: 'new', contact_email: null, contact_status: 'unknown', enriched_at: null, ...base } as LeadRow;
+      index.add(fake);
+      entries.push({ slug: null, row: fake });
+      continue;
+    }
+    const { data: inserted, error } = await db.from('calldesk_outreach_leads').insert({
+      ...base, signal_source: 'job_posting', signal_detail: `Job posting: ${(c.blurb ?? '').slice(0, 200)}`, last_seen_at: now,
+    }).select('*').single();
+    if (error) {
+      summary.leadsNew--;
+      summary.errors.push(`insert ${c.name}: ${error.message}`);
+    } else if (inserted) {
+      index.add(inserted as LeadRow);
+      entries.push({ slug: null, row: inserted as LeadRow });
+    }
+  }
+  return entries;
+}
+
+// Review-site signal: agencies named in public G2/Capterra/Clutch reviews as
+// voice-AI providers. See reviewSitesSearch.ts for the compliance note (this
+// stage's candidate blurbs are always generic labels, never review text).
+// Fixed, hardcoded generic label used as `description` for every review-site
+// lead. `description` reaches agencyDraft.ts's prompt as "their own
+// description of what they do" — it must never carry review-site blurb text
+// (which came from someone else's review of the company, not the company's
+// own words). c.blurb is still used for signal_detail below (admin-facing log
+// only, never fed to the drafting prompt).
+const REVIEW_SITE_DESCRIPTION = 'Named in a public review as a voice-AI provider.';
+
+async function stageReviewSites(
+  db: Db, summary: RunSummary, dryRun: boolean, index: LeadIndex<LeadRow>, stop: () => boolean,
+): Promise<DirectoryEntry[]> {
+  const perDay = Math.min(6, Math.max(0, Number(process.env.OUTREACH_REVIEWSITES_QUERIES_PER_DAY ?? 0)));
+  if (!perDay) return [];
+
+  const { candidates, errors, raw, rejected } = await findReviewSiteCandidates(perDay, stop);
+  summary.errors.push(...errors);
+  summary.reviewSiteCandidates = candidates.length;
+  if (rejected.length) summary.errors.push(`[review_site] rejected: ${rejected.slice(0, 5).join(', ')}`);
+  void raw;
+
+  const entries: DirectoryEntry[] = [];
+  const now = new Date().toISOString();
+  for (const c of candidates) {
+    const sourceKey = `review_site:${c.domain}`;
+    if (index.find({ sourceKey, name: c.name, domain: c.domain })) continue;
+
+    const blocked = isRegionBlocked(c.location, c.name) || isBlockedDomain(c.domain);
+    const { score, reasons } = scoreLead({ tier: null, location: c.location, description: c.blurb }, { viaReviewSite: true });
+    summary.leadsNew++;
+
+    const base = {
+      company_name: c.name, domain: c.domain, source_key: sourceKey, tier: null, location: c.location,
+      description: REVIEW_SITE_DESCRIPTION, score, region_blocked: blocked, signals: { reasons, techPlatforms: [] },
+    };
+    if (dryRun) {
+      const fake = { id: `dry-${c.domain}`, status: 'new', contact_email: null, contact_status: 'unknown', enriched_at: null, ...base } as LeadRow;
+      index.add(fake);
+      entries.push({ slug: null, row: fake });
+      continue;
+    }
+    const { data: inserted, error } = await db.from('calldesk_outreach_leads').insert({
+      ...base, signal_source: 'review_site', signal_detail: (c.blurb ?? REVIEW_SITE_DESCRIPTION).slice(0, 200), last_seen_at: now,
+    }).select('*').single();
+    if (error) {
+      summary.leadsNew--;
+      summary.errors.push(`insert ${c.name}: ${error.message}`);
+    } else if (inserted) {
+      index.add(inserted as LeadRow);
+      entries.push({ slug: null, row: inserted as LeadRow });
+    }
+  }
+  return entries;
+}
+
+// GitHub/dev signal: agencies with a public GitHub presence integrating a
+// voice-AI SDK for clients. Reuses signal_source='search' (no dedicated DB
+// value; see githubSignal.ts).
+async function stageGithub(
+  db: Db, summary: RunSummary, dryRun: boolean, index: LeadIndex<LeadRow>, stop: () => boolean,
+): Promise<DirectoryEntry[]> {
+  const perDay = Math.min(6, Math.max(0, Number(process.env.OUTREACH_GITHUB_QUERIES_PER_DAY ?? 0)));
+  if (!perDay) return [];
+
+  const { candidates, errors, raw, rejected } = await findGithubCandidates(perDay, stop);
+  summary.errors.push(...errors);
+  summary.githubCandidates = candidates.length;
+  if (rejected.length) summary.errors.push(`[github] rejected: ${rejected.slice(0, 5).join(', ')}`);
+  void raw;
+
+  const entries: DirectoryEntry[] = [];
+  const now = new Date().toISOString();
+  for (const c of candidates) {
+    const sourceKey = `github:${c.domain}`;
+    if (index.find({ sourceKey, name: c.name, domain: c.domain })) continue;
+
+    const blocked = isRegionBlocked(c.location, c.name) || isBlockedDomain(c.domain);
+    const { score, reasons } = scoreLead({ tier: null, location: c.location, description: c.blurb });
+    summary.leadsNew++;
+
+    const base = {
+      company_name: c.name, domain: c.domain, source_key: sourceKey, tier: null, location: c.location,
+      description: c.blurb, score, region_blocked: blocked, signals: { reasons, techPlatforms: [] },
+    };
+    if (dryRun) {
+      const fake = { id: `dry-${c.domain}`, status: 'new', contact_email: null, contact_status: 'unknown', enriched_at: null, ...base } as LeadRow;
+      index.add(fake);
+      entries.push({ slug: null, row: fake });
+      continue;
+    }
+    const { data: inserted, error } = await db.from('calldesk_outreach_leads').insert({
+      ...base, signal_source: 'search', signal_detail: `GitHub/dev signal: ${(c.blurb ?? '').slice(0, 190)}`, last_seen_at: now,
     }).select('*').single();
     if (error) {
       summary.leadsNew--;
@@ -285,6 +455,15 @@ async function stageEnrich(
       if (contact.status === 'found') summary.contactsFound++;
       summary.sample.enriched.push({ name: lead.company_name, domain, email: contact.email, status: contact.status });
 
+      const techPlatforms = await checkDomainForPlatforms(domain);
+      if (techPlatforms.length) summary.techFingerprintHits++;
+      const evidence: ScoreEvidence = {
+        techPlatforms,
+        viaJobPosting: lead.source_key?.startsWith('job_posting:') ?? false,
+        viaReviewSite: lead.source_key?.startsWith('review_site:') ?? false,
+      };
+      const { score: rescored, reasons } = scoreLead({ tier: lead.tier, location: lead.location, description: lead.description }, evidence);
+
       if (dryRun) continue;
       const suppressed = contact.email
         ? (await db.from('calldesk_outreach_suppressions').select('id').eq('email', contact.email).maybeSingle()).data
@@ -295,6 +474,8 @@ async function stageEnrich(
         contact_status: contact.status,
         contact_source_url: contact.sourceUrl,
         enriched_at: now,
+        score: rescored,
+        signals: { reasons, techPlatforms },
         ...(suppressed ? { status: 'dead' } : {}),
       }).eq('id', lead.id);
       if (error) summary.errors.push(`enrich ${lead.company_name}: ${error.message}`);

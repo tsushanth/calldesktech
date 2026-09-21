@@ -10,6 +10,8 @@
 // (BuiltWith has a free-tier lookup endpoint) later by replacing the body
 // of checkDomain(); the return type is designed to stay the same either way.
 
+import { politeFetchText } from '../discovery/http';
+
 export interface TechFingerprintSignal {
   companyName: string;
   domain: string;
@@ -51,4 +53,48 @@ export async function findTechFingerprintSignals(
     }
   }
   return results;
+}
+
+// Competing-platform markers for the automated enrichment pass (pipeline.ts's
+// stageEnrich): same technique as RETELL_MARKERS above (public script/asset
+// signatures on the PROSPECT's own site), extended to the platforms Calldesk
+// actually competes with. A hit here is strong scoring evidence — it confirms
+// the lead already resells/integrates a voice-AI platform, not just that their
+// description mentions the category.
+const COMPETITOR_MARKERS: Record<string, string[]> = {
+  Retell: RETELL_MARKERS,
+  Vapi: ['vapi.ai', 'vapi-web-sdk', '@vapi-ai'],
+  Bland: ['bland.ai', 'bland-client'],
+  Synthflow: ['synthflow.ai'],
+  ElevenLabs: ['elevenlabs.io/convai', 'elevenlabs-convai'],
+  PlayAI: ['play.ai', 'playht.com'],
+};
+
+// Requires the marker to appear where it would if it were actually loaded/
+// linked (a script/asset src or href, or a bare URL), not just anywhere in
+// the page's text — a blog post that merely mentions a competitor by name
+// must not count as "confirmed integration".
+function appearsAsScriptOrUrlReference(html: string, marker: string): boolean {
+  const escaped = marker.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const pattern = new RegExp(
+    `(?:src|href)\\s*=\\s*["'][^"']*${escaped}[^"']*["']|https?://[^\\s"'<>]*${escaped}`,
+    'i',
+  );
+  return pattern.test(html);
+}
+
+// Checks one domain for ANY known platform marker, returning every platform
+// name detected (usually 0 or 1, but a migration in progress could show 2).
+// Best-effort: a fetch failure yields [], never throws (politeFetchText
+// already never throws, and applies a 12s timeout so one slow site can't
+// stall the serial per-lead enrichment loop).
+export async function checkDomainForPlatforms(domain: string): Promise<string[]> {
+  const url = domain.startsWith('http') ? domain : `https://${domain}`;
+  const { ok, text: html } = await politeFetchText(url, 12000);
+  if (!ok) return [];
+  const found: string[] = [];
+  for (const [platform, markers] of Object.entries(COMPETITOR_MARKERS)) {
+    if (markers.some((marker) => appearsAsScriptOrUrlReference(html, marker))) found.push(platform);
+  }
+  return found;
 }

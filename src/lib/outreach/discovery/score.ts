@@ -1,11 +1,26 @@
-// Rule-based fit score (0-100) for agency leads. Deliberately simple and
-// explainable, no model calls. Higher = more likely to want a cheaper
-// second platform and to resell it.
+// Rule-based fit score (0-100) for agency leads, with named reasons so the
+// admin UI can show WHY a lead scored the way it did. Deliberately simple and
+// explainable, no model calls. Higher = more likely to want a cheaper second
+// platform and to resell it.
 
 export interface ScoreInput {
   tier: string | null;
   location: string | null;
   description: string | null;
+}
+
+// Evidence gathered by discovery stages beyond the directory/search blurb:
+// which additional signal sources fired, and what tech fingerprinting found
+// on the lead's own site (which competing platforms it references).
+export interface ScoreEvidence {
+  viaJobPosting?: boolean;
+  viaReviewSite?: boolean;
+  techPlatforms?: string[];
+}
+
+export interface ScoreResult {
+  score: number;
+  reasons: string[];
 }
 
 // Regions excluded from cold email. Germany, Austria and Switzerland require prior
@@ -28,18 +43,30 @@ export function isRegionBlocked(location: string | null, name = ''): boolean {
   return BLOCKED_REGION_HINTS.some((h) => hay.includes(h));
 }
 
-export function scoreLead(input: ScoreInput): number {
+export function scoreLead(input: ScoreInput, evidence?: ScoreEvidence): ScoreResult {
   const tier = (input.tier || '').toLowerCase();
   const desc = (input.description || '').toLowerCase();
   let score = 50;
+  const reasons: string[] = [];
 
-  if (tier.includes('gold')) score += 15;
-  else if (tier.includes('elite') || tier.includes('diamond')) score -= 10;
+  const add = (delta: number, reason: string) => {
+    score += delta;
+    reasons.push(`${delta >= 0 ? '+' : ''}${delta}: ${reason}`);
+  };
 
-  if (/white.?label|reseller|resell/.test(desc)) score += 20;
-  if (/small business|smb|local business|receptionist|home services|dental|real estate|trades/.test(desc)) score += 10;
-  if (/inbound|outbound|voice agent|voice ai/.test(desc)) score += 5;
-  if (/enterprise|call center|contact center/.test(desc)) score -= 5;
+  if (tier.includes('gold')) add(15, 'Retell gold-tier partner');
+  else if (tier.includes('elite') || tier.includes('diamond')) add(-10, 'top-tier partner (likely already well-served)');
 
-  return Math.max(0, Math.min(100, score));
+  if (/white.?label|reseller|resell/.test(desc)) add(20, 'describes itself as a white-label reseller');
+  if (/small business|smb|local business|receptionist|home services|dental|real estate|trades/.test(desc)) add(10, 'targets SMB/local-business verticals');
+  if (/inbound|outbound|voice agent|voice ai/.test(desc)) add(5, 'explicitly does voice-AI work');
+  if (/enterprise|call center|contact center/.test(desc)) add(-5, 'enterprise/call-center focus (harder to switch)');
+
+  if (evidence?.viaJobPosting) add(15, 'publicly hiring for a voice-AI role');
+  if (evidence?.viaReviewSite) add(10, 'named in a public review as a voice-AI provider');
+  for (const platform of evidence?.techPlatforms ?? []) {
+    add(20, `confirmed ${platform} integration on their own site`);
+  }
+
+  return { score: Math.max(0, Math.min(100, score)), reasons };
 }
