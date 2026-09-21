@@ -12,9 +12,13 @@ const DEFAULT_DAILY_CAP = 20;
 // Per-product identity for the footer and the env vars that gate sending.
 // 'calldesk' (the default/unprefixed product) keeps using the original env
 // var names so nothing about the existing Calldesk pipeline changes.
-interface Brand { name: string; siteUrl: string; fromEnvVar: string; postalEnvVar: string; capEnvVar: string }
+interface Brand { name: string; siteUrl: string; fromEnvVar: string; postalEnvVar: string; capEnvVar: string; replyToEnvVar?: string }
+// Sending domains use a dedicated `send.` subdomain (Resend/DNS convention, keeps
+// bulk-sending reputation isolated from the root domain); replies route through
+// the bare domain via Cloudflare Email Routing, so replyToEnvVar differs from
+// fromEnvVar wherever that split applies.
 const CALLDESK_BRAND: Brand = { name: 'Calldesk', siteUrl: 'calldesk.tech', fromEnvVar: 'OUTREACH_FROM_EMAIL', postalEnvVar: 'OUTREACH_POSTAL_ADDRESS', capEnvVar: 'OUTREACH_DAILY_CAP' };
-const KREATIVE_KOALA_BRAND: Brand = { name: 'Kreative Koala LLC', siteUrl: 'kreativekoala.llc', fromEnvVar: 'OUTREACH_FROM_EMAIL_KK', postalEnvVar: 'OUTREACH_POSTAL_ADDRESS_KK', capEnvVar: 'OUTREACH_DAILY_CAP_KK' };
+const KREATIVE_KOALA_BRAND: Brand = { name: 'Kreative Koala LLC', siteUrl: 'kreativekoala.llc', fromEnvVar: 'OUTREACH_FROM_EMAIL_KK', postalEnvVar: 'OUTREACH_POSTAL_ADDRESS_KK', capEnvVar: 'OUTREACH_DAILY_CAP_KK', replyToEnvVar: 'OUTREACH_REPLYTO_EMAIL_KK' };
 
 function brandFor(product: string): Brand {
   return product.startsWith('kreativekoala') ? KREATIVE_KOALA_BRAND : CALLDESK_BRAND;
@@ -108,13 +112,14 @@ export async function sendApprovedMessage(supabase: SupabaseClient<any>, message
     .join('');
   const html = `<div style="font-family:-apple-system,Segoe UI,sans-serif;font-size:15px;line-height:1.6;color:#1a1d29;max-width:560px">${paragraphs}${footer.html}</div>`;
 
+  const replyTo = (brand.replyToEnvVar && process.env[brand.replyToEnvVar]) || from.match(/<(.+)>/)?.[1] || from;
   const result = await sendEmail({
     to: toEmail,
     subject: msg.subject,
     html,
     text: `${msg.body_text}${footer.text}`,
     from,
-    replyTo: from.match(/<(.+)>/)?.[1] || from,
+    replyTo,
     headers: { 'List-Unsubscribe': `<${unsubscribeUrl(toEmail)}>` },
   });
 
