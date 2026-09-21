@@ -4,7 +4,9 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { useOnboarding } from '@/context/OnboardingContext';
 import { notifyPhoneNumbersChanged } from '@/lib/events';
-import type { PhoneNumber, Agent, AgentVersion } from '@/types';
+import type { PhoneNumber, Agent, AgentVersion, AgentEnvironment } from '@/types';
+
+const ENV_PREFIX = 'env:';
 
 // Mirrors Retell's own Phone Numbers screen: a list on the left, and on the
 // right an Inbound Call Agent dropdown and a separate Outbound Call Agent
@@ -18,6 +20,7 @@ export default function PhoneNumbersPage() {
   const [numbers, setNumbers] = useState<PhoneNumber[]>([]);
   const [agents, setAgents] = useState<Agent[]>([]);
   const [versionsByAgent, setVersionsByAgent] = useState<Record<string, AgentVersion[]>>({});
+  const [environmentsByAgent, setEnvironmentsByAgent] = useState<Record<string, AgentEnvironment[]>>({});
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [newNumber, setNewNumber] = useState('');
   const [search, setSearch] = useState('');
@@ -57,6 +60,15 @@ export default function PhoneNumbersPage() {
         })
       );
       setVersionsByAgent(Object.fromEntries(versionEntries));
+
+      const environmentEntries = await Promise.all(
+        (agentsBody.agents as Agent[]).map(async (a: Agent) => {
+          const res = await fetch(`/api/agents/${a.id}/environments`);
+          const body = await res.json();
+          return [a.id, res.ok ? body.environments : []] as const;
+        })
+      );
+      setEnvironmentsByAgent(Object.fromEntries(environmentEntries));
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load phone numbers');
     } finally {
@@ -72,6 +84,13 @@ export default function PhoneNumbersPage() {
   const versionLabel = (v: AgentVersion) => {
     const agent = agents.find((a) => a.id === v.agent_id);
     return `${agent?.name || 'Agent'} · V${v.version_number} (${v.voice_engine})`;
+  };
+  const allEnvironments = Object.values(environmentsByAgent).flat();
+  const environmentLabel = (env: AgentEnvironment) => {
+    const agent = agents.find((a) => a.id === env.agent_id);
+    const version = env.version_id ? allVersions.find((v) => v.id === env.version_id) : null;
+    const envName = env.name === 'production' ? 'Production' : 'Staging';
+    return `${agent?.name || 'Agent'} · ${envName}${version ? ` (currently V${version.version_number})` : ' (nothing promoted yet)'}`;
   };
 
   const handleAddNumber = async () => {
@@ -125,15 +144,20 @@ export default function PhoneNumbersPage() {
     }
   };
 
-  const handleRoute = async (direction: 'inbound' | 'outbound', agentVersionId: string) => {
+  const handleRoute = async (direction: 'inbound' | 'outbound', selection: string) => {
     if (!selectedId) return;
     setIsSaving(true);
     setError(null);
     try {
+      const isEnv = selection.startsWith(ENV_PREFIX);
       const res = await fetch(`/api/phone-numbers/${selectedId}/routing`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ direction, agentVersionId: agentVersionId || null }),
+        body: JSON.stringify(
+          isEnv
+            ? { direction, environmentId: selection.slice(ENV_PREFIX.length) }
+            : { direction, agentVersionId: selection || null }
+        ),
       });
       const body = await res.json();
       if (!res.ok) throw new Error(body.error);
@@ -319,10 +343,12 @@ export default function PhoneNumbersPage() {
 
             <RoutingSection
               title="Inbound Call Agent"
-              description="Handles calls placed to this number."
-              value={selected.inbound_agent_version_id}
+              description="Handles calls placed to this number. Route to an environment (staging/production) so promoting a new version takes effect here automatically, or to a specific version directly."
+              value={selected.inbound_environment_id ? `${ENV_PREFIX}${selected.inbound_environment_id}` : selected.inbound_agent_version_id}
               versions={allVersions}
               versionLabel={versionLabel}
+              environments={allEnvironments}
+              environmentLabel={environmentLabel}
               onChange={(v) => handleRoute('inbound', v)}
               onCreateAgent={() => router.push('/dashboard/agents')}
               disabled={isSaving}
@@ -331,9 +357,11 @@ export default function PhoneNumbersPage() {
             <RoutingSection
               title="Outbound Call Agent"
               description="Used when placing calls from this number. Leave unset to disable outbound."
-              value={selected.outbound_agent_version_id}
+              value={selected.outbound_environment_id ? `${ENV_PREFIX}${selected.outbound_environment_id}` : selected.outbound_agent_version_id}
               versions={allVersions}
               versionLabel={versionLabel}
+              environments={allEnvironments}
+              environmentLabel={environmentLabel}
               onChange={(v) => handleRoute('outbound', v)}
               onCreateAgent={() => router.push('/dashboard/agents')}
               disabled={isSaving}
@@ -409,6 +437,8 @@ function RoutingSection({
   value,
   versions,
   versionLabel,
+  environments,
+  environmentLabel,
   onChange,
   onCreateAgent,
   disabled,
@@ -419,7 +449,9 @@ function RoutingSection({
   value: string | null;
   versions: AgentVersion[];
   versionLabel: (v: AgentVersion) => string;
-  onChange: (versionId: string) => void;
+  environments: AgentEnvironment[];
+  environmentLabel: (env: AgentEnvironment) => string;
+  onChange: (selection: string) => void;
   onCreateAgent: () => void;
   disabled: boolean;
   allowNone?: boolean;
@@ -442,9 +474,18 @@ function RoutingSection({
           className="w-full appearance-none rounded-lg border border-gray-200 bg-white px-3.5 py-2.5 text-[13.5px] text-[#1a1d29] focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100 disabled:opacity-50"
         >
           <option value="">{allowNone ? 'None (disable outbound)' : 'Select a version…'}</option>
-          {versions.map((v) => (
-            <option key={v.id} value={v.id}>{versionLabel(v)}</option>
-          ))}
+          {environments.length > 0 && (
+            <optgroup label="Environments">
+              {environments.map((env) => (
+                <option key={env.id} value={`${ENV_PREFIX}${env.id}`}>{environmentLabel(env)}</option>
+              ))}
+            </optgroup>
+          )}
+          <optgroup label="Specific versions">
+            {versions.map((v) => (
+              <option key={v.id} value={v.id}>{versionLabel(v)}</option>
+            ))}
+          </optgroup>
           <option value={CREATE_AGENT_VALUE}>+ Create an agent…</option>
         </select>
         <ChevronIcon className="pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2 text-gray-400" />

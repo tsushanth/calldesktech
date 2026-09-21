@@ -6,13 +6,14 @@ import Link from 'next/link';
 import { AGENT_LANGUAGES, languageForcesPremiumVoice } from '@/lib/languages';
 import { api } from '@/lib/api';
 import type { RetellVoice } from '@/lib/retell';
-import type { Agent, AgentVersion, FlowNode, FlowEdge, StructuredCondition, TtsBackend, Subflow } from '@/types';
+import type { Agent, AgentVersion, AgentEnvironment, FlowNode, FlowEdge, StructuredCondition, TtsBackend, Subflow } from '@/types';
 import { AGENT_TEMPLATES } from '@/lib/agentTemplates';
 import { estimatePocCallCost } from '@/lib/costEstimate';
 import { renderMiniMarkdown } from '@/lib/miniMarkdown';
 import FlowVisualEditor from './versions/new/FlowVisualEditor';
 import VersionCompareModal from './VersionCompareModal';
 import TestCallModal from './TestCallModal';
+import CopilotPanel from '@/components/flow-builder/CopilotPanel';
 
 type DraftNode = FlowNode & { _key: string };
 
@@ -54,7 +55,7 @@ function emptyNodeOfType(type: FlowNode['type']): DraftNode {
   return { _key: newKey(), id: '', type, prompt: '', edges: [] };
 }
 
-type Tab = 'agent' | 'simulation' | 'workflow';
+type Tab = 'agent' | 'simulation' | 'workflow' | 'copilot';
 
 export default function AgentBuilderPage() {
   const params = useParams();
@@ -73,6 +74,8 @@ export default function AgentBuilderPage() {
   const [isGraduating, setIsGraduating] = useState(false);
   const [showVersionHistory, setShowVersionHistory] = useState(false);
   const [versions, setVersions] = useState<AgentVersion[]>([]);
+  const [environments, setEnvironments] = useState<AgentEnvironment[]>([]);
+  const [promotingKey, setPromotingKey] = useState<string | null>(null);
   const [subflows, setSubflows] = useState<Subflow[]>([]);
   const [paletteTab, setPaletteTab] = useState<'nodes' | 'subflows'>('nodes');
 
@@ -86,6 +89,9 @@ export default function AgentBuilderPage() {
       if (agentRes.ok) setAgent(agentBody.agent);
       const versionsBody = await versionsRes.json();
       if (versionsRes.ok) setVersions(versionsBody.versions || []);
+      const envRes = await fetch(`/api/agents/${agentId}/environments`);
+      const envBody = await envRes.json();
+      if (envRes.ok) setEnvironments(envBody.environments || []);
       // Subflows are tenant-scoped (library) + agent-scoped, so this needs
       // the tenant id off the agent row we just fetched, not agentId alone.
       if (agentRes.ok && agentBody.agent?.tenant_id) {
@@ -665,6 +671,26 @@ export default function AgentBuilderPage() {
     }
   };
 
+  const handlePromote = async (v: AgentVersion, envName: 'staging' | 'production') => {
+    const key = `${v.id}:${envName}`;
+    setPromotingKey(key);
+    setError(null);
+    try {
+      const res = await fetch(`/api/agents/${agentId}/environments/${envName}/promote`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ versionId: v.id }),
+      });
+      const body = await res.json();
+      if (!res.ok) throw new Error(body.error);
+      setEnvironments((prev) => prev.map((e) => (e.id === body.environment.id ? body.environment : e)));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to promote version');
+    } finally {
+      setPromotingKey(null);
+    }
+  };
+
   // Every {{placeholder}} referenced anywhere in the current flow text.
   const flowText = (() => {
     const parts: string[] = [handbook, voicemailMessage];
@@ -890,7 +916,21 @@ export default function AgentBuilderPage() {
               {showVersionHistory && (
                 <>
                   <div className="fixed inset-0 z-40" onClick={() => setShowVersionHistory(false)} />
-                  <div className="absolute left-0 top-full z-50 mt-1.5 max-h-72 w-64 overflow-y-auto rounded-xl border border-gray-200 bg-white py-1.5 shadow-lg">
+                  <div className="absolute left-0 top-full z-50 mt-1.5 max-h-96 w-80 overflow-y-auto rounded-xl border border-gray-200 bg-white py-1.5 shadow-lg">
+                    {environments.length > 0 && (
+                      <div className="mb-1 border-b border-gray-100 px-3.5 pb-2">
+                        <p className="pb-1 pt-1.5 text-[11px] font-medium uppercase tracking-wide text-gray-400">Environments</p>
+                        {environments.map((env) => {
+                          const v = versions.find((x) => x.id === env.version_id);
+                          return (
+                            <div key={env.id} className="flex items-center justify-between py-0.5 text-[12.5px]">
+                              <span className="font-medium text-[#1a1d29]">{env.name === 'production' ? 'Production' : 'Staging'}</span>
+                              <span className="font-mono text-gray-500">{v ? `V${v.version_number}` : 'unset'}</span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
                     <p className="px-3.5 py-1.5 text-[11px] font-medium uppercase tracking-wide text-gray-400">Version history</p>
                     {versions.length === 0 ? (
                       <p className="px-3.5 py-2 text-[12.5px] text-gray-400">No versions published yet.</p>
@@ -899,15 +939,33 @@ export default function AgentBuilderPage() {
                         <div key={v.id} className="flex items-center justify-between gap-2 px-3.5 py-2 text-[12.5px] hover:bg-gray-50">
                           <span className="font-mono text-[#1a1d29]">V{v.version_number}</span>
                           <span className="flex-1 text-gray-400">{new Date(v.created_at).toLocaleDateString()}</span>
-                          {v.flow_id && (
+                          <div className="flex items-center gap-2">
                             <button
-                              onClick={() => handleRestore(v)}
-                              disabled={restoringId !== null}
-                              className="text-[11.5px] font-medium text-blue-600 hover:text-blue-700 disabled:opacity-40"
+                              onClick={() => handlePromote(v, 'staging')}
+                              disabled={promotingKey !== null}
+                              title="Promote to staging"
+                              className="text-[11px] font-medium text-gray-500 hover:text-blue-600 disabled:opacity-40"
                             >
-                              {restoringId === v.id ? 'Restoring…' : 'Restore as new'}
+                              {promotingKey === `${v.id}:staging` ? '…' : 'S'}
                             </button>
-                          )}
+                            <button
+                              onClick={() => handlePromote(v, 'production')}
+                              disabled={promotingKey !== null}
+                              title="Promote to production"
+                              className="text-[11px] font-medium text-gray-500 hover:text-blue-600 disabled:opacity-40"
+                            >
+                              {promotingKey === `${v.id}:production` ? '…' : 'P'}
+                            </button>
+                            {v.flow_id && (
+                              <button
+                                onClick={() => handleRestore(v)}
+                                disabled={restoringId !== null}
+                                className="text-[11.5px] font-medium text-blue-600 hover:text-blue-700 disabled:opacity-40"
+                              >
+                                {restoringId === v.id ? 'Restoring…' : 'Restore as new'}
+                              </button>
+                            )}
+                          </div>
                         </div>
                       ))
                     )}
@@ -2285,6 +2343,9 @@ function WorkflowIcon() {
 }
 function SimulationIcon() {
   return <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M9 2v6l-5 9a2 2 0 0 0 2 3h12a2 2 0 0 0 2-3l-5-9V2" /><path d="M9 2h6" /></svg>;
+}
+function CopilotIcon() {
+  return <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2a7 7 0 0 0-7 7c0 2.4 1.2 4.5 3 5.7V17a2 2 0 0 0 2 2h4a2 2 0 0 0 2-2v-2.3c1.8-1.2 3-3.3 3-5.7a7 7 0 0 0-7-7z" /><path d="M9 21h6" /><path d="M10 12h4" /></svg>;
 }
 function EditPencilIcon({ className }: { className?: string }) {
   return <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>;

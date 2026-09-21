@@ -149,7 +149,17 @@ export interface PhoneNumber {
   number: string;
   inbound_agent_version_id: string | null;
   outbound_agent_version_id: string | null;
+  inbound_environment_id: string | null;
+  outbound_environment_id: string | null;
   created_at: string;
+  updated_at: string;
+}
+
+export interface AgentEnvironment {
+  id: string;
+  agent_id: string;
+  name: 'staging' | 'production';
+  version_id: string | null;
   updated_at: string;
 }
 

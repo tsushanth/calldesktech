@@ -135,5 +135,15 @@ export async function POST(
     .select()
     .single();
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+  // Every agent gets both environments from birth — see migration 036. Best-
+  // effort: a failure here doesn't block agent creation, it just means this
+  // agent falls back to the pre-environments direct-version-pin routing
+  // until someone (or a retry) seeds them.
+  await supabase.from('calldesk_agent_environments').insert([
+    { agent_id: data.id, name: 'staging' },
+    { agent_id: data.id, name: 'production' },
+  ]).then(() => {}, () => {});
+
   return NextResponse.json({ agent: data }, { status: 201 });
 }
