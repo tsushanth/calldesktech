@@ -118,6 +118,13 @@ const ops: Record<string, Partial<Record<Method, Op>>> = {
   [`/tenants/${T}/webhooks/{webhookId}/test`]: { post: { tag: 'Webhooks', summary: 'Send a test delivery', returns: '{ ok }' } },
 
   [`/tenants/${T}/contacts`]: { get: { tag: 'Contacts', summary: 'List contacts', returns: '{ contacts }' } },
+
+  [`/tenants/${T}/crm`]: {
+    get: { tag: 'CRM', summary: 'List CRM connections', description: 'Access/refresh tokens are never returned — write-only, like API keys.', returns: '{ connections: { id, provider, provider_account_id, expires_at, created_at }[] }' },
+    delete: { tag: 'CRM', summary: 'Disconnect a CRM', query: { provider: "'hubspot' | 'salesforce'" }, returns: '{ success }' },
+  },
+  [`/tenants/${T}/crm/hubspot/connect`]: { get: { tag: 'CRM', summary: 'Start HubSpot OAuth connect', description: 'Browser-navigation endpoint (not JSON) — 302s to HubSpot\'s authorize screen. Owner/admin only.', returns: '302 redirect' } },
+  [`/tenants/${T}/crm/hubspot/lookup`]: { get: { tag: 'CRM', summary: 'Look up a caller in HubSpot (CRM→us)', description: 'On-demand lookup by phone for call-time personalization, e.g. injecting {{crm_company_name}} as a dynamic variable. No background sync.', query: { phone: 'E.164 phone number' }, returns: '{ variables: { crm_contact_found, crm_first_name?, crm_last_name?, crm_company_name?, crm_email?, crm_job_title? } }' } },
   [`/tenants/${T}/analytics`]: { get: { tag: 'Analytics', summary: 'Call analytics by day', query: { days: '7 | 30 | 90' }, returns: '{ series, totals }' } },
   [`/tenants/${T}/qa/overview`]: { get: { tag: 'Quality', summary: 'QA scores, resolution and transfer metrics', query: { days: '7 | 30 | 90' }, returns: '{ avgScore, resolutionRate, transferSuccessRate, ... }' } },
   '/agents/{agentId}/test-cases': {

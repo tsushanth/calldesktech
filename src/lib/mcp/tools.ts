@@ -31,7 +31,7 @@ Auto-advancing (act immediately on entry, no caller turn needed; the prompt is w
 - code           — params.code: JavaScript sandbox, "dv" holds collected data, return an object to merge into it
 - mcp            — params { serverUrl, toolName, toolArguments (JSON string), headers (JSON string, e.g. Authorization) }
 - payment        — params { amount, paymentConnector, description }; sets payment_status = succeeded | failed
-- transfer       — params.transferTo (E.164); ends the AI's involvement; optional params.spokenMessage (said word for word)
+- transfer       — params.transferTo (E.164); ends the AI's involvement; optional params.spokenMessage (said word for word); optional params.transferMode: 'warm' | 'cold' (default 'cold') — 'warm' bridges the caller to transferTo with the caller's own number preserved as caller ID
 - agent_transfer — params.targetAgentId (another agent in the workspace); hands the live call to that agent's latest published version; optional params.spokenMessage; no outgoing edges
 - press_digit    — params.digits (0-9 * # A-D w=pause, {{field}} ok); EXACTLY ONE edge; plays DTMF tones
 - logic_split    — no prompt; edges use structured conditions { field, operator (== != > < >= <=), value }; a conditionless edge is the default
@@ -119,6 +119,9 @@ server.registerTool('run_batch_call', { description: 'START a batch — dials ev
 server.registerTool('list_webhooks', { description: 'List webhooks.', annotations: READ, inputSchema: {} }, run(async () => api('GET', `/tenants/${await tenant()}/webhooks`)));
 server.registerTool('create_webhook', { description: 'Register a webhook. Events: call.started, call.completed, call.analyzed, call.transferred. Returns the signing secret.', annotations: WRITE, inputSchema: { url: z.string().url(), events: z.array(z.enum(['call.started', 'call.completed', 'call.analyzed', 'call.transferred'])).optional() } }, run(async (a) => api('POST', `/tenants/${await tenant()}/webhooks`, a)));
 server.registerTool('delete_webhook', { description: 'Delete a webhook.', annotations: DESTROY, inputSchema: { webhookId: z.string() } }, run(async (a) => api('DELETE', `/tenants/${await tenant()}/webhooks/${a.webhookId}`)));
+
+// ---- crm
+server.registerTool('lookup_hubspot_contact', { description: 'CRM→us lookup: find a caller\'s HubSpot contact by phone (if the tenant has connected HubSpot in Integrations) and return fields usable as call-time dynamic variables, e.g. crm_company_name.', annotations: READ, inputSchema: { phone: z.string().describe('E.164, e.g. +14155550123') } }, run(async (a) => api('GET', `/tenants/${await tenant()}/crm/hubspot/lookup?phone=${encodeURIComponent(a.phone)}`)));
 
 // ---- analytics
 server.registerTool('get_analytics', { description: 'Call analytics by day.', annotations: READ, inputSchema: { days: z.enum(['7', '30', '90']).default('30') } }, run(async (a) => api('GET', `/tenants/${await tenant()}/analytics?days=${a.days}`)));

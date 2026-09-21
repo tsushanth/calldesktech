@@ -4,6 +4,7 @@ import { getRetellClient } from '@/lib/retell';
 import { runAndStoreCallQa } from '@/lib/callQa';
 import { deriveOutcome, deriveTransferStatus, fireAlertsForCall } from '@/lib/alerts';
 import { dispatchWebhookEvent } from '@/lib/webhooks';
+import { syncCallToHubSpot } from '@/lib/crmSync';
 import { runAndStorePostCallAnalysis } from '@/lib/postCallAnalysis';
 import type { RetellWebhookEvent } from '@/types';
 
@@ -142,6 +143,27 @@ export async function POST(request: NextRequest) {
             : null,
         };
         await dispatchWebhookEvent(tenant.id, 'call.completed', webhookData);
+
+        // CRM sync (us→HubSpot), same call.completed hook point as the
+        // outbound webhooks above. Best-effort like everything else in this
+        // handler: syncCallToHubSpot never throws, and is a no-op if the
+        // tenant has no HubSpot connection.
+        if (!tenant.user_id?.startsWith('demo_')) {
+          await syncCallToHubSpot(tenant.id, {
+            callerPhone: event.call.from_number,
+            outcome: finalizedOutcome ?? 'answered',
+            durationSeconds: duration,
+            transcriptSummary:
+              analysis && typeof analysis === 'object' && 'summary' in analysis && typeof (analysis as Record<string, unknown>).summary === 'string'
+                ? ((analysis as Record<string, unknown>).summary as string)
+                : (event.call.transcript ?? '').slice(0, 4000),
+            direction: event.call.direction === 'outbound' ? 'OUTBOUND' : 'INBOUND',
+            startedAt: event.call.start_timestamp
+              ? new Date(event.call.start_timestamp).toISOString()
+              : new Date().toISOString(),
+          });
+        }
+
         if (finalizedOutcome === 'transferred') {
           await dispatchWebhookEvent(tenant.id, 'call.transferred', webhookData);
         }

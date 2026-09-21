@@ -53,6 +53,10 @@ export default function IntegrationsPage() {
       <Catalog />
 
       <div className="mt-8">
+        <HubSpotSection />
+      </div>
+
+      <div className="mt-8">
         <WebhooksSection />
       </div>
     </>
@@ -84,7 +88,14 @@ function Catalog() {
       />
       <CatalogCard icon={<IconSlack />} name="Slack" description="Post call summaries to a channel." status="soon" />
       <CatalogCard icon={<IconZapier />} name="Zapier" description="Trigger 6,000+ apps on call events." status="soon" />
-      <CatalogCard icon={<IconHubspot />} name="HubSpot" description="Log calls as CRM activities." status="soon" />
+      <CatalogCard
+        icon={<IconHubspot />}
+        name="HubSpot"
+        description="Two-way CRM sync: contacts + call activity."
+        status="active"
+        href="#hubspot"
+        action="Manage below"
+      />
     </div>
   );
 }
@@ -144,6 +155,133 @@ function CatalogCard({
 /* ------------------------------------------------------------------ */
 /* Webhooks management                                                 */
 /* ------------------------------------------------------------------ */
+
+/* ------------------------------------------------------------------ */
+/* HubSpot connection                                                  */
+/* ------------------------------------------------------------------ */
+
+interface CrmConnection {
+  id: string;
+  provider: 'hubspot' | 'salesforce';
+  provider_account_id: string | null;
+  expires_at: string | null;
+  created_at: string;
+}
+
+function HubSpotSection() {
+  const { tenantId, isHydrated } = useOnboarding();
+  const [connection, setConnection] = useState<CrmConnection | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isDisconnecting, setIsDisconnecting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    if (!tenantId) return;
+    setIsLoading(true);
+    try {
+      const res = await fetch(`/api/tenants/${tenantId}/crm`);
+      const body = await res.json();
+      if (!res.ok) throw new Error(body.error);
+      const hs = (body.connections as CrmConnection[]).find((c) => c.provider === 'hubspot');
+      setConnection(hs ?? null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load CRM connection');
+    } finally {
+      setIsLoading(false);
+    }
+  }, [tenantId]);
+
+  useEffect(() => {
+    if (isHydrated) load();
+  }, [isHydrated, load]);
+
+  // Reflect the callback redirect's ?hubspot= status once, then refresh.
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const status = params.get('hubspot');
+    if (status) {
+      window.history.replaceState({}, '', window.location.pathname + window.location.hash);
+      load();
+    }
+  }, [load]);
+
+  const disconnect = async () => {
+    if (!tenantId || !confirm('Disconnect HubSpot? Contacts and call activity will stop syncing.')) return;
+    setIsDisconnecting(true);
+    try {
+      const res = await fetch(`/api/tenants/${tenantId}/crm?provider=hubspot`, { method: 'DELETE' });
+      if (!res.ok) {
+        const body = await res.json();
+        throw new Error(body.error);
+      }
+      setConnection(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to disconnect');
+    } finally {
+      setIsDisconnecting(false);
+    }
+  };
+
+  return (
+    <div id="hubspot" className="rounded-xl border border-gray-200 bg-white p-5 scroll-mt-20">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-[15px] font-semibold text-[#1a1d29]">HubSpot</h2>
+          <p className="mt-0.5 text-[12.5px] text-gray-500">
+            On call completion, upserts the caller as a Contact and logs the call as a Call
+            activity. Also available: on-demand lookup of a caller&apos;s HubSpot contact for
+            personalization ({'{{crm_company_name}}'} and friends) via
+            <code className="mx-1 rounded bg-gray-50 px-1 py-0.5 text-[11px]">
+              GET /api/tenants/{'{id}'}/crm/hubspot/lookup?phone=...
+            </code>
+            .
+          </p>
+        </div>
+        {connection ? (
+          <span className="rounded-full bg-green-50 px-2.5 py-0.5 text-[11px] font-medium text-green-700">
+            Connected
+          </span>
+        ) : (
+          <span className="rounded-full bg-gray-100 px-2.5 py-0.5 text-[11px] font-medium text-gray-500">
+            Not connected
+          </span>
+        )}
+      </div>
+
+      {error && <p className="mt-3 text-[12.5px] text-red-600">{error}</p>}
+
+      {isLoading ? (
+        <p className="mt-4 text-[12.5px] text-gray-400">Loading…</p>
+      ) : connection ? (
+        <div className="mt-4 flex items-center justify-between rounded-lg border border-gray-100 bg-gray-50 px-4 py-3">
+          <div className="text-[12.5px] text-gray-600">
+            {connection.provider_account_id ? `Portal ${connection.provider_account_id}` : 'Connected'} · since{' '}
+            {new Date(connection.created_at).toLocaleDateString()}
+          </div>
+          <button
+            onClick={disconnect}
+            disabled={isDisconnecting}
+            className="rounded-md border border-gray-200 bg-white px-3 py-1.5 text-[12.5px] font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-50"
+          >
+            {isDisconnecting ? 'Disconnecting…' : 'Disconnect'}
+          </button>
+        </div>
+      ) : (
+        <a
+          href={tenantId ? `/api/tenants/${tenantId}/crm/hubspot/connect` : '#'}
+          className="mt-4 inline-block rounded-md bg-[#ff7a59] px-4 py-2 text-[13px] font-medium text-white hover:opacity-90"
+        >
+          Connect HubSpot
+        </a>
+      )}
+
+      <p className="mt-4 text-[11.5px] text-gray-400">
+        Salesforce sync is not built yet — the OAuth and API shape are documented in
+        src/lib/salesforce.ts for a future pass.
+      </p>
+    </div>
+  );
+}
 
 function WebhooksSection() {
   const { tenantId, isHydrated } = useOnboarding();
