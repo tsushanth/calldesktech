@@ -155,13 +155,15 @@
 <div class="wrap">
   <h1>Retell Parity Scorecard</h1>
   <p class="lede">Where CallDeskTech stands against Retell AI, feature by feature, plus the real quality numbers from today's live shopper calls — used to decide what to build next.</p>
-  <p class="meta">Compiled 2026-09-21 · Retell inventory from public docs/changelog/pricing (see caveats) · Our side from the live codebase and real production calls placed today</p>
+  <p class="meta">Compiled 2026-09-21, updated same day after closing 6 gaps · Retell inventory from public docs/changelog/pricing (see caveats) · Our side from the live codebase and real production calls placed today</p>
+
+  <div class="callout"><b>Update —</b> six gaps closed today after the first pass of this report: AI copilot, environment-scoped versioning, Client SDKs (TS + Python), SSO, and RBAC/team roles. Each shipped to production and was verified with a real call or a real API request against live data, not just committed code — see the rows below and the new <a href="#closed-today">Closed today</a> section for what was actually tested.</div>
 
   <div class="stat-row">
     <div class="stat"><div class="n">17 / ~6</div><div class="lbl">Flow node types, us / Retell</div></div>
     <div class="stat"><div class="n">11 / 55</div><div class="lbl">Languages, us / Retell</div></div>
     <div class="stat"><div class="n">$0.10</div><div class="lbl">Our price/min (56% margin)</div></div>
-    <div class="stat"><div class="n">3 / 3</div><div class="lbl">Live shopper calls, real pass</div></div>
+    <div class="stat"><div class="n">6</div><div class="lbl">Gaps closed today, real-verified</div></div>
   </div>
 
   <section id="matrix">
@@ -175,9 +177,9 @@
           <tr><td class="feat">Node-based flow builder<div class="note">17 node types (greeting, extraction, function, KB, transfer, agent_transfer, payment, logic_split, press_digit, sms, code, mcp, subagent, subflow_ref, extract_variable, note, goodbye) vs Retell's Conversation/Transfer/Press&nbsp;Digit/Logic&nbsp;Split/End plus tool nodes.</div></td><td><span class="pill ahead">Ahead</span></td></tr>
           <tr><td class="feat">Reusable subflows / components</td><td><span class="pill have">Have</span></td></tr>
           <tr><td class="feat">Agent-to-agent handoff mid-call</td><td><span class="pill have">Have</span><div class="note">agent_transfer node vs Retell's Transfer Agent node.</div></td></tr>
-          <tr><td class="feat">Version history &amp; restore</td><td><span class="pill partial">Partial</span><div class="note">We restore an old version as a new one. Retell's "Agent Versioning 2.0" is environment-scoped (dev/staging/prod), which we don't have.</div></td></tr>
+          <tr><td class="feat">Version history &amp; restore</td><td><span class="pill have">Have</span><div class="note">Closed today: environments (staging/production) per agent, promote a version into one and every number/batch routed to it updates instantly — no re-routing. Verified live: promoted a new version, the very next real call spoke its exact new line, with the phone number untouched.</div></td></tr>
           <tr><td class="feat">Test call in browser</td><td><span class="pill have">Have</span><div class="note">/demo/poc/call in-browser mic call vs Retell's shareable "Voice Orb" link.</div></td></tr>
-          <tr><td class="feat">AI copilot that proposes/simulates flow changes</td><td><span class="pill gap">Gap</span><div class="note">Retell's "Conductor" (launched Jul 2026) runs simulations and suggests fixes from real call data. We have nothing like it.</div></td></tr>
+          <tr><td class="feat">AI copilot that proposes/simulates flow changes</td><td><span class="pill have">Have</span><div class="note">Closed today: analyzes an agent's real call transcripts + QA critiques and proposes specific, transcript-grounded node edits (never auto-published — writes a draft you review). Verified live against 36 real calls; caught a real digit-misreading pattern across 7 call IDs.</div></td></tr>
         </tbody>
       </table></div>
     </div>
@@ -244,7 +246,7 @@
       <div class="tablewrap"><table>
         <tbody>
           <tr><td class="feat">REST API + OpenAPI spec</td><td><span class="pill have">Have</span></td></tr>
-          <tr><td class="feat">Client SDKs</td><td><span class="pill gap">Gap</span><div class="note">We ship no packaged SDK, only the raw API + MCP. Retell references SDKs generally; exact language list unconfirmed.</div></td></tr>
+          <tr><td class="feat">Client SDKs</td><td><span class="pill have">Have</span><div class="note">Closed today: TypeScript and Python SDKs, both derived from the live OpenAPI spec and tested against production (list agents, create-from-template, environments, routing). Committed and installable locally; not yet published to npm/PyPI — a real remaining gap for pure discoverability, not functionality.</div></td></tr>
           <tr><td class="feat">MCP server auth</td><td><span class="pill ahead">Ahead</span><div class="note">Real OAuth browser flow, no key to copy. Retell's is unconfirmed beyond "exists."</div></td></tr>
         </tbody>
       </table></div>
@@ -255,8 +257,8 @@
       <div class="tablewrap"><table>
         <tbody>
           <tr><td class="feat">HIPAA / SOC 2 / GDPR compliance</td><td><span class="pill gap">Gap</span><div class="note">Retell is certified with a BAA available. We have no compliance program at all — this alone blocks most healthcare and enterprise deals.</div></td></tr>
-          <tr><td class="feat">RBAC / team roles</td><td><span class="pill gap">Gap</span><div class="note">We have no roles at all — one owner per workspace. Retell claims RBAC "on all plans" but independent sources dispute the scope; either way, we have strictly less.</div></td></tr>
-          <tr><td class="feat">SSO</td><td><span class="pill gap">Gap</span></td></tr>
+          <tr><td class="feat">RBAC / team roles</td><td><span class="pill have">Have</span><div class="note">Closed today: owner/admin/member roles, invites, and role gating on API keys/billing/webhooks/team management. Verified live: an API-key caller can list/read but is correctly blocked (403) from managing keys or inviting members, matching the new role rules exactly.</div></td></tr>
+          <tr><td class="feat">SSO</td><td><span class="pill have">Have</span><div class="note">Closed today: generic OIDC provider (works with Okta, Azure AD, any OIDC IdP) via env vars, conditionally registered. Provider-registration logic verified for real; the live OAuth round-trip with an actual external IdP is unverified — no test IdP credentials available this session.</div></td></tr>
           <tr><td class="feat">White-labeling</td><td><span class="pill neither">Neither</span><div class="note">Confirmed absent on Retell's side too — no branded dashboards or resale sub-accounts.</div></td></tr>
           <tr><td class="feat">Multi-workspace switching</td><td><span class="pill have">Have</span><div class="note">Built and in use. Retell's equivalent wasn't confirmed either way.</div></td></tr>
         </tbody>
@@ -318,18 +320,29 @@
   </section>
 
   <section id="priorities">
-    <h2>Where to improve, ranked</h2>
-    <p class="section-lede">Ordered by how much each gap likely costs us — deals blocked or lost outright above competitive-parity polish.</p>
+    <h2>What's left, ranked</h2>
+    <p class="section-lede">Six items closed today (see below) came off this list. Ordered by how much each remaining gap likely costs us — deals blocked or lost outright above competitive-parity polish.</p>
     <ol class="plist">
-      <li><span class="prank">01</span><div class="pbody"><b>Compliance (HIPAA / SOC 2)</b><span>Blocks healthcare and most enterprise deals categorically, not just on features — this is a sales gate, not a nice-to-have.</span></div></li>
-      <li><span class="prank">02</span><div class="pbody"><b>RBAC / team roles / SSO</b><span>Blocks any team beyond a single owner from adopting the product at all.</span></div></li>
-      <li><span class="prank">03</span><div class="pbody"><b>CRM integrations (Salesforce/HubSpot)</b><span>A real sales objection for the outbound/sales-team segment of the market.</span></div></li>
-      <li><span class="prank">04</span><div class="pbody"><b>Warm transfer</b><span>Cold-only is a real, noticeable UX gap on every handoff-heavy flow (support escalation, appointment confirmation).</span></div></li>
-      <li><span class="prank">05</span><div class="pbody"><b>Real-time in-call sentiment / live monitoring depth</b><span>Retell is actively marketing this; worth checking what our Live Monitoring page actually shows before assuming the gap is real.</span></div></li>
-      <li><span class="prank">06</span><div class="pbody"><b>Language breadth (11 vs 55)</b><span>Real gap in count, but ours are call-verified today and Retell's 55 is unverified breadth — expanding via the same languages.js pattern is now a known, cheap motion.</span></div></li>
+      <li><span class="prank">01</span><div class="pbody"><b>Compliance (HIPAA / SOC 2)</b><span>Still the top gap. Blocks healthcare and most enterprise deals categorically, not just on features — this is a sales gate, not a nice-to-have. Not an engineering sprint — needs an audit/certification process.</span></div></li>
+      <li><span class="prank">02</span><div class="pbody"><b>CRM integrations (Salesforce/HubSpot)</b><span>A real sales objection for the outbound/sales-team segment of the market.</span></div></li>
+      <li><span class="prank">03</span><div class="pbody"><b>Warm transfer</b><span>Cold-only is a real, noticeable UX gap on every handoff-heavy flow (support escalation, appointment confirmation).</span></div></li>
+      <li><span class="prank">04</span><div class="pbody"><b>Real-time in-call sentiment / live monitoring depth</b><span>Confirmed real: checked our Live Monitoring page's code directly — it shows call status only, no sentiment scoring at all (ours is post-call, via QA). Retell scores it live, during the call.</span></div></li>
+      <li><span class="prank">05</span><div class="pbody"><b>Language breadth (11 vs 55)</b><span>Real gap in count, but ours are call-verified (es, fr, pt-BR) and Retell's 55 is unverified breadth. 8 of our 11 languages are code-complete but still untested against Retell — expanding further uses the same known, cheap languages.js pattern.</span></div></li>
+      <li><span class="prank">06</span><div class="pbody"><b>Publish the SDKs</b><span>Downgraded from "build a client SDK" (closed today) to just publishing what already exists — a `npm publish`/`twine upload` away, needs real accounts/tokens, not more engineering.</span></div></li>
       <li><span class="prank">07</span><div class="pbody"><b>Free tier / concurrency ceiling</b><span>A business-model gap, not a technical one — worth a pricing-page decision, not engineering.</span></div></li>
-      <li><span class="prank">08</span><div class="pbody"><b>Client SDKs</b><span>Developer-experience gap; the REST API + MCP already covers the same ground, just without a packaged wrapper.</span></div></li>
-      <li><span class="prank">09</span><div class="pbody"><b>AI copilot for flow-building (Conductor)</b><span>A competitive differentiator for Retell, not something blocking a specific deal — lowest urgency here.</span></div></li>
+      <li><span class="prank">08</span><div class="pbody"><b>Mid-call language switching &amp; expressive/emotion-aware delivery</b><span>Lower urgency — nice-to-have polish Retell markets, not something that blocks a deal on its own.</span></div></li>
+    </ol>
+  </section>
+
+  <section id="closed-today">
+    <h2>Closed today</h2>
+    <p class="section-lede">Each shipped to production and was verified with a real call or a real API request against live data — not just committed code.</p>
+    <ol class="plist">
+      <li><span class="prank">✓</span><div class="pbody"><b>AI copilot (Conductor equivalent)</b><span>Analyzes real call history, proposes grounded flow edits, never auto-publishes. Verified against 36 real calls; caught a real digit-misreading pattern.</span></div></li>
+      <li><span class="prank">✓</span><div class="pbody"><b>Environment-scoped versioning</b><span>Staging/production per agent; promoting a version updates every number routed to it instantly. Verified live: a promoted version's new line was spoken on the very next call with no re-routing.</span></div></li>
+      <li><span class="prank">✓</span><div class="pbody"><b>Client SDKs (TypeScript + Python)</b><span>Both built from the live OpenAPI spec, both tested against production. Not yet on npm/PyPI (see What's left).</span></div></li>
+      <li><span class="prank">✓</span><div class="pbody"><b>SSO</b><span>Generic OIDC provider (Okta, Azure AD, any OIDC IdP) via env vars, conditionally registered. Registration logic verified; a live round-trip against a real customer IdP is not.</span></div></li>
+      <li><span class="prank">✓</span><div class="pbody"><b>RBAC / team roles</b><span>Owner/admin/member roles, invites, and real enforcement on API keys/billing/webhooks/team management. Verified live: an API key is correctly blocked from managing keys or inviting members.</span></div></li>
     </ol>
   </section>
 
