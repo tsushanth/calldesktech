@@ -12,7 +12,8 @@ export type AuditAction =
   | 'team.remove'
   | 'apikey.create'
   | 'apikey.revoke'
-  | 'agent.delete';
+  | 'agent.delete'
+  | 'call.delete';
 
 export async function logAudit(params: {
   tenantId: string | null;

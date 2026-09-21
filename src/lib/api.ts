@@ -324,6 +324,14 @@ class ApiClient {
     return body.callLog;
   }
 
+  async deleteCallLog(callLogId: string): Promise<void> {
+    const res = await fetch(`/api/calls/${callLogId}`, { method: 'DELETE' });
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      throw new ApiError(body.error || 'Failed to delete call');
+    }
+  }
+
   // Chat sessions (text channel) — server-side routes, same service-role
   // pattern as the voice call-log methods above.
   // Retell's real multi-provider voice catalog (elevenlabs, openai, cartesia,

@@ -18,6 +18,21 @@ export default function CallDetailPage() {
 
   const [call, setCall] = useState<CallLog | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  async function handleDelete() {
+    if (!callId) return;
+    if (!confirm('Delete this call permanently? This removes the transcript and extracted data and cannot be undone.')) return;
+    setIsDeleting(true);
+    try {
+      await api.deleteCallLog(callId);
+      router.push('/dashboard/calls');
+    } catch (err) {
+      console.error('Failed to delete call:', err);
+      alert(err instanceof Error ? err.message : 'Failed to delete call');
+      setIsDeleting(false);
+    }
+  }
 
   useEffect(() => {
     async function loadCall() {
@@ -72,6 +87,13 @@ export default function CallDetailPage() {
           <p className="text-[12.5px] text-gray-400">{formatRelativeTime(call.created_at)}</p>
         </div>
         <OutcomeBadge outcome={call.outcome} />
+        <button
+          onClick={handleDelete}
+          disabled={isDeleting}
+          className="ml-auto rounded-lg px-3 py-2 text-[12.5px] font-medium text-red-600 transition hover:bg-red-50 disabled:opacity-50"
+        >
+          {isDeleting ? 'Deleting…' : 'Delete call'}
+        </button>
       </div>
 
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
