@@ -120,7 +120,24 @@ export default function DocsPage() {
                 <div className="mt-5 space-y-4">
                   <Code label="Python">{`pip install calldesktech
 # or: pip install git+https://github.com/calldesktech/calldesktech-python`}</Code>
-                  <Code label="TypeScript / Node">{`// TypeScript SDK in progress — check calldesk.tech for the npm package name`}</Code>
+                  <Code label="TypeScript / Node (source, not yet on npm — clone and build)">{`git clone https://github.com/calldesktech/calldesktech-node
+cd calldesktech-node && npm install && npm run build
+# npm install calldesktech   <- once published`}</Code>
+                  <Code label="Quickstart">{`import { CallDeskTech } from "calldesktech";
+
+const client = new CallDeskTech({ apiKey: process.env.CALLDESK_API_KEY! });
+
+const { agentId, versionId } = await client.agents.createFromTemplate({
+  templateId: "medical-receptionist",
+});
+
+const { phoneNumbers } = await client.phoneNumbers.list();
+await client.phoneNumbers.setRouting(phoneNumbers[0].id, {
+  direction: "inbound",
+  agentVersionId: versionId,
+});
+
+await client.phoneNumbers.call(phoneNumbers[0].id, { toNumber: "+15551234567" });`}</Code>
                 </div>
               </section>
 
