@@ -14,7 +14,7 @@ export default async function AuthorizePage({ searchParams }: { searchParams: Pr
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
     const qs = new URLSearchParams(Object.entries(sp).filter(([, v]) => v) as [string, string][]).toString();
-    redirect(`/auth/login?callbackUrl=${encodeURIComponent(`/oauth/authorize?${qs}`)}`);
+    redirect(`/auth/signin?callbackUrl=${encodeURIComponent(`/oauth/authorize?${qs}`)}`);
   }
   const db = getSupabaseAdmin();
   const { data: client } = await db.from('calldesk_oauth_clients').select('client_name, redirect_uris').eq('client_id', sp.client_id || '').maybeSingle();

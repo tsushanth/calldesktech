@@ -1,12 +1,10 @@
 import { redirect } from 'next/navigation';
 
-export default function LoginPage({
+export default async function LoginPage({
   searchParams,
 }: {
-  searchParams: { callbackUrl?: string };
+  searchParams: Promise<{ callbackUrl?: string }>;
 }) {
-  const params = searchParams.callbackUrl
-    ? `?callbackUrl=${encodeURIComponent(searchParams.callbackUrl)}`
-    : '';
-  redirect(`/auth/signin${params}`);
+  const { callbackUrl } = await searchParams;
+  redirect(`/auth/signin${callbackUrl ? `?callbackUrl=${encodeURIComponent(callbackUrl)}` : ''}`);
 }
