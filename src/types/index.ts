@@ -30,6 +30,10 @@ export interface FlowNode {
   // publishSubflowRefs in versions/route.ts) — server.js executes purely off
   // that embedded snapshot, never a live subflow lookup, so a flow keeps
   // working even if the subflow is edited or deleted later.
+  // 'transfer' params: transferTo (E.164), optional spokenMessage, and
+  // optional transferMode: 'warm' | 'cold' (default 'cold'). 'warm' bridges
+  // the caller directly to transferTo with the caller's own number preserved
+  // as caller ID; 'cold' (unset) is today's behavior — no caller-ID handoff.
   params?: Record<string, string>;
   edges: FlowEdge[];
   position?: { x: number; y: number };
