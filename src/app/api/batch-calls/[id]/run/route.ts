@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { authorizeResource } from '@/lib/authz';
+import { isCronRequest } from '@/lib/outreach/adminAuth';
 import { getSupabaseAdmin } from '@/lib/supabase';
 import { getRetellClient } from '@/lib/retell';
 import { acquireTokenBlocking, RETELL_GLOBAL, RETELL_TENANT, TWILIO_TENANT } from '@/lib/rateLimiter';
+import { isWithinCallWindow, type CallTimeWindow } from '@/lib/batchCallSchedule';
 
 // POST /api/batch-calls/[id]/run — actually places the batch. Walks the
 // batch's pending targets IN ORDER and dials each one. A number that can't be
@@ -34,8 +36,13 @@ export async function POST(
   // previously wide open: no session check at all, matching a pattern
   // several other routes on this surface still have, but the cost/risk here
   // (real PSTN calls, not just a data read) made it the one worth fixing.
-  const __auth = await authorizeResource(request, 'calldesk_batch_calls', batchId);
-  if (!__auth.ok) return __auth.response;
+  // The scheduled-batch cron (see /api/batch-calls/due/run) calls this same
+  // route with no user session — CRON_SECRET stands in for tenant ownership
+  // there, same pattern as the outreach discovery cron.
+  if (!isCronRequest(request)) {
+    const __auth = await authorizeResource(request, 'calldesk_batch_calls', batchId);
+    if (!__auth.ok) return __auth.response;
+  }
 
   const { data: batch, error: batchError } = await supabase
     .from('calldesk_batch_calls')
@@ -51,6 +58,29 @@ export async function POST(
   if (batch.status !== 'pending') {
     return NextResponse.json(
       { error: `Batch is '${batch.status}', not 'pending' — nothing to run` },
+      { status: 409 }
+    );
+  }
+
+  // Scheduled for later and not yet due — a manual Run click before the
+  // scheduled time is a no-op (not a failure); the cron will trigger it once
+  // due. Cron-triggered calls always pass this since /api/batch-calls/due/run
+  // only ever selects already-due batches.
+  if (batch.scheduled_at && new Date(batch.scheduled_at) > new Date()) {
+    return NextResponse.json(
+      { error: `Scheduled for ${batch.scheduled_at} — not due yet` },
+      { status: 409 }
+    );
+  }
+
+  // Calling-hours restriction — checked at trigger time (not just schedule
+  // time) so a manual Run outside the allowed window is also blocked, not
+  // just a late cron tick. Left 'pending' (not failed) so the cron's next
+  // pass, or a later manual Run, can pick it back up once inside the window.
+  const callTimeWindow = batch.call_time_window as CallTimeWindow | null;
+  if (callTimeWindow && !isWithinCallWindow(callTimeWindow, new Date())) {
+    return NextResponse.json(
+      { error: `Outside this batch's allowed calling hours (${callTimeWindow.start_hour}:00-${callTimeWindow.end_hour}:00 ${callTimeWindow.timezone}) — will retry automatically` },
       { status: 409 }
     );
   }
@@ -154,7 +184,12 @@ export async function POST(
         const res = await fetch(`${callLoopBaseUrl}/place-test-call`, {
           method: 'POST',
           headers: { Authorization: `Bearer ${callLoopSecret}`, 'Content-Type': 'application/json' },
-          body: JSON.stringify({ toNumber: target.phone_number, routeAs: fromNumber, direction: 'outbound' }),
+          body: JSON.stringify({
+            toNumber: target.phone_number,
+            routeAs: fromNumber,
+            direction: 'outbound',
+            ...(target.dynamic_variables ? { variables: target.dynamic_variables } : {}),
+          }),
         });
         const body = await res.json();
         if (!res.ok) throw new Error(body.error || 'call-loop-poc rejected the call');
@@ -165,6 +200,7 @@ export async function POST(
           fromNumber,
           toNumber: target.phone_number,
           agentId: version.retell_agent_id!,
+          dynamicVariables: (target.dynamic_variables as Record<string, string> | null) || undefined,
         });
         const { data: log } = await supabase
           .from('calldesk_call_logs')

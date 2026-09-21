@@ -156,6 +156,13 @@ export interface PhoneNumber {
 // Batch Call Types — see supabase/migrations/007_batch_calls.sql. A batch
 // dials a list of numbers with one agent version; each target tracks its own
 // dial state and links back to the call log it produced.
+export interface CallTimeWindow {
+  timezone: string;
+  days: number[];
+  start_hour: number;
+  end_hour: number;
+}
+
 export interface BatchCall {
   id: string;
   tenant_id: string;
@@ -163,6 +170,9 @@ export interface BatchCall {
   status: 'pending' | 'running' | 'completed' | 'failed';
   created_at: string;
   updated_at: string;
+  name: string | null;
+  scheduled_at: string | null;
+  call_time_window: CallTimeWindow | null;
   // Attached by the list endpoint, not columns on the row itself.
   target_count?: number;
   called_count?: number;
@@ -175,6 +185,7 @@ export interface BatchCallTarget {
   phone_number: string;
   status: 'pending' | 'calling' | 'failed';
   call_log_id: string | null;
+  dynamic_variables: Record<string, string> | null;
   created_at: string;
 }
 

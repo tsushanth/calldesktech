@@ -278,6 +278,8 @@ class RetellClient {
     fromNumber: string;
     toNumber: string;
     agentId: string;
+    /** Batch Call personalization — injected into the agent's prompt as {{key}}. */
+    dynamicVariables?: Record<string, string>;
   }): Promise<{ call_id: string }> {
     return this.request('/v2/create-phone-call', {
       method: 'POST',
@@ -285,6 +287,9 @@ class RetellClient {
         from_number: config.fromNumber,
         to_number: config.toNumber,
         override_agent_id: config.agentId,
+        ...(config.dynamicVariables && Object.keys(config.dynamicVariables).length
+          ? { retell_llm_dynamic_variables: config.dynamicVariables }
+          : {}),
       }),
     });
   }

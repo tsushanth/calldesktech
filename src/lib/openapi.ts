@@ -82,9 +82,23 @@ const ops: Record<string, Partial<Record<Method, Op>>> = {
 
   [`/tenants/${T}/batch-calls`]: {
     get: { tag: 'Batch calls', summary: 'List batch calls', returns: '{ batches }' },
-    post: { tag: 'Batch calls', summary: 'Create a batch', body: { agentVersionId: 'string', phoneNumbers: 'string[] (E.164)' }, bodyRequired: ['agentVersionId', 'phoneNumbers'], returns: '{ batch }' },
+    post: {
+      tag: 'Batch calls',
+      summary: 'Create a batch',
+      description: 'phoneNumbers accepts either a plain list (newline/comma/semicolon-separated) or a CSV with a header row — a column named phone/phone_number/to/to_number/number is the recipient, every other column becomes a per-call dynamic variable (e.g. a "first_name" column lets the agent say {{first_name}}). Omit scheduledAt to leave the batch pending for a manual/API "run" call now; set it to a future ISO timestamp to have the platform run it automatically at that time instead.',
+      body: {
+        agentVersionId: 'string',
+        phoneNumbers: 'string (plain list) or CSV text with a phone/phone_number/to/to_number/number column plus optional variable columns',
+        name: 'string, optional label',
+        scheduledAt: 'ISO datetime, optional — future time to run automatically instead of on manual/API trigger',
+        callTimeWindow: 'optional { timezone: IANA string, days: number[] (0=Sun..6=Sat), start_hour: 0-23, end_hour: 1-24 } — restricts when this batch is allowed to dial',
+      },
+      bodyRequired: ['agentVersionId', 'phoneNumbers'],
+      returns: '{ batch }',
+    },
   },
-  '/batch-calls/{batchId}/run': { post: { tag: 'Batch calls', summary: 'Start a batch', description: 'Dials paced by the platform-wide and per-workspace rate limits.', returns: '{ started, ... }' } },
+  '/batch-calls/{batchId}': { get: { tag: 'Batch calls', summary: 'Get a batch and its targets', description: 'Each target includes its phone number, dial status, dynamic_variables used, and call_log_id once placed.', returns: '{ batchCall, targets }' } },
+  '/batch-calls/{batchId}/run': { post: { tag: 'Batch calls', summary: 'Start a batch', description: 'Dials paced by the platform-wide and per-workspace rate limits. Returns 409 if the batch is scheduled for later and not yet due, or outside its callTimeWindow — retry after that time.', returns: '{ started, ... }' } },
 
   [`/tenants/${T}/webhooks`]: {
     get: { tag: 'Webhooks', summary: 'List webhooks', returns: '{ webhooks }' },

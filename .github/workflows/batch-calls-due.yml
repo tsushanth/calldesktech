@@ -1,0 +1,31 @@
+name: Scheduled batch calls (every 5 min)
+
+# Triggers any Batch Call whose scheduled time has arrived. Places real,
+# billable outbound phone calls — see /api/batch-calls/due/run.
+#
+# Required repo secrets:
+#   BATCH_CALLS_DUE_URL  e.g. https://calldesk.tech/api/batch-calls/due/run
+#   CRON_SECRET          same value as the CRON_SECRET secret on the Fly app
+
+on:
+  schedule:
+    - cron: '*/5 * * * *'
+  workflow_dispatch: {}
+
+jobs:
+  run-due-batches:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Trigger due batch calls
+        env:
+          URL: ${{ secrets.BATCH_CALLS_DUE_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          set -euo pipefail
+          if [ -z "$URL" ] || [ -z "$CRON_SECRET" ]; then
+            echo "BATCH_CALLS_DUE_URL and CRON_SECRET repo secrets must be set" >&2
+            exit 1
+          fi
+          curl -sS --fail-with-body --max-time 500 -X POST "$URL" \
+            -H "Authorization: Bearer $CRON_SECRET"
