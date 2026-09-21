@@ -72,7 +72,13 @@ export async function PATCH(
   const updatedNodes = nodes.map((n) => (n.id === suggestion.node_id ? { ...n, prompt: suggestion.suggested_text } : n));
 
   try {
-    const res = await fetch(`${request.nextUrl.origin}/api/agents/${agentId}/versions`, {
+    // Self-fetch the existing draft-version create path (same as this app's
+    // sync-retell route does for phone-number routing). Uses the in-container
+    // localhost address rather than the public origin — a server-to-itself
+    // request via the public hostname can get blocked by the edge proxy/NAT
+    // in this environment ("fetch failed" with no further detail).
+    const internalBase = `http://127.0.0.1:${process.env.PORT || 3000}`;
+    const res = await fetch(`${internalBase}/api/agents/${agentId}/versions`, {
       method: 'POST',
       headers: {
         'content-type': 'application/json',
