@@ -101,6 +101,20 @@ export async function installTemplate(req: NextRequest, tenantId: string, opts: 
     variables.business_short_name = variables.business_name;
   }
 
+  // Identity clause: appended to the handbook so it applies regardless of whether
+  // THIS template's own prompt text ever references {{agent_name}} directly.
+  // Templates that already hardcode {{agent_name}} in their prompt always ship a
+  // non-empty defaultVariables.agent_name, so this never leaves a raw, unresolved
+  // "{{agent_name}}" in what the model reads (substituteVariables leaves unknown/empty
+  // placeholders literal — see templateVariables.ts) — set the name here, or don't
+  // add the clause at all, never both. Unset (the common case for a template like
+  // "receptionist" with no default) means the model keeps picking its own name per
+  // call, same as before this existed.
+  const identityClause = (variables.agent_name || '').trim()
+    ? '\n\nYour name for this call is {{agent_name}}. Introduce yourself using this name and stay consistent with it for the rest of the call.'
+    : '\n\nIf you have not been given a specific name to introduce yourself with, choose a natural, human first name yourself and stay consistent with it for the rest of the call.';
+  const handbook = (template.handbook || '') + identityClause;
+
   const { agent } = await json<{ agent: { id: string } }>(
     await createAgentRoute(withBody(req, `/api/tenants/${tenantId}/agents`, { name: label, mode: 'advanced' }), ctx(tenantId))
   );
@@ -154,7 +168,7 @@ export async function installTemplate(req: NextRequest, tenantId: string, opts: 
       const r = await createRetellAgentFromFlow({
         apiKey, agentName: label, voiceId: retellVoiceFor(language), language: retellLang,
         knowledgeBase: kbSeed && { name: `${label}-kb`, items: kbSeed.items },
-        input: { nodes: nodes.map((n) => (subflowSeeds[n.id] ? ({ ...n, params: { subflowNodes: subflowSeeds[n.id].nodes, subflowStartNodeId: subflowSeeds[n.id].startNodeId } } as unknown as FlowNode) : n)), startNodeId: template.startNodeId, handbook: template.handbook, defaultFunctionUrl: opts.functionUrl, variables, languageName: AGENT_LANGUAGES.find((l) => l.code === language)?.label },
+        input: { nodes: nodes.map((n) => (subflowSeeds[n.id] ? ({ ...n, params: { subflowNodes: subflowSeeds[n.id].nodes, subflowStartNodeId: subflowSeeds[n.id].startNodeId } } as unknown as FlowNode) : n)), startNodeId: template.startNodeId, handbook, defaultFunctionUrl: opts.functionUrl, variables, languageName: AGENT_LANGUAGES.find((l) => l.code === language)?.label },
       });
       retell = { agentId: r.agentId, warnings: r.warnings };
     }
@@ -165,7 +179,7 @@ export async function installTemplate(req: NextRequest, tenantId: string, opts: 
           flowName: template.id, startNodeId: template.startNodeId, nodes,
           voiceEngine: opts.voiceEngine,
           ...(retell ? { retellAgentId: retell.agentId } : {}),
-          globalSettings: { ...(template.handbook ? { handbook: template.handbook } : {}), ...(Object.keys(variables).length ? { variables } : {}), ...(opts.calendarTools === false ? { calendarTools: false } : {}), ...(language !== 'en' ? { language } : {}) },
+          globalSettings: { handbook, ...(Object.keys(variables).length ? { variables } : {}), ...(opts.calendarTools === false ? { calendarTools: false } : {}), ...(language !== 'en' ? { language } : {}) },
         }),
         ctx(agent.id)
       )
