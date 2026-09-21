@@ -52,3 +52,37 @@ export async function findTechFingerprintSignals(
   }
   return results;
 }
+
+// Competing-platform markers for the automated enrichment pass (pipeline.ts's
+// stageEnrich): same technique as RETELL_MARKERS above (public script/asset
+// signatures on the PROSPECT's own site), extended to the platforms Calldesk
+// actually competes with. A hit here is strong scoring evidence — it confirms
+// the lead already resells/integrates a voice-AI platform, not just that their
+// description mentions the category.
+const COMPETITOR_MARKERS: Record<string, string[]> = {
+  Retell: RETELL_MARKERS,
+  Vapi: ['vapi.ai', 'vapi-web-sdk', '@vapi-ai'],
+  Bland: ['bland.ai', 'bland-client'],
+  Synthflow: ['synthflow.ai'],
+  ElevenLabs: ['elevenlabs.io/convai', 'elevenlabs-convai'],
+  PlayAI: ['play.ai', 'playht.com'],
+};
+
+// Checks one domain for ANY known platform marker, returning every platform
+// name detected (usually 0 or 1, but a migration in progress could show 2).
+// Best-effort: a fetch failure yields [], never throws.
+export async function checkDomainForPlatforms(domain: string): Promise<string[]> {
+  const url = domain.startsWith('http') ? domain : `https://${domain}`;
+  try {
+    const res = await fetch(url, { headers: { 'User-Agent': 'calldesk-outreach-research/1.0' } });
+    if (!res.ok) return [];
+    const html = await res.text();
+    const found: string[] = [];
+    for (const [platform, markers] of Object.entries(COMPETITOR_MARKERS)) {
+      if (markers.some((marker) => html.includes(marker))) found.push(platform);
+    }
+    return found;
+  } catch {
+    return [];
+  }
+}
