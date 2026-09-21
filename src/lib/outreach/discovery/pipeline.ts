@@ -1,7 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { sendEmail } from '@/lib/email';
 import { adminEmails } from '../config';
-import { draftAgencyEmail } from '../agencyDraft';
+import { draftAgencyEmail, draftFollowUpEmail } from '../agencyDraft';
 import { fetchDirectory } from './retellDirectory';
 import { findAgencyDomain } from './findDomain';
 import { findContact } from './contactPages';
@@ -52,6 +52,7 @@ export interface RunSummary {
   duplicatesSkipped: number;
   contactsFound: number;
   draftsCreated: number;
+  followUpsCreated: number;
   researched: number;
   lowFit: number;
   errors: string[];
@@ -95,7 +96,7 @@ export async function runDiscovery(db: Db, opts: RunOptions = {}): Promise<RunSu
     runId: null, dryRun, status: 'ok', directoryCount: 0, searchCandidates: 0,
     jobPostingCandidates: 0, reviewSiteCandidates: 0, githubCandidates: 0, techFingerprintHits: 0,
     searchDebug: null, stopped: false, leadsSeen: 0, leadsNew: 0,
-    duplicatesSkipped: 0, contactsFound: 0, draftsCreated: 0, researched: 0, lowFit: 0, errors: [], sample: { enriched: [], researched: [] },
+    duplicatesSkipped: 0, contactsFound: 0, draftsCreated: 0, followUpsCreated: 0, researched: 0, lowFit: 0, errors: [], sample: { enriched: [], researched: [] },
   };
 
   if (!dryRun) {
@@ -114,6 +115,7 @@ export async function runDiscovery(db: Db, opts: RunOptions = {}): Promise<RunSu
     const researchOn = process.env.OUTREACH_RESEARCH === '1';
     if (researchOn && !stop()) await stageResearch(db, summary, dryRun, opts.researchLimit ?? 5, stop);
     if (!stop()) await stageDraft(db, summary, dryRun, draftLimit, stop, researchOn);
+    if (!stop()) await stageFollowUp(db, summary, dryRun, stop);
   } catch (error) {
     summary.status = 'error';
     summary.errors.push(error instanceof Error ? error.message : String(error));
@@ -560,6 +562,61 @@ async function stageDraft(db: Db, summary: RunSummary, dryRun: boolean, limit: n
   }
 }
 
+// Follow-ups: most people don't reply to a single cold email. A lead whose
+// last message was sent (and never marked replied_at, which only a human
+// reviewing the queue sets — there is no automated reply detection) gets a
+// short follow-up drafted after a delay, capped at MAX_FOLLOWUPS touches
+// total. Off entirely if OUTREACH_MAX_FOLLOWUPS is set to 0 or less.
+const DEFAULT_FOLLOWUP_DELAY_DAYS = 4;
+const DEFAULT_MAX_FOLLOWUPS = 3;
+
+async function stageFollowUp(db: Db, summary: RunSummary, dryRun: boolean, stop: () => boolean) {
+  if (dryRun) return;
+  const delayDays = Math.max(1, Number(process.env.OUTREACH_FOLLOWUP_DELAY_DAYS) || DEFAULT_FOLLOWUP_DELAY_DAYS);
+  // Number(undefined) is NaN, and `??` does not treat NaN as absent (only null/undefined
+  // are) -- so an unset env var must be checked with isNaN, not `||`/`??`, or it silently
+  // stays NaN and `!maxFollowUps` (NaN is falsy) makes this stage a permanent no-op.
+  const rawMaxFollowUps = Number(process.env.OUTREACH_MAX_FOLLOWUPS);
+  const maxFollowUps = Math.max(0, Number.isNaN(rawMaxFollowUps) ? DEFAULT_MAX_FOLLOWUPS : rawMaxFollowUps);
+  if (!maxFollowUps) return;
+
+  const MAX_PENDING_DRAFTS = Number(process.env.OUTREACH_MAX_PENDING_DRAFTS || 25);
+  const { count: pending } = await db.from('calldesk_outreach_messages').select('id', { count: 'exact', head: true }).eq('status', 'draft');
+  let budget = Math.max(0, MAX_PENDING_DRAFTS - (pending ?? 0));
+  if (!budget) return;
+
+  const cutoff = new Date(Date.now() - delayDays * 86_400_000).toISOString();
+  const { data: leads } = await db.from('calldesk_outreach_leads').select('*')
+    .eq('status', 'sent').eq('region_blocked', false).is('replied_at', null).limit(200);
+  if (!leads?.length) return;
+
+  for (const lead of leads as LeadRow[]) {
+    if (budget <= 0 || stop()) break;
+    try {
+      const { data: msgs } = await db.from('calldesk_outreach_messages').select('*').eq('lead_id', lead.id).neq('status', 'rejected').order('step', { ascending: false });
+      const latest = msgs?.[0];
+      if (!latest || latest.status !== 'sent' || !latest.sent_at) continue; // a pending draft/approved earlier step is still in flight
+      if (latest.sent_at > cutoff) continue; // too soon
+      const nextStep = (latest.step ?? 1) + 1;
+      if (nextStep > maxFollowUps) continue; // sequence exhausted
+
+      const draft = await draftFollowUpEmail({
+        name: lead.company_name, domain: lead.domain, tier: lead.tier, location: lead.location, description: lead.description,
+        dossier: lead.research ?? null, previousSubject: latest.subject, step: nextStep, isFinal: nextStep >= maxFollowUps,
+      });
+      const { error } = await db.from('calldesk_outreach_messages').insert({
+        lead_id: lead.id, to_email: latest.to_email, subject: draft.subject, body_text: draft.body, status: 'draft',
+        step: nextStep, sources: lead.research?.sources ?? [],
+      });
+      if (error) throw new Error(error.message);
+      budget--;
+      summary.followUpsCreated++;
+    } catch (error) {
+      summary.errors.push(`follow-up ${lead.company_name}: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  }
+}
+
 async function notify(db: Db, summary: RunSummary) {
   const to = process.env.OUTREACH_ALERT_EMAIL || adminEmails()[0];
   if (!to) return;
@@ -579,11 +636,12 @@ async function notify(db: Db, summary: RunSummary) {
     });
   }
 
-  if (summary.leadsNew > 0 || summary.draftsCreated > 0) {
-    const line = `${summary.leadsNew} new agencies, ${summary.contactsFound} contacts found, ${summary.draftsCreated} drafts awaiting your approval.`;
+  if (summary.leadsNew > 0 || summary.draftsCreated > 0 || summary.followUpsCreated > 0) {
+    const total = summary.draftsCreated + summary.followUpsCreated;
+    const line = `${summary.leadsNew} new agencies, ${summary.contactsFound} contacts found, ${summary.draftsCreated} first-touch drafts + ${summary.followUpsCreated} follow-ups awaiting your approval.`;
     await sendEmail({
       to,
-      subject: `Outreach: ${summary.draftsCreated} drafts to review`,
+      subject: `Outreach: ${total} drafts to review`,
       html: `<p>${line}</p><p><a href="${base}/admin/outreach/queue">Review the queue</a></p>`,
       text: `${line}\n${base}/admin/outreach/queue`,
     });

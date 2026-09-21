@@ -14,8 +14,17 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
   const body = await request.json();
   const supabase = getSupabaseAdmin();
 
-  const { data: msg } = await supabase.from('calldesk_outreach_messages').select('id,status').eq('id', id).maybeSingle();
+  const { data: msg } = await supabase.from('calldesk_outreach_messages').select('id,status,lead_id').eq('id', id).maybeSingle();
   if (!msg) return NextResponse.json({ error: 'Message not found' }, { status: 404 });
+
+  // Marks the LEAD as replied (there is no automated reply detection — this
+  // is how a human reviewing the queue stops any further follow-up once they
+  // see a real reply in their inbox). Any message status can trigger it.
+  if (body.action === 'mark_replied') {
+    const { error } = await supabase.from('calldesk_outreach_leads').update({ replied_at: new Date().toISOString() }).eq('id', msg.lead_id);
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ ok: true });
+  }
 
   let update: Record<string, unknown>;
   if (body.action === 'reject') {

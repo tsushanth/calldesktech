@@ -112,3 +112,51 @@ export async function draftAgencyEmail(input: AgencyDraftInput): Promise<AgencyD
   const parsed = JSON.parse(raw) as AgencyDraft;
   return { subject: parsed.subject.trim(), body: tidyBody(parsed.body) };
 }
+
+// Follow-up: most people don't reply to a single cold email. A short, low-
+// pressure bump referencing the earlier note (never repeating the full
+// pitch) — same offer-facts discipline as the first touch. `step` counts
+// from 2 (1 is the original); the tone gets shorter and lower-pressure each
+// time, and step 3+ explicitly offers to stop.
+const FOLLOWUP_SYSTEM_PROMPT = `You write short, low-pressure follow-up emails from the co-founders of Calldesk (Sushanth and Deepika), following up on a first email that got no reply.
+
+Rules:
+- This is a BRIEF bump, not a repeat of the pitch. 2-4 sentences total. Do not re-explain what Calldesk is in detail; one short clause is enough if any.
+- State ONLY facts from the provided offer facts if you reference the offer at all. Never invent prices, numbers, customers, or claims.
+- Do not guilt-trip, create false urgency, or use hype words/emojis/exclamation marks.
+- Write in the first person plural ("we", "us", "our"). Never use "I", "me" or "my", and never introduce yourselves by name or title.
+- Do NOT write a sign-off or signature; one is added automatically.
+- Any sentence that asks something must end with a question mark.
+- On the LAST allowed follow-up (see "This is the final follow-up" note if present), explicitly say this is the last check-in and offer to close the loop if it's not a fit.`;
+
+export interface FollowUpInput extends AgencyDraftInput {
+  previousSubject: string;
+  step: number; // 2, 3, ...
+  isFinal: boolean;
+}
+
+export function followUpSubject(previousSubject: string): string {
+  return previousSubject.toLowerCase().startsWith('re:') ? previousSubject : `Re: ${previousSubject}`;
+}
+
+export async function draftFollowUpEmail(input: FollowUpInput): Promise<AgencyDraft> {
+  const userPrompt = [
+    `Agency: ${input.name}${input.domain ? ` (${input.domain})` : ''}`,
+    input.dossier?.hook ? `A specific detail about them, usable at most once across all emails so far: ${input.dossier.hook}` : '',
+    `This is follow-up #${input.step - 1} to our earlier email, subject "${input.previousSubject}", which got no reply.`,
+    input.isFinal ? 'This is the final follow-up in this sequence — say so, and offer to close the loop if it\'s not a fit.' : '',
+    '',
+    'Offer facts you may reference (and nothing else):',
+    ...OFFER_FACTS.map((f) => `- ${f}`),
+  ]
+    .filter((l) => l !== '')
+    .join('\n');
+
+  const text = cliComplete(
+    `${FOLLOWUP_SYSTEM_PROMPT}\n\n${userPrompt}\n\nReply with ONLY a JSON object {"subject": string, "body": string}. subject should be "${followUpSubject(input.previousSubject)}" unless a small variation reads more natural. No markdown fences, no commentary.`,
+    { maxTurns: 2 },
+  );
+  const parsed = extractJson<AgencyDraft>(text, 'object');
+  if (!parsed || typeof parsed.subject !== 'string' || typeof parsed.body !== 'string') throw new Error('Follow-up draft reply was not valid JSON');
+  return { subject: parsed.subject.trim(), body: tidyBody(parsed.body) };
+}

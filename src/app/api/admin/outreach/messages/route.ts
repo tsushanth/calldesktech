@@ -14,9 +14,10 @@ export async function GET(request: NextRequest) {
   const supabase = getSupabaseAdmin();
   const { data, error } = await supabase
     .from('calldesk_outreach_messages')
-    .select('*, lead:calldesk_outreach_leads(company_name, domain, score, tier, contact_source_url)')
+    .select('*, lead:calldesk_outreach_leads(company_name, domain, score, tier, contact_source_url, replied_at)')
     .eq('status', status)
     .eq('product', product)
+    .order('step', { ascending: true })
     .order('created_at', { ascending: false })
     .limit(100);
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });

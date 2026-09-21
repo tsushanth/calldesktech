@@ -18,10 +18,33 @@ interface Brand { name: string; siteUrl: string; fromEnvVar: string; postalEnvVa
 // the bare domain via Cloudflare Email Routing, so replyToEnvVar differs from
 // fromEnvVar wherever that split applies.
 const CALLDESK_BRAND: Brand = { name: 'Calldesk', siteUrl: 'calldesk.tech', fromEnvVar: 'OUTREACH_FROM_EMAIL', postalEnvVar: 'OUTREACH_POSTAL_ADDRESS', capEnvVar: 'OUTREACH_DAILY_CAP' };
-const KREATIVE_KOALA_BRAND: Brand = { name: 'Kreative Koala LLC', siteUrl: 'kreativekoala.llc', fromEnvVar: 'OUTREACH_FROM_EMAIL_KK', postalEnvVar: 'OUTREACH_POSTAL_ADDRESS_KK', capEnvVar: 'OUTREACH_DAILY_CAP_KK', replyToEnvVar: 'OUTREACH_REPLYTO_EMAIL_KK' };
+
+// Each Kreative Koala app sends from its OWN identity, not a shared one --
+// four apps have their own domain (already verified in Resend); the three
+// without one (VoxKey, Pixora, GymLog -- Kreative Koala LLC is their real
+// publisher either way) get a distinct address on the parent domain instead
+// of a shared generic "outreach@" sender. All seven still share one postal
+// address and one daily send cap (same legal entity, same footer text).
+const KK_POSTAL_ENV = 'OUTREACH_POSTAL_ADDRESS_KK';
+const KK_CAP_ENV = 'OUTREACH_DAILY_CAP_KK';
+const KK_APP_BRANDS: Record<string, Omit<Brand, 'postalEnvVar' | 'capEnvVar'>> = {
+  simplyapply: { name: 'SimplyApply', siteUrl: 'simplyappl.ai', fromEnvVar: 'OUTREACH_FROM_EMAIL_SIMPLYAPPLY', replyToEnvVar: 'OUTREACH_REPLYTO_EMAIL_SIMPLYAPPLY' },
+  scribeai: { name: 'Scribe AI', siteUrl: 'scribeai.online', fromEnvVar: 'OUTREACH_FROM_EMAIL_SCRIBEAI', replyToEnvVar: 'OUTREACH_REPLYTO_EMAIL_SCRIBEAI' },
+  meetingmind: { name: 'Meeting Mind', siteUrl: 'meetingmind.org', fromEnvVar: 'OUTREACH_FROM_EMAIL_MEETINGMIND', replyToEnvVar: 'OUTREACH_REPLYTO_EMAIL_MEETINGMIND' },
+  vibebuild: { name: 'VibeBuild', siteUrl: 'vibebuild.cc', fromEnvVar: 'OUTREACH_FROM_EMAIL_VIBEBUILD', replyToEnvVar: 'OUTREACH_REPLYTO_EMAIL_VIBEBUILD' },
+  voxkey: { name: 'VoxKey', siteUrl: 'kreativekoala.llc', fromEnvVar: 'OUTREACH_FROM_EMAIL_VOXKEY', replyToEnvVar: 'OUTREACH_REPLYTO_EMAIL_VOXKEY' },
+  pixora: { name: 'Pixora', siteUrl: 'kreativekoala.llc', fromEnvVar: 'OUTREACH_FROM_EMAIL_PIXORA', replyToEnvVar: 'OUTREACH_REPLYTO_EMAIL_PIXORA' },
+  gymlog: { name: 'GymLog', siteUrl: 'kreativekoala.llc', fromEnvVar: 'OUTREACH_FROM_EMAIL_GYMLOG', replyToEnvVar: 'OUTREACH_REPLYTO_EMAIL_GYMLOG' },
+};
+// Fallback for any Kreative Koala product key not yet in the map above.
+const KREATIVE_KOALA_BRAND: Brand = { name: 'Kreative Koala LLC', siteUrl: 'kreativekoala.llc', fromEnvVar: 'OUTREACH_FROM_EMAIL_KK', postalEnvVar: KK_POSTAL_ENV, capEnvVar: KK_CAP_ENV, replyToEnvVar: 'OUTREACH_REPLYTO_EMAIL_KK' };
 
 function brandFor(product: string): Brand {
-  return product.startsWith('kreativekoala') ? KREATIVE_KOALA_BRAND : CALLDESK_BRAND;
+  if (!product.startsWith('kreativekoala')) return CALLDESK_BRAND;
+  const key = product.split(':')[1];
+  const appBrand = key && KK_APP_BRANDS[key];
+  if (!appBrand) return KREATIVE_KOALA_BRAND;
+  return { ...appBrand, postalEnvVar: KK_POSTAL_ENV, capEnvVar: KK_CAP_ENV };
 }
 
 // The cap resets at local midnight in OUTREACH_TZ (default Pacific), not at UTC midnight.

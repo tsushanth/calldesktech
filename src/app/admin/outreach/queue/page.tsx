@@ -10,8 +10,9 @@ interface Message {
   body_text: string;
   status: string;
   error: string | null;
+  step: number;
   sources?: string[];
-  lead: { company_name: string; domain: string | null; score: number | null; tier: string | null; contact_source_url: string | null } | null;
+  lead: { company_name: string; domain: string | null; score: number | null; tier: string | null; contact_source_url: string | null; replied_at: string | null } | null;
 }
 
 const TABS = ['draft', 'approved', 'sent', 'failed'] as const;
@@ -108,7 +109,11 @@ export default function OutreachQueuePage() {
           <div key={m.id} className="rounded-xl border border-gray-200 bg-white p-4">
             <div className="mb-3 flex items-baseline justify-between gap-3">
               <div>
-                <p className="text-[14px] font-semibold">{m.lead?.company_name ?? 'Unknown'}</p>
+                <p className="text-[14px] font-semibold">
+                  {m.lead?.company_name ?? 'Unknown'}
+                  {m.step > 1 && <span className="ml-2 rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-medium text-amber-700">follow-up #{m.step - 1}</span>}
+                  {m.lead?.replied_at && <span className="ml-2 rounded-full bg-green-50 px-2 py-0.5 text-[11px] font-medium text-green-700">replied</span>}
+                </p>
                 <p className="text-[12px] text-gray-400">
                   {m.to_email}
                   {m.lead?.domain ? ` · ${m.lead.domain}` : ''}
@@ -181,6 +186,15 @@ export default function OutreachQueuePage() {
                   className="rounded-lg bg-blue-600 px-3 py-1.5 text-[13px] font-medium text-white hover:bg-blue-700 disabled:opacity-50"
                 >
                   Send now
+                </button>
+              )}
+              {m.status === 'sent' && !m.lead?.replied_at && (
+                <button
+                  disabled={busy === m.id}
+                  onClick={() => act(m.id, () => patch(m.id, { action: 'mark_replied' }), 'Marked as replied — no more follow-ups will be drafted for this lead.')}
+                  className="rounded-lg border border-gray-300 px-3 py-1.5 text-[13px] font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+                >
+                  Mark as replied (stop follow-ups)
                 </button>
               )}
             </div>
