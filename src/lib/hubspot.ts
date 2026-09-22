@@ -15,15 +15,17 @@ const HUBSPOT_AUTHORIZE_URL = 'https://app.hubspot.com/oauth/authorize';
 const HUBSPOT_TOKEN_URL = 'https://api.hubapi.com/oauth/v1/token';
 const HUBSPOT_API_URL = 'https://api.hubapi.com';
 
-// Scopes needed for the two sync directions: reading/writing Contacts (us→CRM
-// upsert, CRM→us lookup) and writing Calls (us→CRM activity log). `oauth` is
-// HubSpot's base scope, always implicitly required.
+// Scopes the connected app is actually permitted to grant. `oauth` is HubSpot's base scope,
+// always implicitly required. crm.objects.calls.read/write (would let us log calls as HubSpot
+// Call activities, not just sync Contacts) are NOT included here — real, current limitation:
+// this app's portal plan doesn't grant that scope without a HubSpot support request. Requesting
+// a scope the app isn't permitted to grant fails the OAuth authorize step outright, so don't
+// re-add these until that access is actually approved (see docs/hubspot-app-setup or the parity
+// scorecard for the real status).
 export const HUBSPOT_SCOPES = [
   'oauth',
   'crm.objects.contacts.read',
   'crm.objects.contacts.write',
-  'crm.objects.calls.read',
-  'crm.objects.calls.write',
 ] as const;
 
 export class HubSpotApiError extends Error {
