@@ -31,6 +31,8 @@ function Bars({ data, label }: { data: { d: string; v: number }[]; label: string
 
 export default async function UsagePage() {
   const db = getSupabaseAdmin();
+  // Async Server Component computing a per-request report snapshot, not a memoized client render.
+  // eslint-disable-next-line react-hooks/purity
   const since = new Date(Date.now() - DAYS * 86400_000).toISOString();
   const [tenants, agents, calls, billing, clients, keys] = await Promise.all([
     db.from('calldesk_tenants').select('id, user_id, created_at').limit(10000),
@@ -52,6 +54,7 @@ export default async function UsagePage() {
   const withAgent = new Set(A.map((a) => a.tenant_id));
   const withCall = new Set(C.map((c) => c.tenant_id));
   const paying = new Set(B.filter((b) => ['active', 'trialing'].includes(b.subscription_status)).map((b) => b.tenant_id));
+  // eslint-disable-next-line react-hooks/purity -- see `since` above, same reasoning
   const weekAgo = new Date(Date.now() - 7 * 86400_000).toISOString();
   const active7 = new Set(C.filter((c) => c.created_at >= weekAgo).map((c) => c.tenant_id));
   const minutes = C.reduce((a, c) => a + (c.duration_seconds || 0), 0) / 60;

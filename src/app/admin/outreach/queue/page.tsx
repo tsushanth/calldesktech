@@ -51,6 +51,8 @@ export default function OutreachQueuePage() {
   }, [tab, product]);
 
   useEffect(() => {
+    // Fetch-on-mount/tab-change, not a render-loop risk (refresh only re-runs when tab/product change).
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     refresh();
   }, [refresh]);
 

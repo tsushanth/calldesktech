@@ -2156,7 +2156,7 @@ function SimulationTab({ agentId }: { agentId: string }) {
       <div className="mb-4 flex items-center justify-between">
         <div>
           <h2 className="text-[15px] font-semibold text-[#1a1d29]">Simulation Testing</h2>
-          <p className="mt-0.5 text-[12.5px] text-gray-500">A synthetic caller converses with this agent's published flow over text, then a judge model scores the transcript.</p>
+          <p className="mt-0.5 text-[12.5px] text-gray-500">A synthetic caller converses with this agent&apos;s published flow over text, then a judge model scores the transcript.</p>
         </div>
         <div className="flex items-center gap-2">
           <label className="flex items-center gap-1.5 text-[12.5px] text-gray-500">

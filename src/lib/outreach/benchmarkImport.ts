@@ -72,8 +72,8 @@ export function parseJudgeOutput(stdout: string): ParsedBenchmarkRun {
   };
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export async function importBenchmarkRun(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   supabase: SupabaseClient<any>,
   params: { stdout: string; runAt?: Date; sourceRunId?: string }
 ) {

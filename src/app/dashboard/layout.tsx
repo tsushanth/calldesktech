@@ -86,6 +86,8 @@ export default function DashboardLayout({
         });
     };
 
+    // Resets the "loading" flag for a fetch this same effect is about to kick off on tenant switch.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setNumbersFetchDone(false);
     fetchNumbers();
 
