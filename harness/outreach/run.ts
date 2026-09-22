@@ -4,11 +4,13 @@ import { homedir } from 'os';
 import { join } from 'path';
 import { getSupabaseAdmin } from '@/lib/supabase';
 import { runDiscovery } from '@/lib/outreach/discovery/pipeline';
+import { resolveProduct } from '@/lib/outreach/products';
 
 // One bounded discovery pass, invoked repeatedly through the day by launchd
 // (run_cycle.sh) so contact collection runs continuously rather than once/day.
 // Guard rails, all enforced here rather than trusted to config:
-//   STOP file       -> run nothing (touch ~/.calldesk-outreach/STOP to halt everything)
+//   STOP file       -> run nothing (touch ~/.calldesk-outreach/STOP, or the product's
+//                      state dir equivalent, to halt everything for that product)
 //   min gap         -> refuses a second real run within OUTREACH_MIN_GAP_MINUTES of the
 //                      last one (default 60; FORCE=1 overrides) -- a TIMESTAMP gap, not a
 //                      calendar-date check, so multiple runs/day are the normal case.
@@ -17,8 +19,15 @@ import { runDiscovery } from '@/lib/outreach/discovery/pipeline';
 //   disk floor      -> skips if the machine has under 400 MB free
 // It only reads public pages and writes leads/drafts. It has no send path --
 // sending stays manual-approval-gated and capped regardless of how often this runs.
+//
+// PRODUCT selects which product's discovery config runs (default 'calldesk',
+// unchanged from before this harness supported more than one product). Each
+// product gets its own local state dir so run history/locks/limits never
+// collide between products running independently (e.g. via cron/launchd
+// invocations with different PRODUCT values).
 
-const BASE = join(homedir(), '.calldesk-outreach');
+const product = resolveProduct(process.env.PRODUCT);
+const BASE = join(homedir(), product.stateDirName);
 const STOP = join(BASE, 'STOP');
 const LAST = join(BASE, 'last_run_at');
 const RUNS = join(BASE, 'runs.jsonl');
@@ -72,6 +81,7 @@ async function main(): Promise<number> {
     draftLimit: clamp(process.env.OUTREACH_DRAFT_LIMIT, 10, 5),
     researchLimit: clamp(process.env.OUTREACH_RESEARCH_LIMIT, 8, 5),
     shouldStop: () => existsSync(STOP) || Date.now() - startedAt > DEADLINE_MS,
+    product,
   });
 
   const line = { at: stamp, seconds: Math.round((Date.now() - startedAt) / 1000), ...summary, sample: undefined };

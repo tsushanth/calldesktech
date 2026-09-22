@@ -9,10 +9,13 @@ import { isBlockedDomain, isRegionBlocked, scoreLead, type ScoreEvidence } from 
 import { findJobPostingCandidates } from './jobPostingsSearch';
 import { findReviewSiteCandidates } from './reviewSitesSearch';
 import { findGithubCandidates } from './githubSignal';
+import { findTelephonyPlatformCandidates } from './telephonyPlatformsSearch';
+import { findSttTtsSignalCandidates } from './sttTtsSignalSearch';
 import { checkDomainForPlatforms } from '../signals/techFingerprint';
 import { LeadIndex } from './dedupe';
 import { researchAgency, type Dossier } from '../research';
 import { findSearchCandidates, queriesForDay } from './searchSource';
+import { calldesk, leadsTable, runsTable, messagesTable, suppressionsTable, type ProductConfig } from '../products';
 
 // The daily discovery harness. One call = one full pass:
 //   directory -> dedupe against existing leads -> enrich (domain, contact)
@@ -33,6 +36,10 @@ export interface RunOptions {
   researchLimit?: number;
   // Kill switch: polled between stages and inside loops; when true the run winds down cleanly.
   shouldStop?: () => boolean;
+  // Selects table names, offer facts/prompts/signature, and scoring vocabulary
+  // (see ../products.ts). Defaults to calldesk, so every existing caller that
+  // doesn't pass this keeps its exact prior behavior.
+  product?: ProductConfig;
 }
 
 export interface RunSummary {
@@ -84,6 +91,7 @@ interface LeadRow {
 }
 
 export async function runDiscovery(db: Db, opts: RunOptions = {}): Promise<RunSummary> {
+  const product = opts.product ?? calldesk;
   const dryRun = !!opts.dryRun;
   const enrichLimit = opts.enrichLimit ?? 25;
   const draftLimit = opts.draftLimit ?? 10;
@@ -100,22 +108,27 @@ export async function runDiscovery(db: Db, opts: RunOptions = {}): Promise<RunSu
   };
 
   if (!dryRun) {
-    const { data } = await db.from('calldesk_outreach_runs').insert({ dry_run: false }).select('id').single();
+    const { data } = await db.from(runsTable(product)).insert({ dry_run: false }).select('id').single();
     summary.runId = data?.id ?? null;
   }
 
   try {
-    const { entries, index } = await stageDirectory(db, summary, dryRun);
-    const searchEntries = stop() ? [] : await stageSearch(db, summary, dryRun, index, stop);
-    const jobPostingEntries = stop() ? [] : await stageJobPostings(db, summary, dryRun, index, stop);
-    const reviewSiteEntries = stop() ? [] : await stageReviewSites(db, summary, dryRun, index, stop);
-    const githubEntries = stop() ? [] : await stageGithub(db, summary, dryRun, index, stop);
-    const allEntries = [...entries, ...searchEntries, ...jobPostingEntries, ...reviewSiteEntries, ...githubEntries];
-    if (!stop()) await stageEnrich(db, summary, dryRun, enrichLimit, allEntries, index, stop);
+    const { entries, index } = await stageDirectory(db, summary, dryRun, product);
+    const searchEntries = stop() ? [] : await stageSearch(db, summary, dryRun, index, stop, product);
+    const jobPostingEntries = stop() ? [] : await stageJobPostings(db, summary, dryRun, index, stop, product);
+    const reviewSiteEntries = stop() ? [] : await stageReviewSites(db, summary, dryRun, index, stop, product);
+    const githubEntries = stop() ? [] : await stageGithub(db, summary, dryRun, index, stop, product);
+    const telephonyEntries = stop() ? [] : await stageTelephonyPlatforms(db, summary, dryRun, index, stop, product);
+    const sttTtsEntries = stop() ? [] : await stageSttTtsSignal(db, summary, dryRun, index, stop, product);
+    const allEntries = [
+      ...entries, ...searchEntries, ...jobPostingEntries, ...reviewSiteEntries, ...githubEntries,
+      ...telephonyEntries, ...sttTtsEntries,
+    ];
+    if (!stop()) await stageEnrich(db, summary, dryRun, enrichLimit, allEntries, index, stop, product);
     const researchOn = process.env.OUTREACH_RESEARCH === '1';
-    if (researchOn && !stop()) await stageResearch(db, summary, dryRun, opts.researchLimit ?? 5, stop);
-    if (!stop()) await stageDraft(db, summary, dryRun, draftLimit, stop, researchOn);
-    if (!stop()) await stageFollowUp(db, summary, dryRun, stop);
+    if (researchOn && !stop()) await stageResearch(db, summary, dryRun, opts.researchLimit ?? 5, stop, product);
+    if (!stop()) await stageDraft(db, summary, dryRun, draftLimit, stop, researchOn, product);
+    if (!stop()) await stageFollowUp(db, summary, dryRun, stop, product);
   } catch (error) {
     summary.status = 'error';
     summary.errors.push(error instanceof Error ? error.message : String(error));
@@ -123,7 +136,7 @@ export async function runDiscovery(db: Db, opts: RunOptions = {}): Promise<RunSu
 
   if (!dryRun) {
     if (summary.runId) {
-      await db.from('calldesk_outreach_runs').update({
+      await db.from(runsTable(product)).update({
         finished_at: new Date().toISOString(),
         status: summary.status,
         leads_seen: summary.leadsSeen,
@@ -133,7 +146,7 @@ export async function runDiscovery(db: Db, opts: RunOptions = {}): Promise<RunSu
         errors: summary.errors.slice(0, 50),
       }).eq('id', summary.runId);
     }
-    await notify(db, summary);
+    await notify(db, summary, product);
   }
   return summary;
 }
@@ -144,20 +157,26 @@ interface DirectoryEntry {
 }
 
 async function stageDirectory(
-  db: Db, summary: RunSummary, dryRun: boolean,
+  db: Db, summary: RunSummary, dryRun: boolean, product: ProductConfig,
 ): Promise<{ entries: DirectoryEntry[]; index: LeadIndex<LeadRow> }> {
+  const { data: existing } = await db.from(leadsTable(product)).select('*');
+  const index = new LeadIndex<LeadRow>((existing ?? []) as LeadRow[]);
+
+  // The Retell partner directory is calldesk-specific (calldesk competes
+  // directly with agencies on Retell's directory); readaloud has no
+  // equivalent directory source, but the index above (existing leads for
+  // this product) is still needed by every later dedupe stage.
+  if (product.id !== 'calldesk') return { entries: [], index };
+
   const partners = await fetchDirectory();
   const entries: DirectoryEntry[] = [];
   const handled = new Set<string>();
   summary.directoryCount = partners.length;
-
-  const { data: existing } = await db.from('calldesk_outreach_leads').select('*');
-  const index = new LeadIndex<LeadRow>((existing ?? []) as LeadRow[]);
   const now = new Date().toISOString();
 
   for (const p of partners) {
     const sourceKey = `retell:${p.slug}`;
-    const { score, reasons } = scoreLead({ tier: p.tier, location: p.location, description: p.description });
+    const { score, reasons } = scoreLead({ tier: p.tier, location: p.location, description: p.description }, undefined, product);
     const blocked = isRegionBlocked(p.location, p.name);
     const match = index.find({ sourceKey, name: p.name });
 
@@ -171,7 +190,7 @@ async function stageDirectory(
         row: { ...match, source_key: match.source_key ?? sourceKey, tier: p.tier, location: p.location, description: p.description, score, region_blocked: blocked, signals: { reasons, techPlatforms: [] } },
       });
       if (dryRun) continue;
-      const { error } = await db.from('calldesk_outreach_leads').update({
+      const { error } = await db.from(leadsTable(product)).update({
         source_key: match.source_key ?? sourceKey,
         tier: p.tier, location: p.location, description: p.description,
         score, region_blocked: blocked, signals: { reasons, techPlatforms: [] }, last_seen_at: now,
@@ -191,7 +210,7 @@ async function stageDirectory(
       entries.push({ slug: p.slug, row: fake });
       continue;
     }
-    const { data: inserted, error } = await db.from('calldesk_outreach_leads').insert({
+    const { data: inserted, error } = await db.from(leadsTable(product)).insert({
       company_name: p.name,
       signal_source: 'directory',
       signal_detail: `Retell ${p.tier ?? 'partner'}: ${(p.description ?? '').slice(0, 200)}`,
@@ -212,8 +231,12 @@ async function stageDirectory(
 // Second source: rotating web searches for agencies on any platform. Every
 // candidate is website-verified inside findSearchCandidates before it gets here.
 async function stageSearch(
-  db: Db, summary: RunSummary, dryRun: boolean, index: LeadIndex<LeadRow>, stop: () => boolean,
+  db: Db, summary: RunSummary, dryRun: boolean, index: LeadIndex<LeadRow>, stop: () => boolean, product: ProductConfig,
 ): Promise<DirectoryEntry[]> {
+  // This generic agency-search source is calldesk-specific (agencies that
+  // build/sell AI voice agents); readaloud's equivalents are
+  // telephonyPlatformsSearch.ts / sttTtsSignalSearch.ts below.
+  if (product.id !== 'calldesk') return [];
   if (process.env.OUTREACH_SEARCH_ENABLED === 'false') return [];
   const perDay = Math.min(6, Math.max(0, Number(process.env.OUTREACH_SEARCH_QUERIES_PER_DAY ?? 3)));
   if (!perDay) return [];
@@ -230,7 +253,7 @@ async function stageSearch(
     if (index.find({ sourceKey, name: c.name, domain: c.domain })) continue; // already known: never re-add
 
     const blocked = isRegionBlocked(c.location, c.name) || isBlockedDomain(c.domain);
-    const { score, reasons } = scoreLead({ tier: null, location: c.location, description: c.blurb }, { viaReviewSite: false });
+    const { score, reasons } = scoreLead({ tier: null, location: c.location, description: c.blurb }, { viaReviewSite: false }, product);
     summary.leadsNew++;
 
     const base = {
@@ -243,7 +266,7 @@ async function stageSearch(
       entries.push({ slug: null, row: fake });
       continue;
     }
-    const { data: inserted, error } = await db.from('calldesk_outreach_leads').insert({
+    const { data: inserted, error } = await db.from(leadsTable(product)).insert({
       ...base, signal_source: 'search', signal_detail: `Web search: ${(c.blurb ?? '').slice(0, 200)}`, last_seen_at: now,
     }).select('*').single();
     if (error) {
@@ -260,8 +283,11 @@ async function stageSearch(
 // Job-postings signal: agencies publicly hiring for a voice-AI role. Off by
 // default (OUTREACH_JOBPOSTINGS_QUERIES_PER_DAY=0) until manually enabled.
 async function stageJobPostings(
-  db: Db, summary: RunSummary, dryRun: boolean, index: LeadIndex<LeadRow>, stop: () => boolean,
+  db: Db, summary: RunSummary, dryRun: boolean, index: LeadIndex<LeadRow>, stop: () => boolean, product: ProductConfig,
 ): Promise<DirectoryEntry[]> {
+  // Calldesk-specific: "hiring a voice-AI engineer" is an agency-reseller
+  // signal, not a readaloud ICP signal.
+  if (product.id !== 'calldesk') return [];
   const perDay = Math.min(6, Math.max(0, Number(process.env.OUTREACH_JOBPOSTINGS_QUERIES_PER_DAY ?? 0)));
   if (!perDay) return [];
 
@@ -278,7 +304,7 @@ async function stageJobPostings(
     if (index.find({ sourceKey, name: c.name, domain: c.domain })) continue;
 
     const blocked = isRegionBlocked(c.location, c.name) || isBlockedDomain(c.domain);
-    const { score, reasons } = scoreLead({ tier: null, location: c.location, description: c.blurb }, { viaJobPosting: true });
+    const { score, reasons } = scoreLead({ tier: null, location: c.location, description: c.blurb }, { viaJobPosting: true }, product);
     summary.leadsNew++;
 
     const base = {
@@ -291,7 +317,7 @@ async function stageJobPostings(
       entries.push({ slug: null, row: fake });
       continue;
     }
-    const { data: inserted, error } = await db.from('calldesk_outreach_leads').insert({
+    const { data: inserted, error } = await db.from(leadsTable(product)).insert({
       ...base, signal_source: 'job_posting', signal_detail: `Job posting: ${(c.blurb ?? '').slice(0, 200)}`, last_seen_at: now,
     }).select('*').single();
     if (error) {
@@ -317,8 +343,10 @@ async function stageJobPostings(
 const REVIEW_SITE_DESCRIPTION = 'Named in a public review as a voice-AI provider.';
 
 async function stageReviewSites(
-  db: Db, summary: RunSummary, dryRun: boolean, index: LeadIndex<LeadRow>, stop: () => boolean,
+  db: Db, summary: RunSummary, dryRun: boolean, index: LeadIndex<LeadRow>, stop: () => boolean, product: ProductConfig,
 ): Promise<DirectoryEntry[]> {
+  // Calldesk-specific: G2/Capterra/Clutch reviews naming a voice-AI agency.
+  if (product.id !== 'calldesk') return [];
   const perDay = Math.min(6, Math.max(0, Number(process.env.OUTREACH_REVIEWSITES_QUERIES_PER_DAY ?? 0)));
   if (!perDay) return [];
 
@@ -335,7 +363,7 @@ async function stageReviewSites(
     if (index.find({ sourceKey, name: c.name, domain: c.domain })) continue;
 
     const blocked = isRegionBlocked(c.location, c.name) || isBlockedDomain(c.domain);
-    const { score, reasons } = scoreLead({ tier: null, location: c.location, description: c.blurb }, { viaReviewSite: true });
+    const { score, reasons } = scoreLead({ tier: null, location: c.location, description: c.blurb }, { viaReviewSite: true }, product);
     summary.leadsNew++;
 
     const base = {
@@ -348,7 +376,7 @@ async function stageReviewSites(
       entries.push({ slug: null, row: fake });
       continue;
     }
-    const { data: inserted, error } = await db.from('calldesk_outreach_leads').insert({
+    const { data: inserted, error } = await db.from(leadsTable(product)).insert({
       ...base, signal_source: 'review_site', signal_detail: (c.blurb ?? REVIEW_SITE_DESCRIPTION).slice(0, 200), last_seen_at: now,
     }).select('*').single();
     if (error) {
@@ -366,8 +394,10 @@ async function stageReviewSites(
 // voice-AI SDK for clients. Reuses signal_source='search' (no dedicated DB
 // value; see githubSignal.ts).
 async function stageGithub(
-  db: Db, summary: RunSummary, dryRun: boolean, index: LeadIndex<LeadRow>, stop: () => boolean,
+  db: Db, summary: RunSummary, dryRun: boolean, index: LeadIndex<LeadRow>, stop: () => boolean, product: ProductConfig,
 ): Promise<DirectoryEntry[]> {
+  // Calldesk-specific: agencies integrating Vapi/Retell/Bland for clients.
+  if (product.id !== 'calldesk') return [];
   const perDay = Math.min(6, Math.max(0, Number(process.env.OUTREACH_GITHUB_QUERIES_PER_DAY ?? 0)));
   if (!perDay) return [];
 
@@ -384,7 +414,7 @@ async function stageGithub(
     if (index.find({ sourceKey, name: c.name, domain: c.domain })) continue;
 
     const blocked = isRegionBlocked(c.location, c.name) || isBlockedDomain(c.domain);
-    const { score, reasons } = scoreLead({ tier: null, location: c.location, description: c.blurb });
+    const { score, reasons } = scoreLead({ tier: null, location: c.location, description: c.blurb }, undefined, product);
     summary.leadsNew++;
 
     const base = {
@@ -397,7 +427,7 @@ async function stageGithub(
       entries.push({ slug: null, row: fake });
       continue;
     }
-    const { data: inserted, error } = await db.from('calldesk_outreach_leads').insert({
+    const { data: inserted, error } = await db.from(leadsTable(product)).insert({
       ...base, signal_source: 'search', signal_detail: `GitHub/dev signal: ${(c.blurb ?? '').slice(0, 190)}`, last_seen_at: now,
     }).select('*').single();
     if (error) {
@@ -411,8 +441,108 @@ async function stageGithub(
   return entries;
 }
 
+// readaloud discovery, Segment A: AI telephony/voice-agent platforms (Retell,
+// Bland, Vapi, Synthflow, smaller/regional competitors) currently paying
+// Deepgram/ElevenLabs/Cartesia for STT/TTS. Only active for readaloud.
+async function stageTelephonyPlatforms(
+  db: Db, summary: RunSummary, dryRun: boolean, index: LeadIndex<LeadRow>, stop: () => boolean, product: ProductConfig,
+): Promise<DirectoryEntry[]> {
+  if (product.id !== 'readaloud') return [];
+  const perDay = Math.min(6, Math.max(0, Number(process.env.OUTREACH_TELEPHONY_QUERIES_PER_DAY ?? 2)));
+  if (!perDay) return [];
+
+  const { candidates, errors, raw, rejected } = await findTelephonyPlatformCandidates(perDay, stop);
+  summary.errors.push(...errors);
+  summary.searchCandidates += candidates.length;
+  if (rejected.length) summary.errors.push(`[telephony_platform] rejected: ${rejected.slice(0, 5).join(', ')}`);
+  void raw;
+
+  const entries: DirectoryEntry[] = [];
+  const now = new Date().toISOString();
+  for (const c of candidates) {
+    const sourceKey = `telephony_platform:${c.domain}`;
+    if (index.find({ sourceKey, name: c.name, domain: c.domain })) continue;
+
+    const blocked = isRegionBlocked(c.location, c.name) || isBlockedDomain(c.domain);
+    const { score, reasons } = scoreLead({ tier: null, location: c.location, description: c.blurb }, undefined, product);
+    summary.leadsNew++;
+
+    const base = {
+      company_name: c.name, domain: c.domain, source_key: sourceKey, tier: null, location: c.location,
+      description: c.blurb, score, region_blocked: blocked, signals: { reasons, techPlatforms: [] },
+    };
+    if (dryRun) {
+      const fake = { id: `dry-${c.domain}`, status: 'new', contact_email: null, contact_status: 'unknown', enriched_at: null, ...base } as LeadRow;
+      index.add(fake);
+      entries.push({ slug: null, row: fake });
+      continue;
+    }
+    const { data: inserted, error } = await db.from(leadsTable(product)).insert({
+      ...base, signal_source: 'search', signal_detail: `Telephony platform signal: ${(c.blurb ?? '').slice(0, 180)}`, last_seen_at: now,
+    }).select('*').single();
+    if (error) {
+      summary.leadsNew--;
+      summary.errors.push(`insert ${c.name}: ${error.message}`);
+    } else if (inserted) {
+      index.add(inserted as LeadRow);
+      entries.push({ slug: null, row: inserted as LeadRow });
+    }
+  }
+  return entries;
+}
+
+// readaloud discovery, Segment B: broader realtime voice builders outside
+// telephony (voice agents, dubbing/localization, accessibility, IVR
+// replacement, e-learning narration). Only active for readaloud.
+async function stageSttTtsSignal(
+  db: Db, summary: RunSummary, dryRun: boolean, index: LeadIndex<LeadRow>, stop: () => boolean, product: ProductConfig,
+): Promise<DirectoryEntry[]> {
+  if (product.id !== 'readaloud') return [];
+  const perDay = Math.min(6, Math.max(0, Number(process.env.OUTREACH_STTTTS_QUERIES_PER_DAY ?? 2)));
+  if (!perDay) return [];
+
+  const { candidates, errors, raw, rejected } = await findSttTtsSignalCandidates(perDay, stop);
+  summary.errors.push(...errors);
+  summary.searchCandidates += candidates.length;
+  if (rejected.length) summary.errors.push(`[stt_tts_signal] rejected: ${rejected.slice(0, 5).join(', ')}`);
+  void raw;
+
+  const entries: DirectoryEntry[] = [];
+  const now = new Date().toISOString();
+  for (const c of candidates) {
+    const sourceKey = `stt_tts_signal:${c.domain}`;
+    if (index.find({ sourceKey, name: c.name, domain: c.domain })) continue;
+
+    const blocked = isRegionBlocked(c.location, c.name) || isBlockedDomain(c.domain);
+    const { score, reasons } = scoreLead({ tier: null, location: c.location, description: c.blurb }, undefined, product);
+    summary.leadsNew++;
+
+    const base = {
+      company_name: c.name, domain: c.domain, source_key: sourceKey, tier: null, location: c.location,
+      description: c.blurb, score, region_blocked: blocked, signals: { reasons, techPlatforms: [] },
+    };
+    if (dryRun) {
+      const fake = { id: `dry-${c.domain}`, status: 'new', contact_email: null, contact_status: 'unknown', enriched_at: null, ...base } as LeadRow;
+      index.add(fake);
+      entries.push({ slug: null, row: fake });
+      continue;
+    }
+    const { data: inserted, error } = await db.from(leadsTable(product)).insert({
+      ...base, signal_source: 'search', signal_detail: `STT/TTS builder signal: ${(c.blurb ?? '').slice(0, 180)}`, last_seen_at: now,
+    }).select('*').single();
+    if (error) {
+      summary.leadsNew--;
+      summary.errors.push(`insert ${c.name}: ${error.message}`);
+    } else if (inserted) {
+      index.add(inserted as LeadRow);
+      entries.push({ slug: null, row: inserted as LeadRow });
+    }
+  }
+  return entries;
+}
+
 async function stageEnrich(
-  db: Db, summary: RunSummary, dryRun: boolean, limit: number, entries: DirectoryEntry[], index: LeadIndex<LeadRow>, stop: () => boolean,
+  db: Db, summary: RunSummary, dryRun: boolean, limit: number, entries: DirectoryEntry[], index: LeadIndex<LeadRow>, stop: () => boolean, product: ProductConfig,
 ) {
   const recheckBefore = Date.now() - RECHECK_DAYS * 86_400_000;
 
@@ -430,13 +560,13 @@ async function stageEnrich(
 
       if (!domain) {
         summary.sample.enriched.push({ name: lead.company_name, domain: null, email: null, status: 'no-website' });
-        if (!dryRun) await db.from('calldesk_outreach_leads').update({ contact_status: 'none', enriched_at: now }).eq('id', lead.id);
+        if (!dryRun) await db.from(leadsTable(product)).update({ contact_status: 'none', enriched_at: now }).eq('id', lead.id);
         continue;
       }
 
       if (isBlockedDomain(domain)) {
         summary.sample.enriched.push({ name: lead.company_name, domain, email: null, status: 'region-blocked-domain' });
-        if (!dryRun) await db.from('calldesk_outreach_leads').update({ domain, region_blocked: true, enriched_at: now }).eq('id', lead.id);
+        if (!dryRun) await db.from(leadsTable(product)).update({ domain, region_blocked: true, enriched_at: now }).eq('id', lead.id);
         continue;
       }
 
@@ -445,7 +575,7 @@ async function stageEnrich(
         summary.duplicatesSkipped++;
         summary.sample.enriched.push({ name: lead.company_name, domain, email: null, status: `duplicate-of:${clash.company_name}` });
         if (!dryRun) {
-          await db.from('calldesk_outreach_leads').update({
+          await db.from(leadsTable(product)).update({
             status: 'dead', enriched_at: now, signal_detail: `Duplicate of ${clash.company_name} (same website ${domain})`,
           }).eq('id', lead.id);
         }
@@ -464,13 +594,13 @@ async function stageEnrich(
         viaJobPosting: lead.source_key?.startsWith('job_posting:') ?? false,
         viaReviewSite: lead.source_key?.startsWith('review_site:') ?? false,
       };
-      const { score: rescored, reasons } = scoreLead({ tier: lead.tier, location: lead.location, description: lead.description }, evidence);
+      const { score: rescored, reasons } = scoreLead({ tier: lead.tier, location: lead.location, description: lead.description }, evidence, product);
 
       if (dryRun) continue;
       const suppressed = contact.email
-        ? (await db.from('calldesk_outreach_suppressions').select('id').eq('email', contact.email).maybeSingle()).data
+        ? (await db.from(suppressionsTable(product)).select('id').eq('email', contact.email).maybeSingle()).data
         : null;
-      const { error } = await db.from('calldesk_outreach_leads').update({
+      const { error } = await db.from(leadsTable(product)).update({
         domain,
         contact_email: contact.email,
         contact_status: contact.status,
@@ -490,9 +620,9 @@ async function stageEnrich(
 // Research stage (Mac mini harness only, OUTREACH_RESEARCH=1): a restricted Claude
 // agent reads each qualified lead's own site and stores a dossier. Low-fit leads are
 // retired here so they never reach the review queue.
-async function stageResearch(db: Db, summary: RunSummary, dryRun: boolean, limit: number, stop: () => boolean) {
+async function stageResearch(db: Db, summary: RunSummary, dryRun: boolean, limit: number, stop: () => boolean, product: ProductConfig) {
   if (limit <= 0) return;
-  const { data } = await db.from('calldesk_outreach_leads').select('*')
+  const { data } = await db.from(leadsTable(product)).select('*')
     .eq('status', 'new').eq('contact_status', 'found').eq('region_blocked', false)
     .is('researched_at', null).not('domain', 'is', null).gte('score', MIN_DRAFT_SCORE)
     .order('score', { ascending: false }).limit(limit);
@@ -505,7 +635,7 @@ async function stageResearch(db: Db, summary: RunSummary, dryRun: boolean, limit
       if (dossier.fit === 'low') summary.lowFit++;
       summary.sample.researched.push({ name: lead.company_name, fit: dossier.fit, hook: dossier.hook, sources: dossier.sources.length });
       if (dryRun) continue;
-      const { error } = await db.from('calldesk_outreach_leads').update({
+      const { error } = await db.from(leadsTable(product)).update({
         research: dossier, researched_at: new Date().toISOString(), fit: dossier.fit,
         ...(dossier.fit === 'low' ? { status: 'dead', signal_detail: `Low fit: ${dossier.fit_reason}`.slice(0, 300) } : {}),
       }).eq('id', lead.id);
@@ -516,14 +646,14 @@ async function stageResearch(db: Db, summary: RunSummary, dryRun: boolean, limit
   }
 }
 
-async function stageDraft(db: Db, summary: RunSummary, dryRun: boolean, limit: number, stop: () => boolean, researchOn = false) {
+async function stageDraft(db: Db, summary: RunSummary, dryRun: boolean, limit: number, stop: () => boolean, researchOn = false, product: ProductConfig = calldesk) {
   if (dryRun) return;
   // Never let unreviewed drafts pile up: stop drafting once this many are waiting.
   const MAX_PENDING_DRAFTS = Number(process.env.OUTREACH_MAX_PENDING_DRAFTS || 25);
-  const { count: pending } = await db.from('calldesk_outreach_messages').select('id', { count: 'exact', head: true }).eq('status', 'draft');
+  const { count: pending } = await db.from(messagesTable(product)).select('id', { count: 'exact', head: true }).eq('status', 'draft');
   limit = Math.min(limit, Math.max(0, MAX_PENDING_DRAFTS - (pending ?? 0)));
   if (limit <= 0) return;
-  let query = db.from('calldesk_outreach_leads').select('*')
+  let query = db.from(leadsTable(product)).select('*')
     .eq('status', 'new').eq('contact_status', 'found').eq('region_blocked', false).gte('score', MIN_DRAFT_SCORE);
   // With research on, only researched, non-low-fit leads get drafted.
   if (researchOn) query = query.not('researched_at', 'is', null).in('fit', ['high', 'medium', 'unclear']);
@@ -531,10 +661,10 @@ async function stageDraft(db: Db, summary: RunSummary, dryRun: boolean, limit: n
   const leads = (data ?? []) as LeadRow[];
   if (!leads.length) return;
 
-  const { data: msgs } = await db.from('calldesk_outreach_messages').select('lead_id,to_email,status');
+  const { data: msgs } = await db.from(messagesTable(product)).select('lead_id,to_email,status');
   const drafted = new Set((msgs ?? []).filter((m) => m.status !== 'rejected').map((m) => m.lead_id as string));
   const emailed = new Set((msgs ?? []).filter((m) => m.status !== 'rejected').map((m) => String(m.to_email).toLowerCase()));
-  const { data: sup } = await db.from('calldesk_outreach_suppressions').select('email');
+  const { data: sup } = await db.from(suppressionsTable(product)).select('email');
   const suppressed = new Set((sup ?? []).map((s) => String(s.email).toLowerCase()));
 
   let made = 0;
@@ -545,15 +675,15 @@ async function stageDraft(db: Db, summary: RunSummary, dryRun: boolean, limit: n
     try {
       const draft = await draftAgencyEmail({
         name: lead.company_name, domain: lead.domain, tier: lead.tier, location: lead.location, description: lead.description,
-        dossier: lead.research ?? null,
+        dossier: lead.research ?? null, product,
       });
-      const { error } = await db.from('calldesk_outreach_messages').insert({
+      const { error } = await db.from(messagesTable(product)).insert({
         lead_id: lead.id, to_email: email, subject: draft.subject, body_text: draft.body, status: 'draft',
         sources: lead.research?.sources ?? [],
         translation_subject: draft.translationSubject ?? null, translation_body: draft.translationBody ?? null,
       });
       if (error) throw new Error(error.message);
-      await db.from('calldesk_outreach_leads').update({ status: 'report_generated', updated_at: new Date().toISOString() }).eq('id', lead.id);
+      await db.from(leadsTable(product)).update({ status: 'report_generated', updated_at: new Date().toISOString() }).eq('id', lead.id);
       emailed.add(email);
       made++;
       summary.draftsCreated++;
@@ -571,7 +701,7 @@ async function stageDraft(db: Db, summary: RunSummary, dryRun: boolean, limit: n
 const DEFAULT_FOLLOWUP_DELAY_DAYS = 4;
 const DEFAULT_MAX_FOLLOWUPS = 3;
 
-async function stageFollowUp(db: Db, summary: RunSummary, dryRun: boolean, stop: () => boolean) {
+async function stageFollowUp(db: Db, summary: RunSummary, dryRun: boolean, stop: () => boolean, product: ProductConfig) {
   if (dryRun) return;
   const delayDays = Math.max(1, Number(process.env.OUTREACH_FOLLOWUP_DELAY_DAYS) || DEFAULT_FOLLOWUP_DELAY_DAYS);
   // Number(undefined) is NaN, and `??` does not treat NaN as absent (only null/undefined
@@ -582,19 +712,19 @@ async function stageFollowUp(db: Db, summary: RunSummary, dryRun: boolean, stop:
   if (!maxFollowUps) return;
 
   const MAX_PENDING_DRAFTS = Number(process.env.OUTREACH_MAX_PENDING_DRAFTS || 25);
-  const { count: pending } = await db.from('calldesk_outreach_messages').select('id', { count: 'exact', head: true }).eq('status', 'draft');
+  const { count: pending } = await db.from(messagesTable(product)).select('id', { count: 'exact', head: true }).eq('status', 'draft');
   let budget = Math.max(0, MAX_PENDING_DRAFTS - (pending ?? 0));
   if (!budget) return;
 
   const cutoff = new Date(Date.now() - delayDays * 86_400_000).toISOString();
-  const { data: leads } = await db.from('calldesk_outreach_leads').select('*')
+  const { data: leads } = await db.from(leadsTable(product)).select('*')
     .eq('status', 'sent').eq('region_blocked', false).is('replied_at', null).limit(200);
   if (!leads?.length) return;
 
   for (const lead of leads as LeadRow[]) {
     if (budget <= 0 || stop()) break;
     try {
-      const { data: msgs } = await db.from('calldesk_outreach_messages').select('*').eq('lead_id', lead.id).neq('status', 'rejected').order('step', { ascending: false });
+      const { data: msgs } = await db.from(messagesTable(product)).select('*').eq('lead_id', lead.id).neq('status', 'rejected').order('step', { ascending: false });
       const latest = msgs?.[0];
       if (!latest || latest.status !== 'sent' || !latest.sent_at) continue; // a pending draft/approved earlier step is still in flight
       if (latest.sent_at > cutoff) continue; // too soon
@@ -603,9 +733,9 @@ async function stageFollowUp(db: Db, summary: RunSummary, dryRun: boolean, stop:
 
       const draft = await draftFollowUpEmail({
         name: lead.company_name, domain: lead.domain, tier: lead.tier, location: lead.location, description: lead.description,
-        dossier: lead.research ?? null, previousSubject: latest.subject, step: nextStep, isFinal: nextStep >= maxFollowUps,
+        dossier: lead.research ?? null, previousSubject: latest.subject, step: nextStep, isFinal: nextStep >= maxFollowUps, product,
       });
-      const { error } = await db.from('calldesk_outreach_messages').insert({
+      const { error } = await db.from(messagesTable(product)).insert({
         lead_id: lead.id, to_email: latest.to_email, subject: draft.subject, body_text: draft.body, status: 'draft',
         step: nextStep, sources: lead.research?.sources ?? [],
         translation_subject: draft.translationSubject ?? null, translation_body: draft.translationBody ?? null,
@@ -619,12 +749,12 @@ async function stageFollowUp(db: Db, summary: RunSummary, dryRun: boolean, stop:
   }
 }
 
-async function notify(db: Db, summary: RunSummary) {
+async function notify(db: Db, summary: RunSummary, product: ProductConfig) {
   const to = process.env.OUTREACH_ALERT_EMAIL || adminEmails()[0];
   if (!to) return;
-  const base = (process.env.NEXT_PUBLIC_APP_URL || 'https://calldesk.tech').replace(/\/$/, '');
+  const base = (process.env.NEXT_PUBLIC_APP_URL || product.baseUrl).replace(/\/$/, '');
 
-  const { data: recent } = await db.from('calldesk_outreach_runs').select('status,leads_seen').eq('dry_run', false)
+  const { data: recent } = await db.from(runsTable(product)).select('status,leads_seen').eq('dry_run', false)
     .not('finished_at', 'is', null).order('started_at', { ascending: false }).limit(3);
   const zeroStreak = (recent ?? []).length === 3 && (recent ?? []).every((r) => r.status === 'ok' && r.leads_seen === 0);
 
