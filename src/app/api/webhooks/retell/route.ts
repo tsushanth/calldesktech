@@ -95,16 +95,17 @@ export async function POST(request: NextRequest) {
           });
         }
 
-        // Post-call analysis (default-off: only when the agent version's
-        // globalSettings.postCallAnalysis has fields). Never throws.
-        const analysis = event.call.transcript
-          ? await runAndStorePostCallAnalysis({
-              supabase,
-              retellCallId: event.call.call_id,
-              retellAgentId: event.call.agent_id,
-              transcript: event.call.transcript,
-            })
-          : null;
+        // Post-call analysis: runs for every finished call. Always extracts a
+        // fixed set of built-in fields (summary/success/voicemail/sentiment),
+        // plus any custom fields the tenant configured, in one Claude call.
+        // Degrades gracefully (no LLM call, conservative defaults) when
+        // there's no transcript. Never throws.
+        const analysis = await runAndStorePostCallAnalysis({
+          supabase,
+          retellCallId: event.call.call_id,
+          retellAgentId: event.call.agent_id,
+          transcript: event.call.transcript,
+        });
 
         // Fire any alert rules the tenant configured for this outcome. Skipped
         // for demo tenants — those are throwaway and get cleaned up below. This

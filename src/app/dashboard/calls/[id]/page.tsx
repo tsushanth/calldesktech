@@ -137,18 +137,8 @@ export default function CallDetailPage() {
             </div>
           )}
 
-          {call.analysis && typeof call.analysis === 'object' && !Array.isArray(call.analysis) && Object.keys(call.analysis).length > 0 && (
-            <div className="rounded-xl border border-gray-200 bg-white p-5">
-              <h2 className="mb-3.5 text-[14px] font-semibold text-[#1a1d29]">Call Analysis</h2>
-              <div className="space-y-2.5">
-                {Object.entries(call.analysis as Record<string, unknown>).map(([key, value]) => (
-                  <div key={key}>
-                    <p className="text-[12px] capitalize text-gray-400">{key.replace(/_/g, ' ')}</p>
-                    <p className="text-[13.5px] font-medium text-[#1a1d29]">{value === null || value === undefined ? '—' : String(value)}</p>
-                  </div>
-                ))}
-              </div>
-            </div>
+          {call.analysis && typeof call.analysis === 'object' && !Array.isArray(call.analysis) && (
+            <CallAnalysisCard analysis={call.analysis as Record<string, unknown>} />
           )}
         </div>
 
@@ -182,6 +172,65 @@ function InfoRow({ label, value }: { label: string; value: string }) {
     <div className="flex justify-between text-[13.5px]">
       <span className="text-gray-400">{label}</span>
       <span className="font-medium capitalize text-[#1a1d29]">{value}</span>
+    </div>
+  );
+}
+
+interface BuiltInAnalysis {
+  call_summary?: string | null;
+  call_successful?: boolean | null;
+  in_voicemail?: boolean | null;
+  user_sentiment?: string | null;
+}
+
+function CallAnalysisCard({ analysis }: { analysis: Record<string, unknown> }) {
+  const hasBuiltIn = Boolean(analysis.built_in && typeof analysis.built_in === 'object' && !Array.isArray(analysis.built_in));
+  const builtIn = (hasBuiltIn ? analysis.built_in : {}) as BuiltInAnalysis;
+  const custom = (analysis.custom && typeof analysis.custom === 'object' && !Array.isArray(analysis.custom)
+    ? (analysis.custom as Record<string, unknown>)
+    : // Legacy rows written before built_in/custom existed store fields flatly.
+      !hasBuiltIn
+      ? analysis
+      : {}) as Record<string, unknown>;
+
+  const customEntries = Object.entries(custom);
+  if (!hasBuiltIn && customEntries.length === 0) return null;
+
+  return (
+    <div className="rounded-xl border border-gray-200 bg-white p-5">
+      <h2 className="mb-3.5 text-[14px] font-semibold text-[#1a1d29]">Call Analysis</h2>
+
+      {hasBuiltIn && (
+        <div className="space-y-3">
+          <div className="flex flex-wrap gap-2">
+            {builtIn.call_successful !== null && builtIn.call_successful !== undefined && (
+              <span
+                className={`rounded-full px-2.5 py-1 text-[12px] font-medium ${
+                  builtIn.call_successful ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'
+                }`}
+              >
+                {builtIn.call_successful ? 'Successful' : 'Unsuccessful'}
+              </span>
+            )}
+            {builtIn.in_voicemail && <span className="rounded-full bg-gray-100 px-2.5 py-1 text-[12px] font-medium text-gray-600">Voicemail</span>}
+            {builtIn.user_sentiment && (
+              <span className="rounded-full bg-blue-50 px-2.5 py-1 text-[12px] font-medium capitalize text-blue-700">{builtIn.user_sentiment}</span>
+            )}
+          </div>
+          {builtIn.call_summary && <p className="text-[13.5px] text-[#1a1d29]">{builtIn.call_summary}</p>}
+        </div>
+      )}
+
+      {customEntries.length > 0 && (
+        <div className={`space-y-2.5 ${hasBuiltIn ? 'mt-4 border-t border-gray-100 pt-4' : ''}`}>
+          {customEntries.map(([key, value]) => (
+            <div key={key}>
+              <p className="text-[12px] capitalize text-gray-400">{key.replace(/_/g, ' ')}</p>
+              <p className="text-[13.5px] font-medium text-[#1a1d29]">{value === null || value === undefined ? '—' : String(value)}</p>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
