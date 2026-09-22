@@ -17,9 +17,11 @@ const QUERIES = [
   'Clutch review AI receptionist agency for clients',
 ];
 
+// Slot (not day) keyed -- see searchSource.ts's queriesForDay for why.
+const SLOT_MS = 2 * 60 * 60_000; // 2 hours
 export function reviewSiteQueriesForDay(now = new Date(), perDay = 1): string[] {
-  const dayNumber = Math.floor(now.getTime() / 86_400_000);
-  return Array.from({ length: perDay }, (_, i) => QUERIES[(dayNumber + i) % QUERIES.length]);
+  const slotNumber = Math.floor(now.getTime() / SLOT_MS);
+  return Array.from({ length: perDay }, (_, i) => QUERIES[(slotNumber + i) % QUERIES.length]);
 }
 
 const PROMPT = (query: string) => `Search the web for: ${query}

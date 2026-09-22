@@ -16,9 +16,11 @@ const ROLE_QUERIES = [
   'company job posting "AI receptionist" build voice agents',
 ];
 
+// Slot (not day) keyed -- see searchSource.ts's queriesForDay for why.
+const SLOT_MS = 2 * 60 * 60_000; // 2 hours
 export function jobPostingQueriesForDay(now = new Date(), perDay = 2): string[] {
-  const dayNumber = Math.floor(now.getTime() / 86_400_000);
-  return Array.from({ length: perDay }, (_, i) => ROLE_QUERIES[(dayNumber + i) % ROLE_QUERIES.length]);
+  const slotNumber = Math.floor(now.getTime() / SLOT_MS);
+  return Array.from({ length: perDay }, (_, i) => ROLE_QUERIES[(slotNumber + i) % ROLE_QUERIES.length]);
 }
 
 const PROMPT = (query: string) => `Search the web for: ${query}

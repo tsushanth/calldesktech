@@ -550,6 +550,7 @@ async function stageDraft(db: Db, summary: RunSummary, dryRun: boolean, limit: n
       const { error } = await db.from('calldesk_outreach_messages').insert({
         lead_id: lead.id, to_email: email, subject: draft.subject, body_text: draft.body, status: 'draft',
         sources: lead.research?.sources ?? [],
+        translation_subject: draft.translationSubject ?? null, translation_body: draft.translationBody ?? null,
       });
       if (error) throw new Error(error.message);
       await db.from('calldesk_outreach_leads').update({ status: 'report_generated', updated_at: new Date().toISOString() }).eq('id', lead.id);
@@ -607,6 +608,7 @@ async function stageFollowUp(db: Db, summary: RunSummary, dryRun: boolean, stop:
       const { error } = await db.from('calldesk_outreach_messages').insert({
         lead_id: lead.id, to_email: latest.to_email, subject: draft.subject, body_text: draft.body, status: 'draft',
         step: nextStep, sources: lead.research?.sources ?? [],
+        translation_subject: draft.translationSubject ?? null, translation_body: draft.translationBody ?? null,
       });
       if (error) throw new Error(error.message);
       budget--;

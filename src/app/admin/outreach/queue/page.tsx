@@ -12,6 +12,8 @@ interface Message {
   error: string | null;
   step: number;
   sources?: string[];
+  translation_subject?: string | null;
+  translation_body?: string | null;
   lead: { company_name: string; domain: string | null; score: number | null; tier: string | null; contact_source_url: string | null; replied_at: string | null } | null;
 }
 
@@ -141,6 +143,13 @@ export default function OutreachQueuePage() {
               value={draft.body_text}
               onChange={(e) => setEdits((s) => ({ ...s, [m.id]: { ...draft, body_text: e.target.value } }))}
             />
+            {m.translation_subject && m.translation_body && (
+              <div className="mt-2 rounded-lg border border-blue-100 bg-blue-50/50 p-3">
+                <p className="mb-1 text-[11px] font-medium uppercase tracking-wide text-blue-700">English translation (for review only — not sent)</p>
+                <p className="text-[13px] font-medium text-gray-800">{m.translation_subject}</p>
+                <p className="mt-1 whitespace-pre-wrap text-[13px] leading-relaxed text-gray-700">{m.translation_body}</p>
+              </div>
+            )}
             {m.sources && m.sources.length > 0 && (
               <p className="mt-2 text-[12px] text-gray-400">
                 Based on:{' '}

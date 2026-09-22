@@ -5,21 +5,26 @@ import { join } from 'path';
 import { getSupabaseAdmin } from '@/lib/supabase';
 import { runDiscovery } from '@/lib/outreach/discovery/pipeline';
 
-// One bounded discovery pass, invoked once a day by launchd (run_cycle.sh).
+// One bounded discovery pass, invoked repeatedly through the day by launchd
+// (run_cycle.sh) so contact collection runs continuously rather than once/day.
 // Guard rails, all enforced here rather than trusted to config:
 //   STOP file       -> run nothing (touch ~/.calldesk-outreach/STOP to halt everything)
-//   once per day    -> refuses a second real run on the same local date (FORCE=1 overrides)
+//   min gap         -> refuses a second real run within OUTREACH_MIN_GAP_MINUTES of the
+//                      last one (default 60; FORCE=1 overrides) -- a TIMESTAMP gap, not a
+//                      calendar-date check, so multiple runs/day are the normal case.
 //   hard ceilings   -> enrichment <= 30, research <= 8, drafts <= 10 per run, whatever the env says
 //   soft deadline   -> winds down cleanly after 40 minutes
 //   disk floor      -> skips if the machine has under 400 MB free
-// It only reads public pages and writes leads/drafts. It has no send path.
+// It only reads public pages and writes leads/drafts. It has no send path --
+// sending stays manual-approval-gated and capped regardless of how often this runs.
 
 const BASE = join(homedir(), '.calldesk-outreach');
 const STOP = join(BASE, 'STOP');
-const LAST = join(BASE, 'last_run_date');
+const LAST = join(BASE, 'last_run_at');
 const RUNS = join(BASE, 'runs.jsonl');
 const DEADLINE_MS = 40 * 60_000;
 const MIN_FREE_MB = 400;
+const MIN_GAP_MS = Math.max(15, Number(process.env.OUTREACH_MIN_GAP_MINUTES) || 60) * 60_000;
 
 const clamp = (v: unknown, max: number, fallback: number) => {
   const n = Number(v);
@@ -38,7 +43,7 @@ function freeMb(): number {
 async function main(): Promise<number> {
   mkdirSync(BASE, { recursive: true });
   const stamp = new Date().toISOString();
-  const today = new Date().toLocaleDateString('en-CA');
+  const now = Date.now();
   const dryRun = process.env.DRY_RUN === '1';
 
   if (existsSync(STOP)) {
@@ -50,11 +55,15 @@ async function main(): Promise<number> {
     console.error(`[${stamp}] only ${free} MB free (< ${MIN_FREE_MB}), skipping run`);
     return 2;
   }
-  if (!dryRun && process.env.FORCE !== '1' && existsSync(LAST) && readFileSync(LAST, 'utf8').trim() === today) {
-    console.log(`[${stamp}] already ran today (${today}), skipping (FORCE=1 to override)`);
-    return 0;
+  if (!dryRun && process.env.FORCE !== '1' && existsSync(LAST)) {
+    const lastAt = Number(readFileSync(LAST, 'utf8').trim());
+    if (Number.isFinite(lastAt) && now - lastAt < MIN_GAP_MS) {
+      const waitMin = Math.ceil((MIN_GAP_MS - (now - lastAt)) / 60_000);
+      console.log(`[${stamp}] ran ${Math.round((now - lastAt) / 60_000)}m ago, waiting ${waitMin}m more (FORCE=1 to override)`);
+      return 0;
+    }
   }
-  if (!dryRun) writeFileSync(LAST, today);
+  if (!dryRun) writeFileSync(LAST, String(now));
 
   const startedAt = Date.now();
   const summary = await runDiscovery(getSupabaseAdmin(), {

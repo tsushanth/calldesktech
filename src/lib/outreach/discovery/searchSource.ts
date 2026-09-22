@@ -37,14 +37,18 @@ const REGIONS = [
   'Japan', 'South Korea', 'Taiwan', 'Hong Kong', 'Australia and New Zealand', 'Pakistan', 'Bangladesh',
 ];
 
-// Deterministic rotation: each day advances through vertical x phrasing combos.
+// Deterministic rotation, keyed by a time SLOT rather than calendar day, so
+// running the harness several times a day advances through fresh vertical x
+// phrasing combos each time instead of repeating the same day's set. The slot
+// width should match (or be smaller than) the harness's run cadence.
+const SLOT_MS = 2 * 60 * 60_000; // 2 hours
 export function queriesForDay(now = new Date(), perDay = 3): string[] {
   const combos = [
     ...VERTICALS.flatMap((v) => PHRASINGS.map((p) => `${p} ${v}`)),
     ...REGIONS.flatMap((r) => ['AI voice agent agency in', 'AI receptionist and phone agent company in'].map((p) => `${p} ${r}`)),
   ];
-  const dayNumber = Math.floor(now.getTime() / 86_400_000);
-  return Array.from({ length: perDay }, (_, i) => combos[(dayNumber * perDay + i) % combos.length]);
+  const slotNumber = Math.floor(now.getTime() / SLOT_MS);
+  return Array.from({ length: perDay }, (_, i) => combos[(slotNumber * perDay + i) % combos.length]);
 }
 
 const PLATFORM_HOSTS = ['retellai.com', 'vapi.ai', 'bland.ai', 'synthflow.ai', 'elevenlabs.io', 'poly.ai', 'openai.com', 'microsoft.com', 'amazon.com', 'twilio.com', 'g2.com', 'capterra.com', 'clutch.co'];

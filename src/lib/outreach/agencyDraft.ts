@@ -28,6 +28,11 @@ export interface AgencyDraftInput {
 export interface AgencyDraft {
   subject: string;
   body: string;
+  // Literal English back-translation, present only when the draft itself was
+  // written in a non-English target language — lets an admin who can't read
+  // that language verify the content before approving it.
+  translationSubject?: string;
+  translationBody?: string;
 }
 
 const DRAFT_SCHEMA = {
@@ -41,6 +46,8 @@ const DRAFT_SCHEMA = {
       description:
         'Plain-text email body, 90-140 words, 2-3 short paragraphs, no greeting name guess (start with "Hi there," if no name is known). No sign-off or signature, no links, no footer.',
     },
+    translationSubject: { type: 'string', description: 'Literal English translation of subject, for review only. Omit entirely if subject/body are already in English.' },
+    translationBody: { type: 'string', description: 'Literal English translation of body, for review only. Omit entirely if subject/body are already in English.' },
   },
 } as const;
 
@@ -57,7 +64,8 @@ Rules:
 - Write in the first person plural ("we", "us", "our"). Never use "I", "me" or "my", and never introduce yourselves by name or title.
 - Do NOT write a sign-off or signature; one is added automatically.
 - Any sentence that asks something must end with a question mark.
-- If a target language is specified below, write the ENTIRE email (subject and body) fluently and naturally in that language — not a literal/stilted translation. The offer facts must still only state what's given, exactly as accurately in that language. If no target language is specified, write in English.`;
+- If a target language is specified below, write the ENTIRE email (subject and body) fluently and naturally in that language — not a literal/stilted translation. The offer facts must still only state what's given, exactly as accurately in that language. If no target language is specified, write in English.
+- If a target language is specified, ALSO return translationSubject and translationBody: a literal, plain English translation of the subject and body you wrote, for internal review only (not sent). If no target language is specified, omit both fields.`;
 
 export const SIGNATURE = 'Sushanth & Deepika\nCo-founders, Calldesk';
 
@@ -92,12 +100,18 @@ export async function draftAgencyEmail(input: AgencyDraftInput): Promise<AgencyD
 
   if (usingCli()) {
     const text = cliComplete(
-      `${SYSTEM_PROMPT}\n\n${userPrompt}\n\nReply with ONLY a JSON object {"subject": string, "body": string}. No markdown fences, no commentary.`,
+      `${SYSTEM_PROMPT}\n\n${userPrompt}\n\nReply with ONLY a JSON object {"subject": string, "body": string${language ? ', "translationSubject": string, "translationBody": string' : ''}}. No markdown fences, no commentary.`,
       { maxTurns: 2 },
     );
     const parsed = extractJson<AgencyDraft>(text, 'object');
     if (!parsed || typeof parsed.subject !== 'string' || typeof parsed.body !== 'string') throw new Error('Draft reply was not valid JSON');
-    return { subject: parsed.subject.trim(), body: tidyBody(parsed.body) };
+    return {
+      subject: parsed.subject.trim(),
+      body: tidyBody(parsed.body),
+      ...(typeof parsed.translationSubject === 'string' && typeof parsed.translationBody === 'string'
+        ? { translationSubject: parsed.translationSubject.trim(), translationBody: parsed.translationBody.trim() }
+        : {}),
+    };
   }
 
   const client = getAnthropicClient();
@@ -115,7 +129,13 @@ export async function draftAgencyEmail(input: AgencyDraftInput): Promise<AgencyD
   }
   if (!raw.trim()) throw new Error('Draft model returned no text content');
   const parsed = JSON.parse(raw) as AgencyDraft;
-  return { subject: parsed.subject.trim(), body: tidyBody(parsed.body) };
+  return {
+    subject: parsed.subject.trim(),
+    body: tidyBody(parsed.body),
+    ...(typeof parsed.translationSubject === 'string' && typeof parsed.translationBody === 'string'
+      ? { translationSubject: parsed.translationSubject.trim(), translationBody: parsed.translationBody.trim() }
+      : {}),
+  };
 }
 
 // Follow-up: most people don't reply to a single cold email. A short, low-
@@ -133,7 +153,8 @@ Rules:
 - Do NOT write a sign-off or signature; one is added automatically.
 - Any sentence that asks something must end with a question mark.
 - On the LAST allowed follow-up (see "This is the final follow-up" note if present), explicitly say this is the last check-in and offer to close the loop if it's not a fit.
-- If a target language is specified below, write the ENTIRE follow-up (subject and body) in that language, naturally, matching the language the first email was sent in. If none is specified, write in English.`;
+- If a target language is specified below, write the ENTIRE follow-up (subject and body) in that language, naturally, matching the language the first email was sent in. If none is specified, write in English.
+- If a target language is specified, ALSO return translationSubject and translationBody: a literal, plain English translation of the subject and body you wrote, for internal review only (not sent). If no target language is specified, omit both fields.`;
 
 export interface FollowUpInput extends AgencyDraftInput {
   previousSubject: string;
@@ -161,10 +182,16 @@ export async function draftFollowUpEmail(input: FollowUpInput): Promise<AgencyDr
     .join('\n');
 
   const text = cliComplete(
-    `${FOLLOWUP_SYSTEM_PROMPT}\n\n${userPrompt}\n\nReply with ONLY a JSON object {"subject": string, "body": string}. subject should be "${followUpSubject(input.previousSubject)}" unless a small variation reads more natural. No markdown fences, no commentary.`,
+    `${FOLLOWUP_SYSTEM_PROMPT}\n\n${userPrompt}\n\nReply with ONLY a JSON object {"subject": string, "body": string${language ? ', "translationSubject": string, "translationBody": string' : ''}}. subject should be "${followUpSubject(input.previousSubject)}" unless a small variation reads more natural. No markdown fences, no commentary.`,
     { maxTurns: 2 },
   );
   const parsed = extractJson<AgencyDraft>(text, 'object');
   if (!parsed || typeof parsed.subject !== 'string' || typeof parsed.body !== 'string') throw new Error('Follow-up draft reply was not valid JSON');
-  return { subject: parsed.subject.trim(), body: tidyBody(parsed.body) };
+  return {
+    subject: parsed.subject.trim(),
+    body: tidyBody(parsed.body),
+    ...(typeof parsed.translationSubject === 'string' && typeof parsed.translationBody === 'string'
+      ? { translationSubject: parsed.translationSubject.trim(), translationBody: parsed.translationBody.trim() }
+      : {}),
+  };
 }
