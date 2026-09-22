@@ -1,5 +1,6 @@
 import { getAnthropicClient } from '@/lib/anthropic';
 import { cliComplete, extractJson, usingCli } from './llm';
+import { detectDraftLanguage } from './language';
 
 // Drafts a short first-touch email to a voice-AI agency. Facts the model may
 // state are limited to OFFER_FACTS below; everything else (payout timing,
@@ -8,6 +9,7 @@ import { cliComplete, extractJson, usingCli } from './llm';
 
 export const OFFER_FACTS = [
   'Calldesk (calldesk.tech) is an AI voice-agent platform: inbound and outbound phone agents, knowledge base, call analytics.',
+  'Calldesk supports 55 languages on live calls, verified end-to-end (speech recognition, the agent itself, voice, and turn-taking).',
   'We are looking for a small number of agency design partners to try it with their clients.',
   'Partners receive a 20% revenue share on usage from customers they refer.',
   'Partners get a free trial and direct access to the founders.',
@@ -54,7 +56,8 @@ Rules:
 - No hype words, no emojis, no exclamation marks.
 - Write in the first person plural ("we", "us", "our"). Never use "I", "me" or "my", and never introduce yourselves by name or title.
 - Do NOT write a sign-off or signature; one is added automatically.
-- Any sentence that asks something must end with a question mark.`;
+- Any sentence that asks something must end with a question mark.
+- If a target language is specified below, write the ENTIRE email (subject and body) fluently and naturally in that language — not a literal/stilted translation. The offer facts must still only state what's given, exactly as accurately in that language. If no target language is specified, write in English.`;
 
 export const SIGNATURE = 'Sushanth & Deepika\nCo-founders, Calldesk';
 
@@ -70,10 +73,12 @@ export function tidyBody(body: string): string {
 }
 
 export async function draftAgencyEmail(input: AgencyDraftInput): Promise<AgencyDraft> {
+  const language = detectDraftLanguage(input.location ?? null);
 
   const userPrompt = [
     `Agency: ${input.name}${input.domain ? ` (${input.domain})` : ''}`,
     input.location ? `Location: ${input.location}` : '',
+    language ? `Target language: ${language.name} — write the whole email in ${language.name}. This is an international lead, so it's worth naturally mentioning Calldesk supports ${language.name} (part of its 55 verified languages) if it fits.` : '',
     input.description ? `Their own description of what they do:\n"""\n${input.description}\n"""` : '',
     input.dossier
       ? `Verified facts from their own website (mention at most ONE, exactly as stated, no embellishment):\n- ${input.dossier.summary}${input.dossier.hook ? `\n- Specific detail: ${input.dossier.hook}` : ''}${input.dossier.verticals.length ? `\n- Verticals: ${input.dossier.verticals.join(', ')}` : ''}`
@@ -127,7 +132,8 @@ Rules:
 - Write in the first person plural ("we", "us", "our"). Never use "I", "me" or "my", and never introduce yourselves by name or title.
 - Do NOT write a sign-off or signature; one is added automatically.
 - Any sentence that asks something must end with a question mark.
-- On the LAST allowed follow-up (see "This is the final follow-up" note if present), explicitly say this is the last check-in and offer to close the loop if it's not a fit.`;
+- On the LAST allowed follow-up (see "This is the final follow-up" note if present), explicitly say this is the last check-in and offer to close the loop if it's not a fit.
+- If a target language is specified below, write the ENTIRE follow-up (subject and body) in that language, naturally, matching the language the first email was sent in. If none is specified, write in English.`;
 
 export interface FollowUpInput extends AgencyDraftInput {
   previousSubject: string;
@@ -140,8 +146,10 @@ export function followUpSubject(previousSubject: string): string {
 }
 
 export async function draftFollowUpEmail(input: FollowUpInput): Promise<AgencyDraft> {
+  const language = detectDraftLanguage(input.location ?? null);
   const userPrompt = [
     `Agency: ${input.name}${input.domain ? ` (${input.domain})` : ''}`,
+    language ? `Target language: ${language.name} — write the whole follow-up in ${language.name}.` : '',
     input.dossier?.hook ? `A specific detail about them, usable at most once across all emails so far: ${input.dossier.hook}` : '',
     `This is follow-up #${input.step - 1} to our earlier email, subject "${input.previousSubject}", which got no reply.`,
     input.isFinal ? 'This is the final follow-up in this sequence — say so, and offer to close the loop if it\'s not a fit.' : '',

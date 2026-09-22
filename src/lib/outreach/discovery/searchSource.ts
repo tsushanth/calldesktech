@@ -18,10 +18,23 @@ const VERTICALS = [
   'chiropractors', 'veterinary clinics', 'contractors and trades', 'financial advisors', 'senior living and home care',
 ];
 const PHRASINGS = ['AI voice agent agency for', 'AI receptionist company for', 'AI phone answering service built for'];
+// Calldesk now supports 55 languages on real calls (STT+LLM+TTS+turn-taking
+// verified) — this list was widened accordingly to actually go after
+// international markets, not just the handful of English-speaking ones.
+// Germany/Austria/Switzerland are deliberately excluded: score.ts blocks
+// those regions from any outreach (prior-consent requirement), so searching
+// for them would only waste query budget on leads that get filtered anyway.
 const REGIONS = [
-  'the United Kingdom', 'Ireland', 'the Netherlands', 'France', 'Spain', 'Italy', 'Poland', 'Sweden and the Nordics',
-  'Canada', 'Australia and New Zealand', 'India', 'the UAE and Middle East', 'Singapore and Southeast Asia',
-  'Brazil and Latin America', 'South Africa',
+  // Europe
+  'the United Kingdom', 'Ireland', 'the Netherlands', 'Belgium', 'France', 'Spain', 'Portugal', 'Italy', 'Poland',
+  'Sweden and the Nordics', 'Norway', 'Denmark', 'Finland', 'Czech Republic', 'Romania', 'Hungary', 'Greece',
+  // Americas
+  'Canada', 'Mexico', 'Brazil', 'Colombia', 'Argentina', 'Chile', 'Peru', 'Central America', 'the Caribbean',
+  // Middle East / Africa
+  'the UAE and Middle East', 'Saudi Arabia', 'Israel', 'Turkey', 'South Africa', 'Nigeria', 'Kenya', 'Morocco', 'Egypt',
+  // Asia-Pacific
+  'India', 'Singapore and Southeast Asia', 'Indonesia', 'Vietnam', 'Thailand', 'the Philippines', 'Malaysia',
+  'Japan', 'South Korea', 'Taiwan', 'Hong Kong', 'Australia and New Zealand', 'Pakistan', 'Bangladesh',
 ];
 
 // Deterministic rotation: each day advances through vertical x phrasing combos.
