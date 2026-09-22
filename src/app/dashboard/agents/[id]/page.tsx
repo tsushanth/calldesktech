@@ -1470,8 +1470,8 @@ export default function AgentBuilderPage() {
                             <option value="">Default (CallDeskTech)</option>
                             <option value="kokoro">CallDeskTech</option>
                             <option value="elevenlabs">ElevenLabs</option>
-                            <option value="cartesia">Cartesia (not yet enabled)</option>
-                            <option value="minimax">MiniMax (not yet enabled)</option>
+                            <option value="cartesia">Cartesia</option>
+                            <option value="minimax">MiniMax</option>
                           </select>
                         </div>
                       ) : (
