@@ -17,6 +17,11 @@ type ActiveCall = {
   startedAt: number;
   currentNodeId: string | null;
   nodeType: string | null;
+  // Live sentiment (Retell-style Live Call Monitoring parity) — null until
+  // the engine has scored the caller's first turn. A coarse 3-value signal,
+  // not a transcript — see the API route's ActiveCall type.
+  sentiment: 'positive' | 'neutral' | 'negative' | null;
+  sentimentUpdatedAt: string | null;
 };
 
 export default function LiveMonitoringPage() {
@@ -109,6 +114,7 @@ export default function LiveMonitoringPage() {
                   <th className="px-5 py-3 font-medium">Caller</th>
                   <th className="px-5 py-3 font-medium">Duration</th>
                   <th className="px-5 py-3 font-medium">Current step</th>
+                  <th className="px-5 py-3 font-medium">Sentiment</th>
                 </tr>
               </thead>
               <tbody>
@@ -127,6 +133,9 @@ export default function LiveMonitoringPage() {
                       <td className="px-5 py-3.5 font-mono text-gray-600">{formatDuration(seconds)}</td>
                       <td className="px-5 py-3.5">
                         <FlowStep nodeType={call.nodeType} nodeId={call.currentNodeId} />
+                      </td>
+                      <td className="px-5 py-3.5">
+                        <SentimentBadge sentiment={call.sentiment} />
                       </td>
                     </tr>
                   );
@@ -151,6 +160,26 @@ function FlowStep({ nodeType, nodeId }: { nodeType: string | null; nodeId: strin
         {label}
       </span>
       {nodeId && <span className="font-mono text-[11.5px] text-gray-400">{nodeId}</span>}
+    </span>
+  );
+}
+
+// Coarse 3-value live sentiment signal, scored per caller turn — not a
+// transcript or raw text, consistent with this page's audio/content-free
+// scope (see the page's own copy above). Null means no user turn has been
+// scored yet (call just started).
+function SentimentBadge({ sentiment }: { sentiment: 'positive' | 'neutral' | 'negative' | null }) {
+  if (!sentiment) {
+    return <span className="text-[12.5px] text-gray-400">listening…</span>;
+  }
+  const styles: Record<'positive' | 'neutral' | 'negative', string> = {
+    positive: 'bg-green-50 text-green-700',
+    neutral: 'bg-gray-100 text-gray-600',
+    negative: 'bg-red-50 text-red-700',
+  };
+  return (
+    <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-[11.5px] font-medium capitalize ${styles[sentiment]}`}>
+      {sentiment}
     </span>
   );
 }

@@ -23,6 +23,11 @@ type ActiveCall = {
   startedAt: number;
   currentNodeId: string | null;
   nodeType: string | null;
+  // Live sentiment (Retell-style Live Call Monitoring parity) — null until
+  // the engine has scored the first user turn of the call. See
+  // call-loop-poc's CallSession._classifySentiment / activeCallSnapshot.
+  sentiment: 'positive' | 'neutral' | 'negative' | null;
+  sentimentUpdatedAt: string | null;
 };
 
 export async function GET(
