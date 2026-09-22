@@ -8,20 +8,8 @@
     <string>/bin/bash</string>
     <string>__HOME__/calldesk-outreach-harness/repo/harness/outreach/run_cycle.sh</string>
   </array>
-  <!-- Runs every 2 hours (was once/day at 9:17) so contact collection is
-       continuous through the day; run.ts's own min-gap guard (default 60m)
-       still protects against overlap if a run ever runs long. -->
   <key>StartCalendarInterval</key>
-  <array>
-    <dict><key>Hour</key><integer>7</integer><key>Minute</key><integer>17</integer></dict>
-    <dict><key>Hour</key><integer>9</integer><key>Minute</key><integer>17</integer></dict>
-    <dict><key>Hour</key><integer>11</integer><key>Minute</key><integer>17</integer></dict>
-    <dict><key>Hour</key><integer>13</integer><key>Minute</key><integer>17</integer></dict>
-    <dict><key>Hour</key><integer>15</integer><key>Minute</key><integer>17</integer></dict>
-    <dict><key>Hour</key><integer>17</integer><key>Minute</key><integer>17</integer></dict>
-    <dict><key>Hour</key><integer>19</integer><key>Minute</key><integer>17</integer></dict>
-    <dict><key>Hour</key><integer>21</integer><key>Minute</key><integer>17</integer></dict>
-  </array>
+  <dict><key>Hour</key><integer>9</integer><key>Minute</key><integer>17</integer></dict>
   <key>RunAtLoad</key><false/>
   <key>StandardOutPath</key><string>__HOME__/.calldesk-outreach/logs/launchagent.log</string>
   <key>StandardErrorPath</key><string>__HOME__/.calldesk-outreach/logs/launchagent.log</string>
