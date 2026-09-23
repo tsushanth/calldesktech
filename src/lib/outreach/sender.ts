@@ -124,10 +124,6 @@ export async function sendApprovedMessage(supabase: SupabaseClient<any>, message
     return { ok: false, error: 'Recipient has unsubscribed' };
   }
 
-  if ((await sentTodayCount(supabase, product)) >= dailyCap(product)) {
-    return { ok: false, error: `Daily send cap (${dailyCap(product)}) reached. It resets ${capResetLabel()}.` };
-  }
-
   const footer = buildFooter(toEmail, postalAddress, brand);
   const paragraphs = String(msg.body_text)
     .split(/\n{2,}/)

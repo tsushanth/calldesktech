@@ -36,6 +36,17 @@ export interface ProductConfig {
   // Rule-based scoring vocabulary applied to a lead's description text, in
   // order, mirroring score.ts's original hardcoded calldesk rules.
   scoreVocabulary: ScoreVocabularyRule[];
+  // Set only for products whose four tables are SHARED with other writers via
+  // a `product` column (calldesk_outreach_* is shared with the separate
+  // Kreative Koala harness, which inserts rows with product values like
+  // 'kreativekoala:voxkey'). When set, every query against this product's
+  // tables must filter/tag rows by this value, or it will silently read and
+  // write another product's rows -- confirmed 2026-09-23: calldesk's own
+  // drafting stage was starved because its pending-draft count included all
+  // of Kreative Koala's pending drafts from the same physical table. A
+  // product with its own dedicated tables (no shared `product` column, e.g.
+  // readaloud_outreach_*) leaves this unset.
+  sharedTableProductValue?: string;
 }
 
 const CALLDESK_OFFER_FACTS = [
@@ -91,6 +102,7 @@ export const calldesk: ProductConfig = {
   tablePrefix: 'calldesk_outreach',
   stateDirName: '.calldesk-outreach',
   baseUrl: 'https://calldesk.tech',
+  sharedTableProductValue: 'calldesk',
   offerFacts: CALLDESK_OFFER_FACTS,
   systemPrompt: CALLDESK_SYSTEM_PROMPT,
   followUpSystemPrompt: CALLDESK_FOLLOWUP_SYSTEM_PROMPT,
@@ -189,4 +201,21 @@ export function messagesTable(product: ProductConfig): string {
 }
 export function suppressionsTable(product: ProductConfig): string {
   return `${product.tablePrefix}_suppressions`;
+}
+
+// Scopes a select/update query builder to this product's rows when its
+// tables are shared with another writer (see ProductConfig.sharedTableProductValue).
+// A no-op for a product with its own dedicated tables.
+export function scopeToProduct<T extends { eq: (column: string, value: string) => T }>(
+  query: T,
+  product: ProductConfig,
+): T {
+  return product.sharedTableProductValue ? query.eq('product', product.sharedTableProductValue) : query;
+}
+
+// The fields to spread into an insert payload so a new row is correctly
+// tagged for this product when its tables are shared. `{}` for a product
+// with its own dedicated tables (no `product` column exists to set).
+export function productInsertFields(product: ProductConfig): { product?: string } {
+  return product.sharedTableProductValue ? { product: product.sharedTableProductValue } : {};
 }

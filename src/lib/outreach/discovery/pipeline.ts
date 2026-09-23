@@ -15,7 +15,7 @@ import { checkDomainForPlatforms } from '../signals/techFingerprint';
 import { LeadIndex } from './dedupe';
 import { researchAgency, type Dossier } from '../research';
 import { findSearchCandidates, queriesForDay } from './searchSource';
-import { calldesk, leadsTable, runsTable, messagesTable, suppressionsTable, type ProductConfig } from '../products';
+import { calldesk, leadsTable, runsTable, messagesTable, suppressionsTable, scopeToProduct, productInsertFields, type ProductConfig } from '../products';
 
 // The daily discovery harness. One call = one full pass:
 //   directory -> dedupe against existing leads -> enrich (domain, contact)
@@ -108,7 +108,7 @@ export async function runDiscovery(db: Db, opts: RunOptions = {}): Promise<RunSu
   };
 
   if (!dryRun) {
-    const { data } = await db.from(runsTable(product)).insert({ dry_run: false }).select('id').single();
+    const { data } = await db.from(runsTable(product)).insert({ dry_run: false, ...productInsertFields(product) }).select('id').single();
     summary.runId = data?.id ?? null;
   }
 
@@ -159,7 +159,7 @@ interface DirectoryEntry {
 async function stageDirectory(
   db: Db, summary: RunSummary, dryRun: boolean, product: ProductConfig,
 ): Promise<{ entries: DirectoryEntry[]; index: LeadIndex<LeadRow> }> {
-  const { data: existing } = await db.from(leadsTable(product)).select('*');
+  const { data: existing } = await scopeToProduct(db.from(leadsTable(product)).select('*'), product);
   const index = new LeadIndex<LeadRow>((existing ?? []) as LeadRow[]);
 
   // The Retell partner directory is calldesk-specific (calldesk competes
@@ -216,6 +216,7 @@ async function stageDirectory(
       signal_detail: `Retell ${p.tier ?? 'partner'}: ${(p.description ?? '').slice(0, 200)}`,
       source_key: sourceKey, tier: p.tier, location: p.location, description: p.description,
       score, region_blocked: blocked, signals: { reasons, techPlatforms: [] }, last_seen_at: now,
+      ...productInsertFields(product),
     }).select('*').single();
     if (error) {
       summary.leadsNew--;
@@ -267,7 +268,7 @@ async function stageSearch(
       continue;
     }
     const { data: inserted, error } = await db.from(leadsTable(product)).insert({
-      ...base, signal_source: 'search', signal_detail: `Web search: ${(c.blurb ?? '').slice(0, 200)}`, last_seen_at: now,
+      ...base, signal_source: 'search', signal_detail: `Web search: ${(c.blurb ?? '').slice(0, 200)}`, last_seen_at: now, ...productInsertFields(product),
     }).select('*').single();
     if (error) {
       summary.leadsNew--;
@@ -318,7 +319,7 @@ async function stageJobPostings(
       continue;
     }
     const { data: inserted, error } = await db.from(leadsTable(product)).insert({
-      ...base, signal_source: 'job_posting', signal_detail: `Job posting: ${(c.blurb ?? '').slice(0, 200)}`, last_seen_at: now,
+      ...base, signal_source: 'job_posting', signal_detail: `Job posting: ${(c.blurb ?? '').slice(0, 200)}`, last_seen_at: now, ...productInsertFields(product),
     }).select('*').single();
     if (error) {
       summary.leadsNew--;
@@ -377,7 +378,7 @@ async function stageReviewSites(
       continue;
     }
     const { data: inserted, error } = await db.from(leadsTable(product)).insert({
-      ...base, signal_source: 'review_site', signal_detail: (c.blurb ?? REVIEW_SITE_DESCRIPTION).slice(0, 200), last_seen_at: now,
+      ...base, signal_source: 'review_site', signal_detail: (c.blurb ?? REVIEW_SITE_DESCRIPTION).slice(0, 200), last_seen_at: now, ...productInsertFields(product),
     }).select('*').single();
     if (error) {
       summary.leadsNew--;
@@ -428,7 +429,7 @@ async function stageGithub(
       continue;
     }
     const { data: inserted, error } = await db.from(leadsTable(product)).insert({
-      ...base, signal_source: 'search', signal_detail: `GitHub/dev signal: ${(c.blurb ?? '').slice(0, 190)}`, last_seen_at: now,
+      ...base, signal_source: 'search', signal_detail: `GitHub/dev signal: ${(c.blurb ?? '').slice(0, 190)}`, last_seen_at: now, ...productInsertFields(product),
     }).select('*').single();
     if (error) {
       summary.leadsNew--;
@@ -478,7 +479,7 @@ async function stageTelephonyPlatforms(
       continue;
     }
     const { data: inserted, error } = await db.from(leadsTable(product)).insert({
-      ...base, signal_source: 'search', signal_detail: `Telephony platform signal: ${(c.blurb ?? '').slice(0, 180)}`, last_seen_at: now,
+      ...base, signal_source: 'search', signal_detail: `Telephony platform signal: ${(c.blurb ?? '').slice(0, 180)}`, last_seen_at: now, ...productInsertFields(product),
     }).select('*').single();
     if (error) {
       summary.leadsNew--;
@@ -528,7 +529,7 @@ async function stageSttTtsSignal(
       continue;
     }
     const { data: inserted, error } = await db.from(leadsTable(product)).insert({
-      ...base, signal_source: 'search', signal_detail: `STT/TTS builder signal: ${(c.blurb ?? '').slice(0, 180)}`, last_seen_at: now,
+      ...base, signal_source: 'search', signal_detail: `STT/TTS builder signal: ${(c.blurb ?? '').slice(0, 180)}`, last_seen_at: now, ...productInsertFields(product),
     }).select('*').single();
     if (error) {
       summary.leadsNew--;
@@ -598,7 +599,7 @@ async function stageEnrich(
 
       if (dryRun) continue;
       const suppressed = contact.email
-        ? (await db.from(suppressionsTable(product)).select('id').eq('email', contact.email).maybeSingle()).data
+        ? (await scopeToProduct(db.from(suppressionsTable(product)).select('id').eq('email', contact.email), product).maybeSingle()).data
         : null;
       const { error } = await db.from(leadsTable(product)).update({
         domain,
@@ -622,9 +623,9 @@ async function stageEnrich(
 // retired here so they never reach the review queue.
 async function stageResearch(db: Db, summary: RunSummary, dryRun: boolean, limit: number, stop: () => boolean, product: ProductConfig) {
   if (limit <= 0) return;
-  const { data } = await db.from(leadsTable(product)).select('*')
+  const { data } = await scopeToProduct(db.from(leadsTable(product)).select('*')
     .eq('status', 'new').eq('contact_status', 'found').eq('region_blocked', false)
-    .is('researched_at', null).not('domain', 'is', null).gte('score', MIN_DRAFT_SCORE)
+    .is('researched_at', null).not('domain', 'is', null).gte('score', MIN_DRAFT_SCORE), product)
     .order('score', { ascending: false }).limit(limit);
 
   for (const lead of (data ?? []) as LeadRow[]) {
@@ -648,23 +649,19 @@ async function stageResearch(db: Db, summary: RunSummary, dryRun: boolean, limit
 
 async function stageDraft(db: Db, summary: RunSummary, dryRun: boolean, limit: number, stop: () => boolean, researchOn = false, product: ProductConfig = calldesk) {
   if (dryRun) return;
-  // Never let unreviewed drafts pile up: stop drafting once this many are waiting.
-  const MAX_PENDING_DRAFTS = Number(process.env.OUTREACH_MAX_PENDING_DRAFTS || 25);
-  const { count: pending } = await db.from(messagesTable(product)).select('id', { count: 'exact', head: true }).eq('status', 'draft');
-  limit = Math.min(limit, Math.max(0, MAX_PENDING_DRAFTS - (pending ?? 0)));
   if (limit <= 0) return;
-  let query = db.from(leadsTable(product)).select('*')
-    .eq('status', 'new').eq('contact_status', 'found').eq('region_blocked', false).gte('score', MIN_DRAFT_SCORE);
+  let query = scopeToProduct(db.from(leadsTable(product)).select('*')
+    .eq('status', 'new').eq('contact_status', 'found').eq('region_blocked', false).gte('score', MIN_DRAFT_SCORE), product);
   // With research on, only researched, non-low-fit leads get drafted.
   if (researchOn) query = query.not('researched_at', 'is', null).in('fit', ['high', 'medium', 'unclear']);
   const { data } = await query.order('score', { ascending: false }).limit(200);
   const leads = (data ?? []) as LeadRow[];
   if (!leads.length) return;
 
-  const { data: msgs } = await db.from(messagesTable(product)).select('lead_id,to_email,status');
+  const { data: msgs } = await scopeToProduct(db.from(messagesTable(product)).select('lead_id,to_email,status'), product);
   const drafted = new Set((msgs ?? []).filter((m) => m.status !== 'rejected').map((m) => m.lead_id as string));
   const emailed = new Set((msgs ?? []).filter((m) => m.status !== 'rejected').map((m) => String(m.to_email).toLowerCase()));
-  const { data: sup } = await db.from(suppressionsTable(product)).select('email');
+  const { data: sup } = await scopeToProduct(db.from(suppressionsTable(product)).select('email'), product);
   const suppressed = new Set((sup ?? []).map((s) => String(s.email).toLowerCase()));
 
   let made = 0;
@@ -681,6 +678,7 @@ async function stageDraft(db: Db, summary: RunSummary, dryRun: boolean, limit: n
         lead_id: lead.id, to_email: email, subject: draft.subject, body_text: draft.body, status: 'draft',
         sources: lead.research?.sources ?? [],
         translation_subject: draft.translationSubject ?? null, translation_body: draft.translationBody ?? null,
+        ...productInsertFields(product),
       });
       if (error) throw new Error(error.message);
       await db.from(leadsTable(product)).update({ status: 'report_generated', updated_at: new Date().toISOString() }).eq('id', lead.id);
@@ -711,14 +709,11 @@ async function stageFollowUp(db: Db, summary: RunSummary, dryRun: boolean, stop:
   const maxFollowUps = Math.max(0, Number.isNaN(rawMaxFollowUps) ? DEFAULT_MAX_FOLLOWUPS : rawMaxFollowUps);
   if (!maxFollowUps) return;
 
-  const MAX_PENDING_DRAFTS = Number(process.env.OUTREACH_MAX_PENDING_DRAFTS || 25);
-  const { count: pending } = await db.from(messagesTable(product)).select('id', { count: 'exact', head: true }).eq('status', 'draft');
-  let budget = Math.max(0, MAX_PENDING_DRAFTS - (pending ?? 0));
-  if (!budget) return;
+  let budget = Infinity;
 
   const cutoff = new Date(Date.now() - delayDays * 86_400_000).toISOString();
-  const { data: leads } = await db.from(leadsTable(product)).select('*')
-    .eq('status', 'sent').eq('region_blocked', false).is('replied_at', null).limit(200);
+  const { data: leads } = await scopeToProduct(db.from(leadsTable(product)).select('*')
+    .eq('status', 'sent').eq('region_blocked', false).is('replied_at', null), product).limit(200);
   if (!leads?.length) return;
 
   for (const lead of leads as LeadRow[]) {
@@ -739,6 +734,7 @@ async function stageFollowUp(db: Db, summary: RunSummary, dryRun: boolean, stop:
         lead_id: lead.id, to_email: latest.to_email, subject: draft.subject, body_text: draft.body, status: 'draft',
         step: nextStep, sources: lead.research?.sources ?? [],
         translation_subject: draft.translationSubject ?? null, translation_body: draft.translationBody ?? null,
+        ...productInsertFields(product),
       });
       if (error) throw new Error(error.message);
       budget--;
@@ -754,8 +750,8 @@ async function notify(db: Db, summary: RunSummary, product: ProductConfig) {
   if (!to) return;
   const base = (process.env.NEXT_PUBLIC_APP_URL || product.baseUrl).replace(/\/$/, '');
 
-  const { data: recent } = await db.from(runsTable(product)).select('status,leads_seen').eq('dry_run', false)
-    .not('finished_at', 'is', null).order('started_at', { ascending: false }).limit(3);
+  const { data: recent } = await scopeToProduct(db.from(runsTable(product)).select('status,leads_seen').eq('dry_run', false)
+    .not('finished_at', 'is', null), product).order('started_at', { ascending: false }).limit(3);
   const zeroStreak = (recent ?? []).length === 3 && (recent ?? []).every((r) => r.status === 'ok' && r.leads_seen === 0);
 
   if (summary.status === 'error' || summary.errors.length || zeroStreak) {
