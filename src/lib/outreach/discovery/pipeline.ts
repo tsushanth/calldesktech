@@ -658,11 +658,13 @@ async function stageDraft(db: Db, summary: RunSummary, dryRun: boolean, limit: n
   const leads = (data ?? []) as LeadRow[];
   if (!leads.length) return;
 
-  const { data: msgs } = await scopeToProduct(db.from(messagesTable(product)).select('lead_id,to_email,status'), product);
-  const drafted = new Set((msgs ?? []).filter((m) => m.status !== 'rejected').map((m) => m.lead_id as string));
-  const emailed = new Set((msgs ?? []).filter((m) => m.status !== 'rejected').map((m) => String(m.to_email).toLowerCase()));
-  const { data: sup } = await scopeToProduct(db.from(suppressionsTable(product)).select('email'), product);
-  const suppressed = new Set((sup ?? []).map((s) => String(s.email).toLowerCase()));
+  const { data: msgsData } = await scopeToProduct(db.from(messagesTable(product)).select('lead_id,to_email,status'), product);
+  const msgs = (msgsData ?? []) as { lead_id: string; to_email: string; status: string }[];
+  const drafted = new Set(msgs.filter((m) => m.status !== 'rejected').map((m) => m.lead_id));
+  const emailed = new Set(msgs.filter((m) => m.status !== 'rejected').map((m) => String(m.to_email).toLowerCase()));
+  const { data: supData } = await scopeToProduct(db.from(suppressionsTable(product)).select('email'), product);
+  const sup = (supData ?? []) as { email: string }[];
+  const suppressed = new Set(sup.map((s) => String(s.email).toLowerCase()));
 
   let made = 0;
   for (const lead of leads) {
@@ -750,9 +752,10 @@ async function notify(db: Db, summary: RunSummary, product: ProductConfig) {
   if (!to) return;
   const base = (process.env.NEXT_PUBLIC_APP_URL || product.baseUrl).replace(/\/$/, '');
 
-  const { data: recent } = await scopeToProduct(db.from(runsTable(product)).select('status,leads_seen').eq('dry_run', false)
+  const { data: recentData } = await scopeToProduct(db.from(runsTable(product)).select('status,leads_seen').eq('dry_run', false)
     .not('finished_at', 'is', null), product).order('started_at', { ascending: false }).limit(3);
-  const zeroStreak = (recent ?? []).length === 3 && (recent ?? []).every((r) => r.status === 'ok' && r.leads_seen === 0);
+  const recent = (recentData ?? []) as { status: string; leads_seen: number }[];
+  const zeroStreak = recent.length === 3 && recent.every((r) => r.status === 'ok' && r.leads_seen === 0);
 
   if (summary.status === 'error' || summary.errors.length || zeroStreak) {
     const reason = zeroStreak ? 'Discovery saw 0 agencies 3 runs in a row (the directory page may have changed).' : 'Discovery run had errors.';

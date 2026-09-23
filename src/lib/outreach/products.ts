@@ -206,10 +206,12 @@ export function suppressionsTable(product: ProductConfig): string {
 // Scopes a select/update query builder to this product's rows when its
 // tables are shared with another writer (see ProductConfig.sharedTableProductValue).
 // A no-op for a product with its own dedicated tables.
-export function scopeToProduct<T extends { eq: (column: string, value: string) => T }>(
-  query: T,
-  product: ProductConfig,
-): T {
+// Typed `any` in/out (matching this file's `Db = SupabaseClient<any>` convention)
+// -- a generic constrained to Supabase's actual filter-builder type blows up
+// the compiler ("Type instantiation is excessively deep and possibly
+// infinite"), confirmed against the real build 2026-09-23.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function scopeToProduct(query: any, product: ProductConfig): any {
   return product.sharedTableProductValue ? query.eq('product', product.sharedTableProductValue) : query;
 }
 
