@@ -172,10 +172,22 @@ export default function OutreachQueuePage() {
                     onClick={() =>
                       act(m.id, async () => {
                         const saved = await patch(m.id, { action: 'edit', ...draft });
+                        return saved.ok ? fetch(`/api/admin/outreach/messages/${m.id}`, { method: 'POST' }).then((r) => r.json()) : saved;
+                      }, 'Sent.')
+                    }
+                    className="rounded-lg bg-blue-600 px-3 py-1.5 text-[13px] font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+                  >
+                    Send now
+                  </button>
+                  <button
+                    disabled={busy === m.id}
+                    onClick={() =>
+                      act(m.id, async () => {
+                        const saved = await patch(m.id, { action: 'edit', ...draft });
                         return saved.ok ? patch(m.id, { action: 'approve' }) : saved;
                       }, 'Approved. Open the "approved" tab to send.')
                     }
-                    className="rounded-lg bg-blue-600 px-3 py-1.5 text-[13px] font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+                    className="rounded-lg border border-gray-300 px-3 py-1.5 text-[13px] font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
                   >
                     Approve
                   </button>

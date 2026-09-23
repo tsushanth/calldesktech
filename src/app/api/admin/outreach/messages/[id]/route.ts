@@ -47,8 +47,8 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
   return NextResponse.json({ message: data });
 }
 
-// POST — send one approved message (subject to the postal-address, suppression
-// and daily-cap guards in sendApprovedMessage).
+// POST — send one draft or approved message (subject to the postal-address
+// and suppression guards in sendApprovedMessage; approval is optional).
 export async function POST(_request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const admin = await requireAdminSession();
   if (!admin) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });

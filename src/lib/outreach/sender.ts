@@ -2,10 +2,13 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { sendEmail } from '@/lib/email';
 import { unsubscribeUrl } from './unsubscribe';
 
-// The only path that emails a real prospect. Every guard below must pass:
-// approved by a human, address configured (CAN-SPAM), recipient not
-// suppressed, and under the daily cap. Failures are recorded on the message
-// row and returned; nothing here throws for an expected refusal.
+// The only path that emails a real prospect. A human still triggers every
+// send explicitly from the admin queue (draft or approved status both
+// qualify -- there is no automated send). Every guard below must pass:
+// address configured (CAN-SPAM), recipient not suppressed. Failures are
+// recorded on the message row and returned; nothing here throws for an
+// expected refusal. dailyCap()/sentTodayCount() below are informational only
+// (shown in the admin UI) and no longer enforced here.
 
 const DEFAULT_DAILY_CAP = 20;
 
@@ -99,7 +102,7 @@ export async function sendApprovedMessage(supabase: SupabaseClient<any>, message
   const { data: msg, error } = await supabase.from('calldesk_outreach_messages').select('*').eq('id', messageId).maybeSingle();
   if (error) return { ok: false, error: error.message };
   if (!msg) return { ok: false, error: 'Message not found' };
-  if (msg.status !== 'approved') return { ok: false, error: `Message is "${msg.status}", only approved messages can be sent` };
+  if (msg.status !== 'approved' && msg.status !== 'draft') return { ok: false, error: `Message is "${msg.status}", only draft or approved messages can be sent` };
 
   const product = (msg.product as string) || 'calldesk';
   const brand = brandFor(product);
