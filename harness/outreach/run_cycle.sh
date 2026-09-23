@@ -5,7 +5,12 @@ export PATH="$HOME/.claude-accounts/bin:/opt/homebrew/bin:/usr/bin:/bin"
 export HOME="${HOME:-/Users/$(id -un)}"
 set -uo pipefail
 
-BASE="$HOME/.calldesk-outreach"
+# PRODUCT selects which product's harness state dir this run uses (default
+# 'calldesk'), matching ProductConfig.stateDirName in src/lib/outreach/products.ts
+# ('.calldesk-outreach' / '.readaloud-outreach') so each product's STOP file,
+# lock, and per-run logs stay isolated. The repo checkout is shared across products.
+PRODUCT="${PRODUCT:-calldesk}"
+BASE="$HOME/.${PRODUCT}-outreach"
 REPO="$HOME/calldesk-outreach-harness/repo"
 mkdir -p "$BASE/logs"
 LOG="$BASE/logs/run_$(date +%Y%m%d_%H%M%S).log"
@@ -31,6 +36,6 @@ RC=$?
 
 find "$BASE/logs" -name 'run_*.log' -mtime +30 -delete 2>/dev/null
 if [ $RC -ne 0 ]; then
-  osascript -e 'display notification "Discovery run failed. See ~/.calldesk-outreach/logs" with title "Calldesk outreach"' 2>/dev/null
+  osascript -e "display notification \"Discovery run failed. See ~/.${PRODUCT}-outreach/logs\" with title \"${PRODUCT} outreach\"" 2>/dev/null
 fi
 exit $RC

@@ -2,6 +2,13 @@
 // admin UI can show WHY a lead scored the way it did. Deliberately simple and
 // explainable, no model calls. Higher = more likely to want a cheaper second
 // platform and to resell it.
+//
+// The description-text vocabulary (white-label/SMB/voice-AI/enterprise
+// phrases) is product-specific and lives in products.ts as
+// ProductConfig.scoreVocabulary; scoreLead defaults to calldesk's vocabulary
+// so every existing caller (and the calldesk default path) is unaffected.
+
+import { calldesk, type ProductConfig, type ScoreVocabularyRule } from '../products';
 
 export interface ScoreInput {
   tier: string | null;
@@ -43,7 +50,7 @@ export function isRegionBlocked(location: string | null, name = ''): boolean {
   return BLOCKED_REGION_HINTS.some((h) => hay.includes(h));
 }
 
-export function scoreLead(input: ScoreInput, evidence?: ScoreEvidence): ScoreResult {
+export function scoreLead(input: ScoreInput, evidence?: ScoreEvidence, product: ProductConfig = calldesk): ScoreResult {
   const tier = (input.tier || '').toLowerCase();
   const desc = (input.description || '').toLowerCase();
   let score = 50;
@@ -57,10 +64,9 @@ export function scoreLead(input: ScoreInput, evidence?: ScoreEvidence): ScoreRes
   if (tier.includes('gold')) add(15, 'Retell gold-tier partner');
   else if (tier.includes('elite') || tier.includes('diamond')) add(-10, 'top-tier partner (likely already well-served)');
 
-  if (/white.?label|reseller|resell/.test(desc)) add(20, 'describes itself as a white-label reseller');
-  if (/small business|smb|local business|receptionist|home services|dental|real estate|trades/.test(desc)) add(10, 'targets SMB/local-business verticals');
-  if (/inbound|outbound|voice agent|voice ai/.test(desc)) add(5, 'explicitly does voice-AI work');
-  if (/enterprise|call center|contact center/.test(desc)) add(-5, 'enterprise/call-center focus (harder to switch)');
+  for (const rule of product.scoreVocabulary as ScoreVocabularyRule[]) {
+    if (rule.pattern.test(desc)) add(rule.delta, rule.reason);
+  }
 
   if (evidence?.viaJobPosting) add(15, 'publicly hiring for a voice-AI role');
   if (evidence?.viaReviewSite) add(10, 'named in a public review as a voice-AI provider');
