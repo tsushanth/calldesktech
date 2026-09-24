@@ -77,3 +77,13 @@ describe('renderOutreachEmail', () => {
     expect(html).toContain('AGENT');
   });
 });
+
+describe('site link', () => {
+  it('renders a clickable link at the very top (html) and the URL on the first line (text)', () => {
+    const footer = { html: '<p>footer</p>', text: '\n--\nfooter' };
+    const { html, text } = renderOutreachEmail({ bodyText: 'Hi there,\n\nBody', footer, site: { label: 'calldesk.tech', url: 'https://calldesk.tech' } });
+    expect(html.indexOf('<a href="https://calldesk.tech"')).toBeLessThan(html.indexOf('Hi there,'));
+    expect(html).toContain('>calldesk.tech</a>');
+    expect(text.startsWith('https://calldesk.tech\n\nHi there,')).toBe(true);
+  });
+});

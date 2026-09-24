@@ -205,7 +205,7 @@ describe('planFields', () => {
 describe('composeMessage', () => {
   it('appends the opt-out line and who we are', () => {
     const out = composeMessage('Hello there.');
-    expect(out).toBe('Hello there.\n\nNot relevant? Reply STOP and we will not contact you again.\nCalldesk (calldesk.tech)');
+    expect(out).toBe('Hello there.\n\nNot relevant? Reply STOP and we will not contact you again.\nCalldesk (https://calldesk.tech)');
   });
 });
 

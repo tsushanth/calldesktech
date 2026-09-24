@@ -211,7 +211,7 @@ export function classifyCheckbox(c: CheckboxDescriptor): 'terms' | 'marketing' |
 }
 
 /** The message we actually put in the textarea: draft body + opt-out + who we are. */
-export function composeMessage(body: string, brand = 'Calldesk', site = 'calldesk.tech'): string {
+export function composeMessage(body: string, brand = 'Calldesk', site = 'https://calldesk.tech'): string {
   return `${body.trimEnd()}\n\nNot relevant? Reply STOP and we will not contact you again.\n${brand} (${site})`;
 }
 

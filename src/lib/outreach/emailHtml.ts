@@ -14,6 +14,8 @@ export interface RenderInput {
   bodyText: string;
   footer: { text: string; html: string };
   sample?: EmailSample | null;
+  // Clickable link to the sender's website, shown at the very top of the email.
+  site?: { label: string; url: string } | null;
 }
 
 const CARD_MAX_LINES = 6;
@@ -60,14 +62,15 @@ function renderCard(sample: EmailSample, lines: EmailSample['lines']): string {
 }
 
 export function renderOutreachEmail(input: RenderInput): { html: string; text: string } {
-  const { bodyText, footer, sample } = input;
+  const { bodyText, footer, sample, site } = input;
   const paragraphs = String(bodyText)
     .split(/\n{2,}/)
     .map((p) => `<p style="margin:0 0 14px">${escapeHtml(p).replace(/\n/g, '<br/>')}</p>`)
     .join('');
   const lines = sample ? sample.lines.slice(0, CARD_MAX_LINES) : [];
   const card = sample && lines.length > 0 ? renderCard(sample, lines) : '';
-  const html = `<div style="font-family:-apple-system,Segoe UI,sans-serif;font-size:15px;line-height:1.6;color:#1a1d29;max-width:560px">${paragraphs}${card}${footer.html}</div>`;
+  const siteHtml = site ? `<p style="margin:0 0 18px"><a href="${escapeAttr(site.url)}" style="color:#2563eb;font-weight:600;text-decoration:none">${escapeHtml(site.label)}</a></p>` : '';
+  const html = `<div style="font-family:-apple-system,Segoe UI,sans-serif;font-size:15px;line-height:1.6;color:#1a1d29;max-width:560px">${siteHtml}${paragraphs}${card}${footer.html}</div>`;
 
   let textSample = '';
   if (sample && lines.length > 0) {
@@ -75,5 +78,6 @@ export function renderOutreachEmail(input: RenderInput): { html: string; text: s
     const body = lines.map((l) => `${l.speaker === 'caller' ? 'Caller' : 'Agent'}: ${l.text}`).join('\n');
     textSample = `\n\n${head} - ${sample.title}\n${body}\nListen to the full sample call: ${sample.url}\n${sample.disclosure}`;
   }
-  return { html, text: `${bodyText}${textSample}${footer.text}` };
+  const siteText = site ? `${site.url}\n\n` : '';
+  return { html, text: `${siteText}${bodyText}${textSample}${footer.text}` };
 }

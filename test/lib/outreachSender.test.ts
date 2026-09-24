@@ -43,8 +43,8 @@ describe('sendApprovedMessage sample integration', () => {
     await sendApprovedMessage(client, MSG_ID);
     const args = sendEmail.mock.calls[0][0] as { html: string; text: string };
     const f = buildFooter('a@b.co', '1 Main St');
-    expect(args.html).toBe(`<div style="font-family:-apple-system,Segoe UI,sans-serif;font-size:15px;line-height:1.6;color:#1a1d29;max-width:560px"><p style="margin:0 0 14px">Hi</p><p style="margin:0 0 14px">A &amp; B</p>${f.html}</div>`);
-    expect(args.text).toBe(`Hi\n\nA & B${f.text}`);
+    expect(args.html).toBe(`<div style="font-family:-apple-system,Segoe UI,sans-serif;font-size:15px;line-height:1.6;color:#1a1d29;max-width:560px"><p style="margin:0 0 18px"><a href="https://calldesk.tech" style="color:#2563eb;font-weight:600;text-decoration:none">calldesk.tech</a></p><p style="margin:0 0 14px">Hi</p><p style="margin:0 0 14px">A &amp; B</p>${f.html}</div>`);
+    expect(args.text).toBe(`https://calldesk.tech\n\nHi\n\nA & B${f.text}`);
   });
 
   it('lookup throwing still sends the plain email', async () => {

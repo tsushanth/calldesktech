@@ -136,7 +136,7 @@ export async function buildOutreachEmail(
     sampleId = null;
   }
   if (variant === 'sample' && !emailSample) variant = 'plain';
-  const { html, text } = renderOutreachEmail({ bodyText: String(msg.body_text), footer, sample: emailSample });
+  const { html, text } = renderOutreachEmail({ bodyText: String(msg.body_text), footer, sample: emailSample, site: { label: brand.siteUrl, url: /^https?:\/\//.test(brand.siteUrl) ? brand.siteUrl : `https://${brand.siteUrl}` } });
   return { html, text, variant, sampleId };
 }
 
