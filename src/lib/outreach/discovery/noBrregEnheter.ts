@@ -270,13 +270,20 @@ export interface BrregOpts {
   pageSize?: number;
   timeoutMs?: number;
   orgForms?: readonly string[];
+  // Overall budget for the whole walk, not just one request. A bulk import of a
+  // multi-code vertical makes dozens of requests, and a live full pass was seen to
+  // stall for many minutes when the API started throttling: a per-request timeout
+  // does not bound that, because each slow-but-succeeding request resets it. When
+  // the budget runs out the walk stops and says so, returning what it has, which is
+  // the same shape as any other partial result here.
+  deadlineMs?: number;
   // Test seam: (naceCode, orgForm, page) -> page, instead of the network.
   fetchPage?: (naceCode: string, orgForm: string, page: number) => Promise<BrregPage>;
 }
 
+export const BRREG_DEFAULT_DEADLINE_MS = 20 * 60_000;
+
 export async function findBrregCandidates(productId: string, max: number, opts: BrregOpts = {}): Promise<RegistryResult> {
-  const now = opts.now ?? new Date();
-  void now;
   const result = emptyResult();
   const classes = brregClassesFor(productId);
   if (!classes.length) {
@@ -286,15 +293,26 @@ export async function findBrregCandidates(productId: string, max: number, opts: 
   const size = opts.pageSize ?? 1000;
   const seen = new Set<string>();
   const get = opts.fetchPage ?? (async (code: string, form: string, page: number) => parseBrregPage(await fetchJson(brregQueryUrl(code, form, page, size), opts.timeoutMs ?? 60_000)));
+  const deadline = Date.now() + (opts.deadlineMs ?? BRREG_DEFAULT_DEADLINE_MS);
+  let outOfTime = false;
+  const expired = () => {
+    if (Date.now() < deadline) return false;
+    if (!outOfTime) {
+      outOfTime = true;
+      result.errors.push(`no brreg ${productId}: ran out of time after ${result.scanned} rows; returning the ${result.candidates.length} candidates found so far (re-run to continue)`);
+    }
+    return true;
+  };
 
   for (const nace of classes) {
+    if (expired()) break;
     for (const form of opts.orgForms ?? BRREG_ORG_FORMS) {
-      if (result.candidates.length >= max) break;
+      if (result.candidates.length >= max || expired()) break;
       try {
         // The number of pages the cap allows, whatever the total says.
         const maxPages = Math.ceil(BRREG_PAGE_CAP / size);
         for (let page = 0; page < maxPages; page++) {
-          if (result.candidates.length >= max) break;
+          if (result.candidates.length >= max || expired()) break;
           const p = await get(nace.code, form, page);
           if (page === 0 && p.total > BRREG_PAGE_CAP) {
             result.errors.push(`no brreg ${nace.code}/${form}: ${p.total} results exceeds the API's ${BRREG_PAGE_CAP}-result window; narrow the query further (by kommunenummer) to reach them all`);

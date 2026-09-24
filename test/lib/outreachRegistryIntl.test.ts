@@ -20,7 +20,7 @@ import {
 import {
   toBrregRow, evaluateBrregRow, toBrregLead, brregSourceKey, brregDomain, brregClassesFor,
   brregSupportsVertical, parseBrregPage, brregQueryUrl, findBrregCandidates,
-  BRREG_NACE, BRREG_ORG_FORMS, BRREG_PAGE_CAP, type BrregPage,
+  BRREG_NACE, BRREG_ORG_FORMS, BRREG_PAGE_CAP, BRREG_DEFAULT_DEADLINE_MS, type BrregPage,
 } from '@/lib/outreach/discovery/noBrregEnheter';
 import { homeservices, dental, freight, towing } from '@/lib/outreach/products';
 
@@ -594,6 +594,29 @@ describe('Norway Enhetsregisteret', () => {
     expect(freightRes.errors.join(' ')).toMatch(/11640 results exceeds the API's 10000-result window/);
     // The rows it COULD reach are still returned.
     expect(freightRes.candidates).toHaveLength(1);
+  });
+
+  it('stops on an overall deadline rather than hanging when the API throttles', async () => {
+    // A live full pass was seen to stall for many minutes once the API started
+    // throttling; a per-request timeout does not bound that, because each
+    // slow-but-succeeding request resets it.
+    expect(BRREG_DEFAULT_DEADLINE_MS).toBe(20 * 60_000);
+    let calls = 0;
+    const slow = async (code: string): Promise<BrregPage> => {
+      calls++;
+      await new Promise((r) => setTimeout(r, 30));
+      return {
+        total: 3,
+        totalPages: 1,
+        entities: [{ ...BRREG_RAW, organisasjonsnummer: `91234567${calls % 10}`, naeringskode1: { kode: code, beskrivelse: 'x' } }],
+      };
+    };
+    const res = await findBrregCandidates('homeservices', 10_000, { fetchPage: slow, deadlineMs: 60 });
+    expect(res.errors.join(' ')).toMatch(/ran out of time after \d+ rows; returning the \d+ candidates found so far/);
+    // It gave up early instead of walking all 5 codes x 6 forms.
+    expect(calls).toBeLessThan(30);
+    // And it still returned what it had.
+    expect(res.candidates.length).toBeGreaterThan(0);
   });
 
   it('reports a missing vertical and a failing slice instead of throwing', async () => {
