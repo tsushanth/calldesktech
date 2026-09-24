@@ -804,7 +804,10 @@ export async function bulkImportRegistry(
   if (!source) throw new Error(`unknown bulk import source "${sourceId}" (have: ${BULK_REGISTRY_SOURCE_IDS.join(', ')})`);
   if (!source.products.includes(product.id)) throw new Error(`bulk import source "${sourceId}" is for ${source.products.join(', ')}, not ${product.id}`);
   const log = opts.log ?? (() => {});
-  const existing = await selectAll<{ source_key: string | null; contact_email: string | null }>(() => scopeToProduct(db.from(leadsTable(product)).select('id, source_key, contact_email'), product));
+  const existing = await selectAll<{ source_key: string | null; contact_email: string | null; domain: string | null }>(() => scopeToProduct(db.from(leadsTable(product)).select('id, source_key, contact_email, domain'), product));
+  // The leads table allows one lead per (product, domain): franchise brands and shared-email agencies
+  // would otherwise fail every chunk insert and force a slow row-by-row retry.
+  const knownDomains = new Set(existing.map((r) => (r.domain ?? '').toLowerCase()).filter(Boolean));
   const knownKeys = new Set(existing.map((r) => r.source_key).filter((k): k is string => !!k));
   const knownEmails = new Set(existing.map((r) => (r.contact_email ?? '').toLowerCase()).filter(Boolean));
   const supRows = await selectAll<{ email: string }>(() => db.from(suppressionsTable(product)).select('id, email'));
@@ -824,6 +827,8 @@ export async function bulkImportRegistry(
     const { email, domain, fields } = registryLeadRow(c, product, now);
     if (email && (knownEmails.has(email) || suppressed.has(email))) { skipped['email already a lead or suppressed'] = (skipped['email already a lead or suppressed'] ?? 0) + 1; continue; }
     if (domain && isBlockedDomain(domain)) { skipped['blocked domain'] = (skipped['blocked domain'] ?? 0) + 1; continue; }
+    if (domain && knownDomains.has(domain.toLowerCase())) { skipped['domain already a lead'] = (skipped['domain already a lead'] ?? 0) + 1; continue; }
+    if (domain) knownDomains.add(domain.toLowerCase());
     if (email) knownEmails.add(email);
     rows.push({ ...fields, signal_source: 'directory', signal_detail: c.signalDetail.slice(0, 300), last_seen_at: now, ...productInsertFields(product) });
   }
