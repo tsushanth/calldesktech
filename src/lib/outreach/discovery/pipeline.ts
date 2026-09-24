@@ -4,7 +4,7 @@ import { adminEmails } from '../config';
 import { draftAgencyEmail, draftFollowUpEmail } from '../agencyDraft';
 import { fetchDirectory } from './retellDirectory';
 import { findAgencyDomain } from './findDomain';
-import { findContact } from './contactPages';
+import { findContact, type ContactForm } from './contactPages';
 import { isBlockedDomain, isRegionBlocked, scoreLead, type ScoreEvidence } from './score';
 import { findJobPostingCandidates } from './jobPostingsSearch';
 import { findReviewSiteCandidates } from './reviewSitesSearch';
@@ -94,7 +94,7 @@ interface LeadRow {
   score: number | null;
   enriched_at: string | null;
   research?: Dossier | null;
-  signals: { reasons: string[]; techPlatforms: string[]; registry?: RegistryMeta } | null;
+  signals: { reasons: string[]; techPlatforms: string[]; registry?: RegistryMeta; contactForm?: ContactForm } | null;
 }
 
 // Registry facts kept on the lead's `signals` (never put in the draft-visible
@@ -860,7 +860,7 @@ async function stageEnrich(
         contact_source_url: contact.sourceUrl,
         enriched_at: now,
         score: rescored,
-        signals: { reasons, techPlatforms, ...(reg ? { registry: reg } : {}) },
+        signals: { reasons, techPlatforms, ...(reg ? { registry: reg } : {}), ...(contact.form ? { contactForm: contact.form } : {}) },
         ...(suppressed ? { status: 'dead' } : {}),
       }).eq('id', lead.id);
       if (error) summary.errors.push(`enrich ${lead.company_name}: ${error.message}`);
