@@ -199,11 +199,26 @@ interface DirectoryEntry {
   slug: string | null;
 }
 
+// PostgREST caps a plain select at 1000 rows, which silently truncates dedupe indexes once a
+// product holds more leads than that (the bulk-imported insurance list is ~44k). Page through.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function selectAll<T>(build: () => any): Promise<T[]> {
+  const PAGE = 1000;
+  const out: T[] = [];
+  for (let from = 0; ; from += PAGE) {
+    const { data, error } = await build().order('id', { ascending: true }).range(from, from + PAGE - 1);
+    if (error) throw new Error(error.message);
+    out.push(...((data ?? []) as T[]));
+    if (!data || data.length < PAGE) break;
+  }
+  return out;
+}
+
 async function stageDirectory(
   db: Db, summary: RunSummary, dryRun: boolean, product: ProductConfig,
 ): Promise<{ entries: DirectoryEntry[]; index: LeadIndex<LeadRow> }> {
-  const { data: existing } = await scopeToProduct(db.from(leadsTable(product)).select('*'), product);
-  const index = new LeadIndex<LeadRow>((existing ?? []) as LeadRow[]);
+  const existing = await selectAll<LeadRow>(() => scopeToProduct(db.from(leadsTable(product)).select('*'), product));
+  const index = new LeadIndex<LeadRow>(existing);
 
   // The Retell partner directory is calldesk-specific (calldesk competes
   // directly with agencies on Retell's directory); readaloud has no
@@ -602,8 +617,8 @@ async function stageFreight(
   summary.searchCandidates += candidates.length;
   summary.searchDebug = { raw: scanned, rejected: Object.entries(rejected).map(([k, v]) => `${k}: ${v}`) };
 
-  const { data: emailRows } = await scopeToProduct(db.from(leadsTable(product)).select('contact_email'), product);
-  const knownEmails = new Set(((emailRows ?? []) as { contact_email: string | null }[]).map((r) => (r.contact_email ?? '').toLowerCase()).filter(Boolean));
+  const emailRows = await selectAll<{ contact_email: string | null }>(() => scopeToProduct(db.from(leadsTable(product)).select('contact_email, id'), product));
+  const knownEmails = new Set(emailRows.map((r) => (r.contact_email ?? '').toLowerCase()).filter(Boolean));
   // Suppressions are global by email (no product column), same as the send-time check in sender.ts.
   const { data: supData } = await db.from(suppressionsTable(product)).select('email');
   const suppressed = new Set(((supData ?? []) as { email: string }[]).map((s) => String(s.email).toLowerCase()));
@@ -714,6 +729,78 @@ async function stageVerticalSearch(
 // One lead per registry business (source_key `<vertical>:<state>:<licence>`).
 // The registry phone is kept in signals.registry so unresolved leads can be
 // phoned by a human later.
+// Pure: the lead row (and its email/domain) for one registry candidate. Shared by the per-run
+// stage and the bulk import so both build identical rows.
+function registryLeadRow(c: RegistryLead, product: ProductConfig, now: string) {
+  const email = c.email ?? null;
+  // Keep the email's domain only when it is a real business domain; free-mail
+  // addresses say nothing about who owns the site.
+  const domain = email && !isFreeMail(email) ? email.split('@')[1] : null;
+  const base = scoreLead({ tier: null, location: c.location, description: `${c.name} ${c.description}` }, undefined, product);
+  const score = Math.max(0, Math.min(100, base.score + c.adjust));
+  const reasons = [...base.reasons, ...c.reasons];
+  const registry: RegistryMeta = {
+    phone: c.phone, licenseId: c.licenseId, registry: c.registryName, typeLabel: c.typeLabel, legalName: c.legalName,
+    city: c.city, state: c.state, contactName: c.contactName, adjust: c.adjust, reasons: c.reasons,
+  };
+  const contactFields = email
+    ? { contact_email: email, contact_status: 'found', contact_source_url: c.contactSourceUrl ?? null, enriched_at: now }
+    : {};
+  const fields = {
+    company_name: c.name, domain, source_key: c.sourceKey, tier: null, location: c.location, description: c.description,
+    score, region_blocked: false, signals: { reasons, techPlatforms: [] as string[], registry },
+    ...contactFields,
+  };
+  return { email, domain, fields };
+}
+
+// One-off bulk import of a whole email-bearing registry (Florida DFS: insurance, bailbonds) instead of the
+// daily capped window. Skips known licences/emails/suppressed addresses, dedupes inside the batch, and inserts
+// in chunks. Idempotent: re-running only adds licensees that are not already leads.
+export async function bulkImportFlDfs(
+  db: Db, product: ProductConfig, opts: { dryRun?: boolean; log?: (m: string) => void } = {},
+): Promise<{ scanned: number; candidates: number; inserted: number; skipped: Record<string, number>; errors: string[] }> {
+  if (product.id !== 'insurance' && product.id !== 'bailbonds') throw new Error('bulk import is implemented for the Florida DFS verticals (insurance, bailbonds)');
+  const log = opts.log ?? (() => {});
+  const existing = await selectAll<{ source_key: string | null; contact_email: string | null }>(() => scopeToProduct(db.from(leadsTable(product)).select('id, source_key, contact_email'), product));
+  const knownKeys = new Set(existing.map((r) => r.source_key).filter((k): k is string => !!k));
+  const knownEmails = new Set(existing.map((r) => (r.contact_email ?? '').toLowerCase()).filter(Boolean));
+  const supRows = await selectAll<{ email: string }>(() => db.from(suppressionsTable(product)).select('id, email'));
+  const suppressed = new Set(supRows.map((r) => String(r.email).toLowerCase()));
+  log(`existing leads: ${existing.length}, suppressed: ${suppressed.size}`);
+
+  const res = await findFlDfsCandidates(product.id as 'insurance' | 'bailbonds', Number.MAX_SAFE_INTEGER, { isKnown: (k) => knownKeys.has(k), log });
+  const skipped: Record<string, number> = { ...res.rejected };
+  const now = new Date().toISOString();
+  const rows: Record<string, unknown>[] = [];
+  for (const c of res.candidates as RegistryLead[]) {
+    const { email, domain, fields } = registryLeadRow(c, product, now);
+    if (email && (knownEmails.has(email) || suppressed.has(email))) { skipped['email already a lead or suppressed'] = (skipped['email already a lead or suppressed'] ?? 0) + 1; continue; }
+    if (domain && isBlockedDomain(domain)) { skipped['blocked domain'] = (skipped['blocked domain'] ?? 0) + 1; continue; }
+    if (email) knownEmails.add(email);
+    rows.push({ ...fields, signal_source: 'directory', signal_detail: c.signalDetail.slice(0, 300), last_seen_at: now, ...productInsertFields(product) });
+  }
+  const errors: string[] = [...res.errors];
+  let inserted = 0;
+  if (!opts.dryRun) {
+    const CHUNK = 500;
+    for (let i = 0; i < rows.length; i += CHUNK) {
+      const chunk = rows.slice(i, i + CHUNK);
+      const { error } = await db.from(leadsTable(product)).insert(chunk);
+      if (!error) { inserted += chunk.length; }
+      else {
+        // One bad row must not sink the chunk: retry individually.
+        for (const row of chunk) {
+          const { error: e1 } = await db.from(leadsTable(product)).insert(row);
+          if (e1) errors.push(`insert ${String(row.company_name)}: ${e1.message}`); else inserted++;
+        }
+      }
+      log(`inserted ${inserted}/${rows.length}`);
+    }
+  }
+  return { scanned: res.scanned, candidates: rows.length, inserted, skipped, errors: errors.slice(0, 20) };
+}
+
 async function stageRegistry(
   db: Db, summary: RunSummary, dryRun: boolean, index: LeadIndex<LeadRow>, stop: () => boolean, product: ProductConfig,
 ): Promise<DirectoryEntry[]> {
@@ -737,8 +824,8 @@ async function stageRegistry(
   const knownEmails = new Set<string>();
   const suppressed = new Set<string>();
   if (withEmail && !dryRun) {
-    const { data: emailRows } = await scopeToProduct(db.from(leadsTable(product)).select('contact_email'), product);
-    for (const r of (emailRows ?? []) as { contact_email: string | null }[]) if (r.contact_email) knownEmails.add(r.contact_email.toLowerCase());
+    const emailRows = await selectAll<{ contact_email: string | null }>(() => scopeToProduct(db.from(leadsTable(product)).select('contact_email, id'), product));
+    for (const r of emailRows) if (r.contact_email) knownEmails.add(r.contact_email.toLowerCase());
     const { data: supData } = await db.from(suppressionsTable(product)).select('email');
     for (const s of (supData ?? []) as { email: string }[]) suppressed.add(String(s.email).toLowerCase());
   }
@@ -747,31 +834,13 @@ async function stageRegistry(
   const now = new Date().toISOString();
   for (const c of res.candidates as RegistryLead[]) {
     if (stop()) break;
-    const email = c.email ?? null;
-    // Keep the email's domain only when it is a real business domain; free-mail
-    // addresses say nothing about who owns the site.
-    const domain = email && !isFreeMail(email) ? email.split('@')[1] : null;
+    const { email, domain, fields } = registryLeadRow(c, product, now);
     if (index.find({ sourceKey: c.sourceKey, name: c.name, domain })) continue;
     if (email && (knownEmails.has(email) || suppressed.has(email))) continue;
     if (domain && isBlockedDomain(domain)) continue;
-    const base = scoreLead({ tier: null, location: c.location, description: `${c.name} ${c.description}` }, undefined, product);
-    const score = Math.max(0, Math.min(100, base.score + c.adjust));
-    const reasons = [...base.reasons, ...c.reasons];
-    const registry: RegistryMeta = {
-      phone: c.phone, licenseId: c.licenseId, registry: c.registryName, typeLabel: c.typeLabel, legalName: c.legalName,
-      city: c.city, state: c.state, contactName: c.contactName, adjust: c.adjust, reasons: c.reasons,
-    };
     summary.leadsNew++;
     summary.searchCandidates++;
     if (email) summary.contactsFound++;
-    const contactFields = email
-      ? { contact_email: email, contact_status: 'found', contact_source_url: c.contactSourceUrl ?? null, enriched_at: now }
-      : {};
-    const fields = {
-      company_name: c.name, domain, source_key: c.sourceKey, tier: null, location: c.location, description: c.description,
-      score, region_blocked: false, signals: { reasons, techPlatforms: [] as string[], registry },
-      ...contactFields,
-    };
     if (email) knownEmails.add(email);
     if (dryRun) {
       const fake = { id: `dry-${c.sourceKey}`, status: 'new', contact_email: null, contact_status: 'unknown', enriched_at: null, ...fields } as LeadRow;
