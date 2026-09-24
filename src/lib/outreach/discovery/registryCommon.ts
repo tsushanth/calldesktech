@@ -27,6 +27,13 @@ export interface RegistryLead {
   // Score adjustment on top of the product vocabulary and reasons for it.
   adjust: number;
   reasons: string[];
+  // Some registries publish the licensee's business email (FL DFS, DE DNREC).
+  // When set, the lead is inserted contact_status 'found' and pre-enriched, the
+  // way the FMCSA freight source does; when absent, stageEnrich has to resolve
+  // the business's own website and email first.
+  email?: string | null;
+  // Public registry page the email came from; stored as contact_source_url.
+  contactSourceUrl?: string | null;
 }
 
 export interface RegistryResult {
@@ -61,8 +68,11 @@ export function cityState(city: string | null | undefined, state: string | null 
 
 // Description text: only what the registry record supports. Never headcount,
 // revenue, problems, or anything about operations.
-export function describeRegistryLead(a: { typeLabel: string; registryName: string; location: string | null; legalName: string | null; name: string }): string {
-  let d = `Listed in the ${a.registryName} registry as a ${a.typeLabel}`;
+// `listNoun` names what the source actually is: most are a "registry", but the
+// FL DFS export is a "licensee file" and the CMS source is a "dataset". The
+// description must not call something a registry when it is not one.
+export function describeRegistryLead(a: { typeLabel: string; registryName: string; location: string | null; legalName: string | null; name: string; listNoun?: string }): string {
+  let d = `Listed in the ${a.registryName} ${a.listNoun ?? 'registry'} as a ${a.typeLabel}`;
   if (a.location && a.location.includes(',')) d += `, based in ${a.location}`;
   // The legal/registered name is kept in signals.registry only (it can be a person's
   // name for a sole proprietor), never in the draft-visible description.
