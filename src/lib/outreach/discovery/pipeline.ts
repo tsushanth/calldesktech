@@ -19,9 +19,12 @@ import { findFreightBrokerCandidates, describeBroker, isFreeMail } from './freig
 import { findVerticalSearchCandidates, type SearchVertical } from './verticalSearch';
 import { findTowingCandidates } from './towingWa';
 import { findSepticCandidates } from './septicRegistry';
-import { findHomecareCandidates } from './homecareRegistry';
 import { findFlDfsCandidates } from './flDfsRegistry';
-import { findWaContractorCandidates } from './homeservicesRegistry';
+import { findHomeservicesCandidates, findHomecareRegistryCandidates, findTxCandidatesForSlot } from './registryRotation';
+import { allNycDobLeads } from './nycDobLicenses';
+import { allVaDporLeads } from './vaDporContractors';
+import { streamArContractorLeads } from './arkansasContractors';
+import { streamCaCdphLeads } from './homecareCaCdph';
 import { findDentalNppesCandidates } from './dentalNppes';
 import { discoverWebsite } from './websiteDiscovery';
 import type { RegistryLead, RegistryResult } from './registryCommon';
@@ -721,11 +724,15 @@ async function stageVerticalSearch(
 // customer-discovery verticals backed by a public registry. Two shapes:
 //   * NO email in the registry (towing: WA DOL + Montgomery County MD, septic:
 //     FL DOH + Austin + Missouri, homecare: IL IDPH + NY DOH + CMS + Missouri,
-//     homeservices: WA L&I, dental: NPPES) — contact_status stays 'unknown' and
+//     homeservices: WA L&I, dental: NPPES, and the Texas workers' compensation
+//     subscriber file across six verticals) — contact_status stays 'unknown' and
 //     stageEnrich looks for the business's own website and email.
 //   * email published in the registry (insurance and bailbonds: FL DFS licensee
-//     file; some Delaware septic rows) — the lead goes in contact_status 'found'
-//     and pre-enriched, like the FMCSA freight source.
+//     file; homeservices: NYC DOB, VA DPOR, Arkansas CLB; homecare: CA CDPH;
+//     some Delaware septic rows) — the lead goes in contact_status 'found'
+//     and pre-enriched, like the FMCSA freight source. In all of those, a
+//     free-mail address is NOT used as the contact: it is a scoring signal only
+//     and the lead falls through to website discovery.
 // One lead per registry business (source_key `<vertical>:<state>:<licence>`).
 // The registry phone is kept in signals.registry so unresolved leads can be
 // phoned by a human later.
@@ -754,13 +761,34 @@ function registryLeadRow(c: RegistryLead, product: ProductConfig, now: string) {
   return { email, domain, fields };
 }
 
-// One-off bulk import of a whole email-bearing registry (Florida DFS: insurance, bailbonds) instead of the
-// daily capped window. Skips known licences/emails/suppressed addresses, dedupes inside the batch, and inserts
-// in chunks. Idempotent: re-running only adds licensees that are not already leads.
-export async function bulkImportFlDfs(
-  db: Db, product: ProductConfig, opts: { dryRun?: boolean; log?: (m: string) => void } = {},
+// The email-bearing registries that can be imported in one go, and the vertical each belongs to.
+// `load` returns every candidate the source has, not a capped window.
+const BULK_REGISTRY_SOURCES: Record<string, { products: string[]; load: (product: ProductConfig, isKnown: (k: string) => boolean, log: (m: string) => void) => Promise<RegistryResult> }> = {
+  'fl-dfs': {
+    products: ['insurance', 'bailbonds'],
+    load: (product, isKnown, log) => findFlDfsCandidates(product.id as 'insurance' | 'bailbonds', Number.MAX_SAFE_INTEGER, { isKnown, log }),
+  },
+  'nyc-dob': { products: ['homeservices'], load: (_p, isKnown, log) => allNycDobLeads({ isKnown, log }) },
+  'va-dpor': { products: ['homeservices'], load: (_p, isKnown, log) => allVaDporLeads({ isKnown, log }) },
+  'ar-clb': { products: ['homeservices'], load: (_p, isKnown, log) => streamArContractorLeads({ isKnown, log }) },
+  'ca-cdph': { products: ['homecare'], load: (_p, isKnown, log) => streamCaCdphLeads({ isKnown, log }) },
+};
+
+export const BULK_REGISTRY_SOURCE_IDS = Object.keys(BULK_REGISTRY_SOURCES);
+
+export function bulkRegistrySourcesFor(product: ProductConfig): string[] {
+  return BULK_REGISTRY_SOURCE_IDS.filter((id) => BULK_REGISTRY_SOURCES[id].products.includes(product.id));
+}
+
+// One-off bulk import of a whole email-bearing registry instead of the daily capped window.
+// Skips known licences/emails/suppressed addresses, dedupes inside the batch, and inserts in
+// chunks. Idempotent: re-running only adds licensees that are not already leads.
+export async function bulkImportRegistry(
+  db: Db, product: ProductConfig, sourceId: string, opts: { dryRun?: boolean; log?: (m: string) => void } = {},
 ): Promise<{ scanned: number; candidates: number; inserted: number; skipped: Record<string, number>; errors: string[] }> {
-  if (product.id !== 'insurance' && product.id !== 'bailbonds') throw new Error('bulk import is implemented for the Florida DFS verticals (insurance, bailbonds)');
+  const source = BULK_REGISTRY_SOURCES[sourceId];
+  if (!source) throw new Error(`unknown bulk import source "${sourceId}" (have: ${BULK_REGISTRY_SOURCE_IDS.join(', ')})`);
+  if (!source.products.includes(product.id)) throw new Error(`bulk import source "${sourceId}" is for ${source.products.join(', ')}, not ${product.id}`);
   const log = opts.log ?? (() => {});
   const existing = await selectAll<{ source_key: string | null; contact_email: string | null }>(() => scopeToProduct(db.from(leadsTable(product)).select('id, source_key, contact_email'), product));
   const knownKeys = new Set(existing.map((r) => r.source_key).filter((k): k is string => !!k));
@@ -769,11 +797,16 @@ export async function bulkImportFlDfs(
   const suppressed = new Set(supRows.map((r) => String(r.email).toLowerCase()));
   log(`existing leads: ${existing.length}, suppressed: ${suppressed.size}`);
 
-  const res = await findFlDfsCandidates(product.id as 'insurance' | 'bailbonds', Number.MAX_SAFE_INTEGER, { isKnown: (k) => knownKeys.has(k), log });
+  const res = await source.load(product, (k) => knownKeys.has(k), log);
   const skipped: Record<string, number> = { ...res.rejected };
   const now = new Date().toISOString();
   const rows: Record<string, unknown>[] = [];
+  // A source can list the same business twice (Virginia publishes one row per
+  // licence class), so the batch dedupes on source key as well as email.
+  const batchKeys = new Set<string>();
   for (const c of res.candidates as RegistryLead[]) {
+    if (batchKeys.has(c.sourceKey)) { skipped['duplicate in batch'] = (skipped['duplicate in batch'] ?? 0) + 1; continue; }
+    batchKeys.add(c.sourceKey);
     const { email, domain, fields } = registryLeadRow(c, product, now);
     if (email && (knownEmails.has(email) || suppressed.has(email))) { skipped['email already a lead or suppressed'] = (skipped['email already a lead or suppressed'] ?? 0) + 1; continue; }
     if (domain && isBlockedDomain(domain)) { skipped['blocked domain'] = (skipped['blocked domain'] ?? 0) + 1; continue; }
@@ -801,6 +834,14 @@ export async function bulkImportFlDfs(
   return { scanned: res.scanned, candidates: rows.length, inserted, skipped, errors: errors.slice(0, 20) };
 }
 
+// Kept for the existing harness entry point and any saved command line.
+export async function bulkImportFlDfs(
+  db: Db, product: ProductConfig, opts: { dryRun?: boolean; log?: (m: string) => void } = {},
+) {
+  if (product.id !== 'insurance' && product.id !== 'bailbonds') throw new Error('bulk import is implemented for the Florida DFS verticals (insurance, bailbonds)');
+  return bulkImportRegistry(db, product, 'fl-dfs', opts);
+}
+
 async function stageRegistry(
   db: Db, summary: RunSummary, dryRun: boolean, index: LeadIndex<LeadRow>, stop: () => boolean, product: ProductConfig,
 ): Promise<DirectoryEntry[]> {
@@ -809,11 +850,16 @@ async function stageRegistry(
   const max = Math.min(30, Math.max(1, Number.isFinite(rawMax) && rawMax > 0 ? Math.floor(rawMax) : 12));
   const isKnown = (key: string) => !!index.find({ sourceKey: key });
 
+  // The Texas workers' compensation subscriber file feeds six of these verticals
+  // and takes one rotation slot in six; on the other slots the vertical uses its
+  // own source(s).
+  const tx = await findTxCandidatesForSlot(product.id, max, { isKnown });
   let res: RegistryResult;
-  if (product.id === 'towing') res = await findTowingCandidates(max, { isKnown });
+  if (tx) res = tx;
+  else if (product.id === 'towing') res = await findTowingCandidates(max, { isKnown });
   else if (product.id === 'septic') res = await findSepticCandidates(max, { isKnown });
-  else if (product.id === 'homecare') res = await findHomecareCandidates(max, { isKnown });
-  else if (product.id === 'homeservices') res = await findWaContractorCandidates(max, { isKnown });
+  else if (product.id === 'homecare') res = await findHomecareRegistryCandidates(max, { isKnown });
+  else if (product.id === 'homeservices') res = await findHomeservicesCandidates(max, { isKnown });
   else if (product.id === 'dental') res = await findDentalNppesCandidates(max, { isKnown });
   else res = await findFlDfsCandidates(product.id as 'insurance' | 'bailbonds', max, { isKnown });
   summary.errors.push(...res.errors);
