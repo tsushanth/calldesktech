@@ -47,6 +47,15 @@ export interface ProductConfig {
   // product with its own dedicated tables (no shared `product` column, e.g.
   // readaloud_outreach_*) leaves this unset.
   sharedTableProductValue?: string;
+  // Set only for customer-DISCOVERY products (see VERTICAL_DEFS below): short,
+  // non-sales research asks to small businesses in one vertical. When set:
+  //   * agencyDraft.ts labels the lead as a `leadLabel` (not an "Agency") and
+  //     presents the description as public-record/listing facts, not "their own words"
+  //   * the agency-specific research stage is skipped (it judges "is this an AI
+  //     voice agency"; irrelevant here) and drafting does not require a dossier
+  //   * follow-ups default to `defaultMaxFollowUps` (env OUTREACH_MAX_FOLLOWUPS still wins)
+  // Left undefined for calldesk/readaloud so their behavior is unchanged.
+  vertical?: { leadLabel: string; leadPlural: string; defaultMaxFollowUps: number };
 }
 
 const CALLDESK_OFFER_FACTS = [
@@ -179,7 +188,216 @@ export const readaloud: ProductConfig = {
   scoreVocabulary: READALOUD_SCORE_VOCABULARY,
 };
 
-const PRODUCTS: Record<string, ProductConfig> = { calldesk, readaloud };
+// ---------------------------------------------------------------------------
+// Customer-discovery verticals. Same Calldesk brand and the SAME shared
+// calldesk_outreach_* tables as calldesk (scoped via the `product` column, like
+// Kreative Koala), so no migration. These are research asks, not sales pitches
+// and not the agency-partner offer.
+// ---------------------------------------------------------------------------
+
+interface VerticalDef {
+  id: 'freight' | 'homeservices' | 'dental' | 'insurance' | 'towing' | 'septic' | 'homecare' | 'bailbonds';
+  leadLabel: string; // singular, used in the draft prompt ("Freight brokerage: <name>")
+  leadPlural: string; // e.g. "freight brokerages"
+  topic: string; // what we are researching, in prose
+  askAbout: string; // short form for subject/follow-up
+  registryFact: string; // what the lead data can support about the recipient
+  // Extra hard rules appended to the draft/follow-up prompts (vertical-specific compliance framing).
+  extraRules?: string[];
+  scoreVocabulary: ScoreVocabularyRule[];
+}
+
+const VERTICAL_SIGNATURE = 'Sushanth & Deepika\nCo-founders, Calldesk';
+
+function verticalOfferFacts(v: VerticalDef): string[] {
+  return [
+    'Calldesk (calldesk.tech) is an AI voice-agent platform: inbound and outbound phone agents.',
+    `We are in early customer research on how small ${v.leadPlural} handle ${v.topic}.`,
+    'We are not selling anything in this email and are not asking them to sign up for or buy anything.',
+    'We have not built anything specific for this industry yet; we want to understand the day-to-day work first.',
+    'We are asking for a 15-minute conversation (a call, or a reply by email) to hear how they handle this today.',
+    'We can share a short summary of what we learn from these conversations with the people who take part.',
+  ];
+}
+
+function extra(v: VerticalDef): string {
+  return (v.extraRules ?? []).map((r) => `\n- ${r}`).join('');
+}
+
+function verticalSystemPrompt(v: VerticalDef): string {
+  return `You write short, honest customer-discovery emails from the co-founders of Calldesk (Sushanth and Deepika) to owners and operators of small ${v.leadPlural}. This is research outreach. It is NOT a sales pitch and NOT a partnership offer.
+
+Rules:
+- State ONLY facts from the provided offer facts and lead data. About the recipient you may say only what the lead data supports: the business name, its location, and ${v.registryFact}. Never invent customers, results, integrations, statistics, or claims about their operations, volume, staff, tools, or problems. Do not assume they have any problem; ask how they handle things.
+- No fake familiarity: no "loved your post", "I saw you recently", "I noticed your team is growing". No flattery.
+- Content, in this order: (1) one sentence saying who we are, the co-founders of Calldesk, an AI voice-agent platform; (2) that we are researching how small ${v.leadPlural} handle ${v.topic}, and that we are not selling anything; (3) one clear ask: 15 minutes of their time to hear how they handle it today; (4) that we are happy to share what we learn.
+- No pricing, discounts, free trials, revenue share, or partner terms. No urgency, scarcity, or "quick question" tricks. No hype words, no emojis, no exclamation marks.
+- Never claim Calldesk is better, faster, or cheaper than any product or competitor.
+- Subject: plain and specific, under 70 characters, e.g. about ${v.askAbout}. Not clickbait, not "Re:" or "Fwd:".
+- Body: 60-110 words, 2-3 short paragraphs. Start with "Hi there,".${extra(v)}
+- Write in the first person plural ("we", "us", "our"). Never use "I", "me" or "my", and never introduce yourselves by name or title.
+- Do NOT write a sign-off or signature; one is added automatically.
+- Any sentence that asks something must end with a question mark.
+- Write in English.`;
+}
+
+function verticalFollowUpPrompt(v: VerticalDef): string {
+  return `You write short, low-pressure follow-up emails from the co-founders of Calldesk (Sushanth and Deepika), following up on a customer-discovery email to a small business (${v.leadPlural}) that got no reply. It is research outreach, not a sales pitch.
+
+Rules:
+- This is a BRIEF bump: 2-3 sentences. Restate only that we are researching how small ${v.leadPlural} handle ${v.topic}, that we are not selling anything, and that 15 minutes would help.
+- State ONLY facts from the provided offer facts. Never invent customers, results, or claims about the recipient. No pricing, no partner terms.
+- Do not guilt-trip, create false urgency, or use hype words, emojis, or exclamation marks.
+- Write in the first person plural ("we", "us", "our"). Never use "I", "me" or "my", and never introduce yourselves by name or title.
+- Do NOT write a sign-off or signature; one is added automatically.
+- Any sentence that asks something must end with a question mark.
+- On the LAST allowed follow-up (see "This is the final follow-up" note if present), say this is the last note and that we will not follow up again.${extra(v)}
+- Write in English.`;
+}
+
+// Words that signal a small, owner-run business (up) versus a chain, franchise
+// or national enterprise (down). Matched against the lowercased lead
+// description (legal/dba name and listing blurb).
+const SMALL_UP: ScoreVocabularyRule = { pattern: /family[- ]owned|locally owned|owner[- ]operated|independent(ly)?|boutique|since (19|20)\d\d|small (business|team|practice|agency)/, delta: 10, reason: 'describes itself as small, independent, or owner-run' };
+const CHAIN_DOWN: ScoreVocabularyRule = { pattern: /franchise|nationwide|national (network|brand|company)|corporate|enterprise|holdings|publicly traded|\b\d{2,}\+? (offices|locations|branches|clinics|practices)|locations (across|in \d+)|multi-?state/, delta: -15, reason: 'chain, franchise, or national/enterprise signals' };
+
+const VERTICAL_DEFS: VerticalDef[] = [
+  {
+    id: 'freight',
+    leadLabel: 'Freight brokerage',
+    leadPlural: 'freight brokerages',
+    topic: 'carrier check calls, load coverage, and the phone follow-up around moving each load',
+    askAbout: 'how small freight brokerages handle carrier check calls',
+    registryFact: 'that it is listed in the public FMCSA registry with active property broker authority',
+    scoreVocabulary: [
+      { pattern: /\b(brokerage|3pl|logistics|freight)\b/, delta: 5, reason: 'name reads like a freight brokerage' },
+      { pattern: /family[- ]owned|independent|owner[- ]operated|boutique/, delta: 10, reason: 'describes itself as small, independent, or owner-run' },
+      { pattern: /worldwide|global|international|nationwide|national|corporation|holdings|\bgroup\b/, delta: -8, reason: 'name suggests a larger or enterprise-scale operation' },
+    ],
+  },
+  {
+    id: 'homeservices',
+    leadLabel: 'Home services company',
+    leadPlural: 'HVAC, plumbing, electrical, and roofing companies',
+    topic: 'missed calls, after-hours calls, and booking service appointments',
+    askAbout: 'how small home-service companies handle missed calls and booking',
+    registryFact: 'that it is a local HVAC, plumbing, electrical, or roofing business (from its own website)',
+    scoreVocabulary: [
+      { pattern: /hvac|heating|air conditioning|plumb|electric|roofing|contractor/, delta: 5, reason: 'trade matches HVAC/plumbing/electrical/roofing' },
+      { pattern: /24\/?7|emergency|same[- ]day|service calls?/, delta: 5, reason: 'runs emergency/same-day service (phone-driven demand)' },
+      SMALL_UP, CHAIN_DOWN,
+    ],
+  },
+  {
+    id: 'dental',
+    leadLabel: 'Dental practice',
+    leadPlural: 'independent dental practices',
+    topic: 'patient phone calls, new-patient booking, and appointment reschedules',
+    askAbout: 'how small dental practices handle patient calls and reschedules',
+    registryFact: 'that it is an independent dental practice (from its own website)',
+    scoreVocabulary: [
+      { pattern: /dental|dentist|orthodont|periodont|endodont|oral surgery/, delta: 5, reason: 'dental practice' },
+      { pattern: /general dentistry|family dentistry|new patients?|emergency dental/, delta: 5, reason: 'general practice taking new patients (phone-driven demand)' },
+      SMALL_UP,
+      { pattern: /dso|dental support|aspen dental|heartland dental|pacific dental|smile brands|western dental|coast dental|affordable dentures|corporate/, delta: -20, reason: 'DSO or corporate dental group' },
+      CHAIN_DOWN,
+    ],
+  },
+  {
+    id: 'insurance',
+    leadLabel: 'Insurance agency',
+    leadPlural: 'independent insurance agencies',
+    topic: 'quote requests, policy-service calls, and after-hours calls',
+    askAbout: 'how small independent insurance agencies handle quote and service calls',
+    registryFact: 'that it is an independent insurance agency (from its own website)',
+    scoreVocabulary: [
+      { pattern: /independent (insurance )?agen|insurance agency|insurance broker|insurance services/, delta: 5, reason: 'independent insurance agency' },
+      { pattern: /personal lines|commercial lines|auto|home|life|benefits|quotes?/, delta: 3, reason: 'sells lines that generate quote and service calls' },
+      SMALL_UP,
+      { pattern: /state farm|allstate|farmers|geico|progressive|liberty mutual|nationwide|american family|captive|carrier[- ]owned/, delta: -20, reason: 'captive/carrier-owned or national carrier agent' },
+      CHAIN_DOWN,
+    ],
+  },
+  {
+    id: 'towing',
+    leadLabel: 'Towing company',
+    leadPlural: 'independent towing companies',
+    topic: 'dispatch and after-hours tow requests, including calls that come in while the crew is out on a job',
+    askAbout: 'how small towing companies handle dispatch and after-hours calls',
+    registryFact: 'that it is listed in a state licensing registry, worded exactly as the lead data words it (for example "listed in the Washington State Department of Licensing registry as a registered tow truck operator")',
+    scoreVocabulary: [
+      { pattern: /24\/?7|24[- ]hour|round[- ]the[- ]clock|emergency|heavy[- ]duty|flatbed/, delta: 5, reason: 'name suggests 24-hour or emergency towing (phone-driven demand)' },
+      SMALL_UP, CHAIN_DOWN,
+    ],
+  },
+  {
+    id: 'septic',
+    leadLabel: 'Septic service company',
+    leadPlural: 'independent septic service companies',
+    topic: 'scheduling and dispatch, and call overflow during the busy season',
+    askAbout: 'how small septic companies handle scheduling and busy-season calls',
+    registryFact: 'that it is listed in a state or city licensing registry, worded exactly as the lead data words it (for example "listed in the Florida Department of Health registry as a master septic tank contractor")',
+    scoreVocabulary: [
+      { pattern: /pump(ing)?|emergency|24\/?7|24[- ]hour/, delta: 3, reason: 'name suggests pumping/emergency service (phone-driven demand)' },
+      SMALL_UP, CHAIN_DOWN,
+    ],
+  },
+  {
+    id: 'homecare',
+    leadLabel: 'Home care agency',
+    leadPlural: 'independent home care agencies',
+    topic: 'new-client inquiry calls and weekend follow-up with families',
+    askAbout: 'how small home care agencies handle new-client inquiries and weekend calls',
+    registryFact: 'that it is listed in a state health-department registry, worded exactly as the lead data words it (for example "listed in the Illinois Department of Public Health registry as a licensed home health agency")',
+    scoreVocabulary: [SMALL_UP, CHAIN_DOWN],
+  },
+  {
+    id: 'bailbonds',
+    leadLabel: 'Bail bonds agency',
+    leadPlural: 'independent bail bonds agencies',
+    topic: 'after-hours intake calls and returning missed calls',
+    askAbout: 'how small bail bonds agencies handle after-hours intake calls',
+    registryFact: 'that it is a local bail bonds business (from its own website)',
+    extraRules: [
+      'Do not give or imply legal advice, and do not comment on arrests, charges, jail, courts, or anyone\'s legal situation. Ask only about how the business handles its phone intake outside office hours.',
+    ],
+    scoreVocabulary: [
+      { pattern: /bail\s*bond/, delta: 5, reason: 'bail bonds agency' },
+      { pattern: /24\/?7|24[- ]hour|around the clock|day or night/, delta: 5, reason: 'advertises 24-hour service (phone-driven demand)' },
+      SMALL_UP,
+      { pattern: /bad boys|nationwide|national|network of/, delta: -10, reason: 'national brand or network signals' },
+      CHAIN_DOWN,
+    ],
+  },
+];
+
+function verticalProduct(v: VerticalDef): ProductConfig {
+  return {
+    id: v.id,
+    tablePrefix: 'calldesk_outreach',
+    stateDirName: `.calldesk-${v.id}-outreach`,
+    baseUrl: 'https://calldesk.tech',
+    sharedTableProductValue: `calldesk:${v.id}`,
+    offerFacts: verticalOfferFacts(v),
+    systemPrompt: verticalSystemPrompt(v),
+    followUpSystemPrompt: verticalFollowUpPrompt(v),
+    signature: VERTICAL_SIGNATURE,
+    scoreVocabulary: v.scoreVocabulary,
+    vertical: { leadLabel: v.leadLabel, leadPlural: v.leadPlural, defaultMaxFollowUps: 1 },
+  };
+}
+
+export const freight = verticalProduct(VERTICAL_DEFS[0]);
+export const homeservices = verticalProduct(VERTICAL_DEFS[1]);
+export const dental = verticalProduct(VERTICAL_DEFS[2]);
+export const insurance = verticalProduct(VERTICAL_DEFS[3]);
+export const towing = verticalProduct(VERTICAL_DEFS[4]);
+export const septic = verticalProduct(VERTICAL_DEFS[5]);
+export const homecare = verticalProduct(VERTICAL_DEFS[6]);
+export const bailbonds = verticalProduct(VERTICAL_DEFS[7]);
+export const VERTICAL_PRODUCT_IDS = ['freight', 'homeservices', 'dental', 'insurance', 'towing', 'septic', 'homecare', 'bailbonds'] as const;
+
+const PRODUCTS: Record<string, ProductConfig> = { calldesk, readaloud, freight, homeservices, dental, insurance, towing, septic, homecare, bailbonds };
 
 // Resolves a product config from a PRODUCT env-style value, defaulting to
 // calldesk (unset/unknown values fall back to calldesk, never throw) so the

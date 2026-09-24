@@ -68,10 +68,14 @@ export async function draftAgencyEmail(input: AgencyDraftInput): Promise<AgencyD
   const language = detectDraftLanguage(input.location ?? null);
 
   const userPrompt = [
-    `Agency: ${input.name}${input.domain ? ` (${input.domain})` : ''}`,
+    `${product.vertical?.leadLabel ?? 'Agency'}: ${input.name}${input.domain ? ` (${input.domain})` : ''}`,
     input.location ? `Location: ${input.location}` : '',
     language ? `Target language: ${language.name} — write the whole email in ${language.name}. This is an international lead, so it's worth naturally mentioning ${product.id === 'calldesk' ? `Calldesk supports ${language.name} (part of its 55 verified languages)` : `we can support ${language.name}`} if it fits.` : '',
-    input.description ? `Their own description of what they do:\n"""\n${input.description}\n"""` : '',
+    input.description
+      ? product.vertical
+        ? `What the lead data says about them (public registry/listing facts; state nothing beyond this):\n"""\n${input.description}\n"""`
+        : `Their own description of what they do:\n"""\n${input.description}\n"""`
+      : '',
     input.dossier
       ? `Verified facts from their own website (mention at most ONE, exactly as stated, no embellishment):\n- ${input.dossier.summary}${input.dossier.hook ? `\n- Specific detail: ${input.dossier.hook}` : ''}${input.dossier.verticals.length ? `\n- Verticals: ${input.dossier.verticals.join(', ')}` : ''}`
       : '',
@@ -143,7 +147,7 @@ export async function draftFollowUpEmail(input: FollowUpInput): Promise<AgencyDr
   const product = input.product ?? calldesk;
   const language = detectDraftLanguage(input.location ?? null);
   const userPrompt = [
-    `Agency: ${input.name}${input.domain ? ` (${input.domain})` : ''}`,
+    `${product.vertical?.leadLabel ?? 'Agency'}: ${input.name}${input.domain ? ` (${input.domain})` : ''}`,
     language ? `Target language: ${language.name} — write the whole follow-up in ${language.name}.` : '',
     input.dossier?.hook ? `A specific detail about them, usable at most once across all emails so far: ${input.dossier.hook}` : '',
     `This is follow-up #${input.step - 1} to our earlier email, subject "${input.previousSubject}", which got no reply.`,

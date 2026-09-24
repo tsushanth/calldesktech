@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!-- Customer-discovery outreach, vertical: homeservices. TEMPLATE only, not installed. Replace __HOME__, then copy to ~/Library/LaunchAgents/. Needs ~/.calldesk-homeservices-outreach/env (a copy of the calldesk env). -->
+<plist version="1.0">
+<dict>
+  <key>Label</key><string>com.calldesk.outreach-homeservices</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/bin/bash</string>
+    <string>__HOME__/calldesk-outreach-harness/repo/harness/outreach/run_cycle.sh</string>
+  </array>
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>PRODUCT</key><string>homeservices</string>
+  </dict>
+  <key>StartCalendarInterval</key>
+  <dict><key>Hour</key><integer>10</integer><key>Minute</key><integer>37</integer></dict>
+  <key>RunAtLoad</key><false/>
+  <key>StandardOutPath</key><string>__HOME__/.calldesk-homeservices-outreach/logs/launchagent.log</string>
+  <key>StandardErrorPath</key><string>__HOME__/.calldesk-homeservices-outreach/logs/launchagent.log</string>
+</dict>
+</plist>

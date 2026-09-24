@@ -15,6 +15,13 @@ import { checkDomainForPlatforms } from '../signals/techFingerprint';
 import { LeadIndex } from './dedupe';
 import { researchAgency, type Dossier } from '../research';
 import { findSearchCandidates, queriesForDay } from './searchSource';
+import { findFreightBrokerCandidates, describeBroker, isFreeMail } from './freightFmcsa';
+import { findVerticalSearchCandidates, type SearchVertical } from './verticalSearch';
+import { findWaTowCandidates } from './towingWa';
+import { findSepticCandidates } from './septicRegistry';
+import { findHomecareCandidates } from './homecareRegistry';
+import { discoverWebsite } from './websiteDiscovery';
+import type { RegistryLead, RegistryResult } from './registryCommon';
 import { calldesk, leadsTable, runsTable, messagesTable, suppressionsTable, scopeToProduct, productInsertFields, type ProductConfig } from '../products';
 
 // The daily discovery harness. One call = one full pass:
@@ -87,8 +94,25 @@ interface LeadRow {
   score: number | null;
   enriched_at: string | null;
   research?: Dossier | null;
-  signals: { reasons: string[]; techPlatforms: string[] } | null;
+  signals: { reasons: string[]; techPlatforms: string[]; registry?: RegistryMeta } | null;
 }
+
+// Registry facts kept on the lead's `signals` (never put in the draft-visible
+// description): the registry phone so a human can call unresolved leads, plus
+// the identity used for website lookup and the score adjustment to re-apply on rescoring.
+interface RegistryMeta {
+  phone: string | null; licenseId: string; registry: string; typeLabel: string; legalName: string | null;
+  city: string | null; state: string | null; contactName: string | null; adjust: number; reasons: string[];
+}
+
+// Customer-discovery products whose leads come from a public REGISTRY that has no
+// email: stageRegistry ingests them, stageEnrich resolves website -> published email.
+const REGISTRY_PRODUCTS = new Set(['towing', 'septic', 'homecare']);
+const REGISTRY_KIND: Record<string, string> = {
+  towing: 'towing company (tow truck operator)',
+  septic: 'septic tank service / liquid waste hauling company',
+  homecare: 'home care agency',
+};
 
 export async function runDiscovery(db: Db, opts: RunOptions = {}): Promise<RunSummary> {
   const product = opts.product ?? calldesk;
@@ -120,12 +144,18 @@ export async function runDiscovery(db: Db, opts: RunOptions = {}): Promise<RunSu
     const githubEntries = stop() ? [] : await stageGithub(db, summary, dryRun, index, stop, product);
     const telephonyEntries = stop() ? [] : await stageTelephonyPlatforms(db, summary, dryRun, index, stop, product);
     const sttTtsEntries = stop() ? [] : await stageSttTtsSignal(db, summary, dryRun, index, stop, product);
+    const freightEntries = stop() ? [] : await stageFreight(db, summary, dryRun, index, stop, product);
+    const verticalEntries = stop() ? [] : await stageVerticalSearch(db, summary, dryRun, index, stop, product);
+    const registryEntries = stop() ? [] : await stageRegistry(db, summary, dryRun, index, stop, product);
     const allEntries = [
       ...entries, ...searchEntries, ...jobPostingEntries, ...reviewSiteEntries, ...githubEntries,
-      ...telephonyEntries, ...sttTtsEntries,
+      ...telephonyEntries, ...sttTtsEntries, ...freightEntries, ...verticalEntries, ...registryEntries,
     ];
     if (!stop()) await stageEnrich(db, summary, dryRun, enrichLimit, allEntries, index, stop, product);
-    const researchOn = process.env.OUTREACH_RESEARCH === '1';
+    // The research stage judges "is this an AI voice agency"; it is agency-specific,
+    // so it never runs for the customer-discovery verticals (drafting then does not
+    // require a dossier either, since researchOn also gates that).
+    const researchOn = process.env.OUTREACH_RESEARCH === '1' && !product.vertical;
     if (researchOn && !stop()) await stageResearch(db, summary, dryRun, opts.researchLimit ?? 5, stop, product);
     if (!stop()) await stageDraft(db, summary, dryRun, draftLimit, stop, researchOn, product);
     if (!stop()) await stageFollowUp(db, summary, dryRun, stop, product);
@@ -542,10 +572,202 @@ async function stageSttTtsSignal(
   return entries;
 }
 
+// customer-discovery vertical `freight`: active property BROKERS from FMCSA's
+// free open data (see freightFmcsa.ts). The registry record already carries a
+// published business email, so contact-finding is skipped: leads are inserted
+// contact_status 'found' and pre-enriched. Still deduped by MC source_key, name,
+// email and domain, and checked against the suppression list before insert.
+async function stageFreight(
+  db: Db, summary: RunSummary, dryRun: boolean, index: LeadIndex<LeadRow>, stop: () => boolean, product: ProductConfig,
+): Promise<DirectoryEntry[]> {
+  if (product.id !== 'freight') return [];
+  const rawMax = Number(process.env.OUTREACH_FREIGHT_MAX_PER_RUN);
+  const max = Math.min(60, Math.max(1, Number.isFinite(rawMax) && rawMax > 0 ? Math.floor(rawMax) : 30));
+
+  const { candidates, errors, scanned, rejected } = await findFreightBrokerCandidates(max, stop);
+  summary.errors.push(...errors);
+  summary.searchCandidates += candidates.length;
+  summary.searchDebug = { raw: scanned, rejected: Object.entries(rejected).map(([k, v]) => `${k}: ${v}`) };
+
+  const { data: emailRows } = await scopeToProduct(db.from(leadsTable(product)).select('contact_email'), product);
+  const knownEmails = new Set(((emailRows ?? []) as { contact_email: string | null }[]).map((r) => (r.contact_email ?? '').toLowerCase()).filter(Boolean));
+  // Suppressions are global by email (no product column), same as the send-time check in sender.ts.
+  const { data: supData } = await db.from(suppressionsTable(product)).select('email');
+  const suppressed = new Set(((supData ?? []) as { email: string }[]).map((s) => String(s.email).toLowerCase()));
+
+  const entries: DirectoryEntry[] = [];
+  const now = new Date().toISOString();
+  for (const c of candidates) {
+    if (stop()) break;
+    const sourceKey = `freight:mc:${c.mc}`;
+    const domain = isFreeMail(c.email) ? null : c.email.split('@')[1];
+    if (index.find({ sourceKey, name: c.name, domain })) continue;
+    if (knownEmails.has(c.email) || suppressed.has(c.email)) continue;
+
+    const { location, description } = describeBroker(c);
+    const base = scoreLead({ tier: null, location, description: `${c.name} ${c.dba ?? ''} ${description}` }, undefined, product);
+    const score = Math.max(0, Math.min(100, base.score + c.adjust));
+    const reasons = [...base.reasons, ...c.reasons];
+    summary.leadsNew++;
+    summary.contactsFound++;
+
+    const fields = {
+      company_name: c.name, domain, source_key: sourceKey, tier: null, location, description,
+      score, region_blocked: false, signals: { reasons, techPlatforms: [] as string[] },
+      contact_email: c.email, contact_status: 'found',
+      contact_source_url: `https://data.transportation.gov/resource/az4n-8mr2.json?dot_number=${c.dot}`,
+      enriched_at: now,
+    };
+    knownEmails.add(c.email);
+    if (dryRun) {
+      const fake = { id: `dry-${sourceKey}`, status: 'new', ...fields } as LeadRow;
+      index.add(fake);
+      entries.push({ slug: null, row: fake });
+      summary.sample.enriched.push({ name: c.name, domain, email: c.email, status: 'found (FMCSA)' });
+      continue;
+    }
+    const { data: inserted, error } = await db.from(leadsTable(product)).insert({
+      ...fields, signal_source: 'directory', signal_detail: `FMCSA active broker authority MC-${c.mc} (DOT ${c.dot})`, last_seen_at: now, ...productInsertFields(product),
+    }).select('*').single();
+    if (error) {
+      summary.leadsNew--;
+      summary.contactsFound--;
+      summary.errors.push(`insert ${c.name}: ${error.message}`);
+    } else if (inserted) {
+      index.add(inserted as LeadRow);
+      entries.push({ slug: null, row: inserted as LeadRow });
+    }
+  }
+  return entries;
+}
+
+// customer-discovery verticals with no free registry (homeservices, dental,
+// insurance): rotating LLM web searches, each candidate verified against its own
+// homepage. Contacts come from the normal enrich stage (their own site).
+async function stageVerticalSearch(
+  db: Db, summary: RunSummary, dryRun: boolean, index: LeadIndex<LeadRow>, stop: () => boolean, product: ProductConfig,
+): Promise<DirectoryEntry[]> {
+  if (product.id !== 'homeservices' && product.id !== 'dental' && product.id !== 'insurance' && product.id !== 'bailbonds') return [];
+  const perDay = Math.min(6, Math.max(0, Number(process.env.OUTREACH_VERTICAL_QUERIES_PER_DAY ?? 2)));
+  if (!perDay) return [];
+
+  const { candidates, errors, raw, rejected } = await findVerticalSearchCandidates(product.id as SearchVertical, perDay, stop);
+  summary.errors.push(...errors);
+  summary.searchDebug = { raw, rejected: rejected.slice(0, 10) };
+  summary.searchCandidates += candidates.length;
+
+  const entries: DirectoryEntry[] = [];
+  const now = new Date().toISOString();
+  for (const c of candidates) {
+    const sourceKey = `${product.id}:search:${c.domain}`;
+    if (index.find({ sourceKey, name: c.name, domain: c.domain })) continue;
+
+    const blocked = isRegionBlocked(c.location, c.name) || isBlockedDomain(c.domain);
+    const { score, reasons } = scoreLead({ tier: null, location: c.location, description: `${c.name} ${c.blurb ?? ''}` }, undefined, product);
+    summary.leadsNew++;
+
+    const base = {
+      company_name: c.name, domain: c.domain, source_key: sourceKey, tier: null, location: c.location,
+      description: c.blurb, score, region_blocked: blocked, signals: { reasons, techPlatforms: [] },
+    };
+    if (dryRun) {
+      const fake = { id: `dry-${c.domain}`, status: 'new', contact_email: null, contact_status: 'unknown', enriched_at: null, ...base } as LeadRow;
+      index.add(fake);
+      entries.push({ slug: null, row: fake });
+      continue;
+    }
+    const { data: inserted, error } = await db.from(leadsTable(product)).insert({
+      ...base, signal_source: 'search', signal_detail: `${product.vertical?.leadLabel ?? 'Vertical'} web search: ${(c.blurb ?? '').slice(0, 180)}`, last_seen_at: now, ...productInsertFields(product),
+    }).select('*').single();
+    if (error) {
+      summary.leadsNew--;
+      summary.errors.push(`insert ${c.name}: ${error.message}`);
+    } else if (inserted) {
+      index.add(inserted as LeadRow);
+      entries.push({ slug: null, row: inserted as LeadRow });
+    }
+  }
+  return entries;
+}
+
+// customer-discovery verticals backed by a public registry with NO email (towing:
+// WA DOL, septic: FL DOH + Austin, homecare: IL IDPH + NY DOH). Inserts one lead
+// per registry business (source_key `<vertical>:<state>:<licence>`), contact_status
+// left 'unknown'; stageEnrich then looks for the business's own website and email.
+// The registry phone is kept in signals.registry so unresolved leads can be phoned
+// by a human later. Nothing here can be emailed until a published address is found.
+async function stageRegistry(
+  db: Db, summary: RunSummary, dryRun: boolean, index: LeadIndex<LeadRow>, stop: () => boolean, product: ProductConfig,
+): Promise<DirectoryEntry[]> {
+  if (!REGISTRY_PRODUCTS.has(product.id)) return [];
+  const rawMax = Number(process.env.OUTREACH_REGISTRY_MAX_PER_RUN);
+  const max = Math.min(30, Math.max(1, Number.isFinite(rawMax) && rawMax > 0 ? Math.floor(rawMax) : 12));
+  const isKnown = (key: string) => !!index.find({ sourceKey: key });
+
+  let res: RegistryResult;
+  if (product.id === 'towing') res = await findWaTowCandidates(max, { isKnown });
+  else if (product.id === 'septic') res = await findSepticCandidates(max, { isKnown });
+  else res = await findHomecareCandidates(max, { isKnown });
+  summary.errors.push(...res.errors);
+  summary.searchDebug = { raw: res.scanned, rejected: Object.entries(res.rejected).map(([k, v]) => `${k}: ${v}`) };
+
+  const entries: DirectoryEntry[] = [];
+  const now = new Date().toISOString();
+  for (const c of res.candidates as RegistryLead[]) {
+    if (stop()) break;
+    if (index.find({ sourceKey: c.sourceKey, name: c.name })) continue;
+    const base = scoreLead({ tier: null, location: c.location, description: `${c.name} ${c.description}` }, undefined, product);
+    const score = Math.max(0, Math.min(100, base.score + c.adjust));
+    const reasons = [...base.reasons, ...c.reasons];
+    const registry: RegistryMeta = {
+      phone: c.phone, licenseId: c.licenseId, registry: c.registryName, typeLabel: c.typeLabel, legalName: c.legalName,
+      city: c.city, state: c.state, contactName: c.contactName, adjust: c.adjust, reasons: c.reasons,
+    };
+    summary.leadsNew++;
+    summary.searchCandidates++;
+    const fields = {
+      company_name: c.name, domain: null as string | null, source_key: c.sourceKey, tier: null, location: c.location, description: c.description,
+      score, region_blocked: false, signals: { reasons, techPlatforms: [] as string[], registry },
+    };
+    if (dryRun) {
+      const fake = { id: `dry-${c.sourceKey}`, status: 'new', contact_email: null, contact_status: 'unknown', enriched_at: null, ...fields } as LeadRow;
+      index.add(fake);
+      entries.push({ slug: null, row: fake });
+      continue;
+    }
+    const { data: inserted, error } = await db.from(leadsTable(product)).insert({
+      ...fields, signal_source: 'directory', signal_detail: c.signalDetail.slice(0, 300), last_seen_at: now, ...productInsertFields(product),
+    }).select('*').single();
+    if (error) {
+      summary.leadsNew--;
+      summary.searchCandidates--;
+      summary.errors.push(`insert ${c.name}: ${error.message}`);
+    } else if (inserted) {
+      index.add(inserted as LeadRow);
+      entries.push({ slug: null, row: inserted as LeadRow });
+    }
+  }
+  return entries;
+}
+
 async function stageEnrich(
-  db: Db, summary: RunSummary, dryRun: boolean, limit: number, entries: DirectoryEntry[], index: LeadIndex<LeadRow>, stop: () => boolean, product: ProductConfig,
+  db: Db, summary: RunSummary, dryRun: boolean, limit: number, entriesIn: DirectoryEntry[], index: LeadIndex<LeadRow>, stop: () => boolean, product: ProductConfig,
 ) {
+  let entries = entriesIn;
   const recheckBefore = Date.now() - RECHECK_DAYS * 86_400_000;
+  const isRegistry = REGISTRY_PRODUCTS.has(product.id);
+  // Registry leads that could not be looked up in an earlier run (search cap or CLI
+  // outage: enriched_at still null) are picked up again here.
+  if (isRegistry) {
+    const seen = new Set(entries.map((e) => e.row.id));
+    for (const row of index.rows()) {
+      if (!seen.has(row.id) && row.status === 'new' && !row.domain && !row.enriched_at && row.signals?.registry) entries = [...entries, { row, slug: null }];
+    }
+  }
+  const rawWeb = Number(process.env.OUTREACH_WEBSEARCH_MAX_PER_RUN);
+  const webCap = Math.min(30, Math.max(0, Number.isFinite(rawWeb) && rawWeb >= 0 && process.env.OUTREACH_WEBSEARCH_MAX_PER_RUN ? Math.floor(rawWeb) : 12));
+  let webLookups = 0;
+  let searchFailures = 0;
 
   const candidates = entries
     .filter((e) => e.row.status !== 'dead' && !e.row.region_blocked)
@@ -556,8 +778,35 @@ async function stageEnrich(
   for (const { row: lead, slug } of candidates) {
     if (stop()) break;
     try {
-      const domain = lead.domain ?? (slug ? await findAgencyDomain(slug) : null);
+      let domain = lead.domain ?? (slug ? await findAgencyDomain(slug) : null);
       const now = new Date().toISOString();
+
+      // Registry leads have no website: find it by name + city/state and VERIFY it is
+      // that business (websiteDiscovery.ts). The LLM search is the cost, so it is capped
+      // per run; a failed search (CLI down) leaves the lead unenriched for the next run.
+      if (!domain && isRegistry && lead.signals?.registry) {
+        if (webLookups >= webCap || searchFailures >= 3) {
+          summary.sample.enriched.push({ name: lead.company_name, domain: null, email: null, status: 'deferred (website-search cap or outage)' });
+          continue;
+        }
+        webLookups++;
+        const reg = lead.signals.registry;
+        const found = await discoverWebsite(
+          { name: lead.company_name, legalName: reg.legalName, city: reg.city, state: reg.state, phone: reg.phone },
+          REGISTRY_KIND[product.id] ?? 'business',
+        );
+        if (found.status === 'found') {
+          domain = found.domain;
+        } else if (found.reason.startsWith('search failed')) {
+          searchFailures++;
+          summary.errors.push(`website search ${lead.company_name}: ${found.reason}`);
+          continue;
+        } else {
+          summary.sample.enriched.push({ name: lead.company_name, domain: found.domain ?? null, email: null, status: `no-site: ${found.reason}` });
+          if (!dryRun) await db.from(leadsTable(product)).update({ contact_status: 'none', enriched_at: now }).eq('id', lead.id);
+          continue;
+        }
+      }
 
       if (!domain) {
         summary.sample.enriched.push({ name: lead.company_name, domain: null, email: null, status: 'no-website' });
@@ -595,11 +844,14 @@ async function stageEnrich(
         viaJobPosting: lead.source_key?.startsWith('job_posting:') ?? false,
         viaReviewSite: lead.source_key?.startsWith('review_site:') ?? false,
       };
-      const { score: rescored, reasons } = scoreLead({ tier: lead.tier, location: lead.location, description: lead.description }, evidence, product);
+      const reg = lead.signals?.registry;
+      const scored = scoreLead({ tier: lead.tier, location: lead.location, description: reg ? `${lead.company_name} ${lead.description ?? ''}` : lead.description }, evidence, product);
+      const rescored = reg ? Math.max(0, Math.min(100, scored.score + reg.adjust)) : scored.score;
+      const reasons = reg ? [...scored.reasons, ...reg.reasons] : scored.reasons;
 
       if (dryRun) continue;
       const suppressed = contact.email
-        ? (await scopeToProduct(db.from(suppressionsTable(product)).select('id').eq('email', contact.email), product).maybeSingle()).data
+        ? (await db.from(suppressionsTable(product)).select('id').eq('email', contact.email).maybeSingle()).data
         : null;
       const { error } = await db.from(leadsTable(product)).update({
         domain,
@@ -608,7 +860,7 @@ async function stageEnrich(
         contact_source_url: contact.sourceUrl,
         enriched_at: now,
         score: rescored,
-        signals: { reasons, techPlatforms },
+        signals: { reasons, techPlatforms, ...(reg ? { registry: reg } : {}) },
         ...(suppressed ? { status: 'dead' } : {}),
       }).eq('id', lead.id);
       if (error) summary.errors.push(`enrich ${lead.company_name}: ${error.message}`);
@@ -662,7 +914,9 @@ async function stageDraft(db: Db, summary: RunSummary, dryRun: boolean, limit: n
   const msgs = (msgsData ?? []) as { lead_id: string; to_email: string; status: string }[];
   const drafted = new Set(msgs.filter((m) => m.status !== 'rejected').map((m) => m.lead_id));
   const emailed = new Set(msgs.filter((m) => m.status !== 'rejected').map((m) => String(m.to_email).toLowerCase()));
-  const { data: supData } = await scopeToProduct(db.from(suppressionsTable(product)).select('email'), product);
+  // No product scope: the suppressions table has no `product` column (migration 029/042), so
+  // scoping errored and silently returned no rows. Suppression is global by email, as in sender.ts.
+  const { data: supData } = await db.from(suppressionsTable(product)).select('email');
   const sup = (supData ?? []) as { email: string }[];
   const suppressed = new Set(sup.map((s) => String(s.email).toLowerCase()));
 
@@ -708,7 +962,7 @@ async function stageFollowUp(db: Db, summary: RunSummary, dryRun: boolean, stop:
   // are) -- so an unset env var must be checked with isNaN, not `||`/`??`, or it silently
   // stays NaN and `!maxFollowUps` (NaN is falsy) makes this stage a permanent no-op.
   const rawMaxFollowUps = Number(process.env.OUTREACH_MAX_FOLLOWUPS);
-  const maxFollowUps = Math.max(0, Number.isNaN(rawMaxFollowUps) ? DEFAULT_MAX_FOLLOWUPS : rawMaxFollowUps);
+  const maxFollowUps = Math.max(0, Number.isNaN(rawMaxFollowUps) ? (product.vertical?.defaultMaxFollowUps ?? DEFAULT_MAX_FOLLOWUPS) : rawMaxFollowUps);
   if (!maxFollowUps) return;
 
   let budget = Infinity;
@@ -769,7 +1023,7 @@ async function notify(db: Db, summary: RunSummary, product: ProductConfig) {
 
   if (summary.leadsNew > 0 || summary.draftsCreated > 0 || summary.followUpsCreated > 0) {
     const total = summary.draftsCreated + summary.followUpsCreated;
-    const line = `${summary.leadsNew} new agencies, ${summary.contactsFound} contacts found, ${summary.draftsCreated} first-touch drafts + ${summary.followUpsCreated} follow-ups awaiting your approval.`;
+    const line = `${summary.leadsNew} new ${product.vertical?.leadPlural ?? 'agencies'}, ${summary.contactsFound} contacts found, ${summary.draftsCreated} first-touch drafts + ${summary.followUpsCreated} follow-ups awaiting your approval.`;
     await sendEmail({
       to,
       subject: `Outreach: ${total} drafts to review`,

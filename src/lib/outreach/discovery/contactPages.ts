@@ -37,10 +37,11 @@ export function extractEmails(html: string, domain: string): string[] {
   const decoded = html.replace(/&#64;|&commat;|\[at\]|\(at\)/gi, '@');
   const found = new Set<string>();
   for (const m of decoded.match(EMAIL_RE) || []) {
-    const email = m.toLowerCase().replace(/^mailto:/, '');
+    // mailto:%20info@x.com matches the regex with its percent-encoded space attached; strip it.
+    const email = m.toLowerCase().replace(/^mailto:/, '').replace(/^(%[0-9a-f]{2})+/, '');
     if (IMAGE_EXT.test(email)) continue;
     const [local, host] = email.split('@');
-    if (!host || JUNK_DOMAINS.some((d) => host.endsWith(d))) continue;
+    if (!local || !host || JUNK_DOMAINS.some((d) => host.endsWith(d))) continue;
     if (JUNK_LOCALPARTS.some((j) => local.startsWith(j))) continue;
     found.add(email);
   }
