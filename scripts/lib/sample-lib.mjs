@@ -3,7 +3,7 @@
 export const VERTICALS = ['freight', 'homeservices', 'dental', 'insurance', 'towing', 'septic', 'homecare', 'bailbonds'];
 // HARD CAP on real sample calls for this task. Deliberately a constant, not a flag: raising it means
 // editing this line (or the counter file out/.sample-calls-used) on purpose.
-export const MAX_REAL_CALLS = 2;
+export const MAX_REAL_CALLS = 6;
 export const SNIPPET_MIN = 4;
 export const SNIPPET_MAX = 6;
 // Rough cost model (estimate only, see task-4 report): our engine ~$0.044/min per AI session (two sessions:

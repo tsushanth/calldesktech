@@ -46,6 +46,7 @@ export default function OutreachQueuePage() {
   const [notice, setNotice] = useState<{ text: string; ok: boolean } | null>(null);
   const [quota, setQuota] = useState<{ sentToday: number; cap: number; resets: string } | null>(null);
   const [sampleTitle, setSampleTitle] = useState<string | null>(null);
+  const [preview, setPreview] = useState<{ subject: string; to: string; html: string; variant: string | null } | null>(null);
   const [edits, setEdits] = useState<Record<string, { subject: string; body_text: string }>>({});
 
   const refresh = useCallback(async () => {
@@ -74,6 +75,24 @@ export default function OutreachQueuePage() {
     setNotice({ ok: res.ok, text: res.ok ? okText : body.error || 'Something went wrong' });
     setBusy(null);
     refresh();
+  };
+
+  const openPreview = async (m: Message, draft: { subject: string; body_text: string }) => {
+    setBusy(m.id);
+    setNotice(null);
+    if (m.status === 'draft') {
+      const saved = await patch(m.id, { action: 'edit', ...draft });
+      if (!saved.ok) {
+        setNotice({ ok: false, text: 'Could not save the draft before previewing' });
+        setBusy(null);
+        return;
+      }
+    }
+    const res = await fetch(`/api/admin/outreach/messages/${m.id}/preview`);
+    const body = await res.json().catch(() => ({}));
+    if (res.ok) setPreview(body);
+    else setNotice({ ok: false, text: body.error || 'Preview failed' });
+    setBusy(null);
   };
 
   const patch = (id: string, payload: object) =>
@@ -115,6 +134,19 @@ export default function OutreachQueuePage() {
       )}
       {loading && <p className="text-gray-400">Loading…</p>}
       {!loading && messages.length === 0 && <p className="text-gray-400">Nothing in {tab}.</p>}
+
+      {preview && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={() => setPreview(null)}>
+          <div className="flex max-h-[90vh] w-full max-w-2xl flex-col rounded-xl bg-white shadow-xl" onClick={(e) => e.stopPropagation()}>
+            <div className="border-b border-gray-200 px-4 py-3">
+              <p className="text-[13px] text-gray-500">To: {preview.to} · {preview.variant === 'sample' ? 'with sample call' : 'plain (no sample)'}</p>
+              <p className="text-[14px] font-semibold">{preview.subject}</p>
+            </div>
+            <iframe title="Email preview" sandbox="" srcDoc={preview.html} className="min-h-[60vh] w-full flex-1 rounded-b-xl" />
+            <button onClick={() => setPreview(null)} className="border-t border-gray-200 px-4 py-2 text-[13px] text-blue-600 hover:bg-gray-50">Close</button>
+          </div>
+        </div>
+      )}
 
       {messages.map((m) => {
         const draft = edits[m.id] ?? { subject: m.subject, body_text: m.body_text };
@@ -180,6 +212,15 @@ export default function OutreachQueuePage() {
             {m.error && <p className="mt-2 text-[12.5px] text-red-600">{m.error}</p>}
 
             <div className="mt-3 flex flex-wrap gap-2">
+              {(m.status === 'draft' || m.status === 'approved') && (
+                <button
+                  disabled={busy === m.id}
+                  onClick={() => openPreview(m, draft)}
+                  className="rounded-lg border border-gray-300 px-3 py-1.5 text-[13px] font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+                >
+                  Preview email
+                </button>
+              )}
               {m.status === 'draft' && (
                 <>
                   <button

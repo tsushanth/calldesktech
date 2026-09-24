@@ -17,7 +17,7 @@ const DEFAULT_DAILY_CAP = 20;
 // Per-product identity for the footer and the env vars that gate sending.
 // 'calldesk' (the default/unprefixed product) keeps using the original env
 // var names so nothing about the existing Calldesk pipeline changes.
-interface Brand { name: string; siteUrl: string; fromEnvVar: string; postalEnvVar: string; capEnvVar: string; replyToEnvVar?: string }
+export interface Brand { name: string; siteUrl: string; fromEnvVar: string; postalEnvVar: string; capEnvVar: string; replyToEnvVar?: string }
 // Sending domains use a dedicated `send.` subdomain (Resend/DNS convention, keeps
 // bulk-sending reputation isolated from the root domain); replies route through
 // the bare domain via Cloudflare Email Routing, so replyToEnvVar differs from
@@ -44,7 +44,7 @@ const KK_APP_BRANDS: Record<string, Omit<Brand, 'postalEnvVar' | 'capEnvVar'>> =
 // Fallback for any Kreative Koala product key not yet in the map above.
 const KREATIVE_KOALA_BRAND: Brand = { name: 'Kreative Koala LLC', siteUrl: 'kreativekoala.llc', fromEnvVar: 'OUTREACH_FROM_EMAIL_KK', postalEnvVar: KK_POSTAL_ENV, capEnvVar: KK_CAP_ENV, replyToEnvVar: 'OUTREACH_REPLYTO_EMAIL_KK' };
 
-function brandFor(product: string): Brand {
+export function brandFor(product: string): Brand {
   if (!product.startsWith('kreativekoala')) return CALLDESK_BRAND;
   const key = product.split(':')[1];
   const appBrand = key && KK_APP_BRANDS[key];
@@ -96,36 +96,15 @@ export function buildFooter(email: string, postalAddress: string, brand: Brand =
 
 export type SendOutcome = { ok: true; resendId?: string } | { ok: false; error: string };
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export async function sendApprovedMessage(supabase: SupabaseClient<any>, messageId: string): Promise<SendOutcome> {
-  const { data: msg, error } = await supabase.from('calldesk_outreach_messages').select('*').eq('id', messageId).maybeSingle();
-  if (error) return { ok: false, error: error.message };
-  if (!msg) return { ok: false, error: 'Message not found' };
-  if (msg.status !== 'approved' && msg.status !== 'draft') return { ok: false, error: `Message is "${msg.status}", only draft or approved messages can be sent` };
-
-  const product = (msg.product as string) || 'calldesk';
-  const brand = brandFor(product);
-  const postalAddress = (process.env[brand.postalEnvVar] || '').trim();
-  if (!postalAddress) {
-    return { ok: false, error: `${brand.postalEnvVar} is not set; sending is blocked until a mailing address is configured` };
-  }
-  const from = (process.env[brand.fromEnvVar] || '').trim();
-  if (!from) return { ok: false, error: `${brand.fromEnvVar} is not set` };
-
-  const { data: lead } = await supabase.from('calldesk_outreach_leads').select('region_blocked').eq('id', msg.lead_id).maybeSingle();
-  if (lead?.region_blocked) {
-    await supabase.from('calldesk_outreach_messages').update({ status: 'failed', error: 'lead is in an excluded region (DE/AT/CH)' }).eq('id', messageId);
-    return { ok: false, error: 'This lead is in an excluded region (Germany/Austria/Switzerland); not sending' };
-  }
-
-  const toEmail = String(msg.to_email).trim().toLowerCase();
-
-  const { data: suppressed } = await supabase.from('calldesk_outreach_suppressions').select('id').eq('email', toEmail).maybeSingle();
-  if (suppressed) {
-    await supabase.from('calldesk_outreach_messages').update({ status: 'failed', error: 'recipient is suppressed' }).eq('id', messageId);
-    return { ok: false, error: 'Recipient has unsubscribed' };
-  }
-
+/** Renders exactly what will be sent for a message (also used by the admin preview, so they cannot drift). Never writes. */
+/* eslint-disable @typescript-eslint/no-explicit-any */
+export async function buildOutreachEmail(
+  supabase: SupabaseClient<any>,
+  msg: any,
+  ctx: { toEmail: string; product: string; brand: Brand; postalAddress: string },
+): Promise<{ html: string; text: string; variant: 'plain' | 'sample' | undefined; sampleId: string | null }> {
+  /* eslint-enable @typescript-eslint/no-explicit-any */
+  const { toEmail, product, brand, postalAddress } = ctx;
   const footer = buildFooter(toEmail, postalAddress, brand);
   let emailSample: EmailSample | undefined;
   let variant: 'plain' | 'sample' | undefined;
@@ -159,6 +138,40 @@ export async function sendApprovedMessage(supabase: SupabaseClient<any>, message
   }
   if (variant === 'sample' && !emailSample) variant = 'plain';
   const { html, text } = renderOutreachEmail({ bodyText: String(msg.body_text), footer, sample: emailSample });
+  return { html, text, variant, sampleId };
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export async function sendApprovedMessage(supabase: SupabaseClient<any>, messageId: string): Promise<SendOutcome> {
+  const { data: msg, error } = await supabase.from('calldesk_outreach_messages').select('*').eq('id', messageId).maybeSingle();
+  if (error) return { ok: false, error: error.message };
+  if (!msg) return { ok: false, error: 'Message not found' };
+  if (msg.status !== 'approved' && msg.status !== 'draft') return { ok: false, error: `Message is "${msg.status}", only draft or approved messages can be sent` };
+
+  const product = (msg.product as string) || 'calldesk';
+  const brand = brandFor(product);
+  const postalAddress = (process.env[brand.postalEnvVar] || '').trim();
+  if (!postalAddress) {
+    return { ok: false, error: `${brand.postalEnvVar} is not set; sending is blocked until a mailing address is configured` };
+  }
+  const from = (process.env[brand.fromEnvVar] || '').trim();
+  if (!from) return { ok: false, error: `${brand.fromEnvVar} is not set` };
+
+  const { data: lead } = await supabase.from('calldesk_outreach_leads').select('region_blocked').eq('id', msg.lead_id).maybeSingle();
+  if (lead?.region_blocked) {
+    await supabase.from('calldesk_outreach_messages').update({ status: 'failed', error: 'lead is in an excluded region (DE/AT/CH)' }).eq('id', messageId);
+    return { ok: false, error: 'This lead is in an excluded region (Germany/Austria/Switzerland); not sending' };
+  }
+
+  const toEmail = String(msg.to_email).trim().toLowerCase();
+
+  const { data: suppressed } = await supabase.from('calldesk_outreach_suppressions').select('id').eq('email', toEmail).maybeSingle();
+  if (suppressed) {
+    await supabase.from('calldesk_outreach_messages').update({ status: 'failed', error: 'recipient is suppressed' }).eq('id', messageId);
+    return { ok: false, error: 'Recipient has unsubscribed' };
+  }
+
+  const { html, text, variant, sampleId } = await buildOutreachEmail(supabase, msg, { toEmail, product, brand, postalAddress });
 
   const replyTo = (brand.replyToEnvVar && process.env[brand.replyToEnvVar]) || from.match(/<(.+)>/)?.[1] || from;
   const result = await sendEmail({

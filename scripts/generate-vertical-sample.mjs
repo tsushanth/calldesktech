@@ -20,7 +20,8 @@
 // realtime-tts). The script probes GET /sample-callee-capability and REFUSES to dial otherwise, because an
 // older poc would silently ignore the field and answer with the number's real tenant agent.
 
-import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'node:fs';
+import { readFileSync, writeFileSync, mkdirSync, existsSync, renameSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
 import { resolve, join, dirname } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import {
@@ -146,7 +147,8 @@ export async function generate(args, env, sc, outDir, counterFile = COUNTER_FILE
     body: JSON.stringify({
       toNumber: callee, shopper: true, record: true,
       persona: sc.callerPersona,
-      sampleCallee: { systemPrompt: sc.agentPrompt, greeting: sc.greeting },
+      sampleCallee: { systemPrompt: sc.agentPrompt, greeting: sc.greeting, voice: sc.agentVoice, stability: 0.8 },
+      shopperVoice: { voice: sc.callerVoice, stability: 0.8 },
     }),
   });
   const pj = await placed.json().catch(() => ({}));
@@ -182,6 +184,17 @@ export async function generate(args, env, sc, outDir, counterFile = COUNTER_FILE
     if (a.ok) {
       audioFile = 'audio.mp3';
       writeFileSync(join(outDir, audioFile), Buffer.from(await a.arrayBuffer()));
+      // Twilio's dual-channel file hard-pans each speaker with unequal levels and digital silence between turns.
+      // Level-match both legs, fold to mono, and add a faint noise bed so pauses read as a phone line, not gaps.
+      try {
+        const src = join(outDir, audioFile), tmp = join(outDir, 'audio.processed.mp3');
+        execFileSync('ffmpeg', ['-y', '-loglevel', 'error', '-i', src, '-filter_complex',
+          '[0:a]channelsplit=channel_layout=stereo[l][r];[l]loudnorm=I=-19:TP=-2[ln];[r]loudnorm=I=-19:TP=-2[rn];' +
+          '[ln][rn]amix=inputs=2:normalize=0[m];anoisesrc=color=pink:amplitude=0.0015:sample_rate=22050[n];' +
+          '[m][n]amix=inputs=2:duration=first:normalize=0,alimiter=limit=0.9[o]', '-map', '[o]', '-ac', '1', '-b:a', '96k', tmp]);
+        renameSync(src, join(outDir, 'audio.original.mp3'));
+        renameSync(tmp, src);
+      } catch (e) { console.warn(`WARNING: audio cleanup skipped (${e.message.split('\n')[0]}); keeping the raw recording.`); }
     } else console.warn(`WARNING: recording download failed (HTTP ${a.status})`);
   } else console.warn('WARNING: no completed recording found; audio missing.');
 
