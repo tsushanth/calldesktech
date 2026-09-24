@@ -1,9 +1,24 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/supabase';
+import { authorizeTenant } from '@/lib/authz';
+import { tryAcquireToken, RETELL_TENANT, DEMO_CALL_GLOBAL, DEMO_CALL_IP } from '@/lib/rateLimiter';
 
 const RETELL_API_URL = 'https://api.retellai.com';
 
 // POST /api/demo-call - Initiate an outbound demo call
+//
+// Two very different callers share this route:
+//   - tenant_id: a real signed-in user testing THEIR OWN agent. Confirmed
+//     2026-09-24 this had no ownership check at all -- any authenticated (or
+//     even unauthenticated) caller who knew any tenant_id could trigger an
+//     outbound call on a stranger's agent/caller ID. Now gated by
+//     authorizeTenant, same as every other tenant-scoped route.
+//   - profile_id: the public, logged-out "Try a free demo call" marketing
+//     CTA -- intentionally open to anonymous visitors, so it can't require
+//     a session. That made it, before this fix, the one outbound-call
+//     trigger reachable with literally no signup, no tenant, and no rate
+//     limit -- anyone could script arbitrary calls to arbitrary numbers at
+//     will. Now rate-limited per-IP and globally instead of per-tenant.
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
@@ -22,6 +37,27 @@ export async function POST(request: NextRequest) {
         { error: 'Either tenant_id or profile_id is required' },
         { status: 400 }
       );
+    }
+
+    if (tenant_id) {
+      const auth = await authorizeTenant(request, tenant_id);
+      if (!auth.ok) return auth.response;
+      if (!(await tryAcquireToken(`retell-tenant-${tenant_id}`, RETELL_TENANT))) {
+        return NextResponse.json({ error: 'Too many calls placed too quickly — retry shortly' }, { status: 429 });
+      }
+    } else {
+      // Anonymous public demo path: no principal to key a per-tenant bucket
+      // on, so pace by client IP (best-effort -- spoofable, but raises the
+      // bar past "one unauthenticated fetch() call") plus a global cap as
+      // the real backstop.
+      const clientIp = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
+      const [ipOk, globalOk] = await Promise.all([
+        tryAcquireToken(`demo-call-ip-${clientIp}`, DEMO_CALL_IP),
+        tryAcquireToken('demo-call-global', DEMO_CALL_GLOBAL),
+      ]);
+      if (!ipOk || !globalOk) {
+        return NextResponse.json({ error: 'Too many demo calls right now — please try again later' }, { status: 429 });
+      }
     }
 
     const supabase = getSupabaseAdmin();

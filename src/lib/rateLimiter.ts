@@ -26,6 +26,22 @@ export const TWILIO_TENANT: RateLimitConfig = {
   refillPerSec: Number(process.env.TWILIO_TENANT_CPS ?? 0.5),
 };
 
+// /api/demo-call's profile_id path is intentionally unauthenticated (the
+// public "Try a free demo call" marketing CTA), which makes it the one
+// outbound-call trigger reachable with no signup, no tenant, and no API
+// key at all -- confirmed 2026-09-24 it previously had no auth AND no rate
+// limit, meaning anyone could script arbitrary outbound calls to arbitrary
+// numbers at will. Tighter than the paid-tenant limiters above since this
+// surface has no cost accountability behind it at all.
+export const DEMO_CALL_GLOBAL: RateLimitConfig = {
+  capacity: Number(process.env.DEMO_CALL_GLOBAL_BURST ?? 5),
+  refillPerSec: Number(process.env.DEMO_CALL_GLOBAL_CPS ?? 0.05), // ~1 every 20s sustained
+};
+export const DEMO_CALL_IP: RateLimitConfig = {
+  capacity: Number(process.env.DEMO_CALL_IP_BURST ?? 2),
+  refillPerSec: Number(process.env.DEMO_CALL_IP_CPS ?? 0.0033), // ~1 every 5 min sustained
+};
+
 export async function tryAcquireToken(key: string, config: RateLimitConfig, cost = 1): Promise<boolean> {
   const supabase = getSupabaseAdmin();
   const { data, error } = await supabase.rpc('calldesk_try_acquire_token', {
