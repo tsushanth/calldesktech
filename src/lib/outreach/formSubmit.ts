@@ -120,6 +120,8 @@ export interface FieldDescriptor {
   id?: string;
   /** Rendered-DOM only: the field is not visible (honeypot / leftover). */
   hidden?: boolean;
+  /** Rendered-DOM only: the field's maxlength, when the page sets one. */
+  maxLength?: number;
 }
 
 export interface CheckboxDescriptor {
@@ -136,6 +138,20 @@ export interface FieldPlan {
   role: FieldRole;
   /** null means: leave this field alone. */
   value: string | null;
+}
+
+/**
+ * A field whose maxlength is shorter than the text we would type would silently truncate the
+ * message (a chopped-off pitch is worse than none), so it goes to a human instead.
+ */
+export function lengthLimitRefusal(plan: FieldPlan[]): string | null {
+  for (const step of plan) {
+    const limit = step.field.maxLength;
+    if (step.value !== null && limit && step.value.length > limit) {
+      return `message length limit: ${step.field.name} allows ${limit} characters, message is ${step.value.length}`;
+    }
+  }
+  return null;
 }
 
 export interface CheckboxPlan {

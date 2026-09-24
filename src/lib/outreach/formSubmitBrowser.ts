@@ -13,6 +13,7 @@ import {
   composeMessage,
   decideOutcome,
   detectChallenge,
+  lengthLimitRefusal,
   planFields,
   type CheckboxDescriptor,
   type FieldDescriptor,
@@ -94,6 +95,7 @@ const READ_FORMS_SRC = `(() => {
         placeholder: el.getAttribute('placeholder') || undefined,
         id: el.getAttribute('id') || undefined,
         hidden: !visible(el),
+        maxLength: el.maxLength > 0 ? el.maxLength : undefined,
       };
       const fieldMarker = marker + '_' + fields.length + '_' + checkboxes.length;
       el.setAttribute('data-cd-field', fieldMarker);
@@ -233,6 +235,8 @@ export async function submitOnPage(page: Page, ctx: SubmitContext): Promise<Subm
   if (mapping.needsManual) {
     return { outcome: { status: 'needs_manual', reason: mapping.needsManual.reason }, screenshots };
   }
+  const tooLong = lengthLimitRefusal(mapping.plan);
+  if (tooLong) return { outcome: { status: 'needs_manual', reason: tooLong }, screenshots };
 
   // 3. Fill. Typed at a human-ish pace; nothing is clicked that was not planned.
   const frame = picked.frame;

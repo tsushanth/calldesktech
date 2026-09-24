@@ -410,3 +410,14 @@ describe('auto-submit mode eligibility', () => {
     expect(_skipReason({ ...ready, repliedAt: 'x' } as Parameters<typeof _skipReason>[0], new Set(), { auto: true })).toBe('lead already replied');
   });
 });
+
+import { lengthLimitRefusal as _limit } from '@/lib/outreach/formSubmit';
+
+describe('lengthLimitRefusal', () => {
+  it('refuses a message longer than the field maxlength and passes otherwise', () => {
+    const field = (maxLength?: number) => ({ field: { name: 'msg', type: 'textarea', required: true, maxLength }, role: 'message', value: 'x'.repeat(300) }) as unknown as Parameters<typeof _limit>[0][number];
+    expect(_limit([field(200)])).toContain('allows 200 characters');
+    expect(_limit([field(500)])).toBeNull();
+    expect(_limit([field(undefined)])).toBeNull();
+  });
+});
