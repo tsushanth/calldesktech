@@ -9,7 +9,7 @@ import { politeFetchText } from './http';
 // (freightFmcsa.ts). US-only: the prompt asks for a specific US state.
 
 export type { SearchCandidate };
-export type SearchVertical = 'homeservices' | 'dental' | 'insurance';
+export type SearchVertical = 'homeservices' | 'dental' | 'insurance' | 'bailbonds';
 
 const US_STATES = [
   'Alabama', 'Alaska', 'Arizona', 'Arkansas', 'California', 'Colorado', 'Connecticut', 'Delaware', 'Florida', 'Georgia',
@@ -27,11 +27,15 @@ interface VerticalSearchDef {
   hostExclusions: string[];
   // The homepage text must match this to be kept.
   looksLike: RegExp;
+  // If the homepage matches this, it is an aggregator/lead-gen page, not a bail agency's own site.
+  rejectIf?: RegExp;
+  // States skipped in the query rotation (no such businesses to find there).
+  excludeStates?: string[];
 }
 
 // Directories, lead-gen marketplaces, and national brands. Anything a search
 // engine returns from these hosts is not a small business's own site.
-const DIRECTORY_HOSTS = ['angi.com', 'angieslist.com', 'homeadvisor.com', 'thumbtack.com', 'bbb.org', 'yellowpages.com', 'manta.com', 'mapquest.com', 'houzz.com', 'nextdoor.com', 'porch.com', 'fixr.com', 'expertise.com', 'buildzoom.com', 'superpages.com', 'zocdoc.com', 'healthgrades.com', 'webmd.com', 'ada.org', 'opencare.com', 'yext.com', 'birdeye.com', 'indeed.com', 'glassdoor.com', 'forbes.com', 'nerdwallet.com'];
+export const DIRECTORY_HOSTS = ['angi.com', 'angieslist.com', 'homeadvisor.com', 'thumbtack.com', 'bbb.org', 'yellowpages.com', 'manta.com', 'mapquest.com', 'houzz.com', 'nextdoor.com', 'porch.com', 'fixr.com', 'expertise.com', 'buildzoom.com', 'superpages.com', 'zocdoc.com', 'healthgrades.com', 'webmd.com', 'ada.org', 'opencare.com', 'yext.com', 'birdeye.com', 'indeed.com', 'glassdoor.com', 'forbes.com', 'nerdwallet.com'];
 
 export const VERTICAL_SEARCH: Record<SearchVertical, VerticalSearchDef> = {
   homeservices: {
@@ -55,6 +59,20 @@ export const VERTICAL_SEARCH: Record<SearchVertical, VerticalSearchDef> = {
     hostExclusions: [...DIRECTORY_HOSTS, 'statefarm.com', 'allstate.com', 'farmers.com', 'geico.com', 'progressive.com', 'libertymutual.com', 'amfam.com', 'nationwide.com', 'usaa.com', 'marsh.com', 'aon.com', 'ajg.com', 'bbrown.com', 'usi.com', 'policygenius.com', 'thezebra.com', 'insurify.com', 'trustedchoice.com', 'iia.org', 'naic.org'],
     looksLike: /insurance/i,
   },
+  bailbonds: {
+    phrasings: ['bail bonds agency', 'licensed bail bondsman', 'local bail bonds company 24 hour', 'family owned bail bonds'],
+    describe: 'small, licensed, locally owned bail bond agencies (one office or a few) with their own website that take calls around the clock',
+    exclude: 'bail-bond directories, lead-generation and "find a bondsman in your state" sites, national networks and franchises, law firms, court/government pages, and news sites',
+    hostExclusions: [
+      ...DIRECTORY_HOSTS, 'bail.com', 'bailbonds.com', 'bailbondsnetwork.com', 'bailbondsfinder.com', 'bailbondsdirect.com', 'bailbondsnearme.com', 'usbailbonds.com',
+      'freebailbondsnearme.com', 'pbus.org', 'bailagents.org', 'justia.com', 'findlaw.com', 'nolo.com', 'avvo.com', 'lawyers.com', 'legalzoom.com', 'inmateaid.com',
+      'vinelink.com', 'jailbase.com', 'mugshots.com', 'arrests.org', 'bustedmugshots.com', 'usa.gov', 'wikipedia.org',
+    ],
+    // Commercial bail bonding is prohibited in these states (a search there only returns noise).
+    excludeStates: ['Illinois', 'Kentucky', 'Nebraska', 'Oregon', 'Wisconsin'],
+    looksLike: /bail\s*bond/i,
+    rejectIf: /(find|search)\s+(a\s+)?bail\s*(bonds?|bondsm[ae]n|agents?)\s+(in|by|near)\s+(your|any)|bail\s*bonds?\s+(in\s+all\s+50\s+states|nationwide\s+network)|(we|our\s+network)\s+(will\s+)?connect(s)?\s+you\s+(with|to)\s+(a\s+)?(local\s+)?(bail|licensed)|mugshots?\s+(search|database|gallery)|inmate\s+(search|lookup)\s+by\s+state/i,
+  },
 };
 
 // Slot-keyed (not day-keyed) rotation through phrasing x state, so repeated
@@ -62,7 +80,8 @@ export const VERTICAL_SEARCH: Record<SearchVertical, VerticalSearchDef> = {
 const SLOT_MS = 2 * 60 * 60_000;
 export function verticalQueries(vertical: SearchVertical, now = new Date(), perDay = 2): string[] {
   const def = VERTICAL_SEARCH[vertical];
-  const combos = US_STATES.flatMap((st) => def.phrasings.map((p) => `${p} in ${st}`));
+  const states = US_STATES.filter((st) => !def.excludeStates?.includes(st));
+  const combos = states.flatMap((st) => def.phrasings.map((p) => `${p} in ${st}`));
   const slot = Math.floor(now.getTime() / SLOT_MS);
   return Array.from({ length: perDay }, (_, i) => combos[(slot * perDay + i) % combos.length]);
 }
@@ -89,7 +108,9 @@ function specFor(vertical: SearchVertical): SourceSpec {
     verify: async (domain) => {
       const res = await politeFetchText(`https://${domain}`, 12000);
       if (!res.ok || res.text.length < 500) return false;
-      return looksLikeVertical(vertical, res.text);
+      if (!looksLikeVertical(vertical, res.text)) return false;
+      const rej = VERTICAL_SEARCH[vertical].rejectIf;
+      return !(rej && rej.test(res.text.slice(0, 200_000)));
     },
   };
 }

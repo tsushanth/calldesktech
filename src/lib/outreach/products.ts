@@ -196,12 +196,14 @@ export const readaloud: ProductConfig = {
 // ---------------------------------------------------------------------------
 
 interface VerticalDef {
-  id: 'freight' | 'homeservices' | 'dental' | 'insurance';
+  id: 'freight' | 'homeservices' | 'dental' | 'insurance' | 'towing' | 'septic' | 'homecare' | 'bailbonds';
   leadLabel: string; // singular, used in the draft prompt ("Freight brokerage: <name>")
   leadPlural: string; // e.g. "freight brokerages"
   topic: string; // what we are researching, in prose
   askAbout: string; // short form for subject/follow-up
   registryFact: string; // what the lead data can support about the recipient
+  // Extra hard rules appended to the draft/follow-up prompts (vertical-specific compliance framing).
+  extraRules?: string[];
   scoreVocabulary: ScoreVocabularyRule[];
 }
 
@@ -218,6 +220,10 @@ function verticalOfferFacts(v: VerticalDef): string[] {
   ];
 }
 
+function extra(v: VerticalDef): string {
+  return (v.extraRules ?? []).map((r) => `\n- ${r}`).join('');
+}
+
 function verticalSystemPrompt(v: VerticalDef): string {
   return `You write short, honest customer-discovery emails from the co-founders of Calldesk (Sushanth and Deepika) to owners and operators of small ${v.leadPlural}. This is research outreach. It is NOT a sales pitch and NOT a partnership offer.
 
@@ -228,7 +234,7 @@ Rules:
 - No pricing, discounts, free trials, revenue share, or partner terms. No urgency, scarcity, or "quick question" tricks. No hype words, no emojis, no exclamation marks.
 - Never claim Calldesk is better, faster, or cheaper than any product or competitor.
 - Subject: plain and specific, under 70 characters, e.g. about ${v.askAbout}. Not clickbait, not "Re:" or "Fwd:".
-- Body: 60-110 words, 2-3 short paragraphs. Start with "Hi there,".
+- Body: 60-110 words, 2-3 short paragraphs. Start with "Hi there,".${extra(v)}
 - Write in the first person plural ("we", "us", "our"). Never use "I", "me" or "my", and never introduce yourselves by name or title.
 - Do NOT write a sign-off or signature; one is added automatically.
 - Any sentence that asks something must end with a question mark.
@@ -245,7 +251,7 @@ Rules:
 - Write in the first person plural ("we", "us", "our"). Never use "I", "me" or "my", and never introduce yourselves by name or title.
 - Do NOT write a sign-off or signature; one is added automatically.
 - Any sentence that asks something must end with a question mark.
-- On the LAST allowed follow-up (see "This is the final follow-up" note if present), say this is the last note and that we will not follow up again.
+- On the LAST allowed follow-up (see "This is the final follow-up" note if present), say this is the last note and that we will not follow up again.${extra(v)}
 - Write in English.`;
 }
 
@@ -312,6 +318,57 @@ const VERTICAL_DEFS: VerticalDef[] = [
       CHAIN_DOWN,
     ],
   },
+  {
+    id: 'towing',
+    leadLabel: 'Towing company',
+    leadPlural: 'independent towing companies',
+    topic: 'dispatch and after-hours tow requests, including calls that come in while the crew is out on a job',
+    askAbout: 'how small towing companies handle dispatch and after-hours calls',
+    registryFact: 'that it is listed in a state licensing registry, worded exactly as the lead data words it (for example "listed in the Washington State Department of Licensing registry as a registered tow truck operator")',
+    scoreVocabulary: [
+      { pattern: /24\/?7|24[- ]hour|round[- ]the[- ]clock|emergency|heavy[- ]duty|flatbed/, delta: 5, reason: 'name suggests 24-hour or emergency towing (phone-driven demand)' },
+      SMALL_UP, CHAIN_DOWN,
+    ],
+  },
+  {
+    id: 'septic',
+    leadLabel: 'Septic service company',
+    leadPlural: 'independent septic service companies',
+    topic: 'scheduling and dispatch, and call overflow during the busy season',
+    askAbout: 'how small septic companies handle scheduling and busy-season calls',
+    registryFact: 'that it is listed in a state or city licensing registry, worded exactly as the lead data words it (for example "listed in the Florida Department of Health registry as a master septic tank contractor")',
+    scoreVocabulary: [
+      { pattern: /pump(ing)?|emergency|24\/?7|24[- ]hour/, delta: 3, reason: 'name suggests pumping/emergency service (phone-driven demand)' },
+      SMALL_UP, CHAIN_DOWN,
+    ],
+  },
+  {
+    id: 'homecare',
+    leadLabel: 'Home care agency',
+    leadPlural: 'independent home care agencies',
+    topic: 'new-client inquiry calls and weekend follow-up with families',
+    askAbout: 'how small home care agencies handle new-client inquiries and weekend calls',
+    registryFact: 'that it is listed in a state health-department registry, worded exactly as the lead data words it (for example "listed in the Illinois Department of Public Health registry as a licensed home health agency")',
+    scoreVocabulary: [SMALL_UP, CHAIN_DOWN],
+  },
+  {
+    id: 'bailbonds',
+    leadLabel: 'Bail bonds agency',
+    leadPlural: 'independent bail bonds agencies',
+    topic: 'after-hours intake calls and returning missed calls',
+    askAbout: 'how small bail bonds agencies handle after-hours intake calls',
+    registryFact: 'that it is a local bail bonds business (from its own website)',
+    extraRules: [
+      'Do not give or imply legal advice, and do not comment on arrests, charges, jail, courts, or anyone\'s legal situation. Ask only about how the business handles its phone intake outside office hours.',
+    ],
+    scoreVocabulary: [
+      { pattern: /bail\s*bond/, delta: 5, reason: 'bail bonds agency' },
+      { pattern: /24\/?7|24[- ]hour|around the clock|day or night/, delta: 5, reason: 'advertises 24-hour service (phone-driven demand)' },
+      SMALL_UP,
+      { pattern: /bad boys|nationwide|national|network of/, delta: -10, reason: 'national brand or network signals' },
+      CHAIN_DOWN,
+    ],
+  },
 ];
 
 function verticalProduct(v: VerticalDef): ProductConfig {
@@ -334,9 +391,13 @@ export const freight = verticalProduct(VERTICAL_DEFS[0]);
 export const homeservices = verticalProduct(VERTICAL_DEFS[1]);
 export const dental = verticalProduct(VERTICAL_DEFS[2]);
 export const insurance = verticalProduct(VERTICAL_DEFS[3]);
-export const VERTICAL_PRODUCT_IDS = ['freight', 'homeservices', 'dental', 'insurance'] as const;
+export const towing = verticalProduct(VERTICAL_DEFS[4]);
+export const septic = verticalProduct(VERTICAL_DEFS[5]);
+export const homecare = verticalProduct(VERTICAL_DEFS[6]);
+export const bailbonds = verticalProduct(VERTICAL_DEFS[7]);
+export const VERTICAL_PRODUCT_IDS = ['freight', 'homeservices', 'dental', 'insurance', 'towing', 'septic', 'homecare', 'bailbonds'] as const;
 
-const PRODUCTS: Record<string, ProductConfig> = { calldesk, readaloud, freight, homeservices, dental, insurance };
+const PRODUCTS: Record<string, ProductConfig> = { calldesk, readaloud, freight, homeservices, dental, insurance, towing, septic, homecare, bailbonds };
 
 // Resolves a product config from a PRODUCT env-style value, defaulting to
 // calldesk (unset/unknown values fall back to calldesk, never throw) so the
