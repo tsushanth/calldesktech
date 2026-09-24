@@ -2,6 +2,10 @@ import * as cheerio from 'cheerio';
 import { politeFetchText, sleep as politeSleep } from './http';
 import { socrataGet } from './socrata';
 import { titleCase, cityState, describeRegistryLead, emptyResult, formatUsPhone, reject, type RegistryLead, type RegistryResult } from './registryCommon';
+import {
+  fetchDeRows, fetchMoSepticRows, collapseDeByCompany, deCompanyKey, evaluateDeRow, toDeLead, evaluateMoRow, toMoLead,
+  type DeRow, type MoRow,
+} from './septicDelawareMissouri';
 
 // Septic discovery from two public registries, neither with email:
 //  (a) Florida Department of Health "Active Registered and Master Septic Tank
@@ -165,18 +169,50 @@ export async function loadFlContractors(): Promise<FlRow[]> {
 
 const SLOT_MS = 60 * 60_000;
 
-// 3 of every 4 hourly slots use Florida (far larger), 1 of 4 Austin. Both lists
-// are walked from a slot-rotating start and skip leads we already hold.
+// Four sources, rotated by hourly slot: Florida (by far the largest) takes two
+// slots in four, Delaware one (the only septic list with emails), and the fourth
+// alternates Austin and Missouri. Every list is walked from a slot-rotating
+// start and skips leads we already hold.
+export type SepticSource = 'fl' | 'atx' | 'de' | 'mo';
+
+export function septicSourceForSlot(slot: number): SepticSource {
+  const m = ((slot % 4) + 4) % 4;
+  if (m === 0 || m === 1) return 'fl';
+  if (m === 2) return 'de';
+  return ((slot % 8) + 8) % 8 === 3 ? 'atx' : 'mo';
+}
+
 export async function findSepticCandidates(
-  max: number, opts: { now?: Date; startOverride?: number; source?: 'fl' | 'atx'; isKnown?: (sourceKey: string) => boolean; log?: (m: string) => void } = {},
+  max: number, opts: { now?: Date; startOverride?: number; source?: SepticSource; isKnown?: (sourceKey: string) => boolean; log?: (m: string) => void } = {},
 ): Promise<RegistryResult> {
   const now = opts.now ?? new Date();
   const log = opts.log ?? (() => {});
   const result = emptyResult();
   const slot = Math.floor(now.getTime() / SLOT_MS);
-  const source = opts.source ?? (slot % 4 === 3 ? 'atx' : 'fl');
+  const source = opts.source ?? septicSourceForSlot(slot);
   try {
-    if (source === 'fl') {
+    if (source === 'de' || source === 'mo') {
+      const rows = source === 'de' ? collapseDeByCompany(await fetchDeRows(log)) : await fetchMoSepticRows(log);
+      result.scanned = rows.length;
+      if (!rows.length) throw new Error('no rows returned');
+      const start = opts.startOverride ?? (slot * max) % rows.length;
+      for (let i = 0; i < rows.length && result.candidates.length < max; i++) {
+        const r = rows[(start + i) % rows.length];
+        if (source === 'de') {
+          const de = r as DeRow;
+          if (opts.isKnown?.(`septic:de:${deCompanyKey(de)}`)) { reject(result, 'already known'); continue; }
+          const ev = evaluateDeRow(de);
+          if (!ev.keep) { reject(result, ev.reason); continue; }
+          result.candidates.push(toDeLead(de, ev));
+        } else {
+          const mo = r as MoRow;
+          if (opts.isKnown?.(`septic:mo:${(mo.installer_id ?? '').trim()}`)) { reject(result, 'already known'); continue; }
+          const ev = evaluateMoRow(mo, now);
+          if (!ev.keep) { reject(result, ev.reason); continue; }
+          result.candidates.push(toMoLead(mo, ev));
+        }
+      }
+    } else if (source === 'fl') {
       const all = (await loadFlContractors()).filter((r) => r.state === 'FL');
       result.scanned = all.length;
       const start = opts.startOverride ?? (slot * max) % Math.max(1, all.length);
