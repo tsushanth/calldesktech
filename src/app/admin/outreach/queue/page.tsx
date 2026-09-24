@@ -14,20 +14,13 @@ interface Message {
   sources?: string[];
   translation_subject?: string | null;
   translation_body?: string | null;
+  product?: string | null;
   lead: { company_name: string; domain: string | null; score: number | null; tier: string | null; contact_source_url: string | null; replied_at: string | null } | null;
 }
 
 const TABS = ['draft', 'approved', 'sent', 'failed'] as const;
 const PRODUCTS = [
   { key: 'calldesk', label: 'Calldesk' },
-  { key: 'calldesk:freight', label: 'Freight brokers' },
-  { key: 'calldesk:homeservices', label: 'Home services' },
-  { key: 'calldesk:dental', label: 'Dental' },
-  { key: 'calldesk:insurance', label: 'Insurance agencies' },
-  { key: 'calldesk:towing', label: 'Towing' },
-  { key: 'calldesk:septic', label: 'Septic' },
-  { key: 'calldesk:homecare', label: 'Home care' },
-  { key: 'calldesk:bailbonds', label: 'Bail bonds' },
   { key: 'kreativekoala:voxkey', label: 'VoxKey' },
   { key: 'kreativekoala:pixora', label: 'Pixora' },
   { key: 'kreativekoala:gymlog', label: 'GymLog' },
@@ -37,6 +30,20 @@ const PRODUCTS = [
   { key: 'kreativekoala:vibebuild', label: 'VibeBuild' },
 ] as const;
 
+// Verticals live under the Calldesk product; they are a filter and a badge, not separate products.
+const VERTICALS = [
+  { key: '', label: 'All verticals' },
+  { key: 'freight', label: 'Freight brokers' },
+  { key: 'homeservices', label: 'Home services' },
+  { key: 'dental', label: 'Dental' },
+  { key: 'insurance', label: 'Insurance agencies' },
+  { key: 'towing', label: 'Towing' },
+  { key: 'septic', label: 'Septic' },
+  { key: 'homecare', label: 'Home care' },
+  { key: 'bailbonds', label: 'Bail bonds' },
+] as const;
+const verticalLabel = (product?: string | null) => VERTICALS.find((v) => v.key && product === `calldesk:${v.key}`)?.label ?? null;
+
 export default function OutreachQueuePage() {
   const [tab, setTab] = useState<(typeof TABS)[number]>('draft');
   const [product, setProduct] = useState<string>('calldesk');
@@ -45,21 +52,24 @@ export default function OutreachQueuePage() {
   const [busy, setBusy] = useState<string | null>(null);
   const [notice, setNotice] = useState<{ text: string; ok: boolean } | null>(null);
   const [quota, setQuota] = useState<{ sentToday: number; cap: number; resets: string } | null>(null);
+  const [vertical, setVertical] = useState<string>('');
+  const [sampleTitles, setSampleTitles] = useState<Record<string, string | null>>({});
   const [sampleTitle, setSampleTitle] = useState<string | null>(null);
   const [preview, setPreview] = useState<{ subject: string; to: string; html: string; variant: string | null } | null>(null);
   const [edits, setEdits] = useState<Record<string, { subject: string; body_text: string }>>({});
 
   const refresh = useCallback(async () => {
     setLoading(true);
-    const res = await fetch(`/api/admin/outreach/messages?status=${tab}&product=${encodeURIComponent(product)}`);
+    const res = await fetch(`/api/admin/outreach/messages?status=${tab}&product=${encodeURIComponent(product)}${product === 'calldesk' && vertical ? `&vertical=${vertical}` : ''}`);
     if (res.ok) {
       const body = await res.json();
       setMessages(body.messages ?? []);
       setSampleTitle(typeof body.sampleTitle === 'string' ? body.sampleTitle : null);
+      setSampleTitles(body.sampleTitles ?? {});
       setQuota({ sentToday: body.sentToday, cap: body.cap, resets: body.resets });
     }
     setLoading(false);
-  }, [tab, product]);
+  }, [tab, product, vertical]);
 
   useEffect(() => {
     // Fetch-on-mount/tab-change, not a render-loop risk (refresh only re-runs when tab/product change).
@@ -111,6 +121,17 @@ export default function OutreachQueuePage() {
             <option key={p.key} value={p.key}>{p.label}</option>
           ))}
         </select>
+        {product === 'calldesk' && (
+          <select
+            value={vertical}
+            onChange={(e) => setVertical(e.target.value)}
+            className="rounded-lg border border-gray-300 px-2 py-1 text-[13px]"
+          >
+            {VERTICALS.map((v) => (
+              <option key={v.key} value={v.key}>{v.label}</option>
+            ))}
+          </select>
+        )}
         <div className="flex gap-1">
           {TABS.map((t) => (
             <button
@@ -159,11 +180,17 @@ export default function OutreachQueuePage() {
                   {m.lead?.company_name ?? 'Unknown'}
                   {m.step > 1 && <span className="ml-2 rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-medium text-amber-700">follow-up #{m.step - 1}</span>}
                   {m.lead?.replied_at && <span className="ml-2 rounded-full bg-green-50 px-2 py-0.5 text-[11px] font-medium text-green-700">replied</span>}
-                  {m.status === 'draft' && m.step <= 1 && (
-                    <span className={`ml-2 rounded-full px-2 py-0.5 text-[11px] font-medium ${sampleTitle ? 'bg-blue-50 text-blue-700' : 'bg-gray-100 text-gray-500'}`}>
-                      {sampleTitle ? `Sample: ${sampleTitle}` : 'No sample for this vertical'}
-                    </span>
+                  {verticalLabel(m.product) && (
+                    <span className="ml-2 rounded-full bg-gray-100 px-2 py-0.5 text-[11px] font-medium text-gray-600">{verticalLabel(m.product)}</span>
                   )}
+                  {m.status === 'draft' && m.step <= 1 && (() => {
+                    const t = product === 'calldesk' ? sampleTitles[m.product || 'calldesk'] ?? null : sampleTitle;
+                    return (
+                      <span className={`ml-2 rounded-full px-2 py-0.5 text-[11px] font-medium ${t ? 'bg-blue-50 text-blue-700' : 'bg-gray-100 text-gray-500'}`}>
+                        {t ? `Sample: ${t}` : 'No sample for this vertical'}
+                      </span>
+                    );
+                  })()}
                 </p>
                 <p className="text-[12px] text-gray-400">
                   {m.to_email}
