@@ -51,8 +51,34 @@ interface FormLead {
   location: string | null;
   score: number | null;
   product: string;
-  signals: { contactForm?: { pageUrl: string; captcha: boolean; method: string; embedded?: string }; formOutreach?: { subject: string; body: string; status: string } } | null;
+  signals: {
+    contactForm?: { pageUrl: string; captcha: boolean; method: string; embedded?: string };
+    formOutreach?: {
+      subject: string;
+      body: string;
+      status: string;
+      reason?: string;
+      error?: string;
+      submittedAt?: string;
+      attempts?: { at: string; outcome: string; reason?: string; screenshot?: string }[];
+    };
+  } | null;
 }
+
+// Status filters for the forms tab. 'submitting' is the worker's in-flight lock and shows up
+// under "queued" activity rather than as its own tab.
+const FORM_STATUSES = ['ready', 'queued', 'needs_manual', 'failed', 'submitted', 'replied', 'skipped'] as const;
+const FORM_STATUS_LABELS: Record<(typeof FORM_STATUSES)[number], string> = {
+  ready: 'ready',
+  queued: 'queued',
+  needs_manual: 'needs manual',
+  failed: 'failed',
+  submitted: 'submitted',
+  replied: 'replied',
+  skipped: 'skipped',
+};
+
+const SUBMIT_CONFIRM = "This will fill and submit the practice's contact form with this message.";
 
 export default function OutreachQueuePage() {
   const [tab, setTab] = useState<(typeof TABS)[number]>('draft');
@@ -66,7 +92,8 @@ export default function OutreachQueuePage() {
   const [sampleTitles, setSampleTitles] = useState<Record<string, string | null>>({});
   const [sampleTitle, setSampleTitle] = useState<string | null>(null);
   const [formLeads, setFormLeads] = useState<FormLead[]>([]);
-  const [formStatus, setFormStatus] = useState<'ready' | 'submitted' | 'replied' | 'skipped'>('ready');
+  const [formStatus, setFormStatus] = useState<(typeof FORM_STATUSES)[number]>('ready');
+  const [formCounts, setFormCounts] = useState<Record<string, number>>({});
   const [preview, setPreview] = useState<{ subject: string; to: string; html: string; variant: string | null } | null>(null);
   const [edits, setEdits] = useState<Record<string, { subject: string; body_text: string }>>({});
 
@@ -74,7 +101,11 @@ export default function OutreachQueuePage() {
     setLoading(true);
     if (tab === 'forms') {
       const fr = await fetch(`/api/admin/outreach/forms?status=${formStatus}${vertical ? `&vertical=${vertical}` : ''}`);
-      if (fr.ok) setFormLeads((await fr.json()).leads ?? []);
+      if (fr.ok) {
+        const fb = await fr.json();
+        setFormLeads(fb.leads ?? []);
+        setFormCounts(fb.counts ?? {});
+      }
       setLoading(false);
       return;
     }
@@ -123,12 +154,27 @@ export default function OutreachQueuePage() {
     setBusy(null);
   };
 
-  const markForm = async (id: string, status: string) => {
+  const patchForm = async (id: string, payload: object, okText: string) => {
     setBusy(id);
-    const res = await fetch('/api/admin/outreach/forms', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id, status }) });
-    setNotice({ ok: res.ok, text: res.ok ? `Marked ${status}.` : 'Could not update' });
+    const res = await fetch('/api/admin/outreach/forms', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id, ...payload }) });
+    const body = await res.json().catch(() => ({}));
+    setNotice({ ok: res.ok, text: res.ok ? okText : body.error || 'Could not update' });
     setBusy(null);
     refresh();
+  };
+
+  const markForm = (id: string, status: string) => patchForm(id, { status }, `Marked ${status}.`);
+
+  // The ONLY way a lead reaches the worker. The confirm dialog is deliberate: this
+  // sends a real message to a real practice through their own form.
+  const submitForMe = (id: string) => {
+    if (!window.confirm(SUBMIT_CONFIRM)) return;
+    return patchForm(id, { action: 'queue' }, 'Queued. The form worker will submit it on its next pass.');
+  };
+
+  const retryForm = (id: string) => {
+    if (!window.confirm(SUBMIT_CONFIRM)) return;
+    return patchForm(id, { action: 'retry' }, 'Re-queued for another attempt.');
   };
 
   const patch = (id: string, payload: object) =>
@@ -172,14 +218,28 @@ export default function OutreachQueuePage() {
       </div>
 
       {tab === 'forms' && (
-        <div className="flex gap-1">
-          {(['ready', 'submitted', 'replied', 'skipped'] as const).map((st) => (
-            <button key={st} onClick={() => setFormStatus(st)} className={`rounded-lg px-3 py-1 text-[12.5px] font-medium ${formStatus === st ? 'bg-blue-50 text-blue-600' : 'text-gray-500 hover:bg-gray-100'}`}>{st}</button>
+        <div className="flex flex-wrap gap-1">
+          {FORM_STATUSES.map((st) => (
+            <button key={st} onClick={() => setFormStatus(st)} className={`rounded-lg px-3 py-1 text-[12.5px] font-medium ${formStatus === st ? 'bg-blue-50 text-blue-600' : 'text-gray-500 hover:bg-gray-100'}`}>
+              {FORM_STATUS_LABELS[st]}
+              {formCounts[st] ? <span className="ml-1 text-gray-400">{formCounts[st]}</span> : null}
+            </button>
           ))}
         </div>
       )}
       {tab === 'forms' && (
-        <p className="text-[13px] text-gray-500">Practices with no public email. Open the form, paste the message, submit it yourself, then mark it submitted. Nothing here is sent automatically.</p>
+        <>
+          <p className="rounded-lg border border-gray-200 bg-white px-4 py-2 text-[13px] text-gray-700">
+            Submitted today: {formCounts.submittedToday ?? 0} · needs manual: {formCounts.needs_manual ?? 0} · queued: {formCounts.queued ?? 0}
+            {formCounts.submitting ? ` · in flight: ${formCounts.submitting}` : ''}
+            {formCounts.failed ? ` · failed: ${formCounts.failed}` : ''}
+          </p>
+          <p className="text-[13px] text-gray-500">
+            Practices with no public email. <strong>Submit for me</strong> hands one lead to the form worker on the mini, which fills and
+            submits that practice&apos;s own form once. Nothing is submitted until you click it. Anything with a captcha, an unrecognised
+            form, or an unconfirmed result lands in <em>needs manual</em> for you to finish by hand.
+          </p>
+        </>
       )}
       {tab === 'forms' && !loading && formLeads.length === 0 && <p className="text-gray-400">No form leads in {formStatus}.</p>}
       {tab === 'forms' && formLeads.map((l) => {
@@ -191,6 +251,14 @@ export default function OutreachQueuePage() {
             <p className="text-[14px] font-semibold">
               {l.company_name}
               {verticalLabel(l.product) && <span className="ml-2 rounded-full bg-gray-100 px-2 py-0.5 text-[11px] font-medium text-gray-600">{verticalLabel(l.product)}</span>}
+              <span className={`ml-2 rounded-full px-2 py-0.5 text-[11px] font-medium ${
+                fo.status === 'submitted' ? 'bg-green-50 text-green-700'
+                : fo.status === 'failed' ? 'bg-red-50 text-red-700'
+                : fo.status === 'needs_manual' ? 'bg-amber-50 text-amber-700'
+                : fo.status === 'queued' || fo.status === 'submitting' ? 'bg-blue-50 text-blue-700'
+                : 'bg-gray-100 text-gray-600'}`}>
+                {fo.status === 'needs_manual' ? 'needs manual' : fo.status}
+              </span>
               {cf.captcha && <span className="ml-2 rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-medium text-amber-700">captcha</span>}
               {cf.method === 'embedded' && <span className="ml-2 rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-medium text-amber-700">embedded form</span>}
             </p>
@@ -200,6 +268,24 @@ export default function OutreachQueuePage() {
             </p>
             <p className="mb-1 text-[13px] font-medium text-gray-800">{fo.subject}</p>
             <pre className="whitespace-pre-wrap rounded-lg border border-gray-200 bg-gray-50 p-3 text-[13px] leading-relaxed text-gray-800">{fo.body}</pre>
+
+            {fo.reason && (
+              <p className="mt-2 text-[12.5px] text-amber-700">Needs a human: {fo.reason}</p>
+            )}
+            {fo.error && <p className="mt-2 text-[12.5px] text-red-600">Worker error: {fo.error}</p>}
+            {fo.attempts && fo.attempts.length > 0 && (
+              <div className="mt-2 rounded-lg border border-gray-200 bg-gray-50 p-2">
+                <p className="mb-1 text-[11px] font-medium uppercase tracking-wide text-gray-500">Attempts</p>
+                {fo.attempts.map((a, i) => (
+                  <p key={`${a.at}-${i}`} className="text-[12px] text-gray-600">
+                    {new Date(a.at).toLocaleString()} · {a.outcome}
+                    {a.reason ? ` · ${a.reason}` : ''}
+                    {a.screenshot ? ` · screenshot: ${a.screenshot}` : ''}
+                  </p>
+                ))}
+              </div>
+            )}
+
             <div className="mt-3 flex flex-wrap gap-2">
               <button
                 onClick={() => navigator.clipboard.writeText(fo.body).then(() => setNotice({ ok: true, text: 'Message copied.' }))}
@@ -207,13 +293,31 @@ export default function OutreachQueuePage() {
               >
                 Copy message
               </button>
-              {fo.status === 'ready' && (
-                <button disabled={busy === l.id} onClick={() => markForm(l.id, 'submitted')} className="rounded-lg bg-blue-600 px-3 py-1.5 text-[13px] font-medium text-white hover:bg-blue-700 disabled:opacity-50">Mark submitted</button>
+              {fo.status === 'ready' && !cf.captcha && cf.method !== 'embedded' && (
+                <button
+                  disabled={busy === l.id}
+                  onClick={() => submitForMe(l.id)}
+                  className="rounded-lg bg-blue-600 px-3 py-1.5 text-[13px] font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+                >
+                  Submit for me
+                </button>
+              )}
+              {(fo.status === 'failed' || fo.status === 'needs_manual') && (
+                <button
+                  disabled={busy === l.id}
+                  onClick={() => retryForm(l.id)}
+                  className="rounded-lg border border-blue-300 px-3 py-1.5 text-[13px] font-medium text-blue-700 hover:bg-blue-50 disabled:opacity-50"
+                >
+                  Retry with the worker
+                </button>
+              )}
+              {(fo.status === 'ready' || fo.status === 'needs_manual' || fo.status === 'failed') && (
+                <button disabled={busy === l.id} onClick={() => markForm(l.id, 'submitted')} className="rounded-lg border border-gray-300 px-3 py-1.5 text-[13px] font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50">Mark submitted</button>
               )}
               {fo.status === 'submitted' && (
                 <button disabled={busy === l.id} onClick={() => markForm(l.id, 'replied')} className="rounded-lg bg-blue-600 px-3 py-1.5 text-[13px] font-medium text-white hover:bg-blue-700 disabled:opacity-50">Mark replied</button>
               )}
-              {fo.status === 'ready' && (
+              {fo.status !== 'submitted' && fo.status !== 'skipped' && fo.status !== 'submitting' && (
                 <button disabled={busy === l.id} onClick={() => markForm(l.id, 'skipped')} className="rounded-lg border border-gray-300 px-3 py-1.5 text-[13px] font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50">Skip</button>
               )}
             </div>

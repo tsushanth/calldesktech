@@ -26,6 +26,7 @@ import { findDentalNppesCandidates } from './dentalNppes';
 import { discoverWebsite } from './websiteDiscovery';
 import type { RegistryLead, RegistryResult } from './registryCommon';
 import { calldesk, leadsTable, runsTable, messagesTable, suppressionsTable, scopeToProduct, productInsertFields, type ProductConfig } from '../products';
+import type { FormOutreachStatus, FormAttempt } from '../formSubmit';
 
 // The daily discovery harness. One call = one full pass:
 //   directory -> dedupe against existing leads -> enrich (domain, contact)
@@ -83,12 +84,25 @@ export interface RunSummary {
 const MIN_DRAFT_SCORE = 40;
 const RECHECK_DAYS = 30;
 
+// The drafted message and its lifecycle, kept on the lead. Statuses beyond
+// 'ready' are driven by the human ("Submit for me" -> 'queued') and by the
+// form-submission worker ('submitting' -> 'submitted' | 'needs_manual' |
+// 'failed'). See src/lib/outreach/formSubmit.ts for the transition rules.
 export interface FormOutreach {
   subject: string;
   body: string;
-  status: 'ready' | 'submitted' | 'replied' | 'skipped';
+  status: FormOutreachStatus;
   draftedAt: string;
   submittedAt?: string;
+  /** Set with 'needs_manual': why a human has to finish this one. */
+  reason?: string;
+  /** Set with 'failed': the error the worker hit. */
+  error?: string;
+  /** Who queued it and when, for the audit trail. */
+  queuedAt?: string;
+  queuedBy?: string;
+  /** Every worker attempt, newest last. */
+  attempts?: FormAttempt[];
 }
 
 interface LeadRow {
