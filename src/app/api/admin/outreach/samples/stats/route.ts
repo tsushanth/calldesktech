@@ -16,8 +16,9 @@ export async function GET() {
     const sel = (cols: string) =>
       supabase.from('calldesk_outreach_messages').select(cols).eq('status', 'sent').limit(5000);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    let res: { data: any; error: any } = await sel('id, product, variant, sample_id, lead:calldesk_outreach_leads(replied_at)');
-    if (res.error) res = await sel('id, product, lead:calldesk_outreach_leads(replied_at)');
+    // Only messages that went through variant assignment: pre-feature and no-sample sends must not count as "plain".
+    const res: { data: any; error: any } = await sel('id, product, variant, sample_id, lead:calldesk_outreach_leads(replied_at)').not('variant', 'is', null);
+    // Column missing (migration not applied) = no experiment to report yet.
     if (res.error) return NextResponse.json({ stats: [], note: 'messages unavailable' });
 
     const rawMsgs = (res.data ?? []) as Array<{
@@ -37,7 +38,8 @@ export async function GET() {
     const sRes = await supabase.from('calldesk_outreach_samples').select('id, product');
     if (!sRes.error) for (const s of (sRes.data ?? []) as Array<{ id: string; product: string }>) sampleProducts[s.id] = s.product;
 
-    return NextResponse.json({ stats: computeSampleStats(messages, events, sampleProducts) });
+    const truncated = rawMsgs.length >= 5000 || events.length >= 50000;
+    return NextResponse.json({ stats: computeSampleStats(messages, events, sampleProducts), ...(truncated ? { truncated: true } : {}) });
   } catch (err) {
     console.warn('[admin/samples/stats]', err instanceof Error ? err.message : err);
     return NextResponse.json({ stats: [], note: 'stats unavailable' });

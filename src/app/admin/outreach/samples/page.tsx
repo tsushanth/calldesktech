@@ -13,12 +13,15 @@ const pct = (n: number | null) => (n === null ? '–' : `${Math.round(n * 100)}%
 export default function SampleStatsPage() {
   const [rows, setRows] = useState<Row[] | null>(null);
   const [error, setError] = useState('');
+  const [truncated, setTruncated] = useState(false);
 
   useEffect(() => {
     fetch('/api/admin/outreach/samples/stats')
       .then(async (r) => {
         if (!r.ok) throw new Error(String(r.status));
-        setRows((await r.json()).stats ?? []);
+        const body = await r.json();
+        setRows(body.stats ?? []);
+        setTruncated(body.truncated === true);
       })
       .catch((e) => setError(`Could not load stats (${e.message})`));
   }, []);
@@ -33,7 +36,9 @@ export default function SampleStatsPage() {
         Sent emails only. &quot;plain&quot; = no sample link, &quot;sample&quot; = email links to the recording page.
         Views/plays are counted once per email, bots and link scanners excluded. Plain emails have no page to view, so their view columns stay at zero.
         With ~10 sends per vertical this is directional, not statistical. A single reply moves a rate by 10 points.
+        Replies are recorded on the lead, so a lead that replied counts as a reply for each of its messages. Only messages sent after the experiment started (those assigned a variant) appear.
       </p>
+      {truncated && <p className="text-[13px] text-amber-700">Results are truncated (query row limit reached); counts below are incomplete.</p>}
       {error && <p className="text-[13px] text-red-600">{error}</p>}
       {!rows && !error && <p className="text-[13px] text-gray-500">Loading…</p>}
       {rows && rows.length === 0 && <p className="text-[13px] text-gray-500">No sent messages yet (or the sample migration has not been applied).</p>}

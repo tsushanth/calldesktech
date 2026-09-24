@@ -63,7 +63,7 @@ export function normalizeTranscript(rows, { shopperPerspective = true } = {}) {
     else if (r.role === 'user') speaker = shopperPerspective ? 'agent' : 'caller';
     else continue;
     const raw = r.text ?? r.content;
-    if (typeof raw !== 'string' || SYSTEM_MARKER_RE.test(raw) && !/^\s*\[tone:/i.test(raw)) continue;
+    if (typeof raw !== 'string' || (SYSTEM_MARKER_RE.test(raw) && !/^\s*\[tone:/i.test(raw))) continue;
     const text = cleanText(raw);
     if (!text) continue;
     const last = out[out.length - 1];

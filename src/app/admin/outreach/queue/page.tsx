@@ -119,9 +119,9 @@ export default function OutreachQueuePage() {
                   {m.lead?.company_name ?? 'Unknown'}
                   {m.step > 1 && <span className="ml-2 rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-medium text-amber-700">follow-up #{m.step - 1}</span>}
                   {m.lead?.replied_at && <span className="ml-2 rounded-full bg-green-50 px-2 py-0.5 text-[11px] font-medium text-green-700">replied</span>}
-                  {m.status === 'draft' && (
+                  {m.status === 'draft' && m.step <= 1 && (
                     <span className={`ml-2 rounded-full px-2 py-0.5 text-[11px] font-medium ${sampleTitle ? 'bg-blue-50 text-blue-700' : 'bg-gray-100 text-gray-500'}`}>
-                      {sampleTitle ? `Sample: ${sampleTitle} (A/B)` : 'No sample for this vertical'}
+                      {sampleTitle ? `Sample: ${sampleTitle}` : 'No sample for this vertical'}
                     </span>
                   )}
                 </p>

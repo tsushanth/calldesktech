@@ -35,6 +35,8 @@ CREATE TABLE IF NOT EXISTS calldesk_outreach_sample_events (
 
 CREATE INDEX IF NOT EXISTS idx_calldesk_outreach_sample_events_message
   ON calldesk_outreach_sample_events (message_id, event);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_calldesk_outreach_sample_events_once
+  ON calldesk_outreach_sample_events (message_id, event);
 CREATE INDEX IF NOT EXISTS idx_calldesk_outreach_sample_events_sample
   ON calldesk_outreach_sample_events (sample_id, event);
 
@@ -52,7 +54,7 @@ CREATE OR REPLACE FUNCTION calldesk_publish_outreach_sample(p_sample_id UUID)
 RETURNS VOID
 LANGUAGE plpgsql
 SECURITY DEFINER
-SET search_path = public
+SET search_path = public, pg_temp
 AS $$
 DECLARE
   v_product TEXT;

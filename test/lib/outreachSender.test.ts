@@ -8,14 +8,14 @@ vi.mock('@/lib/outreach/samples', async (orig) => ({ ...(await orig<typeof impor
 import { sendApprovedMessage, buildFooter } from '@/lib/outreach/sender';
 
 const MSG_ID = '11111111-1111-4111-8111-111111111111';
-function fakeSupabase(product: string, failVariant = false) {
+function fakeSupabase(product: string, failVariant = false, step?: number) {
   const updates: unknown[] = [];
   const client = {
     from(table: string) {
       const q = {
         select: () => q, eq: () => q,
         maybeSingle: async () =>
-          table === 'calldesk_outreach_messages' ? { data: { id: MSG_ID, status: 'draft', product, lead_id: 'l1', to_email: 'a@b.co', subject: 'S', body_text: 'Hi\n\nA & B' }, error: null }
+          table === 'calldesk_outreach_messages' ? { data: { id: MSG_ID, status: 'draft', product, lead_id: 'l1', to_email: 'a@b.co', subject: 'S', body_text: 'Hi\n\nA & B', ...(step === undefined ? {} : { step }) }, error: null }
           : { data: null, error: null },
         update: (v: Record<string, unknown>) => {
           updates.push(v);
@@ -80,5 +80,17 @@ describe('sendApprovedMessage sample integration', () => {
     const { client } = fakeSupabase('calldesk');
     await sendApprovedMessage(client, MSG_ID);
     expect(getPublishedSample).not.toHaveBeenCalled();
+  });
+
+  it('follow-ups (step > 1) never get a sample card, lookup, or variant row', async () => {
+    getPublishedSample.mockResolvedValue(sample);
+    const { client, updates } = fakeSupabase('calldesk:freight', false, 2);
+    await sendApprovedMessage(client, MSG_ID);
+    expect(getPublishedSample).not.toHaveBeenCalled();
+    const args = sendEmail.mock.calls[0][0] as { html: string; text: string };
+    const f = buildFooter('a@b.co', '1 Main St');
+    expect(args.html).toBe(`<div style="font-family:-apple-system,Segoe UI,sans-serif;font-size:15px;line-height:1.6;color:#1a1d29;max-width:560px"><p style="margin:0 0 14px">Hi</p><p style="margin:0 0 14px">A &amp; B</p>${f.html}</div>`);
+    expect(args.text).toBe(`Hi\n\nA & B${f.text}`);
+    expect(updates.some((u) => typeof u === 'object' && u !== null && 'variant' in u)).toBe(false);
   });
 });

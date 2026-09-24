@@ -22,7 +22,8 @@ export function supabaseEventDeps(supabase: SupabaseClient<any>): SampleEventDep
     },
     async insert(row) {
       const { error } = await supabase.from('calldesk_outreach_sample_events').insert(row);
-      if (error) throw new Error(error.message);
+      // Unique violation (message_id, event) = a concurrent duplicate; swallow as a no-op.
+      if (error && (error as { code?: string }).code !== '23505') throw new Error(error.message);
     },
   };
 }

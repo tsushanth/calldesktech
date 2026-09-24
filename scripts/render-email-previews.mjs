@@ -1,5 +1,5 @@
 // Renders docs/outreach-email-previews/*.html from fixtures. Run:
-//   npx tsx scripts/render-email-previews.mjs
+//   node --experimental-strip-types scripts/render-email-previews.mjs
 import { writeFileSync, mkdirSync } from 'node:fs';
 import { renderOutreachEmail } from '../src/lib/outreach/emailHtml.ts';
 

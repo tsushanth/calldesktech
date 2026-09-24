@@ -21,7 +21,7 @@
 // older poc would silently ignore the field and answer with the number's real tenant agent.
 
 import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'node:fs';
-import { resolve, join } from 'node:path';
+import { resolve, join, dirname } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import {
   validateScenarios, normalizeTranscript, buildSampleRow, estimateCostUsd, parseArgs, isE164,
@@ -33,11 +33,11 @@ const BUCKET = 'outreach-samples';
 const MAX_WAIT_MS = 5 * 60_000;
 // Persistent real-call counter (git-ignored out/). Incremented the moment the poc returns a call sid.
 const COUNTER_FILE = join(ROOT, 'out/.sample-calls-used');
-const readCounter = () => parseCounter(existsSync(COUNTER_FILE) ? readFileSync(COUNTER_FILE, 'utf8') : null);
-function bumpCounter() {
-  mkdirSync(join(ROOT, 'out'), { recursive: true });
-  const n = readCounter() + 1;
-  writeFileSync(COUNTER_FILE, String(n));
+const readCounter = (file = COUNTER_FILE) => parseCounter(existsSync(file) ? readFileSync(file, 'utf8') : null);
+function bumpCounter(file = COUNTER_FILE) {
+  mkdirSync(dirname(file), { recursive: true });
+  const n = readCounter(file) + 1;
+  writeFileSync(file, String(n));
   return n;
 }
 
@@ -98,13 +98,13 @@ async function ensureBucket(db) {
 }
 
 // ---- generate -------------------------------------------------------------------------------------
-export async function generate(args, env, sc, outDir) {
+export async function generate(args, env, sc, outDir, counterFile = COUNTER_FILE) {
   const base = env.get('CALL_LOOP_POC_BASE_URL').replace(/\/+$/, '');
   const secret = env.get('CALL_LOOP_POC_TEST_CALL_SECRET');
   const callee = args.calleeNumber || env.get('SAMPLE_CALLEE_NUMBER');
   // Without an explicit --place-call this is always a dry run.
   const dryRun = args.dryRun || !args.placeCall;
-  const used = readCounter();
+  const used = readCounter(counterFile);
   const gate = checkCallGate({ placeCall: true, used, callee, allowedRaw: env.get('SAMPLE_CALLEE_ALLOWED') });
 
   const problems = [];
@@ -151,7 +151,7 @@ export async function generate(args, env, sc, outDir) {
   });
   const pj = await placed.json().catch(() => ({}));
   if (!placed.ok || !pj.sid) die(`place-test-call failed (HTTP ${placed.status}): ${JSON.stringify(pj).slice(0, 300)}`);
-  console.log(`real calls used: ${bumpCounter()}/${MAX_REAL_CALLS} (counted at dial, even if the call later fails)`);
+  console.log(`real calls used: ${bumpCounter(counterFile)}/${MAX_REAL_CALLS} (counted at dial, even if the call later fails)`);
   if (!pj.sampleCallee) die(`call ${pj.sid} was placed but the poc did not confirm sampleCallee; it may have reached a real tenant agent. Check it in Twilio and discard.`);
   const sid = pj.sid;
   console.log(`call sid: ${sid}`);

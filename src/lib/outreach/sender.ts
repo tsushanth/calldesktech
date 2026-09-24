@@ -1,7 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { sendEmail } from '@/lib/email';
 import { unsubscribeUrl } from './unsubscribe';
-import { renderOutreachEmail, type EmailSample } from './emailHtml';
+import { renderOutreachEmail, escapeHtml, type EmailSample } from './emailHtml';
 import { getPublishedSample, pickVariant, sampleTokenFor, sampleUrl, snippetLines, productSlug } from './samples';
 
 // The only path that emails a real prospect. A human still triggers every
@@ -84,9 +84,6 @@ export function dailyCap(product = 'calldesk'): number {
   return Number.isFinite(n) && n > 0 ? Math.floor(n) : DEFAULT_DAILY_CAP;
 }
 
-function escapeHtml(s: string): string {
-  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-}
 
 export function buildFooter(email: string, postalAddress: string, brand: Brand = CALLDESK_BRAND): { text: string; html: string } {
   const link = unsubscribeUrl(email);
@@ -134,7 +131,9 @@ export async function sendApprovedMessage(supabase: SupabaseClient<any>, message
   let variant: 'plain' | 'sample' | undefined;
   let sampleId: string | null = null;
   try {
-    const found = product.startsWith('calldesk:') && productSlug(product) ? await getPublishedSample(supabase, product) : null;
+    const isFirstTouch = Number(msg.step ?? 1) <= 1;
+    const found = isFirstTouch && product.startsWith('calldesk:') && productSlug(product)
+      ? await getPublishedSample(supabase, product) : null;
     if (found) {
       variant = pickVariant(String(msg.id));
       if (variant === 'sample') {

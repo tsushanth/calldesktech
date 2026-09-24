@@ -19,7 +19,13 @@ const BUCKET = 'outreach-samples';
 async function signedAudioUrl(audioPath: string | null): Promise<string | null> {
   if (!audioPath) return null;
   try {
-    const { data, error } = await getSupabaseAdmin().storage.from(BUCKET).createSignedUrl(audioPath, 3600);
+    const storage = getSupabaseAdmin().storage.from(BUCKET);
+    const slash = audioPath.lastIndexOf('/');
+    const dir = slash >= 0 ? audioPath.slice(0, slash) : '';
+    const name = slash >= 0 ? audioPath.slice(slash + 1) : audioPath;
+    const listed = await storage.list(dir, { search: name, limit: 100 });
+    if (listed.error || !(listed.data ?? []).some((o: { name: string }) => o.name === name)) return null;
+    const { data, error } = await storage.createSignedUrl(audioPath, 3600);
     return error || !data?.signedUrl ? null : data.signedUrl;
   } catch {
     return null;

@@ -1,5 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
-import { readFileSync } from 'node:fs';
+import { readFileSync, mkdtempSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import * as lib from '../../scripts/lib/sample-lib.mjs';
 import { generate } from '../../scripts/generate-vertical-sample.mjs';
 
@@ -170,7 +172,7 @@ describe('dry run makes no network calls', () => {
       const f = vi.fn();
       vi.stubGlobal('fetch', f);
       const log = vi.spyOn(console, 'log').mockImplementation(() => {});
-      await generate(args, env, sc, '/tmp/never-written');
+      await generate(args, env, sc, '/tmp/never-written', join(mkdtempSync(join(tmpdir(), 'sample-counter-')), '.sample-calls-used'));
       expect(f).not.toHaveBeenCalled();
       expect(log.mock.calls.flat().join('\n')).toContain('+15550001111'); // full number shown, not masked
       log.mockRestore();

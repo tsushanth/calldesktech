@@ -21,3 +21,9 @@ Cold email lives or dies on deliverability and on looking like a note from a per
 - Shorter snippet (2-3 lines): faster to scan, but less proof of a real conversation.
 - Link-only, no card (text plus the URL): best deliverability, least visual pull. A useful third A/B arm.
 - Send real client rendering through a testing tool before any volume send.
+
+## Manual prerequisites
+
+- Apply migration `043_outreach_samples.sql` before running the generation script with `--upload` or `--publish` (and before publishing any sample). Deploy order is otherwise safe either way: the app tolerates the missing tables/columns.
+- The private Storage bucket `outreach-samples` must exist. The generation script creates it and refuses a public one.
+- Set `SAMPLE_CALLEE_ALLOWED` in `.env` and `SAMPLE_CALLEE_NUMBERS` on the call-loop-poc host to the same dedicated internal numbers.
