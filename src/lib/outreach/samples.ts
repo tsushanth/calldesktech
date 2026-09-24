@@ -155,9 +155,9 @@ const BOT_UA_RE = new RegExp(
     'googlebot', 'google-read-aloud', 'googleimageproxy', 'bingbot', 'bingpreview', 'msnbot', 'yahoo! slurp',
     'duckduckbot', 'baiduspider', 'yandex', 'slackbot', 'slack-imgproxy', 'facebookexternalhit', 'facebot',
     'linkedinbot', 'whatsapp', 'twitterbot', 'telegrambot', 'discordbot', 'skypeuripreview', 'microsoft preview',
-    'office', 'barracuda', 'proofpoint', 'mimecast', 'symantec', 'trendmicro', 'forcepoint', 'mailscanner',
-    'python-requests', 'python-urllib', 'curl/', 'wget', 'go-http-client', 'java/', 'okhttp', 'axios', 'node-fetch',
-    'headlesschrome', 'phantomjs', 'puppeteer', 'playwright', 'crawler', 'spider', 'bot/', 'bot;', 'preview', 'scanner',
+    'barracuda', 'proofpoint', 'mimecast', 'symantec', 'trendmicro', 'forcepoint', 'mailscanner',
+    'python-requests', 'python-urllib', 'curl/', 'wget', 'go-http-client', 'java/1', 'okhttp', 'axios/', 'node-fetch',
+    'headlesschrome', 'phantomjs', 'puppeteer', 'playwright', 'crawler', 'spider', 'urlscan', 'safelinks', 'linkscanner',
   ].join('|'),
   'i',
 );
