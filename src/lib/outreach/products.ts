@@ -416,7 +416,7 @@ function verticalProduct(v: VerticalDef): ProductConfig {
     followUpSystemPrompt: verticalFollowUpPrompt(v),
     signature: VERTICAL_SIGNATURE,
     scoreVocabulary: v.scoreVocabulary,
-    vertical: { leadLabel: v.leadLabel, leadPlural: v.leadPlural, defaultMaxFollowUps: 1 },
+    vertical: { leadLabel: v.leadLabel, leadPlural: v.leadPlural, defaultMaxFollowUps: 2 }, // total touches incl. the first email: 1 follow-up
   };
 }
 

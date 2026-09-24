@@ -27,7 +27,7 @@ describe('new vertical products', () => {
       expect(v.sharedTableProductValue).toBe(`calldesk:${v.id}`);
       expect(v.stateDirName).toBe(`.calldesk-${v.id}-outreach`);
       expect(productInsertFields(v)).toEqual({ product: `calldesk:${v.id}` });
-      expect(v.vertical?.defaultMaxFollowUps).toBe(1);
+      expect(v.vertical?.defaultMaxFollowUps).toBe(2);
     }
     const all = [freight, homeservices, dental, insurance, ...vs];
     expect(new Set(all.map((p) => p.sharedTableProductValue)).size).toBe(8);

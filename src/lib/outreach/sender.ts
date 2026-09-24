@@ -110,8 +110,7 @@ export async function buildOutreachEmail(
   let variant: 'plain' | 'sample' | undefined;
   let sampleId: string | null = null;
   try {
-    const isFirstTouch = Number(msg.step ?? 1) <= 1;
-    const found = isFirstTouch && product.startsWith('calldesk:') && productSlug(product)
+    const found = product.startsWith('calldesk:') && productSlug(product)
       ? await getPublishedSample(supabase, product) : null;
     if (found) {
       variant = pickVariant(String(msg.id));
