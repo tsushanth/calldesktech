@@ -17,7 +17,6 @@ import {
   resolveDailyCap,
   resolveReplyToEmail,
   skipReason,
-  composeMessage,
   type DayLedger,
   type FormAttempt,
   type FormOutreachStatus,
@@ -207,9 +206,11 @@ async function main(): Promise<number> {
 
       // Belt and braces: the quality gate re-checks the draft and the form's
       // static field list before a real message goes to a real business.
+      // Measured on the DRAFT body: the opt-out and signature lines we append are
+      // fixed boilerplate and would skew the 40-160 word band.
       const gate = qualityGate({
         score: lead.score,
-        body: composeMessage(fo.body),
+        body: fo.body,
         mappingNeedsManual: planFields(cf!.fields, [], { email: replyTo, subject: fo.subject, message: fo.body }).needsManual,
       });
       if (gate) {
