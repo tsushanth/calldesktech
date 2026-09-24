@@ -78,8 +78,40 @@ const BIG_BROKER = /\b(c\.?\s?h\.?\s?robinson|chrobinson|total quality logistics
 
 const FREE_MAIL = /@(gmail|yahoo|hotmail|outlook|aol|icloud|live|msn|comcast|att|verizon|protonmail|proton|ymail|me|mail)\.(com|net|me)$/i;
 
+// The same rule for the non-US registry sources. A free-mail address is never
+// used as the lead's contact (registryLeadRow keeps no domain for one, and it
+// scores down), and abroad the consumer ISP mailboxes are different: in France
+// roughly a third of RGE contractors publish an orange.fr / wanadoo.fr / free.fr
+// address, and in Norway an online.no / frisurf.no one. Without these they would
+// be mistaken for business domains and their ISP treated as the company website.
+// Kept as a second pattern so the US behaviour above is byte-for-byte unchanged.
+//
+// Deliberately narrow, in two parts, so that no name here can widen what counts
+// as free-mail for a US .com lead:
+//  * a mailbox name under a NON-US country TLD (orange.fr, online.no, ...) —
+//    "free.fr" is an ISP, whereas "free.com" is somebody's business;
+//  * a short list of FULL consumer-ISP domains that happen to sit on .com/.net.
+const FREE_MAIL_INTL_CCTLD = new RegExp(
+  '@(' + [
+    // France
+    'orange', 'wanadoo', 'free', 'sfr', 'neuf', 'laposte', 'bbox', 'aliceadsl', 'club-internet', 'numericable', 'gmx', 'yahoo', 'hotmail', 'live', 'outlook', 'msn', 'aol',
+    // Norway
+    'online', 'frisurf', 'broadpark', 'start', 'getmail', 'c2i', 'runbox', 'trollnett', 'hotmail', 'live',
+    // United Kingdom
+    'blueyonder', 'tiscali', 'talktalk', 'virginmedia', 'btinternet',
+  ].join('|') + ')\\.(fr|no|co\\.uk|uk)$',
+  'i',
+);
+const FREE_MAIL_INTL_EXACT = new Set([
+  'googlemail.com', 'gmx.com', 'gmx.net',
+  'btinternet.com', 'btconnect.com', 'btopenworld.com', 'virginmedia.com', 'ntlworld.com', 'talktalk.net', 'sky.com',
+  'uol.com.br', 'bol.com.br', 'terra.com.br', 'globo.com', 'prodigy.net.mx',
+]);
+
 export function isFreeMail(email: string): boolean {
-  return FREE_MAIL.test(email.trim());
+  const e = email.trim();
+  if (FREE_MAIL.test(e) || FREE_MAIL_INTL_CCTLD.test(e)) return true;
+  return FREE_MAIL_INTL_EXACT.has(e.split('@')[1]?.toLowerCase() ?? '');
 }
 
 export function isBigBroker(...names: (string | null | undefined)[]): boolean {

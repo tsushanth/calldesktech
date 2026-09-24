@@ -25,9 +25,13 @@ import { allNycDobLeads } from './nycDobLicenses';
 import { allVaDporLeads } from './vaDporContractors';
 import { streamArContractorLeads } from './arkansasContractors';
 import { streamCaCdphLeads } from './homecareCaCdph';
+import { allRgeLeads } from './frRgeRegistry';
+import { allCqcLeads } from './ukCqcDirectory';
+import { allDvsaLeads } from './ukDvsaOperators';
+import { allBrregLeads } from './noBrregEnheter';
 import { findDentalNppesCandidates } from './dentalNppes';
 import { discoverWebsite } from './websiteDiscovery';
-import type { RegistryLead, RegistryResult } from './registryCommon';
+import { INTL_HOLD_REASON, intlCountry, type IntlHold, type RegistryLead, type RegistryResult } from './registryCommon';
 import { calldesk, leadsTable, runsTable, messagesTable, suppressionsTable, scopeToProduct, productInsertFields, type ProductConfig } from '../products';
 import type { FormOutreachStatus, FormAttempt } from '../formSubmit';
 
@@ -123,7 +127,7 @@ interface LeadRow {
   score: number | null;
   enriched_at: string | null;
   research?: Dossier | null;
-  signals: { reasons: string[]; techPlatforms: string[]; registry?: RegistryMeta; contactForm?: ContactForm; formOutreach?: FormOutreach } | null;
+  signals: { reasons: string[]; techPlatforms: string[]; registry?: RegistryMeta; intlHold?: IntlHold; contactForm?: ContactForm; formOutreach?: FormOutreach } | null;
 }
 
 // Registry facts kept on the lead's `signals` (never put in the draft-visible
@@ -141,6 +145,7 @@ const REGISTRY_KIND: Record<string, string> = {
   towing: 'towing company (tow truck operator)',
   septic: 'septic tank service / liquid waste hauling company',
   homecare: 'home care agency',
+  freight: 'road freight haulage company',
 };
 
 export async function runDiscovery(db: Db, opts: RunOptions = {}): Promise<RunSummary> {
@@ -752,11 +757,15 @@ async function stageVerticalSearch(
 // phoned by a human later.
 // Pure: the lead row (and its email/domain) for one registry candidate. Shared by the per-run
 // stage and the bulk import so both build identical rows.
-function registryLeadRow(c: RegistryLead, product: ProductConfig, now: string) {
+// Exported under an explicit name so the international-hold behaviour can be
+// tested without a database.
+export function registryLeadRow(c: RegistryLead, product: ProductConfig, now: string) {
   const email = c.email ?? null;
   // Keep the email's domain only when it is a real business domain; free-mail
-  // addresses say nothing about who owns the site.
-  const domain = email && !isFreeMail(email) ? email.split('@')[1] : null;
+  // addresses say nothing about who owns the site. A source that publishes the
+  // business's own website (the CQC and DVSA registers do, without any email)
+  // supplies it directly and it wins.
+  const domain = c.domain ?? (email && !isFreeMail(email) ? email.split('@')[1] : null);
   const base = scoreLead({ tier: null, location: c.location, description: `${c.name} ${c.description}` }, undefined, product);
   const score = Math.max(0, Math.min(100, base.score + c.adjust));
   const reasons = [...base.reasons, ...c.reasons];
@@ -767,9 +776,15 @@ function registryLeadRow(c: RegistryLead, product: ProductConfig, now: string) {
   const contactFields = email
     ? { contact_email: email, contact_status: 'found', contact_source_url: c.contactSourceUrl ?? null, enriched_at: now }
     : {};
+  // THE INTERNATIONAL HOLD, applied in exactly one place so no source can skip
+  // it: a non-US registry lead is stored region_blocked with signals.intlHold,
+  // which makes it invisible to enrichment, drafting and sending until a human
+  // releases its country (harness/outreach/release-country.ts).
+  const country = intlCountry(c.country);
+  const intlHold: IntlHold | null = country ? { country, reason: INTL_HOLD_REASON } : null;
   const fields = {
     company_name: c.name, domain, source_key: c.sourceKey, tier: null, location: c.location, description: c.description,
-    score, region_blocked: false, signals: { reasons, techPlatforms: [] as string[], registry },
+    score, region_blocked: !!intlHold, signals: { reasons, techPlatforms: [] as string[], registry, ...(intlHold ? { intlHold } : {}) },
     ...contactFields,
   };
   return { email, domain, fields };
@@ -786,6 +801,19 @@ const BULK_REGISTRY_SOURCES: Record<string, { products: string[]; load: (product
   'va-dpor': { products: ['homeservices'], load: (_p, isKnown, log) => allVaDporLeads({ isKnown, log }) },
   'ar-clb': { products: ['homeservices'], load: (_p, isKnown, log) => streamArContractorLeads({ isKnown, log }) },
   'ca-cdph': { products: ['homecare'], load: (_p, isKnown, log) => streamCaCdphLeads({ isKnown, log }) },
+
+  // INTERNATIONAL sources. These are deliberately bulk-import-only and are NOT in
+  // the per-run rotation (registryRotation.ts): every lead they produce is stored
+  // on hold and cannot be drafted or sent, so spending the daily per-run slots on
+  // them would only starve the US verticals that actually convert. A human imports
+  // a country once, reviews it, and releases it with release-country.ts.
+  'fr-rge': { products: ['homeservices'], load: (_p, isKnown, log) => allRgeLeads({ isKnown, log }) },
+  'uk-cqc': { products: ['dental', 'homecare'], load: (p, isKnown, log) => allCqcLeads(p.id as 'dental' | 'homecare', { isKnown, log }) },
+  'uk-dvsa': { products: ['freight'], load: (_p, isKnown, log) => allDvsaLeads({ isKnown, log }) },
+  'no-brreg': {
+    products: ['dental', 'homeservices', 'freight', 'towing', 'insurance', 'homecare'],
+    load: (p, isKnown, log) => allBrregLeads(p.id, { isKnown, log }),
+  },
 };
 
 export const BULK_REGISTRY_SOURCE_IDS = Object.keys(BULK_REGISTRY_SOURCES);
@@ -963,7 +991,12 @@ async function stageEnrich(
       // Registry leads have no website: find it by name + city/state and VERIFY it is
       // that business (websiteDiscovery.ts). The LLM search is the cost, so it is capped
       // per run; a failed search (CLI down) leaves the lead unenriched for the next run.
-      if (!domain && isRegistry && lead.signals?.registry) {
+      // Gated on the lead actually CARRYING registry metadata rather than on the
+      // product being a registry product: the international sources add registry
+      // leads to freight (the DVSA operator licences), which is not in
+      // REGISTRY_PRODUCTS because its US source already publishes emails. Leads
+      // without signals.registry are unaffected.
+      if (!domain && lead.signals?.registry) {
         if (webLookups >= webCap || searchFailures >= 3) {
           summary.sample.enriched.push({ name: lead.company_name, domain: null, email: null, status: 'deferred (website-search cap or outage)' });
           continue;
