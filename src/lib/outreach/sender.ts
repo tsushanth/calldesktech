@@ -87,10 +87,10 @@ export function dailyCap(product = 'calldesk'): number {
 
 export function buildFooter(email: string, postalAddress: string, brand: Brand = CALLDESK_BRAND): { text: string; html: string } {
   const link = unsubscribeUrl(email);
-  const text = `\n\n--\n${brand.name} (${brand.siteUrl})\n${postalAddress}\nYou're receiving this because your business contact address is published on your website. Not interested? Unsubscribe: ${link}`;
+  const text = `\n\n--\n${brand.name} (${brand.siteUrl})\n${postalAddress}\nYou're receiving this because your business contact address is publicly listed. Not interested? Unsubscribe: ${link}`;
   const html =
     `<p style="color:#6b7280;font-size:12px;margin-top:24px">${escapeHtml(brand.name)} (${brand.siteUrl})<br/>` +
-    `${escapeHtml(postalAddress)}<br/>You're receiving this because your business contact address is published on your website. Not interested? <a href="${link}">Unsubscribe</a></p>`;
+    `${escapeHtml(postalAddress)}<br/>You're receiving this because your business contact address is publicly listed. Not interested? <a href="${link}">Unsubscribe</a></p>`;
   return { text, html };
 }
 

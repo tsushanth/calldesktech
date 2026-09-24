@@ -35,14 +35,14 @@ describe('new vertical products', () => {
     expect(resolveProduct('calldesk')).toBe(calldesk);
     expect(calldesk.vertical).toBeUndefined();
   });
-  it('drafts are research asks with the vertical topic and no pitch terms', () => {
-    const topics: Record<string, RegExp> = { towing: /dispatch and after-hours tow/, septic: /scheduling and dispatch/, homecare: /new-client inquiry calls/, bailbonds: /after-hours intake/ };
+  it('drafts are help-first pilot offers with the vertical situation and no partner terms', () => {
+    const topics: Record<string, RegExp> = { towing: /tow request comes in/, septic: /busy-season call volume/, homecare: /family calls to ask about care/, bailbonds: /intake call comes in after hours/ };
     for (const v of vs) {
-      expect(v.systemPrompt).toMatch(/NOT a sales pitch/);
-      expect(v.systemPrompt).toMatch(/No pricing/);
+      expect(v.systemPrompt).toMatch(/not a generic sales pitch/);
+      expect(v.systemPrompt).toMatch(/only pricing statement allowed is the pilot terms/);
       expect(v.systemPrompt).toMatch(topics[v.id]);
-      expect(v.offerFacts.join(' ')).toMatch(/not selling anything/);
-      expect(v.offerFacts.join(' ')).toMatch(/15-minute/);
+      expect(v.offerFacts.join(' ')).toMatch(/free for two weeks, capped at 50 minutes/);
+      expect(v.offerFacts.join(' ')).toMatch(/reply "yes"/);
       expect(v.offerFacts.join(' ')).not.toMatch(/revenue share|20%|partner/i);
     }
     expect(bailbonds.systemPrompt).toMatch(/legal advice/);

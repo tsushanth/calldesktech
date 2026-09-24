@@ -50,11 +50,11 @@ describe('resolveProduct', () => {
     const q = { eq: (c: string, v: string) => ({ c, v }) };
     expect(scopeToProduct(q, freight)).toEqual({ c: 'product', v: 'calldesk:freight' });
   });
-  it('discovery prompts forbid pitching and pricing', () => {
+  it('discovery prompts are help-first, allow only the pilot terms, and forbid other pricing', () => {
     for (const v of [freight, homeservices, dental, insurance]) {
-      expect(v.systemPrompt).toMatch(/NOT a sales pitch/);
-      expect(v.systemPrompt).toMatch(/No pricing/);
-      expect(v.offerFacts.join(' ')).toMatch(/not selling anything/);
+      expect(v.systemPrompt).toMatch(/not a generic sales pitch/);
+      expect(v.systemPrompt).toMatch(/only pricing statement allowed is the pilot terms/);
+      expect(v.offerFacts.join(' ')).toMatch(/free for two weeks, capped at 50 minutes/);
       expect(v.offerFacts.join(' ')).not.toMatch(/revenue share|20%|partner/i);
     }
   });

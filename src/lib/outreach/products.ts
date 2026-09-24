@@ -191,8 +191,9 @@ export const readaloud: ProductConfig = {
 // ---------------------------------------------------------------------------
 // Customer-discovery verticals. Same Calldesk brand and the SAME shared
 // calldesk_outreach_* tables as calldesk (scoped via the `product` column, like
-// Kreative Koala), so no migration. These are research asks, not sales pitches
-// and not the agency-partner offer.
+// Kreative Koala), so no migration. These are help-first pilot offers (a free,
+// capped trial of a Calldesk phone agent on their overflow calls) that also
+// serve as customer discovery. Not the agency-partner offer.
 // ---------------------------------------------------------------------------
 
 interface VerticalDef {
@@ -201,6 +202,9 @@ interface VerticalDef {
   leadPlural: string; // e.g. "freight brokerages"
   topic: string; // what we are researching, in prose
   askAbout: string; // short form for subject/follow-up
+  situation: string; // when calls get missed, in prose, phrased as a question topic
+  agentHandles: string; // what the pilot agent does on their calls, using only what Calldesk does today
+  subjectHint: string; // example subject, plain and specific
   registryFact: string; // what the lead data can support about the recipient
   // Extra hard rules appended to the draft/follow-up prompts (vertical-specific compliance framing).
   extraRules?: string[];
@@ -209,14 +213,16 @@ interface VerticalDef {
 
 const VERTICAL_SIGNATURE = 'Sushanth & Deepika\nCo-founders, Calldesk';
 
+const PILOT_TERMS = 'free for two weeks, capped at 50 minutes of calls, no credit card, and they can stop any time';
+
 function verticalOfferFacts(v: VerticalDef): string[] {
   return [
     'Calldesk (calldesk.tech) is an AI voice-agent platform: inbound and outbound phone agents.',
-    `We are in early customer research on how small ${v.leadPlural} handle ${v.topic}.`,
-    'We are not selling anything in this email and are not asking them to sign up for or buy anything.',
-    'We have not built anything specific for this industry yet; we want to understand the day-to-day work first.',
-    'We are asking for a 15-minute conversation (a call, or a reply by email) to hear how they handle this today.',
-    'We can share a short summary of what we learn from these conversations with the people who take part.',
+    `We want to help small ${v.leadPlural} with ${v.topic}.`,
+    `The offer: we set up a Calldesk phone agent for them, on a number they forward their overflow or after-hours calls to. It ${v.agentHandles}, and every call gets a summary and transcript they can review.`,
+    `The pilot is ${PILOT_TERMS}. We do the setup ourselves; they only need to forward calls.`,
+    'To accept, they reply "yes" and tell us which number they would forward calls from. If it is not useful, we ask them to tell us what would be, which helps us just as much.',
+    'We have not built anything specific for this industry; the agent is a general Calldesk phone agent configured for their calls. Do not claim integrations with their software, booking systems, or CRM.',
   ];
 }
 
@@ -225,16 +231,17 @@ function extra(v: VerticalDef): string {
 }
 
 function verticalSystemPrompt(v: VerticalDef): string {
-  return `You write short, honest customer-discovery emails from the co-founders of Calldesk (Sushanth and Deepika) to owners and operators of small ${v.leadPlural}. This is research outreach. It is NOT a sales pitch and NOT a partnership offer.
+  return `You write short, honest, help-first cold emails from the co-founders of Calldesk (Sushanth and Deepika) to owners and operators of small ${v.leadPlural}. The goal is to offer something concretely useful: a free, capped pilot of a phone agent that catches calls they would otherwise miss. It is not a generic sales pitch, and not a partnership offer.
 
 Rules:
-- State ONLY facts from the provided offer facts and lead data. About the recipient you may say only what the lead data supports: the business name, its location, and ${v.registryFact}. Never invent customers, results, integrations, statistics, or claims about their operations, volume, staff, tools, or problems. Do not assume they have any problem; ask how they handle things.
+- State ONLY facts from the provided offer facts and lead data. About the recipient you may say only what the lead data supports: the business name, its location, and ${v.registryFact}. Never invent customers, results, integrations, statistics, or claims about their operations, volume, staff, tools, or problems. Do not assert they have a problem; ask about ${v.situation} as a question.
 - No fake familiarity: no "loved your post", "I saw you recently", "I noticed your team is growing". No flattery.
-- Content, in this order: (1) one sentence saying who we are, the co-founders of Calldesk, an AI voice-agent platform; (2) that we are researching how small ${v.leadPlural} handle ${v.topic}, and that we are not selling anything; (3) one clear ask: 15 minutes of their time to hear how they handle it today; (4) that we are happy to share what we learn.
-- No pricing, discounts, free trials, revenue share, or partner terms. No urgency, scarcity, or "quick question" tricks. No hype words, no emojis, no exclamation marks.
-- Never claim Calldesk is better, faster, or cheaper than any product or competitor.
-- Subject: plain and specific, under 70 characters, e.g. about ${v.askAbout}. Not clickbait, not "Re:" or "Fwd:".
-- Body: 60-110 words, 2-3 short paragraphs. Start with "Hi there,".${extra(v)}
+- Content, in this order: (1) one sentence: we are the co-founders of Calldesk, and we build AI phone agents, plus at most one supported fact about them; (2) one question about what happens to calls when ${v.situation}; (3) the offer: we will set up a Calldesk phone agent for them to try on those calls, and say briefly what it does (from the offer facts), with the pilot terms exactly as given; (4) the one-line reply: reply "yes" with the number they would forward calls from, or tell us what would make it useful.
+- Never mention a recording, audio, attachment, link, or "below": any sample call is added below the email automatically, and not every email has one.
+- The only pricing statement allowed is the pilot terms from the offer facts. No other prices, discounts, revenue share, partner terms, or urgency/scarcity tricks. No hype words, no emojis, no exclamation marks.
+- Never claim Calldesk is better, faster, or cheaper than any product or competitor. Do not say it "never misses a call", or promise results.
+- Subject: plain and specific, under 70 characters, in the spirit of "${v.subjectHint}". Not clickbait, not "Re:" or "Fwd:".
+- Body: 70-120 words, 3 short paragraphs. Start with "Hi there,".${extra(v)}
 - Write in the first person plural ("we", "us", "our"). Never use "I", "me" or "my", and never introduce yourselves by name or title.
 - Do NOT write a sign-off or signature; one is added automatically.
 - Any sentence that asks something must end with a question mark.
@@ -242,11 +249,12 @@ Rules:
 }
 
 function verticalFollowUpPrompt(v: VerticalDef): string {
-  return `You write short, low-pressure follow-up emails from the co-founders of Calldesk (Sushanth and Deepika), following up on a customer-discovery email to a small business (${v.leadPlural}) that got no reply. It is research outreach, not a sales pitch.
+  return `You write short, low-pressure follow-up emails from the co-founders of Calldesk (Sushanth and Deepika), following up on an earlier offer to a small business (${v.leadPlural}) that got no reply. The earlier email offered a free, capped pilot of a phone agent for their overflow calls.
 
 Rules:
-- This is a BRIEF bump: 2-3 sentences. Restate only that we are researching how small ${v.leadPlural} handle ${v.topic}, that we are not selling anything, and that 15 minutes would help.
-- State ONLY facts from the provided offer facts. Never invent customers, results, or claims about the recipient. No pricing, no partner terms.
+- This is a BRIEF bump: 2-3 sentences. Restate that we can set up a Calldesk phone agent for them to try on ${v.situation}, using the pilot terms exactly as in the offer facts, and that a one-word "yes" plus the number they would forward from is all we need.
+- State ONLY facts from the provided offer facts. Never invent customers, results, or claims about the recipient. No other pricing or partner terms.
+- Never mention a recording, audio, attachment, link, or "below".
 - Do not guilt-trip, create false urgency, or use hype words, emojis, or exclamation marks.
 - Write in the first person plural ("we", "us", "our"). Never use "I", "me" or "my", and never introduce yourselves by name or title.
 - Do NOT write a sign-off or signature; one is added automatically.
@@ -268,10 +276,14 @@ const VERTICAL_DEFS: VerticalDef[] = [
     leadPlural: 'freight brokerages',
     topic: 'carrier check calls, load coverage, and the phone follow-up around moving each load',
     askAbout: 'how small freight brokerages handle carrier check calls',
+    situation: 'carrier calls come in while everyone is busy on other loads or after hours',
+    agentHandles: "answers carrier check calls and load inquiries, collects the carrier's MC number, the load in question, and a callback number",
+    subjectHint: 'Help with carrier calls when nobody is free to pick up',
     registryFact: 'that it is listed in the public FMCSA registry with active property broker authority',
     scoreVocabulary: [
       { pattern: /\b(brokerage|3pl|logistics|freight)\b/, delta: 5, reason: 'name reads like a freight brokerage' },
       { pattern: /family[- ]owned|independent|owner[- ]operated|boutique/, delta: 10, reason: 'describes itself as small, independent, or owner-run' },
+      { pattern: /insur|assurance|surance|underwrit/, delta: -30, reason: 'name suggests an insurance business, not a freight brokerage' },
       { pattern: /worldwide|global|international|nationwide|national|corporation|holdings|\bgroup\b/, delta: -8, reason: 'name suggests a larger or enterprise-scale operation' },
     ],
   },
@@ -281,6 +293,9 @@ const VERTICAL_DEFS: VerticalDef[] = [
     leadPlural: 'HVAC, plumbing, electrical, and roofing companies',
     topic: 'missed calls, after-hours calls, and booking service appointments',
     askAbout: 'how small home-service companies handle missed calls and booking',
+    situation: 'the crew is out on a job, or a no-heat or other emergency call comes in after hours',
+    agentHandles: "answers the call, finds out what is wrong, and collects the caller's name, address, and callback number",
+    subjectHint: 'Catching after-hours service calls',
     registryFact: 'that it is a local HVAC, plumbing, electrical, or roofing business (from its own website)',
     scoreVocabulary: [
       { pattern: /hvac|heating|air conditioning|plumb|electric|roofing|contractor/, delta: 5, reason: 'trade matches HVAC/plumbing/electrical/roofing' },
@@ -294,6 +309,9 @@ const VERTICAL_DEFS: VerticalDef[] = [
     leadPlural: 'independent dental practices',
     topic: 'patient phone calls, new-patient booking, and appointment reschedules',
     askAbout: 'how small dental practices handle patient calls and reschedules',
+    situation: 'the front desk is busy or the office is closed and a patient calls',
+    agentHandles: "answers, takes new-patient and reschedule requests, and collects the caller's name and callback number",
+    subjectHint: 'Help with patient calls when the front desk is busy',
     registryFact: 'that it is an independent dental practice (from its own website)',
     scoreVocabulary: [
       { pattern: /dental|dentist|orthodont|periodont|endodont|oral surgery/, delta: 5, reason: 'dental practice' },
@@ -309,6 +327,9 @@ const VERTICAL_DEFS: VerticalDef[] = [
     leadPlural: 'independent insurance agencies',
     topic: 'quote requests, policy-service calls, and after-hours calls',
     askAbout: 'how small independent insurance agencies handle quote and service calls',
+    situation: 'a quote request or policy-service call comes in when nobody can answer',
+    agentHandles: 'answers, finds out what the caller needs, and collects their name, policy or quote details they offer, and a callback number',
+    subjectHint: 'Catching quote and service calls after hours',
     registryFact: 'that it is an independent insurance agency (from its own website)',
     scoreVocabulary: [
       { pattern: /independent (insurance )?agen|insurance agency|insurance broker|insurance services/, delta: 5, reason: 'independent insurance agency' },
@@ -324,6 +345,9 @@ const VERTICAL_DEFS: VerticalDef[] = [
     leadPlural: 'independent towing companies',
     topic: 'dispatch and after-hours tow requests, including calls that come in while the crew is out on a job',
     askAbout: 'how small towing companies handle dispatch and after-hours calls',
+    situation: 'a tow request comes in while the crew is out on a job or after hours',
+    agentHandles: "answers, collects the caller's location, vehicle, and callback number",
+    subjectHint: 'Catching after-hours tow requests',
     registryFact: 'that it is listed in a state licensing registry, worded exactly as the lead data words it (for example "listed in the Washington State Department of Licensing registry as a registered tow truck operator")',
     scoreVocabulary: [
       { pattern: /24\/?7|24[- ]hour|round[- ]the[- ]clock|emergency|heavy[- ]duty|flatbed/, delta: 5, reason: 'name suggests 24-hour or emergency towing (phone-driven demand)' },
@@ -336,6 +360,9 @@ const VERTICAL_DEFS: VerticalDef[] = [
     leadPlural: 'independent septic service companies',
     topic: 'scheduling and dispatch, and call overflow during the busy season',
     askAbout: 'how small septic companies handle scheduling and busy-season calls',
+    situation: 'busy-season call volume backs up and calls go to voicemail',
+    agentHandles: 'answers, finds out what the caller needs, and collects their name, address, and callback number',
+    subjectHint: 'Help with busy-season septic calls',
     registryFact: 'that it is listed in a state or city licensing registry, worded exactly as the lead data words it (for example "listed in the Florida Department of Health registry as a master septic tank contractor")',
     scoreVocabulary: [
       { pattern: /pump(ing)?|emergency|24\/?7|24[- ]hour/, delta: 3, reason: 'name suggests pumping/emergency service (phone-driven demand)' },
@@ -348,6 +375,9 @@ const VERTICAL_DEFS: VerticalDef[] = [
     leadPlural: 'independent home care agencies',
     topic: 'new-client inquiry calls and weekend follow-up with families',
     askAbout: 'how small home care agencies handle new-client inquiries and weekend calls',
+    situation: 'a family calls to ask about care and nobody is free, especially on weekends',
+    agentHandles: "answers, collects the family's name, what they are looking for, and a callback number",
+    subjectHint: 'Catching new-client inquiry calls on weekends',
     registryFact: 'that it is listed in a state health-department registry, worded exactly as the lead data words it (for example "listed in the Illinois Department of Public Health registry as a licensed home health agency")',
     scoreVocabulary: [SMALL_UP, CHAIN_DOWN],
   },
@@ -357,6 +387,9 @@ const VERTICAL_DEFS: VerticalDef[] = [
     leadPlural: 'independent bail bonds agencies',
     topic: 'after-hours intake calls and returning missed calls',
     askAbout: 'how small bail bonds agencies handle after-hours intake calls',
+    situation: 'an intake call comes in after hours',
+    agentHandles: "answers and collects only the caller's name and a callback number, and gives no legal advice",
+    subjectHint: 'Help with after-hours intake calls',
     registryFact: 'that it is a local bail bonds business (from its own website)',
     extraRules: [
       'Do not give or imply legal advice, and do not comment on arrests, charges, jail, courts, or anyone\'s legal situation. Ask only about how the business handles its phone intake outside office hours.',
