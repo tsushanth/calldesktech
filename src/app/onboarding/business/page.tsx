@@ -97,13 +97,12 @@ export default function BusinessSetupPage() {
         setTenantId(data.id);
         localStorage.setItem('calldesk_business_id', data.id);
 
-        // Check if user has a coupon (skip payment) or needs to pay
-        const couponCode = localStorage.getItem('calldesk_coupon_code');
+        // Check if user already paid or needs to
         const stripeSessionId = localStorage.getItem('calldesk_stripe_session_id');
         const flow = localStorage.getItem('calldesk_flow');
 
-        if (couponCode || stripeSessionId) {
-          // Has coupon or already paid - go to complete
+        if (stripeSessionId) {
+          // Already paid - go to complete
           router.push('/onboarding/complete');
         } else if (flow === 'subscribe') {
           // Came from pricing page wanting to subscribe - go to Stripe checkout
@@ -120,12 +119,12 @@ export default function BusinessSetupPage() {
           if (checkoutData.checkout_url) {
             window.location.href = checkoutData.checkout_url;
           } else {
-            // Checkout failed, go to complete page where they can enter coupon
+            // Checkout failed, go to complete page where they can subscribe
             console.error('Checkout failed:', checkoutData.error);
             router.push('/onboarding/complete');
           }
         } else {
-          // Direct access - go to complete page where they can enter coupon or subscribe
+          // Direct access - go to complete page where they can subscribe
           router.push('/onboarding/complete');
         }
       } else {

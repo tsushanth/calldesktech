@@ -6,8 +6,6 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { useOnboarding } from '@/context/OnboardingContext';
 import { PricingCard } from '@/components/onboarding/PricingCard';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
-import { Input } from '@/components/ui/Input';
-import { Button } from '@/components/ui/Button';
 import Link from 'next/link';
 import { PRICING } from '@/lib/constants';
 
@@ -37,9 +35,6 @@ function PricingPageContent() {
   // the genuine first-time signup path where no tenant exists yet.
   const { tenantId: activeTenantId } = useOnboarding();
   const [loading, setLoading] = useState(false);
-  const [couponCode, setCouponCode] = useState('');
-  const [showCoupon, setShowCoupon] = useState(false);
-  const [couponError, setCouponError] = useState('');
 
   const handleSubscribe = async () => {
     if (status !== 'authenticated') {
@@ -79,23 +74,6 @@ function PricingPageContent() {
       alert('Failed to start checkout. Please try again.');
     } finally {
       setLoading(false);
-    }
-  };
-
-  const handleCouponSubmit = async () => {
-    if (!couponCode.trim()) {
-      setCouponError('Please enter a coupon code');
-      return;
-    }
-
-    // For now, check against a hardcoded coupon for testing
-    const validCoupons = ['SUSH', 'BETA', 'EARLY'];
-
-    if (validCoupons.includes(couponCode.toUpperCase())) {
-      localStorage.setItem('calldesk_coupon_code', couponCode.toUpperCase());
-      router.push('/onboarding/business');
-    } else {
-      setCouponError('Invalid coupon code');
     }
   };
 
@@ -152,35 +130,6 @@ function PricingPageContent() {
           <p className="mt-4 text-center text-[12px] text-gray-400">
             Premium voices (ElevenLabs, Cartesia, MiniMax) run ${PRICING.usage.voicePerMinute.elevenlabs.toFixed(2)}–${PRICING.usage.voicePerMinute.minimax.toFixed(2)}/min here — still no monthly minimum either way.
           </p>
-        </div>
-
-        {/* Coupon Section */}
-        <div className="text-center">
-          {!showCoupon ? (
-            <button
-              onClick={() => setShowCoupon(true)}
-              className="text-gray-500 hover:text-[#1a1d29] text-sm underline"
-            >
-              Have a coupon code?
-            </button>
-          ) : (
-            <div className="max-w-xs mx-auto">
-              <div className="flex gap-2">
-                <Input
-                  placeholder="Enter code"
-                  value={couponCode}
-                  onChange={(e) => {
-                    setCouponCode(e.target.value);
-                    setCouponError('');
-                  }}
-                  error={couponError}
-                />
-                <Button onClick={handleCouponSubmit} variant="secondary">
-                  Apply
-                </Button>
-              </div>
-            </div>
-          )}
         </div>
 
         {/* Try Demo Link */}

@@ -5,7 +5,6 @@ import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
-import { Input } from '@/components/ui/Input';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 import { useOnboarding } from '@/context/OnboardingContext';
 
@@ -17,8 +16,6 @@ export default function OnboardingCompletePage() {
   const [activating, setActivating] = useState(false);
   const [activated, setActivated] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [couponCode, setCouponCode] = useState('');
-  const [couponError, setCouponError] = useState('');
   const [hasPayment, setHasPayment] = useState(false);
 
   // Check auth and payment status
@@ -37,25 +34,8 @@ export default function OnboardingCompletePage() {
 
     // Check if we have payment verification
     const sessionId = localStorage.getItem('calldesk_stripe_session_id');
-    const storedCoupon = localStorage.getItem('calldesk_coupon_code');
-    setHasPayment(!!(sessionId || storedCoupon));
+    setHasPayment(!!sessionId);
   }, [authStatus, router, tenantId]);
-
-  const handleApplyCoupon = () => {
-    if (!couponCode.trim()) {
-      setCouponError('Please enter a coupon code');
-      return;
-    }
-
-    const validCoupons = ['SUSH', 'BETA', 'EARLY'];
-    if (validCoupons.includes(couponCode.toUpperCase())) {
-      localStorage.setItem('calldesk_coupon_code', couponCode.toUpperCase());
-      setHasPayment(true);
-      setCouponError('');
-    } else {
-      setCouponError('Invalid coupon code');
-    }
-  };
 
   const handleActivate = async () => {
     setActivating(true);
@@ -64,16 +44,14 @@ export default function OnboardingCompletePage() {
     try {
       const businessId = tenantId || localStorage.getItem('calldesk_business_id');
       const sessionId = localStorage.getItem('calldesk_stripe_session_id');
-      const storedCoupon = localStorage.getItem('calldesk_coupon_code');
 
-      // Call go-live API
+      // Call go-live API — verifies sessionId against Stripe server-side
       const response = await fetch('/api/go-live', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           business_id: businessId,
           session_id: sessionId,
-          coupon_code: storedCoupon,
         }),
       });
 
@@ -85,7 +63,6 @@ export default function OnboardingCompletePage() {
 
         // Clear session storage
         localStorage.removeItem('calldesk_stripe_session_id');
-        localStorage.removeItem('calldesk_coupon_code');
       } else {
         throw new Error(data.error || 'Failed to activate service');
       }
@@ -216,28 +193,14 @@ export default function OnboardingCompletePage() {
                     ) : (
                       <div className="mt-2">
                         <p className="text-sm text-gray-500 mb-2">
-                          Enter a coupon code or <button
+                          <button
                             onClick={() => router.push('/pricing')}
                             className="text-primary-600 hover:underline"
                           >
-                            subscribe
+                            Subscribe
                           </button>
+                          {' '}to continue — have a promo code from us? Enter it on the checkout page.
                         </p>
-                        <div className="flex gap-2">
-                          <Input
-                            placeholder="Enter coupon code"
-                            value={couponCode}
-                            onChange={(e) => {
-                              setCouponCode(e.target.value);
-                              setCouponError('');
-                            }}
-                            error={couponError}
-                            className="flex-1"
-                          />
-                          <Button onClick={handleApplyCoupon} variant="secondary">
-                            Apply
-                          </Button>
-                        </div>
                       </div>
                     )}
                   </div>

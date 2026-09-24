@@ -63,6 +63,12 @@ export async function POST(request: NextRequest) {
     const checkoutSession = await stripe.checkout.sessions.create({
       mode: 'subscription',
       payment_method_types: ['card'],
+      // Lets Stripe's own hosted checkout page show a promo-code field —
+      // replaces the old client-side coupon bypass (SUSH/BETA/EARLY, a
+      // hardcoded list in the shipped JS that set subscription_status
+      // active with zero Stripe involvement at all). A real promotion code
+      // still requires a card and is tracked/capped by Stripe itself.
+      allow_promotion_codes: true,
       line_items: [
         { price: USAGE_PRICES.voice.kokoro },
         { price: USAGE_PRICES.booking },

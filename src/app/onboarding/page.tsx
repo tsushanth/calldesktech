@@ -42,10 +42,9 @@ function OnboardingContent() {
     // Check for existing business
     const businessId = localStorage.getItem('calldesk_business_id');
     const existingSessionId = localStorage.getItem('calldesk_stripe_session_id');
-    const couponCode = localStorage.getItem('calldesk_coupon_code');
 
-    if (businessId && (existingSessionId || couponCode)) {
-      // Has business and payment/coupon - go to complete
+    if (businessId && existingSessionId) {
+      // Has business and payment - go to complete
       router.push('/onboarding/complete');
     } else if (businessId) {
       // Has business but no payment - go to pricing
