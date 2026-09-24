@@ -7,7 +7,7 @@ import { isFreeMail } from '@/lib/outreach/discovery/freightFmcsa';
 import { detectDraftLanguage } from '@/lib/outreach/language';
 import {
   toRgeRow, evaluateRgeRow, toRgeLead, parseRgeDate, sirenOf, rgeSourceKey,
-  parseRgePage, rgeFirstPageUrl, findRgeCandidates, type RgePage,
+  parseRgePage, rgeFirstPageUrl, findRgeCandidates, isFrenchPostcode, type RgePage,
 } from '@/lib/outreach/discovery/frRgeRegistry';
 import {
   toCqcRow, evaluateCqcRow, toCqcLead, cqcTown, cqcDomain, cqcSourceKey, isUkCorporateName,
@@ -168,6 +168,25 @@ describe('France RGE contractor register', () => {
     expect(bad({ siret: '487749095' })).toMatchObject({ keep: false, reason: 'no valid SIRET' });
     expect(bad({ commune: '' })).toMatchObject({ keep: false, reason: 'no commune' });
     expect(bad({ domaine: 'Forage géothermique' })).toMatchObject({ keep: false });
+  });
+
+  it('refuses the foreign companies the register also lists', () => {
+    // A real row the live dry run surfaced: a Portuguese joinery qualified to work
+    // in France, with a Portuguese commune, postcode "00000" and a placeholder
+    // SIREN. Ingesting it as French would give it the wrong location and a French
+    // draft.
+    expect(evaluateRgeRow(toRgeRow({
+      ...RGE_RAW, siret: '00000000085896', nom_entreprise: 'CAIXIAVE INDUSTRIA DE CAIXILHARIA',
+      commune: 'RIBEIRAO', code_postal: '00000', email: 'sonia.conde@caixiave.pt',
+      domaine: 'Fenêtres, volets, portes donnant sur l\'extérieur',
+    }), NOW)).toMatchObject({ keep: false, reason: 'postcode is not a French one (foreign establishment or placeholder row)' });
+    // The postcode is the test, so a real French one with a placeholder SIREN is
+    // caught by the SIREN check instead.
+    expect(evaluateRgeRow(toRgeRow({ ...RGE_RAW, siret: '00000000012345' }), NOW))
+      .toMatchObject({ keep: false, reason: 'placeholder SIREN of all zeroes' });
+    // French metropolitan and overseas postcodes, and the ones that are not.
+    for (const cp of ['01000', '69003', '75001', '98800', '97400']) expect(isFrenchPostcode(cp), cp).toBe(true);
+    for (const cp of ['00000', '00123', '4760', '1234-567', '', null]) expect(isFrenchPostcode(cp), String(cp)).toBe(false);
   });
 
   it('scores a sole trader down and a company up', () => {

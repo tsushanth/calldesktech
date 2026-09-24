@@ -117,6 +117,13 @@ export type Evaluation =
   | { keep: true; adjust: number; reasons: string[]; typeLabel: string }
   | { keep: false; reason: string };
 
+// French metropolitan and overseas postcodes run 01000-98999. "00000" is what the
+// register writes for a foreign address.
+export function isFrenchPostcode(raw: string | null | undefined): boolean {
+  const cp = (raw ?? '').trim();
+  return /^\d{5}$/.test(cp) && cp.slice(0, 2) !== '00';
+}
+
 // "2099-01-01" / "2026-12-31" -> Date (the qualification's end date).
 export function parseRgeDate(raw: string | null | undefined): Date | null {
   const m = /^(\d{4})-(\d{2})-(\d{2})/.exec((raw ?? '').trim());
@@ -131,6 +138,14 @@ export function evaluateRgeRow(r: RgeRow, now = new Date()): Evaluation {
   // is a malformed row we cannot key a lead on.
   if (r.siret.length !== 14) return { keep: false, reason: 'no valid SIRET' };
   if (!r.commune) return { keep: false, reason: 'no commune' };
+  // The register also lists FOREIGN companies qualified to work in France. The dry
+  // run found a Portuguese joinery with commune "RIBEIRAO", postcode "00000" and a
+  // placeholder SIREN of all zeroes. Those must not be ingested as French leads:
+  // the location would be wrong and the draft would be written in French to a
+  // Portuguese company. French postcodes run 01000-98999, so requiring a real one
+  // (and a real SIREN) keeps only French establishments.
+  if (!isFrenchPostcode(r.code_postal)) return { keep: false, reason: 'postcode is not a French one (foreign establishment or placeholder row)' };
+  if (/^0{9}$/.test(sirenOf(r.siret))) return { keep: false, reason: 'placeholder SIREN of all zeroes' };
   const end = parseRgeDate(r.lien_date_fin);
   if (!end || end.getTime() < now.getTime()) return { keep: false, reason: 'qualification expired' };
   if (STUDY_DOMAIN.test(r.domaine ?? '')) return { keep: false, reason: 'study/audit/architect qualification, not an installation trade' };

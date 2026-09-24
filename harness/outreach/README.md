@@ -38,6 +38,67 @@ They produce short research-ask drafts (not sales pitches) into the same review 
 - Dry run: `PRODUCT=freight DRY_RUN=1 ./node_modules/.bin/tsx run.ts`
 - Follow-ups default to 1 for these products (`OUTREACH_MAX_FOLLOWUPS` overrides). The agency research stage is skipped for them.
 
+## International registry sources, and the hold on them (`bulk-import.ts`, `release-country.ts`)
+Four non-US public registers feed the same verticals. They are **bulk-import only** — deliberately not in the
+per-run rotation, because every lead they produce is on hold and cannot be drafted or sent, so giving them a
+daily slot would only starve the US sources that actually convert.
+
+| source | vertical(s) | register | contact detail |
+|---|---|---|---|
+| `fr-rge` | homeservices | French RGE contractor register (ADEME data-fair API, Licence Ouverte, no key) | email on most rows, phone on nearly all |
+| `uk-cqc` | dental, homecare | Care Quality Commission directory of registered locations (one CSV) | **no email**; phone on nearly all, website on many |
+| `uk-dvsa` | freight | Goods vehicle operator licences, 8 traffic-area CSVs (OGL) | **no email, no phone** |
+| `no-brreg` | dental, homeservices, freight, towing, insurance, homecare | Norwegian Enhetsregisteret JSON API (NLOD, no key) | email on ~7%, phone on ~40% |
+
+    PRODUCT=homeservices SOURCE=fr-rge DRY_RUN=1 ./node_modules/.bin/tsx bulk-import.ts   # counts only
+    PRODUCT=homeservices SOURCE=fr-rge ./node_modules/.bin/tsx bulk-import.ts             # insert, all on hold
+
+### THE HOLD — what actually stops an international email going out
+Every lead from these sources is stored `region_blocked = true` with
+`signals.intlHold = { country, reason: 'international: pending compliance review' }`. The flag is set in ONE
+place, `discovery/pipeline.ts registryLeadRow`, so no source can forget it. A held lead is completely inert:
+
+- `stageEnrich` skips region-blocked leads, so not even its website is looked up;
+- `stageDraft` and the contact-form stage only select `region_blocked = false`;
+- `sender.ts` re-reads the flag at send time and refuses.
+
+So importing a country is safe on its own. Getting out of the hold is a separate, manual, per-country decision
+that should follow a compliance review of that country's marketing-email rules:
+
+    COUNTRY=FR PRODUCT=homeservices DRY_RUN=1 ./node_modules/.bin/tsx release-country.ts   # count what is held
+    COUNTRY=FR PRODUCT=homeservices ./node_modules/.bin/tsx release-country.ts             # release
+
+It matches on the stored hold, not on the location text, and updates only the ids it just listed, so it can
+never touch more than it reported. `signals.intlHold` is left in place as the audit trail.
+**DE, AT, CH and LI are refused outright** and can never be released: they require prior consent even for B2B
+marketing email (`discovery/score.ts` region-blocks them by location and domain as well).
+
+### Filters that exist for legal reasons, not for quality
+- **UK (both sources): PECR.** Marketing email to an individual or a non-corporate partnership needs consent;
+  to a corporate subscriber it does not. So `uk-cqc` keeps only providers whose name carries a corporate legal
+  form (Ltd/PLC/LLP/CIC) and `uk-dvsa` keeps only `OperatorType = 'Limited Company'`. This throws away real
+  businesses on purpose — roughly 4,900 CQC dentists and 21,000 DVSA operators.
+- **France / Norway: sole traders.** An entreprise individuelle (FR) or enkeltpersonforetak (ENK, NO) may have
+  registered contact details that are the owner's personal data. Those rows are kept but scored down hard and
+  flagged in `signals.reasons` so a reviewer sees it.
+- **France: foreign establishments.** The RGE register also lists non-French companies (postcode `00000`,
+  placeholder SIREN). They are rejected, so nothing gets a French location or a French-language draft wrongly.
+
+### Draft language
+`signals.registry.state` / `location` is written `"<Town>, <CC>"` — `"Lyon, FR"`, `"Bergen, NO"`,
+`"London, GB"` — and `outreach/language.ts` maps the trailing code: FR -> French, NO -> Norwegian,
+GB/IE -> English (the default). Every code in that map is checked against the US state codes, so `"Dover, DE"`
+is Delaware and never Germany.
+
+### Verified but NOT built
+- **Mexico, INEGI DENUE.** Works and has email: the CDMX state file is 462,732 establishments, 22.6% with
+  `correoelec` (note: the column is `correoelec`, not `correo_e`) and 10.6% with `www`. Fill rate is better for
+  our verticals — SCIAN 6212 dental 2,278/7,467 (31%), 5242 insurance brokers 286/479 (60%), 4841 freight
+  342/511 (67%), 2382 plumbing/HVAC 174/482 (36%), 6233 home care 53/109 (49%). Not built only because it is one
+  ~45 MB zip per state for 32 states and the download runs at roughly 9 minutes per state from here.
+- **Brazil, Receita Federal CNPJ dump.** Could not be verified: `dadosabertos.rfb.gov.br`,
+  `arquivos.receitafederal.gov.br` and the mirrors all refused or timed out from here. Not built.
+
 ## Contact-form submission worker (`form-submit.ts`)
 Leads with no public email get a draft in the queue's **forms** tab. A human reads it and clicks
 **Submit for me**, which moves `signals.formOutreach.status` to `queued`. This worker is the only thing
