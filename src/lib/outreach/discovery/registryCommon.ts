@@ -34,6 +34,16 @@ export interface RegistryLead {
   email?: string | null;
   // Public registry page the email came from; stored as contact_source_url.
   contactSourceUrl?: string | null;
+  // Some registers publish the business's own website even though they publish no
+  // email (the CQC directory and the DVSA operator licences both do). Setting it
+  // here saves stageEnrich an LLM website search per lead and is more reliable
+  // than one. When absent the email's domain is used, exactly as before.
+  domain?: string | null;
+  // ISO-3166 alpha-2 country, set ONLY by the non-US registry sources. Absent (or
+  // 'US') means a domestic lead and nothing changes. Anything else makes this an
+  // international lead and pipeline.registryLeadRow stores it ON HOLD: see
+  // INTL_HOLD_REASON below.
+  country?: string | null;
 }
 
 export interface RegistryResult {
@@ -77,6 +87,74 @@ export function describeRegistryLead(a: { typeLabel: string; registryName: strin
   // The legal/registered name is kept in signals.registry only (it can be a person's
   // name for a sole proprietor), never in the draft-visible description.
   return `${d}.`;
+}
+
+// ---- international sources -------------------------------------------------
+//
+// THE SAFETY RULE. Every lead from a non-US public register is stored ON HOLD:
+// `region_blocked = true` plus `signals.intlHold = { country, reason }`. That is
+// applied once, centrally, in pipeline.registryLeadRow, so no individual source
+// can forget it. Nothing international can be drafted or emailed while the hold
+// stands: stageDraft/stageForm only select `region_blocked = false` rows,
+// sender.ts re-checks the flag and refuses the send, and stageEnrich skips
+// region-blocked leads too, so a held lead is completely inert — not even its
+// website is looked up. A human releases one country at a time with
+// `harness/outreach/release-country.ts`.
+export const INTL_HOLD_REASON = 'international: pending compliance review';
+
+export interface IntlHold {
+  country: string;
+  reason: string;
+}
+
+// DE/AT/CH (and LI) require prior consent even for B2B marketing email, so they
+// can never be released — score.ts already region-blocks them by location and
+// domain, and release-country.ts refuses them by country code. Kept here so the
+// rule has one home shared by the pipeline and the release script.
+export const NEVER_RELEASE_COUNTRIES = new Set(['DE', 'AT', 'CH', 'LI']);
+
+export function isNeverReleasable(country: string | null | undefined): boolean {
+  return NEVER_RELEASE_COUNTRIES.has((country ?? '').trim().toUpperCase());
+}
+
+// The whole gate release-country.ts applies before it touches the database, as a
+// pure function so it can be tested. Kept here rather than in the harness script
+// so the rule cannot be re-implemented differently somewhere else.
+export type ReleaseDecision = { ok: true; country: string } | { ok: false; reason: string };
+
+export function decideRelease(raw: string | null | undefined): ReleaseDecision {
+  const c = (raw ?? '').trim().toUpperCase();
+  if (!/^[A-Z]{2}$/.test(c)) return { ok: false, reason: 'COUNTRY is required and must be an ISO-3166 alpha-2 code, e.g. COUNTRY=FR' };
+  if (NEVER_RELEASE_COUNTRIES.has(c)) {
+    return { ok: false, reason: `${c} can never be released: ${[...NEVER_RELEASE_COUNTRIES].sort().join('/')} require prior consent for B2B marketing email` };
+  }
+  if (c === 'US') return { ok: false, reason: 'US leads are not held in the first place; there is nothing to release' };
+  return { ok: true, country: c };
+}
+
+// Normalises a country code, returning null for US/blank so a domestic lead
+// never accidentally acquires a hold.
+export function intlCountry(raw: string | null | undefined): string | null {
+  const c = (raw ?? '').trim().toUpperCase();
+  return !c || c === 'US' || c.length !== 2 ? null : c;
+}
+
+// "LYON" + "FR" -> "Lyon, FR". Same shape as cityState (city, comma, uppercase
+// code) on purpose: the lead's `location` is what language.detectDraftLanguage
+// reads to pick the draft language, and what discoverWebsite uses to
+// disambiguate a business by place.
+export function cityCountry(city: string | null | undefined, country: string | null | undefined): string | null {
+  return cityState(city, country);
+}
+
+// Non-US phone numbers have no single national format to normalise to, so the
+// published number is kept as-is, only tidied (collapsed whitespace, no stray
+// punctuation). Returns null unless there are at least 6 digits, which rejects
+// the empty and placeholder values these registers contain.
+export function formatIntlPhone(raw: string | null | undefined): string | null {
+  const v = (raw ?? '').replace(/[^\d+()\-\s.]/g, '').replace(/\s+/g, ' ').trim();
+  if ((v.match(/\d/g) ?? []).length < 6) return null;
+  return v.slice(0, 40);
 }
 
 // Registry name with the DBA/trade name preferred for display: "LEGAL LLC - DBA Trade Name" -> "Trade Name".

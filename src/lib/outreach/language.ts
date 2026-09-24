@@ -26,6 +26,7 @@ const COUNTRY_LANGUAGE: [RegExp, LanguageMatch][] = [
   [/\bnetherlands\b|\bholland\b/i, { code: 'nl', name: 'Dutch' }],
   [/\bpoland\b|\bpolska\b/i, { code: 'pl', name: 'Polish' }],
   [/\bsweden\b|\bsverige\b/i, { code: 'sv', name: 'Swedish' }],
+  [/\bnorway\b|\bnorge\b/i, { code: 'no', name: 'Norwegian' }],
   [/\bindonesia\b/i, { code: 'id', name: 'Indonesian' }],
   [/\bturkey\b|\bt[üu]rkiye\b/i, { code: 'tr', name: 'Turkish' }],
   [/\bvietnam\b|\bviệt nam\b/i, { code: 'vi', name: 'Vietnamese' }],
@@ -34,12 +35,37 @@ const COUNTRY_LANGUAGE: [RegExp, LanguageMatch][] = [
   [/\bsouth korea\b|\brepublic of korea\b/i, { code: 'ko', name: 'Korean' }],
 ];
 
+// The international registry sources write a lead's location as "<City>, <ISO
+// country code>" — "Lyon, FR", "Bergen, NO", "London, GB" — the same shape the US
+// sources use for "<City>, <state>", so no country NAME appears and the patterns
+// above never fire. This maps the trailing code instead.
+//
+// `null` means "English, the default", stated explicitly so an English-speaking
+// market is a deliberate entry rather than a gap.
+//
+// Every code here must be one that is NOT also a US state code, or a domestic
+// lead would be mistaken for a foreign one. DE would be Delaware, IN Indiana, and
+// so on; none of those is listed (and DE/AT/CH can never be released anyway —
+// see registryCommon.NEVER_RELEASE_COUNTRIES).
+const COUNTRY_CODE_LANGUAGE: Record<string, LanguageMatch | null> = {
+  FR: { code: 'fr', name: 'French' },
+  BE: { code: 'fr', name: 'French' },
+  NO: { code: 'no', name: 'Norwegian' },
+  GB: null, // United Kingdom — English
+  IE: null, // Ireland — English
+  BR: { code: 'pt', name: 'Portuguese' },
+  MX: { code: 'es', name: 'Spanish' },
+};
+
 // Regions excluded from ANY outreach at all (see score.ts) also shouldn't
 // get a native-language draft even if matched above by coincidence — but
 // isRegionBlocked is checked separately upstream, so this function only
 // needs to worry about language, not region eligibility.
 export function detectDraftLanguage(location: string | null): LanguageMatch | null {
   if (!location) return null;
+  // An explicit country code is more reliable than a name match, so it wins.
+  const code = /,\s*([A-Za-z]{2})\s*$/.exec(location)?.[1].toUpperCase();
+  if (code && Object.prototype.hasOwnProperty.call(COUNTRY_CODE_LANGUAGE, code)) return COUNTRY_CODE_LANGUAGE[code];
   for (const [pattern, lang] of COUNTRY_LANGUAGE) {
     if (pattern.test(location)) return lang;
   }
