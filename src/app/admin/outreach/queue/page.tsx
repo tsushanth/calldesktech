@@ -45,6 +45,7 @@ export default function OutreachQueuePage() {
   const [busy, setBusy] = useState<string | null>(null);
   const [notice, setNotice] = useState<{ text: string; ok: boolean } | null>(null);
   const [quota, setQuota] = useState<{ sentToday: number; cap: number; resets: string } | null>(null);
+  const [sampleTitle, setSampleTitle] = useState<string | null>(null);
   const [edits, setEdits] = useState<Record<string, { subject: string; body_text: string }>>({});
 
   const refresh = useCallback(async () => {
@@ -53,6 +54,7 @@ export default function OutreachQueuePage() {
     if (res.ok) {
       const body = await res.json();
       setMessages(body.messages ?? []);
+      setSampleTitle(typeof body.sampleTitle === 'string' ? body.sampleTitle : null);
       setQuota({ sentToday: body.sentToday, cap: body.cap, resets: body.resets });
     }
     setLoading(false);
@@ -125,6 +127,11 @@ export default function OutreachQueuePage() {
                   {m.lead?.company_name ?? 'Unknown'}
                   {m.step > 1 && <span className="ml-2 rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-medium text-amber-700">follow-up #{m.step - 1}</span>}
                   {m.lead?.replied_at && <span className="ml-2 rounded-full bg-green-50 px-2 py-0.5 text-[11px] font-medium text-green-700">replied</span>}
+                  {m.status === 'draft' && m.step <= 1 && (
+                    <span className={`ml-2 rounded-full px-2 py-0.5 text-[11px] font-medium ${sampleTitle ? 'bg-blue-50 text-blue-700' : 'bg-gray-100 text-gray-500'}`}>
+                      {sampleTitle ? `Sample: ${sampleTitle}` : 'No sample for this vertical'}
+                    </span>
+                  )}
                 </p>
                 <p className="text-[12px] text-gray-400">
                   {m.to_email}
