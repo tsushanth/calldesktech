@@ -20,6 +20,10 @@ interface Message {
 const TABS = ['draft', 'approved', 'sent', 'failed'] as const;
 const PRODUCTS = [
   { key: 'calldesk', label: 'Calldesk' },
+  { key: 'calldesk:freight', label: 'Freight brokers' },
+  { key: 'calldesk:homeservices', label: 'Home services' },
+  { key: 'calldesk:dental', label: 'Dental' },
+  { key: 'calldesk:insurance', label: 'Insurance agencies' },
   { key: 'kreativekoala:voxkey', label: 'VoxKey' },
   { key: 'kreativekoala:pixora', label: 'Pixora' },
   { key: 'kreativekoala:gymlog', label: 'GymLog' },

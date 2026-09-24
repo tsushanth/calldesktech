@@ -20,3 +20,12 @@ one run per day - enrichment <= 30 and drafts <= 10 per run - stops drafting at 
 ## Env (`~/.calldesk-outreach/env`, chmod 600)
 `NEXT_PUBLIC_SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `OUTREACH_LLM=cli`, optional `OUTREACH_ENRICH_LIMIT`,
 `OUTREACH_DRAFT_LIMIT`, `OUTREACH_SEARCH_QUERIES_PER_DAY` (max 6), `RESEND_API_KEY` + `OUTREACH_ALERT_EMAIL` for failure emails.
+
+## Customer-discovery verticals (freight, homeservices, dental, insurance)
+Separate products on the same shared tables (`product` = `calldesk:<vertical>`), each selected with `PRODUCT=<vertical>`.
+They produce short research-ask drafts (not sales pitches) into the same review queue; sending is still a manual click.
+- `freight`: FMCSA open data (Socrata `6eyk-hxee` active broker authority joined to census `az4n-8mr2` for the published email). Tunables: `OUTREACH_FREIGHT_MAX_PER_RUN` (default 30, max 60), `OUTREACH_FREIGHT_PAGE_SIZE` (default 150), optional free `SOCRATA_APP_TOKEN`.
+- `homeservices` / `dental` / `insurance`: LLM web search + homepage verification. `OUTREACH_VERTICAL_QUERIES_PER_DAY` (default 2, max 6).
+- State dir `~/.calldesk-<vertical>-outreach/` (needs its own `env`, copy of the calldesk one). Templates: `com.calldesk.outreach-<vertical>.plist.template` (not installed by anything).
+- Dry run: `PRODUCT=freight DRY_RUN=1 ./node_modules/.bin/tsx run.ts`
+- Follow-ups default to 1 for these products (`OUTREACH_MAX_FOLLOWUPS` overrides). The agency research stage is skipped for them.
