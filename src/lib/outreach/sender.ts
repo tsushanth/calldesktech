@@ -1,6 +1,8 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { sendEmail } from '@/lib/email';
 import { unsubscribeUrl } from './unsubscribe';
+import { renderOutreachEmail, type EmailSample } from './emailHtml';
+import { getPublishedSample, pickVariant, sampleTokenFor, sampleUrl, snippetLines, productSlug } from './samples';
 
 // The only path that emails a real prospect. A human still triggers every
 // send explicitly from the admin queue (draft or approved status both
@@ -128,18 +130,43 @@ export async function sendApprovedMessage(supabase: SupabaseClient<any>, message
   }
 
   const footer = buildFooter(toEmail, postalAddress, brand);
-  const paragraphs = String(msg.body_text)
-    .split(/\n{2,}/)
-    .map((p) => `<p style="margin:0 0 14px">${escapeHtml(p).replace(/\n/g, '<br/>')}</p>`)
-    .join('');
-  const html = `<div style="font-family:-apple-system,Segoe UI,sans-serif;font-size:15px;line-height:1.6;color:#1a1d29;max-width:560px">${paragraphs}${footer.html}</div>`;
+  let emailSample: EmailSample | undefined;
+  let variant: 'plain' | 'sample' | undefined;
+  let sampleId: string | null = null;
+  try {
+    const found = product.startsWith('calldesk:') && productSlug(product) ? await getPublishedSample(supabase, product) : null;
+    if (found) {
+      variant = pickVariant(String(msg.id));
+      if (variant === 'sample') {
+        const lines = snippetLines(found);
+        if (lines.length > 0) {
+          const base = (process.env.NEXT_PUBLIC_APP_URL || 'https://calldesk.tech').replace(/\/$/, '');
+          const secs = found.audio_duration_sec;
+          emailSample = {
+            title: found.title || 'Sample call',
+            durationLabel: secs && secs > 0 ? `${Math.floor(secs / 60)}:${String(Math.round(secs % 60)).padStart(2, '0')}` : undefined,
+            lines,
+            url: sampleUrl(base, product, sampleTokenFor(String(msg.id))),
+            disclosure: found.disclosure || 'AI test caller talking to a Calldesk demo agent for a fictional business',
+          };
+          sampleId = found.id;
+        }
+      }
+    }
+  } catch (err) {
+    console.warn('[outreach/sender] sample rendering failed; sending without sample:', err instanceof Error ? err.message : err);
+    emailSample = undefined;
+    sampleId = null;
+  }
+  if (variant === 'sample' && !emailSample) variant = 'plain';
+  const { html, text } = renderOutreachEmail({ bodyText: String(msg.body_text), footer, sample: emailSample });
 
   const replyTo = (brand.replyToEnvVar && process.env[brand.replyToEnvVar]) || from.match(/<(.+)>/)?.[1] || from;
   const result = await sendEmail({
     to: toEmail,
     subject: msg.subject,
     html,
-    text: `${msg.body_text}${footer.text}`,
+    text,
     from,
     replyTo,
     headers: { 'List-Unsubscribe': `<${unsubscribeUrl(toEmail)}>` },
@@ -154,6 +181,14 @@ export async function sendApprovedMessage(supabase: SupabaseClient<any>, message
     .from('calldesk_outreach_messages')
     .update({ status: 'sent', sent_at: new Date().toISOString(), resend_id: result.id ?? null, error: null })
     .eq('id', messageId);
+  if (variant) {
+    try {
+      const { error: vErr } = await supabase.from('calldesk_outreach_messages').update({ variant, sample_id: sampleId }).eq('id', messageId);
+      if (vErr) console.warn('[outreach/sender] could not record variant:', vErr.message);
+    } catch (err) {
+      console.warn('[outreach/sender] could not record variant:', err instanceof Error ? err.message : err);
+    }
+  }
   await supabase.from('calldesk_outreach_leads').update({ status: 'sent', updated_at: new Date().toISOString() }).eq('id', msg.lead_id);
   return { ok: true, resendId: result.id };
 }
