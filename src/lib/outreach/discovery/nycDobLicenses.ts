@@ -78,7 +78,9 @@ export function boroughFromBbl(bbl: string | undefined | null): string | null {
 
 // City agencies, authorities and the big mechanical/utility firms whose NYC
 // licences are in this file: not owner-run service businesses.
-const BIG_NYC = /\b(dept\.? of|department of|city of new york|housing authority|\bnycha\b|\bmta\b|port authority|transit authority|board of education|con ?ed(ison)?|national grid|\bnyu\b|columbia university|mount sinai|northwell|presbyterian|\bemcor\b|comfort systems|\bara ?mark\b|\bjll\b|cushman|related companies|tishman|turner construction|skanska|structure tone|\bams\b mechanical|roto[- ]?rooter)\b/i;
+// (The live dry run found "NYC DEP OF TRANSPORTATION" among the active master
+// plumber licences, hence the abbreviated "dep of" spelling as well.)
+const BIG_NYC = /\b(dep\.?t?\.? of|department of|city of new york|housing authority|\bnycha\b|\bmta\b|port authority|transit authority|board of education|school construction|con ?ed(ison)?|national grid|\bnyu\b|columbia university|mount sinai|northwell|presbyterian|montefiore|\bemcor\b|comfort systems|johnson controls|\bara ?mark\b|\bjll\b|cushman|related companies|tishman|turner construction|skanska|structure tone|\bams\b mechanical|roto[- ]?rooter)\b/i;
 
 export function evaluateNycDobRow(r: NycDobRow): Evaluation {
   const licenseType = (r.license_type ?? '').trim().toUpperCase();

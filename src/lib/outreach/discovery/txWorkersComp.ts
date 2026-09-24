@@ -20,7 +20,7 @@ import { titleCase, cityState, describeRegistryLead, emptyResult, reject, splitD
 
 export const TX_DWC_HOST = 'data.texas.gov';
 export const TX_DWC_DATASET = 'c4xz-httr';
-export const TX_DWC_REGISTRY = "Texas Department of Insurance, Division of Workers' Compensation";
+export const TX_DWC_REGISTRY = 'Texas Department of Insurance, Division of Workers\u2019 Compensation';
 export const TX_DWC_SOURCE_URL = 'https://data.texas.gov/dataset/Workers-compensation-insurance-coverage-subscriber-/c4xz-httr';
 const LIST_NOUN = 'workers’ compensation subscriber file';
 
@@ -114,7 +114,7 @@ export function toTxEmployerLead(productId: string, cls: TxNaicsClass, r: TxEmpl
   const city = r.insured_employer_city?.trim() || null;
   const state = (r.insured_employer_state?.trim() || 'TX').toUpperCase();
   const location = cityState(city, state);
-  const typeLabel = `employer with active workers’ compensation coverage in the "${cls.label}" class`;
+  const typeLabel = `business with active workers’ compensation coverage in the "${cls.label}" NAICS class`;
   return {
     sourceKey: txSourceKey(productId, r),
     name,

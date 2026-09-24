@@ -93,7 +93,11 @@ const TRADE_NAME_RE = /\b(hvac|heating|air ?condition|cooling|refrigerat|plumb(i
 
 const GENERIC_LABEL = 'licensed contractor';
 
-const BIG_HOMESERVICES = /\b(roto[- ]?rooter|mr\.? rooter|mr\.? electric|one hour heating|benjamin franklin plumbing|aire serv|ars\/?rescue rooter|service experts|home depot|lowe'?s|sears|comfort systems|emcor|\bapi group\b|\bmmr\b|zachry|bechtel|kiewit|entergy|black ?&? ?veatch|burns ?&? ?mcdonnell|quanta services|irby construction)\b/i;
+const BIG_HOMESERVICES = /\b(roto[- ]?rooter|mr\.? rooter|mr\.? electric|one hour heating|benjamin franklin plumbing|aire serv|ars\/?rescue rooter|service experts|home depot|lowe'?s|sears|comfort systems|emcor|limbach|\bapi group\b|\bmmr\b|zachry|bechtel|kiewit|quanta services|\bmyr group\b|entergy|oklahoma gas|black ?&? ?veatch|burns ?&? ?mcdonnell|irby construction|johnson controls|siemens|honeywell|trane)\b/i;
+// The roster includes staffing and manpower companies holding a trade licence
+// (the dry run found "Corbin Manpower Solutions, LLC" under Electrical); they
+// supply labour rather than take service calls.
+const STAFFING = /\b(staffing|manpower|man ?power|labor ?(ready|solutions|services)|staff ?leasing|employee leasing|\bpeo\b|personnel|temporaries|payroll)\b/i;
 
 export type Evaluation = { keep: true; adjust: number; reasons: string[]; typeLabel: string } | { keep: false; reason: string };
 
@@ -112,6 +116,7 @@ export function evaluateArContractorRow(r: ArContractorRow, now = new Date()): E
   const exp = parseArDate(r.exp);
   if (!exp || exp.getTime() < now.getTime()) return { keep: false, reason: 'licence expired' };
   if (BIG_HOMESERVICES.test(name)) return { keep: false, reason: 'national brand, franchise or large industrial contractor name' };
+  if (STAFFING.test(name)) return { keep: false, reason: 'staffing, manpower or payroll company' };
 
   const stated = `${r.spec ?? ''} ${r.classDesc ?? ''}`.trim();
   const trade = stated ? TRADES.find((t) => t.re.test(stated)) : undefined;

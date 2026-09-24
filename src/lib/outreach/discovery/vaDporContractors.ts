@@ -103,7 +103,10 @@ const TRADE_NAME_RE = /\b(hvac|heating|air ?condition|\bac\b|cooling|refrigerat|
 
 const GENERIC_LABEL = 'licensed contractor';
 
-const BIG_HOMESERVICES = /\b(roto[- ]?rooter|mr\.? rooter|mr\.? electric|one hour heating|benjamin franklin plumbing|aire serv|ars\/?rescue rooter|service experts|home depot|lowe'?s|sears|comfort systems|emcor|\bapi group\b|michels|bay electric|dominion energy|washington gas|fluor|wood group|\bghd\b|jacobs engineering)\b/i;
+// The dry run surfaced Otis Elevator and Parsons Transportation among the ELE
+// specialties: national engineering, elevator, controls and utility firms hold
+// Virginia trade licences too, and none of them is a local service business.
+const BIG_HOMESERVICES = /\b(roto[- ]?rooter|mr\.? rooter|mr\.? electric|one hour heating|benjamin franklin plumbing|aire serv|ars\/?rescue rooter|service experts|home depot|lowe'?s|sears|comfort systems|emcor|limbach|\bapi group\b|michels|quanta services|\bmyr group\b|bay electric|dominion energy|washington gas|appalachian power|fluor|wood group|\bghd\b|jacobs engineering|aecom|stantec|tetra tech|\bhdr\b|\bwsp\b|kimley[- ]?horn|dewberry|timmons group|froehling ?& ?robertson|otis elevator|\bkone\b|schindler|thyssen ?krupp|parsons (transportation|corporation|government|environment)|johnson controls|siemens|honeywell|carrier corp|trane|ameresco|schneider electric|whiting[- ]turner|clark construction|turner construction|skanska|\bhitt\b|davis construction|balfour beatty|sunrun|tesla|solarcity)\b/i;
 
 export type Evaluation = { keep: true; adjust: number; reasons: string[]; typeLabel: string } | { keep: false; reason: string };
 
@@ -143,6 +146,15 @@ export function evaluateVaDporRow(r: VaDporRow, now = new Date()): Evaluation {
   else add(5, 'business-domain email published in the licence file');
   // The DPOR files carry no phone column at all.
   add(-5, 'no phone in the licence file');
+  // Licence rank is Virginia's own size proxy: Class A is the unlimited-value
+  // licence (the dry run's Class A samples were national engineering and utility
+  // contractors), Class C is capped at small jobs. This scores by the file's own
+  // field instead of chasing brand names.
+  const rank = (r.rank ?? '').toUpperCase();
+  if (rank === 'C') add(5, 'Class C licence (small-project contractor)');
+  else if (rank === 'B') add(2, 'Class B licence (mid-size contractor)');
+  else if (rank === 'A') add(-8, 'Class A licence (unlimited-value contractor, often a large firm)');
+  if (r.state && r.state.toUpperCase() !== 'VA') add(-5, 'licensed in Virginia but based out of state');
   return { keep: true, adjust, reasons, typeLabel };
 }
 
