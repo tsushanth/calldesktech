@@ -10,10 +10,10 @@ set -uo pipefail
 # ('.calldesk-outreach' / '.readaloud-outreach') so each product's STOP file,
 # lock, and per-run logs stay isolated. The repo checkout is shared across products.
 PRODUCT="${PRODUCT:-calldesk}"
-# The four customer-discovery verticals keep state under ~/.calldesk-<vertical>-outreach
+# The eight customer-discovery verticals keep state under ~/.calldesk-<vertical>-outreach
 # (ProductConfig.stateDirName); calldesk and readaloud keep ~/.<product>-outreach.
 case "$PRODUCT" in
-  freight|homeservices|dental|insurance) BASE="$HOME/.calldesk-${PRODUCT}-outreach" ;;
+  freight|homeservices|dental|insurance|towing|septic|homecare|bailbonds) BASE="$HOME/.calldesk-${PRODUCT}-outreach" ;;
   *) BASE="$HOME/.${PRODUCT}-outreach" ;;
 esac
 REPO="$HOME/calldesk-outreach-harness/repo"
