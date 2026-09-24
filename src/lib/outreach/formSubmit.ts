@@ -436,7 +436,10 @@ export function preflightNeedsManual(lead: LeadEligibility): string | null {
  * ------------------------------------------------------------------ */
 
 export const DEFAULT_MAX_PER_DAY = 15;
+export const MAX_PER_HOUR = 5;
 export const PER_DOMAIN_PER_DAY = 1;
+/** Consecutive failed/unconfirmed attempts that stop a run outright. */
+export const CIRCUIT_BREAKER_FAILURES = 5;
 export const MIN_DELAY_MS = 20_000;
 export const MAX_DELAY_MS = 40_000;
 
@@ -457,25 +460,34 @@ export interface DayLedger {
   count: number;
   /** domain -> YYYY-MM-DD of its last submission attempt. */
   domains: Record<string, string>;
+  /** YYYY-MM-DDTHH -> attempts in that hour, so a run cannot burst the day's budget. */
+  hours?: Record<string, number>;
 }
 
 export function todayKey(now = new Date()): string {
   return now.toISOString().slice(0, 10);
 }
 
+export function hourKey(now = new Date()): string {
+  return now.toISOString().slice(0, 13);
+}
+
 export function emptyLedger(now = new Date()): DayLedger {
-  return { date: todayKey(now), count: 0, domains: {} };
+  return { date: todayKey(now), count: 0, domains: {}, hours: {} };
 }
 
 /** Rolls the ledger over at UTC midnight; domain history is kept. */
 export function rollLedger(ledger: DayLedger, now = new Date()): DayLedger {
   const date = todayKey(now);
-  return ledger.date === date ? ledger : { date, count: 0, domains: ledger.domains ?? {} };
+  return ledger.date === date
+    ? { hours: {}, ...ledger }
+    : { date, count: 0, domains: ledger.domains ?? {}, hours: {} };
 }
 
 export function capBlock(ledger: DayLedger, domain: string | null, cap: number, now = new Date()): string | null {
   const rolled = rollLedger(ledger, now);
   if (rolled.count >= cap) return `daily cap of ${cap} reached`;
+  if ((rolled.hours?.[hourKey(now)] ?? 0) >= MAX_PER_HOUR) return `hourly cap of ${MAX_PER_HOUR} reached`;
   const d = domain?.toLowerCase().replace(/^www\./, '');
   if (d && rolled.domains[d] === rolled.date) return 'already submitted to this domain today';
   return null;
@@ -484,9 +496,77 @@ export function capBlock(ledger: DayLedger, domain: string | null, cap: number, 
 export function recordInLedger(ledger: DayLedger, domain: string | null, now = new Date()): DayLedger {
   const rolled = rollLedger(ledger, now);
   const d = domain?.toLowerCase().replace(/^www\./, '');
+  const hk = hourKey(now);
   return {
     date: rolled.date,
     count: rolled.count + 1,
     domains: d ? { ...rolled.domains, [d]: rolled.date } : rolled.domains,
+    hours: { ...(rolled.hours ?? {}), [hk]: (rolled.hours?.[hk] ?? 0) + 1 },
   };
+}
+
+/* ------------------------------------------------------------------ *
+ * Pre-submit quality gate
+ * ------------------------------------------------------------------ */
+
+export const MIN_AUTO_SCORE = 50;
+export const MIN_BODY_WORDS = 40;
+export const MAX_BODY_WORDS = 160;
+
+// Leftovers from a draft that went wrong. A message with any of these must never
+// reach a practice.
+const PLACEHOLDER_RE = /\bundefined\b|\bnull\b|\bNaN\b|\[[A-Za-z ]*(?:name|company|city|practice|insert|todo|placeholder)[A-Za-z ]*\]|\{\{[^}]*\}\}|<[A-Za-z ]*(?:name|company)[A-Za-z ]*>|lorem ipsum|XXXX|TBD/i;
+
+export function wordCount(text: string): number {
+  return text.trim().split(/\s+/).filter(Boolean).length;
+}
+
+export interface QualityInput {
+  score: number | null;
+  body: string;
+  /** planFields(...).needsManual -- a form we cannot map is not gate-passable. */
+  mappingNeedsManual: { reason: string } | null;
+}
+
+/**
+ * A last check on the draft and the form before anything is submitted without a
+ * person having read this particular message. Returns a short skip reason, or
+ * null when the lead is good to go. A skip here is NOT a failure: the lead stays
+ * 'ready' with skipReason recorded, so a human can still send it by hand.
+ */
+export function qualityGate(input: QualityInput): string | null {
+  if ((input.score ?? 0) < MIN_AUTO_SCORE) return `score ${input.score ?? 0} below ${MIN_AUTO_SCORE}`;
+  const words = wordCount(input.body);
+  if (words < MIN_BODY_WORDS || words > MAX_BODY_WORDS) return `draft is ${words} words (want ${MIN_BODY_WORDS}-${MAX_BODY_WORDS})`;
+  const placeholder = PLACEHOLDER_RE.exec(input.body);
+  if (placeholder) return `draft contains placeholder text: ${placeholder[0]}`;
+  if (input.mappingNeedsManual) return `form not fully mappable: ${input.mappingNeedsManual.reason}`;
+  return null;
+}
+
+/* ------------------------------------------------------------------ *
+ * Circuit breaker
+ * ------------------------------------------------------------------ */
+
+/**
+ * Counts consecutive bad outcomes within one run. A run that keeps producing
+ * failures or unconfirmed submissions is more likely broken than unlucky, and
+ * stops rather than working through the queue.
+ */
+export class CircuitBreaker {
+  private consecutive = 0;
+  constructor(private readonly limit = CIRCUIT_BREAKER_FAILURES) {}
+
+  record(outcome: FormAttempt['outcome'], reason?: string): void {
+    const bad = outcome === 'failed' || (outcome === 'needs_manual' && reason === 'unconfirmed');
+    this.consecutive = bad ? this.consecutive + 1 : 0;
+  }
+
+  get tripped(): boolean {
+    return this.consecutive >= this.limit;
+  }
+
+  get reason(): string {
+    return `${this.consecutive} consecutive failed/unconfirmed attempts`;
+  }
 }

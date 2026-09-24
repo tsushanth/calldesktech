@@ -37,3 +37,31 @@ They produce short research-ask drafts (not sales pitches) into the same review 
 - Stagger (local): freight/homeservices/dental/insurance at 10:07..11:37 as in their templates; towing 12:07, septic 12:37, homecare 13:07, bailbonds 13:37.
 - Dry run: `PRODUCT=freight DRY_RUN=1 ./node_modules/.bin/tsx run.ts`
 - Follow-ups default to 1 for these products (`OUTREACH_MAX_FOLLOWUPS` overrides). The agency research stage is skipped for them.
+
+## Contact-form submission worker (`form-submit.ts`)
+Leads with no public email get a draft in the queue's **forms** tab. A human reads it and clicks
+**Submit for me**, which moves `signals.formOutreach.status` to `queued`. This worker is the only thing
+that picks `queued` up, and `queued` is the only status it will touch — nothing is ever submitted
+without that click.
+
+- One-time setup on the mini: `cd ~/calldesk-outreach-harness/repo/harness/outreach && npm i && npx playwright install chromium`
+- Env (`~/.calldesk-forms/env`, chmod 600): `NEXT_PUBLIC_SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`,
+  `OUTREACH_REPLYTO_EMAIL` (the address put in the form's email field; falls back to the address part of
+  `OUTREACH_FROM_EMAIL`), optional `OUTREACH_FORM_SUBMIT_MAX_PER_DAY` (default 15, hard max 50), optional `PRODUCT`.
+- Run once now: `cd ~/calldesk-outreach-harness/repo/harness/outreach && set -a && . ~/.calldesk-forms/env && set +a && ./node_modules/.bin/tsx form-submit.ts`
+- Dry run (reads + gates, no browser, no writes): prefix `DRY_RUN=1`.
+- Schedule: `com.calldesk.outreach-formsubmit.plist.template` (every 20 min, via `form_submit_cycle.sh`).
+- Stop everything now: `touch ~/.calldesk-forms/STOP`
+- Logs / history / screenshots: `~/.calldesk-forms/logs/`, `~/.calldesk-forms/runs.jsonl`, `~/.calldesk-forms/<leadId>/{before,after}.png`
+- Limits in code: 15/day (`OUTREACH_FORM_SUBMIT_MAX_PER_DAY`), 5/hour, 1 per domain per day, one submission
+  per lead ever, random 20–40 s gaps, 25-minute deadline, lock against overlapping runs, and a circuit
+  breaker that stops the run after 5 consecutive failed/unconfirmed attempts (reason written to
+  `~/.calldesk-forms/circuit-breaker.txt`).
+- Refusals, all landing in `needs_manual` with a reason for a human to finish by hand: **any** captcha or
+  bot challenge (never solved or bypassed), a third-party embedded form, a required phone number, a required
+  marketing opt-in, unrecognised required fields, and — importantly — an **unconfirmed** result. `submitted`
+  is only ever set on positive evidence of receipt (navigation to a success page, the form disappearing with
+  confirmation text, or an explicit success element). A silent page is not success.
+- Suppressed domains, `region_blocked` leads and leads that already replied are skipped outright.
+- The browser is a stock headless Chromium with a normal Chromium user agent: no stealth plugins, no evasion,
+  no proxy rotation. It fills the site's own public contact form with a real message and a real reply address.

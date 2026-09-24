@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  Contact-form submission worker. TEMPLATE only, not installed by anything.
+  Replace __HOME__, then copy to ~/Library/LaunchAgents/ and
+  `launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.calldesk.outreach-formsubmit.plist`.
+
+  Needs, one time:  cd ~/calldesk-outreach-harness/repo/harness/outreach && npx playwright install chromium
+  Needs env:        ~/.calldesk-forms/env  (chmod 600) with NEXT_PUBLIC_SUPABASE_URL,
+                    SUPABASE_SERVICE_ROLE_KEY, OUTREACH_REPLYTO_EMAIL, optional
+                    OUTREACH_FORM_SUBMIT_MAX_PER_DAY (default 15) and PRODUCT.
+  Kill switch:      touch ~/.calldesk-forms/STOP
+
+  Runs every 20 minutes. Each pass submits only leads a human queued with
+  "Submit for me" in /admin/outreach/queue, so an empty queue is a no-op --
+  the frequent schedule just keeps the wait short after a click.
+-->
+<plist version="1.0">
+<dict>
+  <key>Label</key><string>com.calldesk.outreach-formsubmit</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/bin/bash</string>
+    <string>__HOME__/calldesk-outreach-harness/repo/harness/outreach/form_submit_cycle.sh</string>
+  </array>
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>PRODUCT</key><string>calldesk</string>
+  </dict>
+  <key>StartInterval</key><integer>1200</integer>
+  <key>RunAtLoad</key><false/>
+  <key>StandardOutPath</key><string>__HOME__/.calldesk-forms/logs/launchagent.log</string>
+  <key>StandardErrorPath</key><string>__HOME__/.calldesk-forms/logs/launchagent.log</string>
+</dict>
+</plist>
