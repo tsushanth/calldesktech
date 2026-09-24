@@ -279,7 +279,7 @@ const VERTICAL_DEFS: VerticalDef[] = [
     situation: 'carrier calls come in while everyone is busy on other loads or after hours',
     agentHandles: "answers carrier check calls and load inquiries, collects the carrier's MC number, the load in question, and a callback number",
     subjectHint: 'Help with carrier calls when nobody is free to pick up',
-    registryFact: 'that it is listed in the public FMCSA registry with active property broker authority',
+    registryFact: 'that it is listed in a public transport registry, worded exactly as the lead data words it (for example "listed in the public FMCSA registry with active property broker authority", or "listed in the Traffic Commissioners for Great Britain goods vehicle operator licence register as a licensed goods vehicle operator")',
     scoreVocabulary: [
       { pattern: /\b(brokerage|3pl|logistics|freight)\b/, delta: 5, reason: 'name reads like a freight brokerage' },
       { pattern: /family[- ]owned|independent|owner[- ]operated|boutique/, delta: 10, reason: 'describes itself as small, independent, or owner-run' },
