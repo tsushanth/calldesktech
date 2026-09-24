@@ -18,7 +18,7 @@ interface Message {
   lead: { company_name: string; domain: string | null; score: number | null; tier: string | null; contact_source_url: string | null; replied_at: string | null } | null;
 }
 
-const TABS = ['draft', 'approved', 'sent', 'failed'] as const;
+const TABS = ['draft', 'approved', 'sent', 'failed', 'forms'] as const;
 const PRODUCTS = [
   { key: 'calldesk', label: 'Calldesk' },
   { key: 'kreativekoala:voxkey', label: 'VoxKey' },
@@ -44,6 +44,16 @@ const VERTICALS = [
 ] as const;
 const verticalLabel = (product?: string | null) => VERTICALS.find((v) => v.key && product === `calldesk:${v.key}`)?.label ?? null;
 
+interface FormLead {
+  id: string;
+  company_name: string;
+  domain: string | null;
+  location: string | null;
+  score: number | null;
+  product: string;
+  signals: { contactForm?: { pageUrl: string; captcha: boolean; method: string; embedded?: string }; formOutreach?: { subject: string; body: string; status: string } } | null;
+}
+
 export default function OutreachQueuePage() {
   const [tab, setTab] = useState<(typeof TABS)[number]>('draft');
   const [product, setProduct] = useState<string>('calldesk');
@@ -55,11 +65,19 @@ export default function OutreachQueuePage() {
   const [vertical, setVertical] = useState<string>('');
   const [sampleTitles, setSampleTitles] = useState<Record<string, string | null>>({});
   const [sampleTitle, setSampleTitle] = useState<string | null>(null);
+  const [formLeads, setFormLeads] = useState<FormLead[]>([]);
+  const [formStatus, setFormStatus] = useState<'ready' | 'submitted' | 'replied' | 'skipped'>('ready');
   const [preview, setPreview] = useState<{ subject: string; to: string; html: string; variant: string | null } | null>(null);
   const [edits, setEdits] = useState<Record<string, { subject: string; body_text: string }>>({});
 
   const refresh = useCallback(async () => {
     setLoading(true);
+    if (tab === 'forms') {
+      const fr = await fetch(`/api/admin/outreach/forms?status=${formStatus}${vertical ? `&vertical=${vertical}` : ''}`);
+      if (fr.ok) setFormLeads((await fr.json()).leads ?? []);
+      setLoading(false);
+      return;
+    }
     const res = await fetch(`/api/admin/outreach/messages?status=${tab}&product=${encodeURIComponent(product)}${product === 'calldesk' && vertical ? `&vertical=${vertical}` : ''}`);
     if (res.ok) {
       const body = await res.json();
@@ -69,7 +87,7 @@ export default function OutreachQueuePage() {
       setQuota({ sentToday: body.sentToday, cap: body.cap, resets: body.resets });
     }
     setLoading(false);
-  }, [tab, product, vertical]);
+  }, [tab, product, vertical, formStatus]);
 
   useEffect(() => {
     // Fetch-on-mount/tab-change, not a render-loop risk (refresh only re-runs when tab/product change).
@@ -105,6 +123,14 @@ export default function OutreachQueuePage() {
     setBusy(null);
   };
 
+  const markForm = async (id: string, status: string) => {
+    setBusy(id);
+    const res = await fetch('/api/admin/outreach/forms', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id, status }) });
+    setNotice({ ok: res.ok, text: res.ok ? `Marked ${status}.` : 'Could not update' });
+    setBusy(null);
+    refresh();
+  };
+
   const patch = (id: string, payload: object) =>
     fetch(`/api/admin/outreach/messages/${id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
 
@@ -121,7 +147,7 @@ export default function OutreachQueuePage() {
             <option key={p.key} value={p.key}>{p.label}</option>
           ))}
         </select>
-        {product === 'calldesk' && (
+        {(product === 'calldesk' || tab === 'forms') && (
           <select
             value={vertical}
             onChange={(e) => setVertical(e.target.value)}
@@ -145,7 +171,57 @@ export default function OutreachQueuePage() {
         </div>
       </div>
 
-      {quota && (
+      {tab === 'forms' && (
+        <div className="flex gap-1">
+          {(['ready', 'submitted', 'replied', 'skipped'] as const).map((st) => (
+            <button key={st} onClick={() => setFormStatus(st)} className={`rounded-lg px-3 py-1 text-[12.5px] font-medium ${formStatus === st ? 'bg-blue-50 text-blue-600' : 'text-gray-500 hover:bg-gray-100'}`}>{st}</button>
+          ))}
+        </div>
+      )}
+      {tab === 'forms' && (
+        <p className="text-[13px] text-gray-500">Practices with no public email. Open the form, paste the message, submit it yourself, then mark it submitted. Nothing here is sent automatically.</p>
+      )}
+      {tab === 'forms' && !loading && formLeads.length === 0 && <p className="text-gray-400">No form leads in {formStatus}.</p>}
+      {tab === 'forms' && formLeads.map((l) => {
+        const fo = l.signals?.formOutreach;
+        const cf = l.signals?.contactForm;
+        if (!fo || !cf) return null;
+        return (
+          <div key={l.id} className="rounded-xl border border-gray-200 bg-white p-4">
+            <p className="text-[14px] font-semibold">
+              {l.company_name}
+              {verticalLabel(l.product) && <span className="ml-2 rounded-full bg-gray-100 px-2 py-0.5 text-[11px] font-medium text-gray-600">{verticalLabel(l.product)}</span>}
+              {cf.captcha && <span className="ml-2 rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-medium text-amber-700">captcha</span>}
+              {cf.method === 'embedded' && <span className="ml-2 rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-medium text-amber-700">embedded form</span>}
+            </p>
+            <p className="mb-3 text-[12px] text-gray-400">
+              {l.location ?? ''}{l.score != null ? ` · score ${l.score}` : ''} ·{' '}
+              <a href={cf.pageUrl} target="_blank" rel="noreferrer" className="text-blue-600 hover:underline">open contact page</a>
+            </p>
+            <p className="mb-1 text-[13px] font-medium text-gray-800">{fo.subject}</p>
+            <pre className="whitespace-pre-wrap rounded-lg border border-gray-200 bg-gray-50 p-3 text-[13px] leading-relaxed text-gray-800">{fo.body}</pre>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <button
+                onClick={() => navigator.clipboard.writeText(fo.body).then(() => setNotice({ ok: true, text: 'Message copied.' }))}
+                className="rounded-lg border border-gray-300 px-3 py-1.5 text-[13px] font-medium text-gray-700 hover:bg-gray-50"
+              >
+                Copy message
+              </button>
+              {fo.status === 'ready' && (
+                <button disabled={busy === l.id} onClick={() => markForm(l.id, 'submitted')} className="rounded-lg bg-blue-600 px-3 py-1.5 text-[13px] font-medium text-white hover:bg-blue-700 disabled:opacity-50">Mark submitted</button>
+              )}
+              {fo.status === 'submitted' && (
+                <button disabled={busy === l.id} onClick={() => markForm(l.id, 'replied')} className="rounded-lg bg-blue-600 px-3 py-1.5 text-[13px] font-medium text-white hover:bg-blue-700 disabled:opacity-50">Mark replied</button>
+              )}
+              {fo.status === 'ready' && (
+                <button disabled={busy === l.id} onClick={() => markForm(l.id, 'skipped')} className="rounded-lg border border-gray-300 px-3 py-1.5 text-[13px] font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50">Skip</button>
+              )}
+            </div>
+          </div>
+        );
+      })}
+
+      {tab !== 'forms' && quota && (
         <p className="rounded-lg px-4 py-2 text-[13.5px] border border-gray-200 bg-white text-gray-700">
           Sent today: {quota.sentToday} (no daily cap).
         </p>
@@ -154,7 +230,7 @@ export default function OutreachQueuePage() {
         <p className={`rounded-lg px-4 py-2 text-[13.5px] border ${notice.ok ? 'border-gray-200 bg-white text-gray-700' : 'border-red-300 bg-red-50 text-red-700'}`}>{notice.text}</p>
       )}
       {loading && <p className="text-gray-400">Loading…</p>}
-      {!loading && messages.length === 0 && <p className="text-gray-400">Nothing in {tab}.</p>}
+      {tab !== 'forms' && !loading && messages.length === 0 && <p className="text-gray-400">Nothing in {tab}.</p>}
 
       {preview && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={() => setPreview(null)}>
@@ -169,7 +245,7 @@ export default function OutreachQueuePage() {
         </div>
       )}
 
-      {messages.map((m) => {
+      {tab !== 'forms' && messages.map((m) => {
         const draft = edits[m.id] ?? { subject: m.subject, body_text: m.body_text };
         const editable = m.status === 'draft';
         return (

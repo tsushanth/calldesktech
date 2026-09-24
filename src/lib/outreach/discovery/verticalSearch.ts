@@ -20,7 +20,26 @@ const US_STATES = [
   'West Virginia', 'Wisconsin', 'Wyoming',
 ];
 
+// Largest US metros. State-wide queries keep returning the same top results, so city-level queries
+// reach different independent practices.
+export const US_METROS = [
+  'New York, NY', 'Los Angeles, CA', 'Chicago, IL', 'Houston, TX', 'Phoenix, AZ', 'Philadelphia, PA', 'San Antonio, TX', 'San Diego, CA',
+  'Dallas, TX', 'Jacksonville, FL', 'Austin, TX', 'Fort Worth, TX', 'San Jose, CA', 'Columbus, OH', 'Charlotte, NC', 'Indianapolis, IN',
+  'San Francisco, CA', 'Seattle, WA', 'Denver, CO', 'Washington, DC', 'Nashville, TN', 'Oklahoma City, OK', 'El Paso, TX', 'Boston, MA',
+  'Portland, OR', 'Las Vegas, NV', 'Detroit, MI', 'Memphis, TN', 'Louisville, KY', 'Baltimore, MD', 'Milwaukee, WI', 'Albuquerque, NM',
+  'Tucson, AZ', 'Fresno, CA', 'Sacramento, CA', 'Kansas City, MO', 'Atlanta, GA', 'Omaha, NE', 'Colorado Springs, CO', 'Raleigh, NC',
+  'Miami, FL', 'Virginia Beach, VA', 'Oakland, CA', 'Minneapolis, MN', 'Tulsa, OK', 'Tampa, FL', 'Arlington, TX', 'New Orleans, LA',
+  'Wichita, KS', 'Cleveland, OH', 'Bakersfield, CA', 'Aurora, CO', 'Anaheim, CA', 'Honolulu, HI', 'Santa Ana, CA', 'Riverside, CA',
+  'Corpus Christi, TX', 'Lexington, KY', 'Henderson, NV', 'Stockton, CA', 'Saint Paul, MN', 'Cincinnati, OH', 'St. Louis, MO', 'Pittsburgh, PA',
+  'Greensboro, NC', 'Lincoln, NE', 'Orlando, FL', 'Irvine, CA', 'Newark, NJ', 'Durham, NC', 'Chula Vista, CA', 'Toledo, OH',
+  'Fort Wayne, IN', 'St. Petersburg, FL', 'Laredo, TX', 'Jersey City, NJ', 'Chandler, AZ', 'Madison, WI', 'Lubbock, TX', 'Scottsdale, AZ',
+  'Reno, NV', 'Buffalo, NY', 'Gilbert, AZ', 'Glendale, AZ', 'Winston-Salem, NC', 'Chesapeake, VA', 'Norfolk, VA', 'Fremont, CA',
+  'Garland, TX', 'Irving, TX', 'Hialeah, FL', 'Richmond, VA', 'Boise, ID', 'Spokane, WA', 'Baton Rouge, LA', 'Des Moines, IA',
+];
+
 interface VerticalSearchDef {
+  // Query locations; defaults to the US states. City-level lists reach different practices than state-wide ones.
+  places?: string[];
   phrasings: string[]; // "<phrasing> in <state>"
   describe: string; // what to look for, used in the prompt
   exclude: string; // what not to return, used in the prompt
@@ -46,7 +65,8 @@ export const VERTICAL_SEARCH: Record<SearchVertical, VerticalSearchDef> = {
     looksLike: /(hvac|heating|air conditioning|furnace|plumb|drain|water heater|electrician|electrical|roof(ing|er)|contractor)/i,
   },
   dental: {
-    phrasings: ['independent family dental practice', 'general dentistry practice accepting new patients', 'local dentist office', 'small orthodontic or cosmetic dental practice'],
+    places: US_METROS,
+    phrasings: ['independent family dental practice', 'general dentistry practice accepting new patients', 'local dentist office', 'small orthodontic or cosmetic dental practice', 'pediatric dentist office', 'cosmetic and implant dentist', 'emergency dentist', 'family dentist with own website'],
     describe: 'independent, privately owned dental practices (one to a few locations) with their own website',
     exclude: 'DSOs and corporate dental chains (Aspen Dental, Heartland Dental, Pacific Dental, Western Dental, Smile Brands, etc.), dental directories, and review sites',
     hostExclusions: [...DIRECTORY_HOSTS, 'aspendental.com', 'heartlanddental.com', 'pacificdentalservices.com', 'westerndental.com', 'smilebrands.com', 'monarchdental.com', 'clearchoice.com', 'affordabledentures.com', 'sonrava.com', 'deltadental.com'],
@@ -80,8 +100,8 @@ export const VERTICAL_SEARCH: Record<SearchVertical, VerticalSearchDef> = {
 const SLOT_MS = 2 * 60 * 60_000;
 export function verticalQueries(vertical: SearchVertical, now = new Date(), perDay = 2): string[] {
   const def = VERTICAL_SEARCH[vertical];
-  const states = US_STATES.filter((st) => !def.excludeStates?.includes(st));
-  const combos = states.flatMap((st) => def.phrasings.map((p) => `${p} in ${st}`));
+  const places = def.places ?? US_STATES.filter((st) => !def.excludeStates?.includes(st));
+  const combos = places.flatMap((pl) => def.phrasings.map((p) => `${p} in ${pl}`));
   const slot = Math.floor(now.getTime() / SLOT_MS);
   return Array.from({ length: perDay }, (_, i) => combos[(slot * perDay + i) % combos.length]);
 }

@@ -151,6 +151,12 @@ describe('vertical search helpers', () => {
     expect(a).not.toEqual(b);
     expect(a[0]).toMatch(/ in [A-Z]/);
   });
+  it('dental queries are city-level and cover many metros', () => {
+    const qs = new Set<string>();
+    for (let h = 0; h < 400; h++) verticalQueries('dental', new Date(Date.UTC(2026, 8, 1) + h * 2 * 3600_000), 2).forEach((q) => qs.add(q));
+    expect([...qs].every((q) => /, [A-Z]{2}$/.test(q))).toBe(true);
+    expect(new Set([...qs].map((q) => q.split(' in ')[1])).size).toBeGreaterThan(50);
+  });
   it('verifies a homepage reads like the vertical', () => {
     expect(looksLikeVertical('dental', '<h1>Smith Family Dentistry</h1>')).toBe(true);
     expect(looksLikeVertical('dental', '<h1>Best pizza in town</h1>')).toBe(false);

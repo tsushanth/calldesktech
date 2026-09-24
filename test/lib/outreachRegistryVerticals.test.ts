@@ -312,10 +312,10 @@ describe('bail bonds search vertical', () => {
     for (let h = 0; h < 24 * 400; h += 2) for (const q of verticalQueries('bailbonds', new Date(Date.UTC(2026, 0, 1, h)), 2)) seen.add(q.split(' in ').pop() as string);
     for (const st of ['Illinois', 'Kentucky', 'Nebraska', 'Oregon', 'Wisconsin']) expect(seen.has(st)).toBe(false);
     expect(seen.has('Missouri')).toBe(true);
-    // other verticals still rotate through every state
+    // dental now rotates through metros (city-level); other state-based verticals still rotate every state
     const dseen = new Set<string>();
     for (let h = 0; h < 24 * 400; h += 2) for (const q of verticalQueries('dental', new Date(Date.UTC(2026, 0, 1, h)), 2)) dseen.add(q.split(' in ').pop() as string);
-    expect(dseen.has('Illinois')).toBe(true);
+    expect(dseen.has('Chicago, IL')).toBe(true);
   });
   it('excludes aggregators/lead-gen by host and by page text', () => {
     const d = VERTICAL_SEARCH.bailbonds;

@@ -66,6 +66,7 @@ export interface RunSummary {
   duplicatesSkipped: number;
   contactsFound: number;
   draftsCreated: number;
+  formDrafts?: number;
   followUpsCreated: number;
   researched: number;
   lowFit: number;
@@ -78,6 +79,14 @@ export interface RunSummary {
 
 const MIN_DRAFT_SCORE = 40;
 const RECHECK_DAYS = 30;
+
+export interface FormOutreach {
+  subject: string;
+  body: string;
+  status: 'ready' | 'submitted' | 'replied' | 'skipped';
+  draftedAt: string;
+  submittedAt?: string;
+}
 
 interface LeadRow {
   id: string;
@@ -94,7 +103,7 @@ interface LeadRow {
   score: number | null;
   enriched_at: string | null;
   research?: Dossier | null;
-  signals: { reasons: string[]; techPlatforms: string[]; registry?: RegistryMeta; contactForm?: ContactForm } | null;
+  signals: { reasons: string[]; techPlatforms: string[]; registry?: RegistryMeta; contactForm?: ContactForm; formOutreach?: FormOutreach } | null;
 }
 
 // Registry facts kept on the lead's `signals` (never put in the draft-visible
@@ -158,6 +167,7 @@ export async function runDiscovery(db: Db, opts: RunOptions = {}): Promise<RunSu
     const researchOn = process.env.OUTREACH_RESEARCH === '1' && !product.vertical;
     if (researchOn && !stop()) await stageResearch(db, summary, dryRun, opts.researchLimit ?? 5, stop, product);
     if (!stop()) await stageDraft(db, summary, dryRun, draftLimit, stop, researchOn, product);
+    if (!stop() && product.vertical) await stageFormDrafts(db, summary, dryRun, draftLimit, stop, product);
     if (!stop()) await stageFollowUp(db, summary, dryRun, stop, product);
   } catch (error) {
     summary.status = 'error';
@@ -860,7 +870,7 @@ async function stageEnrich(
         contact_source_url: contact.sourceUrl,
         enriched_at: now,
         score: rescored,
-        signals: { reasons, techPlatforms, ...(reg ? { registry: reg } : {}), ...(contact.form ? { contactForm: contact.form } : {}) },
+        signals: { reasons, techPlatforms, ...(reg ? { registry: reg } : {}), ...(contact.form ? { contactForm: contact.form } : {}), ...(lead.signals?.formOutreach ? { formOutreach: lead.signals.formOutreach } : {}) },
         ...(suppressed ? { status: 'dead' } : {}),
       }).eq('id', lead.id);
       if (error) summary.errors.push(`enrich ${lead.company_name}: ${error.message}`);
@@ -943,6 +953,36 @@ async function stageDraft(db: Db, summary: RunSummary, dryRun: boolean, limit: n
       summary.draftsCreated++;
     } catch (error) {
       summary.errors.push(`draft ${lead.company_name}: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  }
+}
+
+// Contact-form leads (no public email): a human submits the drafted message through the practice's own
+// form. The draft and its status live on the lead (signals.formOutreach) because a message row needs a
+// recipient email. Same drafting prompt as emails; nothing is submitted automatically.
+async function stageFormDrafts(db: Db, summary: RunSummary, dryRun: boolean, limit: number, stop: () => boolean, product: ProductConfig) {
+  if (dryRun || limit <= 0) return;
+  const { data } = await scopeToProduct(db.from(leadsTable(product)).select('*')
+    .eq('status', 'new').eq('contact_status', 'form_only').eq('region_blocked', false).gte('score', MIN_DRAFT_SCORE), product)
+    .order('score', { ascending: false }).limit(200);
+  const leads = ((data ?? []) as LeadRow[]).filter((l) => l.signals?.contactForm && !l.signals?.formOutreach);
+  let made = 0;
+  for (const lead of leads) {
+    if (made >= limit || stop()) break;
+    try {
+      const draft = await draftAgencyEmail({
+        name: lead.company_name, domain: lead.domain, tier: lead.tier, location: lead.location, description: lead.description,
+        dossier: lead.research ?? null, product,
+      });
+      const { error } = await db.from(leadsTable(product)).update({
+        signals: { ...lead.signals, formOutreach: { subject: draft.subject, body: draft.body, status: 'ready', draftedAt: new Date().toISOString() } },
+        updated_at: new Date().toISOString(),
+      }).eq('id', lead.id);
+      if (error) throw new Error(error.message);
+      made++;
+      summary.formDrafts = (summary.formDrafts ?? 0) + 1;
+    } catch (error) {
+      summary.errors.push(`form draft ${lead.company_name}: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
 }
