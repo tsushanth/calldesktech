@@ -1,5 +1,8 @@
 import { socrataGet } from './socrata';
 import { titleCase, cityState, describeRegistryLead, emptyResult, formatUsPhone, reject, splitDba, type RegistryLead, type RegistryResult } from './registryCommon';
+import {
+  fetchCmsRows, fetchMoHomecareRows, collapseMoHomeRows, evaluateCmsRow, toCmsLead, evaluateMoHomeRow, toMoHomeLead,
+} from './homecareCmsMissouri';
 
 // Home-care discovery from two state health-department open datasets (no email):
 //  * Illinois IDPH "Home Health Agency Directory" (illinois-edp.data.socrata.com
@@ -105,18 +108,51 @@ export function toNyLead(r: NyRow, ev: { adjust: number; reasons: string[] }): R
 
 const DAY_MS = 86_400_000;
 
-// Two of every three days use Illinois (has phone numbers), one uses New York.
-// One request per dataset, whole list, then a rotating walk that skips known leads.
+// Four sources rotated by day: Illinois and the nationwide CMS Medicare list
+// (both carry phone numbers) take two days in four, New York and Missouri one
+// each. One request per dataset, then a rotating walk that skips known leads.
+export type HomecareSource = 'il' | 'ny' | 'cms' | 'mo';
+
+export function homecareSourceForDay(day: number): HomecareSource {
+  return (['il', 'cms', 'ny', 'mo'] as const)[((day % 4) + 4) % 4];
+}
+
 export async function findHomecareCandidates(
-  max: number, opts: { now?: Date; startOverride?: number; source?: 'il' | 'ny'; isKnown?: (sourceKey: string) => boolean; log?: (m: string) => void } = {},
+  max: number, opts: { now?: Date; startOverride?: number; source?: HomecareSource; isKnown?: (sourceKey: string) => boolean; log?: (m: string) => void } = {},
 ): Promise<RegistryResult> {
   const now = opts.now ?? new Date();
   const log = opts.log ?? (() => {});
   const result = emptyResult();
   const day = Math.floor(now.getTime() / DAY_MS);
-  const source = opts.source ?? (day % 3 === 2 ? 'ny' : 'il');
+  const source = opts.source ?? homecareSourceForDay(day);
   try {
-    if (source === 'il') {
+    if (source === 'cms') {
+      // 12,460 agencies nationwide: one 500-row page per run, day-rotating offset.
+      const first = await fetchCmsRows(0);
+      const total = first.total || first.rows.length;
+      const offset = opts.startOverride ?? (day * 500) % Math.max(1, total - 500);
+      const rows = offset === 0 ? first.rows : (await fetchCmsRows(offset)).rows;
+      result.scanned = rows.length;
+      for (const r of rows) {
+        if (result.candidates.length >= max) break;
+        if (opts.isKnown?.(`homecare:cms:${(r.cms_certification_number_ccn ?? '').trim()}`)) { reject(result, 'already known'); continue; }
+        const ev = evaluateCmsRow(r);
+        if (!ev.keep) { reject(result, ev.reason); continue; }
+        result.candidates.push(toCmsLead(r, ev));
+      }
+    } else if (source === 'mo') {
+      const rows = collapseMoHomeRows(await fetchMoHomecareRows(log));
+      result.scanned = rows.length;
+      if (!rows.length) throw new Error('no rows returned');
+      const start = opts.startOverride ?? (day * max) % rows.length;
+      for (let i = 0; i < rows.length && result.candidates.length < max; i++) {
+        const r = rows[(start + i) % rows.length];
+        if (opts.isKnown?.(`homecare:mo:${(r.licnumber ?? '').trim().toUpperCase()}`)) { reject(result, 'already known'); continue; }
+        const ev = evaluateMoHomeRow(r, now);
+        if (!ev.keep) { reject(result, ev.reason); continue; }
+        result.candidates.push(toMoHomeLead(r, ev));
+      }
+    } else if (source === 'il') {
       const rows = await socrataGet<IlRow>(IL_HOST, IL_DATASET, {
         $where: `exp_date > '${now.toISOString().slice(0, 19)}'`, $order: 'license_number', $limit: '800',
         $select: 'facility_name,address,city,county,zip,contact_name,phone,license_number,exp_date',

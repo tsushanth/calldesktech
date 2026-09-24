@@ -1,5 +1,6 @@
 import { socrataGet } from './socrata';
 import { titleCase, cityState, describeRegistryLead, emptyResult, formatUsPhone, reject, type RegistryLead, type RegistryResult } from './registryCommon';
+import { fetchMocoRows, evaluateMocoRow, toMocoLead } from './towingMontgomeryMd';
 
 // Towing discovery from the Washington State Department of Licensing's open
 // data (Socrata dataset ucdg-xgbj on data.wa.gov, "Business Licenses Related to
@@ -100,6 +101,37 @@ export async function findWaTowCandidates(
     }
   } catch (e) {
     result.errors.push(`towing wa: ${e instanceof Error ? e.message : String(e)}`);
+  }
+  return result;
+}
+
+// Towing has two registries: WA DOL (above, ~380 active operators) and
+// Montgomery County, Maryland (~419 records). Three of every four hourly slots
+// use Washington, one uses Maryland, mirroring the septic source's rotation.
+export async function findTowingCandidates(
+  max: number, opts: { now?: Date; startOverride?: number; source?: 'wa' | 'md'; isKnown?: (sourceKey: string) => boolean; log?: (m: string) => void } = {},
+): Promise<RegistryResult> {
+  const now = opts.now ?? new Date();
+  const slot = Math.floor(now.getTime() / SLOT_MS);
+  const source = opts.source ?? (slot % 4 === 3 ? 'md' : 'wa');
+  if (source === 'wa') return findWaTowCandidates(max, opts);
+
+  const log = opts.log ?? (() => {});
+  const result = emptyResult();
+  try {
+    const rows = await fetchMocoRows(log);
+    result.scanned = rows.length;
+    if (!rows.length) throw new Error('no tow company rows returned');
+    const start = opts.startOverride ?? (slot * max) % rows.length;
+    for (let i = 0; i < rows.length && result.candidates.length < max; i++) {
+      const r = rows[(start + i) % rows.length];
+      if (opts.isKnown?.(`towing:md:${(r.registration_no ?? '').trim().toUpperCase()}`)) { reject(result, 'already known'); continue; }
+      const ev = evaluateMocoRow(r, now);
+      if (!ev.keep) { reject(result, ev.reason); continue; }
+      result.candidates.push(toMocoLead(r, ev));
+    }
+  } catch (e) {
+    result.errors.push(`towing md: ${e instanceof Error ? e.message : String(e)}`);
   }
   return result;
 }
