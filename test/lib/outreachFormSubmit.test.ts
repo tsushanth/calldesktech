@@ -391,3 +391,22 @@ describe('circuit breaker', () => {
     expect(b.tripped).toBe(false);
   });
 });
+
+import { isWorkerEligible as _isEligible, skipReason as _skipReason } from '@/lib/outreach/formSubmit';
+
+describe('auto-submit mode eligibility', () => {
+  const base = { domain: 'x.com', regionBlocked: false, repliedAt: null, hasContactForm: true } as Parameters<typeof _skipReason>[0];
+  it('only queued is eligible by default; ready needs the auto flag', () => {
+    expect(_isEligible('queued')).toBe(true);
+    expect(_isEligible('ready')).toBe(false);
+    expect(_isEligible('ready', true)).toBe(true);
+    expect(_isEligible('submitted', true)).toBe(false);
+    expect(_isEligible('needs_manual', true)).toBe(false);
+  });
+  it('skipReason honours the auto flag', () => {
+    const ready = { ...base, status: 'ready' } as Parameters<typeof _skipReason>[0];
+    expect(_skipReason(ready, new Set())).toMatch(/not queued/);
+    expect(_skipReason(ready, new Set(), { auto: true })).toBeNull();
+    expect(_skipReason({ ...ready, repliedAt: 'x' } as Parameters<typeof _skipReason>[0], new Set(), { auto: true })).toBe('lead already replied');
+  });
+});

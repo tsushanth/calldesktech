@@ -67,8 +67,8 @@ export function canSetStatus(next: FormOutreachStatus, current: FormOutreachStat
 }
 
 /** True when the worker is allowed to pick this lead up. */
-export function isWorkerEligible(status: FormOutreachStatus): boolean {
-  return status === 'queued';
+export function isWorkerEligible(status: FormOutreachStatus, auto = false): boolean {
+  return status === 'queued' || (auto && status === 'ready');
 }
 
 /* ------------------------------------------------------------------ *
@@ -412,8 +412,8 @@ export interface LeadEligibility {
 }
 
 /** Why the worker must skip this lead, or null when it may proceed. */
-export function skipReason(lead: LeadEligibility, suppressedDomains: Set<string>): string | null {
-  if (!isWorkerEligible(lead.status)) return `status is ${lead.status}, not queued`;
+export function skipReason(lead: LeadEligibility, suppressedDomains: Set<string>, opts: { auto?: boolean } = {}): string | null {
+  if (!isWorkerEligible(lead.status, opts.auto)) return `status is ${lead.status}, not ${opts.auto ? 'queued or ready' : 'queued'}`;
   if (!lead.hasContactForm) return 'no contact form on the lead';
   if (lead.regionBlocked) return 'lead is region blocked';
   if (lead.repliedAt) return 'lead already replied';

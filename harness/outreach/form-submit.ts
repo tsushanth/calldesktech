@@ -139,15 +139,18 @@ async function main(): Promise<number> {
   const db = getSupabaseAdmin();
   const suppressed = await suppressedDomains(db);
 
-  // Only 'queued' -- i.e. only leads a human clicked "Submit for me" on.
-  const { data } = await scopeToProduct(
-    db.from(leadsTable(product)).select('id, company_name, domain, score, region_blocked, replied_at, signals')
-      .eq('contact_status', 'form_only')
-      .eq('signals->formOutreach->>status', 'queued'),
-    product,
-  ).order('score', { ascending: false }).limit(100);
+  // Default: only 'queued' (a human clicked "Submit for me"). With OUTREACH_FORM_AUTOSUBMIT=1 (the owner's
+  // explicit choice, set on the machine that runs this worker) 'ready' leads are also processed, highest
+  // score first, under the same quality gate, caps and circuit breaker; ready leads the gate rejected
+  // carry a skipReason and are not re-tried.
+  const auto = process.env.OUTREACH_FORM_AUTOSUBMIT === '1';
+  let q = db.from(leadsTable(product)).select('id, company_name, domain, score, region_blocked, replied_at, signals')
+    .eq('contact_status', 'form_only')
+    .in('signals->formOutreach->>status', auto ? ['queued', 'ready'] : ['queued']);
+  if (auto) q = q.is('signals->formOutreach->>skipReason', null);
+  const { data } = await scopeToProduct(q, product).order('score', { ascending: false }).limit(100);
   const leads = (data ?? []) as LeadRow[];
-  log(`${leads.length} queued form lead(s); cap ${cap}/day`);
+  log(`${leads.length} ${auto ? 'queued/ready (AUTO mode)' : 'queued'} form lead(s); cap ${cap}/day`);
 
   let ledger = readLedger();
   const breaker = new CircuitBreaker();
@@ -177,7 +180,7 @@ async function main(): Promise<number> {
         embedded: cf?.method === 'embedded',
       };
 
-      const skip = skipReason(eligibility, suppressed);
+      const skip = skipReason(eligibility, suppressed, { auto });
       if (skip) {
         log(`skip ${lead.company_name}: ${skip}`);
         summary.skipped++;
@@ -216,7 +219,10 @@ async function main(): Promise<number> {
       if (gate) {
         log(`skip ${lead.company_name}: ${gate}`);
         summary.skipped++;
-        if (!dryRun) await persist(db, lead, 'needs_manual', { reason: gate }, { at: new Date().toISOString(), outcome: 'needs_manual', reason: gate });
+        if (!dryRun) {
+          if (fo.status === 'ready') await persist(db, lead, 'ready', { skipReason: gate }); // auto mode: leave for the human, do not retry
+          else await persist(db, lead, 'needs_manual', { reason: gate }, { at: new Date().toISOString(), outcome: 'needs_manual', reason: gate });
+        }
         continue;
       }
 
