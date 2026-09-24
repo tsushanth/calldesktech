@@ -1,4 +1,5 @@
 import { sleep as politeSleep } from './http';
+import { socrataGet } from './socrata';
 
 // Freight-broker discovery from FMCSA's free open data on data.transportation.gov
 // (Socrata). No paid API, no scraping. Two datasets are joined on DOT number:
@@ -17,7 +18,6 @@ import { sleep as politeSleep } from './http';
 // exponential backoff, spaced apart, and the volume per run is deliberately low.
 // An optional free SOCRATA_APP_TOKEN env var raises the limit but is not needed.
 
-const HOST = 'https://data.transportation.gov/resource';
 export const AUTHORITY_DATASET = '6eyk-hxee';
 export const CENSUS_DATASET = 'az4n-8mr2';
 
@@ -191,35 +191,8 @@ export function describeBroker(c: FreightBrokerCandidate): { location: string | 
 
 // ---- network ---------------------------------------------------------------
 
-async function socrata<T>(dataset: string, params: Record<string, string>, log: (m: string) => void): Promise<T[]> {
-  const qs = new URLSearchParams(params).toString();
-  const headers: Record<string, string> = { Accept: 'application/json', 'User-Agent': 'calldesk-outreach-research/1.0 (+https://calldesk.tech)' };
-  if (process.env.SOCRATA_APP_TOKEN) headers['X-App-Token'] = process.env.SOCRATA_APP_TOKEN;
-  let delay = 2000;
-  let lastErr = '';
-  for (let attempt = 0; attempt < 5; attempt++) {
-    try {
-      const res = await fetch(`${HOST}/${dataset}.json?${qs}`, { headers });
-      const text = await res.text();
-      if (res.ok) {
-        const parsed = JSON.parse(text) as unknown;
-        if (Array.isArray(parsed)) return parsed as T[];
-        lastErr = 'unexpected response shape';
-      } else {
-        lastErr = `HTTP ${res.status} ${text.slice(0, 120)}`;
-        // 429 / "Too many requests" / 5xx are retryable; other 4xx are our bug.
-        if (res.status < 500 && res.status !== 429 && !/too many requests/i.test(text)) throw new Error(lastErr);
-      }
-    } catch (e) {
-      lastErr = e instanceof Error ? e.message : String(e);
-      if (/^HTTP 4/.test(lastErr) && !/HTTP 429/.test(lastErr)) throw e;
-    }
-    log(`socrata ${dataset} retry in ${delay}ms (${lastErr})`);
-    await politeSleep(delay);
-    delay *= 2;
-  }
-  throw new Error(`socrata ${dataset} failed after retries: ${lastErr}`);
-}
+const FMCSA_HOST = 'data.transportation.gov';
+const socrata = <T,>(dataset: string, params: Record<string, string>, log: (m: string) => void) => socrataGet<T>(FMCSA_HOST, dataset, params, log);
 
 const PAGE = Number(process.env.OUTREACH_FREIGHT_PAGE_SIZE) > 0 ? Math.min(300, Number(process.env.OUTREACH_FREIGHT_PAGE_SIZE)) : 150;
 const SLOT_MS = 60 * 60_000;

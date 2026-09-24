@@ -26,16 +26,23 @@ export class LeadIndex<T extends LeadKeyRow> {
   private byKey = new Map<string, T>();
   private byName = new Map<string, T>();
   private byDomain = new Map<string, T>();
+  private byId = new Map<string, T>();
 
   constructor(rows: T[]) {
     for (const row of rows) this.add(row);
   }
 
   add(row: T) {
+    this.byId.set(row.id, row);
     if (row.source_key) this.byKey.set(row.source_key, row);
     const n = compactName(row.company_name);
     if (n && !this.byName.has(n)) this.byName.set(n, row);
     if (row.domain) this.byDomain.set(row.domain.toLowerCase(), row);
+  }
+
+  // Every row added so far (existing DB rows plus this run's inserts).
+  rows(): T[] {
+    return [...this.byId.values()];
   }
 
   find(input: { sourceKey?: string | null; name?: string | null; domain?: string | null }): T | undefined {
