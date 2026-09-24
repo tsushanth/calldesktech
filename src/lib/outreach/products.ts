@@ -296,7 +296,7 @@ const VERTICAL_DEFS: VerticalDef[] = [
     situation: 'the crew is out on a job, or a no-heat or other emergency call comes in after hours',
     agentHandles: "answers the call, finds out what is wrong, and collects the caller's name, address, and callback number",
     subjectHint: 'Catching after-hours service calls',
-    registryFact: 'that it is a local HVAC, plumbing, electrical, or roofing business (from its own website)',
+    registryFact: 'either that it is a local HVAC, plumbing, electrical, or roofing business (from its own website), or, when the lead data words it that way, that it is listed in a state contractor registry, worded exactly as the lead data words it (for example "listed in the Washington State Department of Labor & Industries registry as a registered plumbing contractor") — whichever the lead data supports, never both',
     scoreVocabulary: [
       { pattern: /hvac|heating|air conditioning|plumb|electric|roofing|contractor/, delta: 5, reason: 'trade matches HVAC/plumbing/electrical/roofing' },
       { pattern: /24\/?7|emergency|same[- ]day|service calls?/, delta: 5, reason: 'runs emergency/same-day service (phone-driven demand)' },
@@ -312,7 +312,7 @@ const VERTICAL_DEFS: VerticalDef[] = [
     situation: 'the front desk is busy or the office is closed and a patient calls',
     agentHandles: "answers, takes new-patient and reschedule requests, and collects the caller's name and callback number",
     subjectHint: 'Help with patient calls when the front desk is busy',
-    registryFact: 'that it is an independent dental practice (from its own website)',
+    registryFact: 'either that it is an independent dental practice (from its own website), or, when the lead data words it that way, that it is listed in a public healthcare provider registry, worded exactly as the lead data words it (for example "listed in the CMS National Plan and Provider Enumeration System (NPPES) NPI registry as a dental practice with an organisational NPI") — whichever the lead data supports, never both',
     scoreVocabulary: [
       { pattern: /dental|dentist|orthodont|periodont|endodont|oral surgery/, delta: 5, reason: 'dental practice' },
       { pattern: /general dentistry|family dentistry|new patients?|emergency dental/, delta: 5, reason: 'general practice taking new patients (phone-driven demand)' },
@@ -330,7 +330,7 @@ const VERTICAL_DEFS: VerticalDef[] = [
     situation: 'a quote request or policy-service call comes in when nobody can answer',
     agentHandles: 'answers, finds out what the caller needs, and collects their name, policy or quote details they offer, and a callback number',
     subjectHint: 'Catching quote and service calls after hours',
-    registryFact: 'that it is an independent insurance agency (from its own website)',
+    registryFact: 'either that it is an independent insurance agency (from its own website), or, when the lead data words it that way, that it is listed in a state insurance licensee file, worded exactly as the lead data words it (for example "listed in the Florida Department of Financial Services licensee file as a licensed insurance agency") — whichever the lead data supports, never both',
     scoreVocabulary: [
       { pattern: /independent (insurance )?agen|insurance agency|insurance broker|insurance services/, delta: 5, reason: 'independent insurance agency' },
       { pattern: /personal lines|commercial lines|auto|home|life|benefits|quotes?/, delta: 3, reason: 'sells lines that generate quote and service calls' },
@@ -390,7 +390,7 @@ const VERTICAL_DEFS: VerticalDef[] = [
     situation: 'an intake call comes in after hours',
     agentHandles: "answers and collects only the caller's name and a callback number, and gives no legal advice",
     subjectHint: 'Help with after-hours intake calls',
-    registryFact: 'that it is a local bail bonds business (from its own website)',
+    registryFact: 'either that it is a local bail bonds business (from its own website), or, when the lead data words it that way, that it is listed in a state licensee file, worded exactly as the lead data words it (for example "listed in the Florida Department of Financial Services licensee file as a licensed bail bond agency") — whichever the lead data supports, never both',
     extraRules: [
       'Do not give or imply legal advice, and do not comment on arrests, charges, jail, courts, or anyone\'s legal situation. Ask only about how the business handles its phone intake outside office hours.',
     ],

@@ -17,9 +17,12 @@ import { researchAgency, type Dossier } from '../research';
 import { findSearchCandidates, queriesForDay } from './searchSource';
 import { findFreightBrokerCandidates, describeBroker, isFreeMail } from './freightFmcsa';
 import { findVerticalSearchCandidates, type SearchVertical } from './verticalSearch';
-import { findWaTowCandidates } from './towingWa';
+import { findTowingCandidates } from './towingWa';
 import { findSepticCandidates } from './septicRegistry';
 import { findHomecareCandidates } from './homecareRegistry';
+import { findFlDfsCandidates } from './flDfsRegistry';
+import { findWaContractorCandidates } from './homeservicesRegistry';
+import { findDentalNppesCandidates } from './dentalNppes';
 import { discoverWebsite } from './websiteDiscovery';
 import type { RegistryLead, RegistryResult } from './registryCommon';
 import { calldesk, leadsTable, runsTable, messagesTable, suppressionsTable, scopeToProduct, productInsertFields, type ProductConfig } from '../products';
@@ -116,7 +119,7 @@ interface RegistryMeta {
 
 // Customer-discovery products whose leads come from a public REGISTRY that has no
 // email: stageRegistry ingests them, stageEnrich resolves website -> published email.
-const REGISTRY_PRODUCTS = new Set(['towing', 'septic', 'homecare']);
+const REGISTRY_PRODUCTS = new Set(['towing', 'septic', 'homecare', 'homeservices', 'dental', 'insurance', 'bailbonds']);
 const REGISTRY_KIND: Record<string, string> = {
   towing: 'towing company (tow truck operator)',
   septic: 'septic tank service / liquid waste hauling company',
@@ -700,12 +703,17 @@ async function stageVerticalSearch(
   return entries;
 }
 
-// customer-discovery verticals backed by a public registry with NO email (towing:
-// WA DOL, septic: FL DOH + Austin, homecare: IL IDPH + NY DOH). Inserts one lead
-// per registry business (source_key `<vertical>:<state>:<licence>`), contact_status
-// left 'unknown'; stageEnrich then looks for the business's own website and email.
-// The registry phone is kept in signals.registry so unresolved leads can be phoned
-// by a human later. Nothing here can be emailed until a published address is found.
+// customer-discovery verticals backed by a public registry. Two shapes:
+//   * NO email in the registry (towing: WA DOL + Montgomery County MD, septic:
+//     FL DOH + Austin + Missouri, homecare: IL IDPH + NY DOH + CMS + Missouri,
+//     homeservices: WA L&I, dental: NPPES) — contact_status stays 'unknown' and
+//     stageEnrich looks for the business's own website and email.
+//   * email published in the registry (insurance and bailbonds: FL DFS licensee
+//     file; some Delaware septic rows) — the lead goes in contact_status 'found'
+//     and pre-enriched, like the FMCSA freight source.
+// One lead per registry business (source_key `<vertical>:<state>:<licence>`).
+// The registry phone is kept in signals.registry so unresolved leads can be
+// phoned by a human later.
 async function stageRegistry(
   db: Db, summary: RunSummary, dryRun: boolean, index: LeadIndex<LeadRow>, stop: () => boolean, product: ProductConfig,
 ): Promise<DirectoryEntry[]> {
@@ -715,17 +723,37 @@ async function stageRegistry(
   const isKnown = (key: string) => !!index.find({ sourceKey: key });
 
   let res: RegistryResult;
-  if (product.id === 'towing') res = await findWaTowCandidates(max, { isKnown });
+  if (product.id === 'towing') res = await findTowingCandidates(max, { isKnown });
   else if (product.id === 'septic') res = await findSepticCandidates(max, { isKnown });
-  else res = await findHomecareCandidates(max, { isKnown });
+  else if (product.id === 'homecare') res = await findHomecareCandidates(max, { isKnown });
+  else if (product.id === 'homeservices') res = await findWaContractorCandidates(max, { isKnown });
+  else if (product.id === 'dental') res = await findDentalNppesCandidates(max, { isKnown });
+  else res = await findFlDfsCandidates(product.id as 'insurance' | 'bailbonds', max, { isKnown });
   summary.errors.push(...res.errors);
   summary.searchDebug = { raw: res.scanned, rejected: Object.entries(res.rejected).map(([k, v]) => `${k}: ${v}`) };
+
+  // Only needed for the email-bearing sources; same checks stageFreight makes.
+  const withEmail = (res.candidates as RegistryLead[]).some((c) => !!c.email);
+  const knownEmails = new Set<string>();
+  const suppressed = new Set<string>();
+  if (withEmail && !dryRun) {
+    const { data: emailRows } = await scopeToProduct(db.from(leadsTable(product)).select('contact_email'), product);
+    for (const r of (emailRows ?? []) as { contact_email: string | null }[]) if (r.contact_email) knownEmails.add(r.contact_email.toLowerCase());
+    const { data: supData } = await db.from(suppressionsTable(product)).select('email');
+    for (const s of (supData ?? []) as { email: string }[]) suppressed.add(String(s.email).toLowerCase());
+  }
 
   const entries: DirectoryEntry[] = [];
   const now = new Date().toISOString();
   for (const c of res.candidates as RegistryLead[]) {
     if (stop()) break;
-    if (index.find({ sourceKey: c.sourceKey, name: c.name })) continue;
+    const email = c.email ?? null;
+    // Keep the email's domain only when it is a real business domain; free-mail
+    // addresses say nothing about who owns the site.
+    const domain = email && !isFreeMail(email) ? email.split('@')[1] : null;
+    if (index.find({ sourceKey: c.sourceKey, name: c.name, domain })) continue;
+    if (email && (knownEmails.has(email) || suppressed.has(email))) continue;
+    if (domain && isBlockedDomain(domain)) continue;
     const base = scoreLead({ tier: null, location: c.location, description: `${c.name} ${c.description}` }, undefined, product);
     const score = Math.max(0, Math.min(100, base.score + c.adjust));
     const reasons = [...base.reasons, ...c.reasons];
@@ -735,10 +763,16 @@ async function stageRegistry(
     };
     summary.leadsNew++;
     summary.searchCandidates++;
+    if (email) summary.contactsFound++;
+    const contactFields = email
+      ? { contact_email: email, contact_status: 'found', contact_source_url: c.contactSourceUrl ?? null, enriched_at: now }
+      : {};
     const fields = {
-      company_name: c.name, domain: null as string | null, source_key: c.sourceKey, tier: null, location: c.location, description: c.description,
+      company_name: c.name, domain, source_key: c.sourceKey, tier: null, location: c.location, description: c.description,
       score, region_blocked: false, signals: { reasons, techPlatforms: [] as string[], registry },
+      ...contactFields,
     };
+    if (email) knownEmails.add(email);
     if (dryRun) {
       const fake = { id: `dry-${c.sourceKey}`, status: 'new', contact_email: null, contact_status: 'unknown', enriched_at: null, ...fields } as LeadRow;
       index.add(fake);
@@ -751,6 +785,7 @@ async function stageRegistry(
     if (error) {
       summary.leadsNew--;
       summary.searchCandidates--;
+      if (email) summary.contactsFound--;
       summary.errors.push(`insert ${c.name}: ${error.message}`);
     } else if (inserted) {
       index.add(inserted as LeadRow);
