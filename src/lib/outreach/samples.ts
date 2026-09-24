@@ -164,5 +164,6 @@ const BOT_UA_RE = new RegExp(
 
 export function isBotUserAgent(ua: string | null | undefined): boolean {
   if (!ua || !ua.trim()) return true;
-  return BOT_UA_RE.test(ua) || /\bbot\b/i.test(ua);
+  // Generic *bot crawlers (AhrefsBot/7.0, PetalBot, MJ12bot/v1.4, ...): "bot" not followed by a letter.
+  return BOT_UA_RE.test(ua) || /bot(?![a-z])/i.test(ua);
 }

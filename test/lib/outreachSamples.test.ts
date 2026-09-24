@@ -135,6 +135,13 @@ describe('isBotUserAgent', () => {
       'python-requests/2.31',
       'curl/8.1.2',
       'Mozilla/5.0 HeadlessChrome/120.0',
+      'Mozilla/5.0 (compatible; AhrefsBot/7.0; +http://ahrefs.com/robot/)',
+      'Mozilla/5.0 (compatible; SemrushBot/7~bl; +http://www.semrush.com/bot.html)',
+      'Mozilla/5.0 (compatible; MJ12bot/v1.4.8; http://mj12bot.com/)',
+      'Mozilla/5.0 (compatible; PetalBot;+https://webmaster.petalsearch.com/site/petalbot)',
+      'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_5) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/13.1.1 Safari/605.1.15 (Applebot/0.1; +http://www.apple.com/go/applebot)',
+      'Mozilla/5.0 (compatible; DotBot/1.2)',
+      'bitlybot/3.0',
     ]) expect(isBotUserAgent(ua as string)).toBe(true);
   });
   it('does not flag realistic human user agents', () => {
