@@ -96,8 +96,8 @@ export default function OutreachQueuePage() {
       </div>
 
       {quota && (
-        <p className={`rounded-lg px-4 py-2 text-[13.5px] border ${quota.sentToday >= quota.cap ? 'border-amber-300 bg-amber-50 text-amber-800' : 'border-gray-200 bg-white text-gray-700'}`}>
-          Sent today: {quota.sentToday} of {quota.cap}. {quota.sentToday >= quota.cap ? `Daily cap reached; sending resumes ${quota.resets}.` : `Resets ${quota.resets}.`}
+        <p className="rounded-lg px-4 py-2 text-[13.5px] border border-gray-200 bg-white text-gray-700">
+          Sent today: {quota.sentToday} (no daily cap).
         </p>
       )}
       {notice && (
@@ -172,7 +172,7 @@ export default function OutreachQueuePage() {
                     onClick={() =>
                       act(m.id, async () => {
                         const saved = await patch(m.id, { action: 'edit', ...draft });
-                        return saved.ok ? fetch(`/api/admin/outreach/messages/${m.id}`, { method: 'POST' }).then((r) => r.json()) : saved;
+                        return saved.ok ? fetch(`/api/admin/outreach/messages/${m.id}`, { method: 'POST' }) : saved;
                       }, 'Sent.')
                     }
                     className="rounded-lg bg-blue-600 px-3 py-1.5 text-[13px] font-medium text-white hover:bg-blue-700 disabled:opacity-50"
