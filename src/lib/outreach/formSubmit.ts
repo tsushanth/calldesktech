@@ -82,7 +82,9 @@ const CHALLENGE_MARKERS: { re: RegExp; label: string }[] = [
   { re: /h-captcha|hcaptcha\.com|js\.hcaptcha/i, label: 'hcaptcha' },
   { re: /cf-turnstile|challenges\.cloudflare\.com|turnstile\/v0/i, label: 'turnstile' },
   { re: /funcaptcha|arkoselabs|geetest|friendly-?challenge|altcha|mtcaptcha|keycaptcha|solvemedia/i, label: 'captcha widget' },
-  { re: /\bcaptcha\b/i, label: 'captcha' },
+  // Catch-all, substring on purpose: 'captcha_code', 'nocaptcha', 'captchaResponse'
+  // are all captchas. Erring towards needs_manual is the safe direction here.
+  { re: /captcha/i, label: 'captcha' },
 ];
 
 const CHALLENGE_TEXT = /verify (?:that )?you (?:are|'re) (?:a )?human|are you a human|prove you(?:'re| are) (?:not a robot|human)|i'?m not a robot|security check|bot protection|human verification|checking your browser/i;

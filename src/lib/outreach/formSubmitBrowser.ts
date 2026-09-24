@@ -43,7 +43,10 @@ export const CHROMIUM_UA =
 // Runs inside the page. Tags every candidate form and field with a marker
 // attribute so we can address them later, and reports what it found.
 /* c8 ignore start -- executed in the browser, covered by the integration test */
-const READ_FORMS_FN = `() => {
+// Passed to frame.evaluate() as an EXPRESSION string (an IIFE), not a function:
+// Playwright evaluates a string argument as an expression, and a serialized
+// arrow function would come back as an opaque object instead of running.
+const READ_FORMS_SRC = `(() => {
   const visible = (el) => {
     const style = window.getComputedStyle(el);
     if (style.display === 'none' || style.visibility === 'hidden' || Number(style.opacity) === 0) return false;
@@ -106,7 +109,7 @@ const READ_FORMS_FN = `() => {
     out.push({ marker: marker, fields: fields, checkboxes: checkboxes, hasTextarea: hasTextarea, hasSubmit: !!submit });
   }
   return out;
-}`;
+})()`;
 /* c8 ignore stop */
 
 type MarkedField = FieldDescriptor & { marker: string };
@@ -129,9 +132,9 @@ export async function readFrames(page: Page): Promise<FrameForms[]> {
   const out: FrameForms[] = [];
   for (const frame of sameOriginFrames(page)) {
     try {
-      const forms = (await frame.evaluate(READ_FORMS_FN)) as ReadForm[];
+      const forms = (await frame.evaluate(READ_FORMS_SRC)) as ReadForm[];
       const html = await frame.content();
-      const text = await frame.evaluate('() => document.body ? document.body.innerText : ""') as string;
+      const text = await frame.evaluate('document.body ? document.body.innerText : ""') as string;
       out.push({ frame, forms, html, text });
     } catch {
       // A frame that navigated away mid-read is simply skipped.
@@ -294,7 +297,7 @@ export async function gatherEvidence(page: Page, urlBefore: string, formMarker: 
   let successElement = false;
   for (const frame of sameOriginFrames(page)) {
     try {
-      text += '\n' + ((await frame.evaluate('() => document.body ? document.body.innerText : ""')) as string);
+      text += '\n' + ((await frame.evaluate('document.body ? document.body.innerText : ""')) as string);
       if (await frame.locator(`[data-cd-form="${formMarker}"]`).count()) formStillPresent = true;
       for (const sel of SUCCESS_SELECTORS) {
         const loc = frame.locator(sel);
