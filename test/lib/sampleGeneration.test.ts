@@ -1,6 +1,7 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { readFileSync } from 'node:fs';
 import * as lib from '../../scripts/lib/sample-lib.mjs';
+import { generate } from '../../scripts/generate-vertical-sample.mjs';
 
 const doc = JSON.parse(readFileSync('scripts/sample-scenarios.json', 'utf8'));
 
@@ -100,4 +101,80 @@ describe('row + args', () => {
     expect(lib.isE164('+15551234567')).toBe(true);
     expect(lib.isE164('5551234567')).toBe(false);
   });
+});
+
+describe('spoken disclosure in greeting', () => {
+  it('every shipped greeting discloses an AI demo / fictional business', () => {
+    for (const s of doc.scenarios) expect(s.greeting).toMatch(/\bAI\b/);
+  });
+  it('validator fails when the greeting lacks the wording', () => {
+    const bad = structuredClone(doc);
+    bad.scenarios[3].greeting = 'Cedar Line Insurance Agency, how can I help?';
+    const errs: string[] = lib.validateScenarios(bad);
+    expect(errs.some((e) => /cedar|insurance/i.test(e) || /greeting must state spoken disclosure/.test(e))).toBe(true);
+    bad.scenarios[3].greeting = 'Hi, this is an AI helper.'; // AI but no demo/fictional
+    expect(lib.validateScenarios(bad).some((e: string) => /spoken disclosure/.test(e))).toBe(true);
+  });
+});
+
+describe('call gating', () => {
+  const ok = { placeCall: true, used: 0, callee: '+15550001111', allowedRaw: '+15550001111, +15550002222' };
+  it('allows an explicit, allow-listed call under the cap', () => {
+    expect(lib.checkCallGate(ok)).toEqual({ ok: true, reasons: [] });
+  });
+  it('requires --place-call', () => {
+    expect(lib.checkCallGate({ ...ok, placeCall: false }).ok).toBe(false);
+    expect(lib.parseArgs(['--vertical', 'freight']).placeCall).toBe(false);
+    expect(lib.parseArgs(['--vertical', 'freight', '--place-call']).placeCall).toBe(true);
+  });
+  it('refuses at the cap of 2 and treats a garbage counter as used up', () => {
+    expect(lib.MAX_REAL_CALLS).toBe(2);
+    expect(lib.checkCallGate({ ...ok, used: 1 }).ok).toBe(true);
+    expect(lib.checkCallGate({ ...ok, used: 2 }).ok).toBe(false);
+    expect(lib.parseCounter(null)).toBe(0);
+    expect(lib.parseCounter('1\n')).toBe(1);
+    expect(lib.parseCounter('oops')).toBe(2);
+    expect(lib.parseCounter('-1')).toBe(2);
+  });
+  it('refuses a callee not in SAMPLE_CALLEE_ALLOWED (or an empty list)', () => {
+    expect(lib.checkCallGate({ ...ok, callee: '+15559999999' }).ok).toBe(false);
+    expect(lib.checkCallGate({ ...ok, allowedRaw: '' }).ok).toBe(false);
+    expect(lib.checkCallGate({ ...ok, callee: undefined }).ok).toBe(false);
+  });
+});
+
+describe('publish validation', () => {
+  const good = { audio_path: 'freight/1.mp3', transcript: [1, 2, 3, 4].map((n) => ({ speaker: 'agent', text: `l${n}` })), snippet: [0, 1, 2, 3] };
+  it('accepts a complete sample', () => expect(lib.validatePublishable(good)).toEqual([]));
+  it('rejects missing audio, short transcript, empty/out-of-range snippet, missing row', () => {
+    expect(lib.validatePublishable({ ...good, audio_path: null }).length).toBe(1);
+    expect(lib.validatePublishable({ ...good, transcript: good.transcript.slice(0, 3) }).length).toBeGreaterThan(0);
+    expect(lib.validatePublishable({ ...good, snippet: [] })).toContain('snippet is empty');
+    expect(lib.validatePublishable({ ...good, snippet: null }).length).toBe(1);
+    expect(lib.validatePublishable({ ...good, snippet: [0, 9] }).length).toBe(1);
+    expect(lib.validatePublishable(null)).toEqual(['sample not found']);
+  });
+});
+
+describe('dry run makes no network calls', () => {
+  const env = {
+    get: (k: string) => ({ CALL_LOOP_POC_BASE_URL: 'https://poc.example', CALL_LOOP_POC_TEST_CALL_SECRET: 's', NEXT_PUBLIC_SUPABASE_URL: 'https://x.supabase.co', SUPABASE_SERVICE_ROLE_KEY: 'k', SAMPLE_CALLEE_ALLOWED: '+15550001111' } as Record<string, string>)[k] || '',
+    path: '', exists: false,
+  };
+  const sc = doc.scenarios[0];
+  for (const [name, args] of [
+    ['--dry-run', { dryRun: true, placeCall: true, calleeNumber: '+15550001111' }],
+    ['bare --vertical (no --place-call)', { dryRun: false, placeCall: false, calleeNumber: '+15550001111' }],
+  ] as const) {
+    it(`${name} never calls fetch`, async () => {
+      const f = vi.fn();
+      vi.stubGlobal('fetch', f);
+      const log = vi.spyOn(console, 'log').mockImplementation(() => {});
+      await generate(args, env, sc, '/tmp/never-written');
+      expect(f).not.toHaveBeenCalled();
+      expect(log.mock.calls.flat().join('\n')).toContain('+15550001111'); // full number shown, not masked
+      log.mockRestore();
+      vi.unstubAllGlobals();
+    });
+  }
 });

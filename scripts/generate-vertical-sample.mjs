@@ -5,7 +5,9 @@
 //
 // Steps are separate and explicit:
 //   node scripts/generate-vertical-sample.mjs --vertical freight --dry-run     # plan + env/config check, no network
-//   node scripts/generate-vertical-sample.mjs --vertical freight               # places ONE real call (costs money), writes out/samples/freight/
+//   node scripts/generate-vertical-sample.mjs --vertical freight --place-call  # places ONE real call (costs money), writes out/samples/freight/
+//       (without --place-call this is a dry run; hard cap MAX_REAL_CALLS total, tracked in out/.sample-calls-used;
+//        callee must be listed in SAMPLE_CALLEE_ALLOWED in .env)
 //   node scripts/generate-vertical-sample.mjs --vertical freight --upload      # uploads the local files -> private bucket + unpublished row (no new call)
 //   node scripts/generate-vertical-sample.mjs --publish <sample-id>            # flips published=true (unpublishes the product's previous one)
 //
@@ -20,14 +22,24 @@
 
 import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'node:fs';
 import { resolve, join } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import {
   validateScenarios, normalizeTranscript, buildSampleRow, estimateCostUsd, parseArgs, isE164,
+  MAX_REAL_CALLS, parseCounter, checkCallGate, validatePublishable,
 } from './lib/sample-lib.mjs';
 
 const ROOT = resolve(fileURLToPath(new URL('..', import.meta.url)));
 const BUCKET = 'outreach-samples';
 const MAX_WAIT_MS = 5 * 60_000;
+// Persistent real-call counter (git-ignored out/). Incremented the moment the poc returns a call sid.
+const COUNTER_FILE = join(ROOT, 'out/.sample-calls-used');
+const readCounter = () => parseCounter(existsSync(COUNTER_FILE) ? readFileSync(COUNTER_FILE, 'utf8') : null);
+function bumpCounter() {
+  mkdirSync(join(ROOT, 'out'), { recursive: true });
+  const n = readCounter() + 1;
+  writeFileSync(COUNTER_FILE, String(n));
+  return n;
+}
 
 const die = (msg, code = 1) => { console.error(`\nERROR: ${msg}`); process.exit(code); };
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -86,33 +98,39 @@ async function ensureBucket(db) {
 }
 
 // ---- generate -------------------------------------------------------------------------------------
-async function generate(args, env, sc, outDir) {
+export async function generate(args, env, sc, outDir) {
   const base = env.get('CALL_LOOP_POC_BASE_URL').replace(/\/+$/, '');
   const secret = env.get('CALL_LOOP_POC_TEST_CALL_SECRET');
   const callee = args.calleeNumber || env.get('SAMPLE_CALLEE_NUMBER');
+  // Without an explicit --place-call this is always a dry run.
+  const dryRun = args.dryRun || !args.placeCall;
+  const used = readCounter();
+  const gate = checkCallGate({ placeCall: true, used, callee, allowedRaw: env.get('SAMPLE_CALLEE_ALLOWED') });
 
   const problems = [];
   if (!base) problems.push('CALL_LOOP_POC_BASE_URL is not set');
   if (!secret) problems.push('CALL_LOOP_POC_TEST_CALL_SECRET is not set');
   if (!env.get('NEXT_PUBLIC_SUPABASE_URL') || !env.get('SUPABASE_SERVICE_ROLE_KEY')) problems.push('NEXT_PUBLIC_SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY not set (transcript is read from the poc call log)');
-  if (!callee) problems.push('no callee number: pass --callee-number or set SAMPLE_CALLEE_NUMBER (must be one of OUR OWN tenant-owned numbers, E.164)');
-  else if (!isE164(callee)) problems.push('callee number is not E.164 (+15551234567)');
+  problems.push(...gate.reasons);
 
   console.log(`vertical:        ${sc.id} (${sc.product})`);
   console.log(`fictional biz:   ${sc.businessName}`);
   console.log(`scenario:        ${sc.title}`);
   console.log(`target length:   ${sc.targetSeconds[0]}-${sc.targetSeconds[1]}s (Twilio TimeLimit hard-caps at 150s)`);
-  console.log(`callee number:   ${callee ? callee.slice(0, 5) + '***' + callee.slice(-2) : '(unset)'}`);
+  console.log(`callee number:   ${callee || '(unset)'}`);
   console.log(`poc:             ${base || '(unset)'}   env file: ${env.exists ? env.path : '(none)'}`);
   console.log(`output dir:      ${outDir}`);
   console.log(`est. cost:       ~$${estimateCostUsd(sc.targetSeconds[1])} at ${sc.targetSeconds[1]}s (estimate)`);
   console.log(`disclosure:      ${sc.disclosure}`);
+  console.log(`real calls used: ${used}/${MAX_REAL_CALLS}`);
   if (problems.length) {
     console.log(`\nprerequisites missing:\n - ${problems.join('\n - ')}`);
-    if (!args.dryRun) die('cannot place the call until these are fixed.');
+    if (!dryRun) die('cannot place the call until these are fixed.');
     return;
   }
-  if (args.dryRun) { console.log('\ndry run: no call placed, nothing written.'); return; }
+  if (dryRun) { console.log('\ndry run: no call placed, nothing written. Add --place-call to dial for real.'); return; }
+  if (!gate.ok) die(`refusing to dial: ${gate.reasons.join('; ')}`);
+  console.log(`\nabout to dial ${callee} (allow-listed) as the caller persona; call ${used + 1} of ${MAX_REAL_CALLS}.`);
 
   // Capability probe: refuse to dial a poc that would ignore sampleCallee.
   const cap = await fetch(`${base}/sample-callee-capability`).catch(() => null);
@@ -133,6 +151,7 @@ async function generate(args, env, sc, outDir) {
   });
   const pj = await placed.json().catch(() => ({}));
   if (!placed.ok || !pj.sid) die(`place-test-call failed (HTTP ${placed.status}): ${JSON.stringify(pj).slice(0, 300)}`);
+  console.log(`real calls used: ${bumpCounter()}/${MAX_REAL_CALLS} (counted at dial, even if the call later fails)`);
   if (!pj.sampleCallee) die(`call ${pj.sid} was placed but the poc did not confirm sampleCallee; it may have reached a real tenant agent. Check it in Twilio and discard.`);
   const sid = pj.sid;
   console.log(`call sid: ${sid}`);
@@ -213,24 +232,15 @@ async function upload(args, env, sc, outDir) {
 async function publish(id, env) {
   const db = supa(env);
   await requireMigration(db);
-  const one = await db.rest(`calldesk_outreach_samples?id=eq.${id}&select=id,product,audio_path,published`);
+  const one = await db.rest(`calldesk_outreach_samples?id=eq.${id}&select=id,product,audio_path,transcript,snippet`);
   const rows = one.ok ? await one.json() : [];
   if (!rows.length) die(`no sample with id ${id}`);
-  const s = rows[0];
-  if (!s.audio_path) die('sample has no audio_path; refusing to publish.');
-  const prev = await (await db.rest(`calldesk_outreach_samples?product=eq.${encodeURIComponent(s.product)}&published=is.true&id=neq.${id}&select=id`)).json();
-  const prevIds = Array.isArray(prev) ? prev.map((p) => p.id) : [];
-  const patch = (filter, published) => db.rest(`calldesk_outreach_samples?${filter}`, { method: 'PATCH', body: JSON.stringify({ published }) });
-  if (prevIds.length) {
-    const u = await patch(`product=eq.${encodeURIComponent(s.product)}&id=neq.${id}&published=is.true`, false);
-    if (!u.ok) die(`could not unpublish previous sample(s) (HTTP ${u.status}); nothing changed.`);
-  }
-  const p = await patch(`id=eq.${id}`, true);
-  if (!p.ok) {
-    for (const pid of prevIds) await patch(`id=eq.${pid}`, true).catch(() => {}); // roll back
-    die(`publish failed (HTTP ${p.status}); previous sample restored.`);
-  }
-  console.log(`published ${id} for ${s.product}${prevIds.length ? `; unpublished ${prevIds.join(', ')}` : ''}`);
+  const errs = validatePublishable(rows[0]);
+  if (errs.length) die(`refusing to publish ${id}:\n - ${errs.join('\n - ')}`);
+  // Atomic swap in one DB transaction (function defined in migration 043; if missing, apply the migration).
+  const r = await db.rest('rpc/calldesk_publish_outreach_sample', { method: 'POST', body: JSON.stringify({ p_sample_id: id }) });
+  if (!r.ok) die(`publish failed (HTTP ${r.status}): ${(await r.text()).slice(0, 400)}. Nothing was changed by this call.`);
+  console.log(`published ${id} for ${rows[0].product} (previous published sample, if any, was unpublished in the same transaction)`);
 }
 
 // ---- main -----------------------------------------------------------------------------------------
@@ -246,4 +256,6 @@ async function main() {
   return generate(args, env, sc, outDir);
 }
 
-main().catch((e) => die(e && e.message ? e.message : String(e)));
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  main().catch((e) => die(e && e.message ? e.message : String(e)));
+}

@@ -1,6 +1,9 @@
 // Pure helpers for scripts/generate-vertical-sample.mjs (no I/O, unit-tested in test/lib/sampleGeneration.test.ts).
 
 export const VERTICALS = ['freight', 'homeservices', 'dental', 'insurance', 'towing', 'septic', 'homecare', 'bailbonds'];
+// HARD CAP on real sample calls for this task. Deliberately a constant, not a flag: raising it means
+// editing this line (or the counter file out/.sample-calls-used) on purpose.
+export const MAX_REAL_CALLS = 2;
 export const SNIPPET_MIN = 4;
 export const SNIPPET_MAX = 6;
 // Rough cost model (estimate only, see task-4 report): our engine ~$0.044/min per AI session (two sessions:
@@ -26,6 +29,7 @@ export function validateScenarios(doc) {
     if (typeof s.agentPrompt === 'string' && (s.agentPrompt.length < 20 || s.agentPrompt.length > 6000)) errs.push(`${at}: agentPrompt must be 20-6000 chars`);
     if (typeof s.greeting === 'string' && s.greeting.length > 400) errs.push(`${at}: greeting must be <= 400 chars`);
     if (typeof s.callerPersona === 'string' && s.callerPersona.length > 2000) errs.push(`${at}: callerPersona must be <= 2000 chars`);
+    if (typeof s.greeting === 'string' && !(/\bAI\b/.test(s.greeting) && /\b(demo|fictional)\b/i.test(s.greeting))) errs.push(`${at}: greeting must state spoken disclosure (an AI demo call / fictional business)`);
     if (typeof s.disclosure === 'string' && !/\bAI\b/.test(s.disclosure)) errs.push(`${at}: disclosure must state it is an AI call`);
     const blob = [s.agentPrompt, s.callerPersona, s.greeting].join(' ');
     if (/\+?\d{3}[\s.-]\d{3}[\s.-]\d{4}/.test(blob) || /@\w+\.\w+/.test(blob)) errs.push(`${at}: contains a phone number or email address`);
@@ -127,7 +131,7 @@ export function buildSampleRow({ scenario, transcript, audioPath, durationSec })
 }
 
 export function parseArgs(argv) {
-  const o = { vertical: null, dryRun: false, out: null, upload: false, publish: null, calleeNumber: null, envFile: null, help: false };
+  const o = { vertical: null, dryRun: false, out: null, upload: false, publish: null, calleeNumber: null, envFile: null, help: false, placeCall: false };
   const need = (i, name) => {
     if (i + 1 >= argv.length || argv[i + 1].startsWith('--')) throw new Error(`${name} needs a value`);
     return argv[i + 1];
@@ -141,6 +145,7 @@ export function parseArgs(argv) {
     else if (a === '--env-file') { o.envFile = need(i, a); i++; }
     else if (a === '--dry-run') o.dryRun = true;
     else if (a === '--upload') o.upload = true;
+    else if (a === '--place-call') o.placeCall = true;
     else if (a === '--help' || a === '-h') o.help = true;
     else throw new Error(`unknown argument: ${a}`);
   }
@@ -152,3 +157,41 @@ export function parseArgs(argv) {
 }
 
 export const isE164 = (n) => typeof n === 'string' && /^\+[1-9]\d{7,14}$/.test(n);
+
+export function parseAllowed(raw) {
+  return String(raw || '').split(',').map((x) => x.trim()).filter(Boolean);
+}
+
+/** Counter file content -> number of calls already placed (garbage counts as the cap: fail closed). */
+export function parseCounter(text) {
+  if (text == null) return 0;
+  const n = Number(String(text).trim());
+  return Number.isInteger(n) && n >= 0 ? n : MAX_REAL_CALLS;
+}
+
+/**
+ * Pure gate for dialing. Returns {ok, reasons}. Dials only with an explicit --place-call, under the
+ * cap, and to a number a human listed in SAMPLE_CALLEE_ALLOWED.
+ */
+export function checkCallGate({ placeCall, used, callee, allowedRaw, max = MAX_REAL_CALLS }) {
+  const reasons = [];
+  if (!placeCall) reasons.push('--place-call not given (without it this is a dry run)');
+  if (used >= max) reasons.push(`real-call cap reached (${used}/${max} used; cap is MAX_REAL_CALLS in scripts/lib/sample-lib.mjs)`);
+  const allowed = parseAllowed(allowedRaw);
+  if (!callee || !isE164(callee)) reasons.push('callee number missing (--callee-number or SAMPLE_CALLEE_NUMBER) or not E.164');
+  else if (!allowed.includes(callee)) reasons.push('callee number is not in SAMPLE_CALLEE_ALLOWED (a human must list our own numbers there)');
+  return { ok: reasons.length === 0, reasons };
+}
+
+/** Errors that block publishing a sample row (mirrors the checks inside calldesk_publish_outreach_sample). */
+export function validatePublishable(row) {
+  const errs = [];
+  if (!row || typeof row !== 'object') return ['sample not found'];
+  if (typeof row.audio_path !== 'string' || !row.audio_path.trim()) errs.push('audio_path is not set');
+  const t = row.transcript;
+  if (!Array.isArray(t) || t.length < SNIPPET_MIN) errs.push(`transcript needs at least ${SNIPPET_MIN} lines`);
+  const sn = row.snippet;
+  if (!Array.isArray(sn) || sn.length === 0) errs.push('snippet is empty');
+  else if (Array.isArray(t) && !sn.every((i) => Number.isInteger(i) && i >= 0 && i < t.length)) errs.push('snippet has indexes outside the transcript');
+  return errs;
+}
