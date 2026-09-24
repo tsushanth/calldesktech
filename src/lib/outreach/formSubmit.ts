@@ -513,7 +513,7 @@ export function recordInLedger(ledger: DayLedger, domain: string | null, now = n
 
 export const MIN_AUTO_SCORE = 50;
 export const MIN_BODY_WORDS = 40;
-export const MAX_BODY_WORDS = 160;
+export const MAX_BODY_WORDS = 190;
 
 // Leftovers from a draft that went wrong. A message with any of these must never
 // reach a practice.

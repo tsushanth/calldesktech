@@ -350,7 +350,7 @@ describe('quality gate', () => {
     expect(qualityGate({ score: 49, body, mappingNeedsManual: null })).toBe('score 49 below 50');
     expect(qualityGate({ score: null, body, mappingNeedsManual: null })).toBe('score 0 below 50');
     expect(qualityGate({ score: 70, body: 'too short', mappingNeedsManual: null })).toContain('2 words');
-    expect(qualityGate({ score: 70, body: `${body} ${body} ${body}`, mappingNeedsManual: null })).toContain('180 words');
+    expect(qualityGate({ score: 70, body: `${body} ${body} ${body} ${body}`, mappingNeedsManual: null })).toContain("240 words");
   });
 
   it('never lets placeholder or undefined text reach a practice', () => {
