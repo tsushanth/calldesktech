@@ -2,12 +2,13 @@ import { createHmac, timingSafeEqual } from 'crypto';
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/supabase';
 
-// Resend (Svix-signed) delivery webhook. Records delivered/bounced/complained/delayed per outreach message and
+// Resend (Svix-signed) delivery webhook. Records delivered/bounced/complained/delayed/opened/clicked per outreach
+// message (opens and clicks are noisy: mail-client prefetch and link scanners inflate them) and
 // suppresses the address on a hard bounce or a spam complaint so we never mail it again.
 // Set RESEND_WEBHOOK_SECRET to the "whsec_..." signing secret shown for the webhook in the Resend dashboard.
 
 const TOLERANCE_SECONDS = 5 * 60;
-const RECORDED = new Set(['email.delivered', 'email.bounced', 'email.complained', 'email.delivery_delayed']);
+const RECORDED = new Set(['email.delivered', 'email.bounced', 'email.complained', 'email.delivery_delayed', 'email.opened', 'email.clicked']);
 
 function verifySvix(secret: string, id: string, timestamp: string, body: string, signatureHeader: string): boolean {
   const ts = Number(timestamp);
@@ -53,7 +54,7 @@ export async function POST(request: NextRequest) {
     resend_id: resendId,
     message_id: msg?.id ?? null,
     event,
-    detail: evt.data?.bounce ?? null,
+    detail: evt.data?.bounce ?? (evt.data as { click?: unknown } | undefined)?.click ?? null,
   });
   if (error && error.code !== '23505') {
     console.error('[webhooks/resend] insert failed:', error.message);
