@@ -1,13 +1,19 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { runAutosend, sendWindow } from '@/lib/outreach/autosend';
+import { runAutosend as run, sendWindow } from '@/lib/outreach/autosend';
+import type { Lane } from '@/lib/outreach/sender';
+
+// Most cases exercise one lane; return just its result.
+const runAutosend = async (s: never, o: Parameters<typeof run>[1] = {}) => (await run(s, { lanes: ['calldesk'], ...o })).calldesk;
 
 type Ctx = { table: string; head: boolean; hasIn: boolean; eq: Record<string, unknown>; order: string[] };
 interface World {
   sentCount?: number; lastSentAt?: string | null; events?: { message_id: string; event: string }[];
   bounceMessageIds?: string[]; approved?: { id: string; lead: { replied_at: string | null } | null }[];
 }
-function fake(w: World) {
+function fake(all: World | Record<Lane, World>) {
+  let laneNow: Lane = 'calldesk';
   const handler = (c: Ctx): { data?: unknown; count?: number } => {
+    const w: World = 'calldesk' in all && 'kk' in all ? (all as Record<Lane, World>)[laneNow] : (all as World);
     if (c.table === 'calldesk_outreach_email_events') return { data: w.events ?? [] };
     if (c.head) return { count: w.sentCount ?? 0 };
     if (c.hasIn) return { data: (w.bounceMessageIds ?? []).map((id) => ({ id })) };
@@ -22,7 +28,7 @@ function fake(w: World) {
         select: (_s: string, o?: { head?: boolean }) => { c.head = !!o?.head; return q; },
         eq: (k: string, v: unknown) => { c.eq[k] = v; return q; },
         in: () => { c.hasIn = true; return q; },
-        or: () => q, gte: () => q, not: () => q, like: () => q, limit: () => q,
+        or: (f: string) => { laneNow = f.includes('kreativekoala') ? 'kk' : 'calldesk'; return q; }, gte: () => q, not: () => q, like: () => q, limit: () => q,
         order: (col: string) => { c.order.push(col); return q; },
         then: (res: (v: unknown) => unknown) => res(handler(c)),
       };
@@ -112,6 +118,18 @@ describe('runAutosend', () => {
 
   it('surfaces a failed send', async () => {
     expect(await runAutosend(fake(OK), { now: TUE_11AM_PT, send: async () => ({ ok: false as const, error: 'nope' }) })).toEqual({ action: 'send_failed', messageId: 'm1', error: 'nope' });
+  });
+
+  it('paces, caps and health-checks each lane independently', async () => {
+    process.env.OUTREACH_DAILY_CAP_KK = '5';
+    const send = vi.fn(async () => ({ ok: true as const }));
+    const worlds = { calldesk: { sentCount: 15, approved: [{ id: 'c1', lead: null }] }, kk: { sentCount: 1, approved: [{ id: 'k1', lead: null }] } };
+    const out = await run(fake(worlds), { now: TUE_11AM_PT, send });
+    expect(out.calldesk).toEqual({ action: 'cap_reached', sent: 15, cap: 15 });
+    expect(out.kk).toEqual({ action: 'sent', messageId: 'k1' });
+    expect(send).toHaveBeenCalledTimes(1);
+    expect(send).toHaveBeenCalledWith('k1');
+    delete process.env.OUTREACH_DAILY_CAP_KK;
   });
 
   it('ignores a nonsense OUTREACH_SEND_HOURS', () => {

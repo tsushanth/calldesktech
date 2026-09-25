@@ -10,9 +10,9 @@ import { getPublishedSample, pickVariant, sampleTokenFor, sampleUrl, snippetLine
 // qualify -- there is no automated send). Every guard below must pass:
 // address configured (CAN-SPAM), recipient not suppressed. Failures are
 // recorded on the message row and returned; nothing here throws for an
-// expected refusal. The Calldesk brand's daily cap is enforced here and shared
-// across every calldesk* product (they all send from one domain, so per-vertical
-// caps would multiply). Kreative Koala brands keep it informational only.
+// expected refusal. The daily cap is enforced here and shared across a whole
+// lane: every calldesk* product together, and every kreativekoala:* app together
+// (per-product caps would multiply the volume from one sending identity).
 
 const DEFAULT_DAILY_CAP = 20;
 
@@ -71,13 +71,23 @@ export function capResetLabel(now = new Date(), tz = process.env.OUTREACH_TZ || 
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
+export type Lane = 'calldesk' | 'kk';
+export function laneOf(product: string): Lane {
+  return product.startsWith('kreativekoala') ? 'kk' : 'calldesk';
+}
+// PostgREST .or() filter matching every product in a lane.
+export function laneFilter(lane: Lane): string {
+  return lane === 'kk' ? 'product.like.kreativekoala%' : 'product.eq.calldesk,product.like.calldesk:%';
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export async function sentTodayCount(supabase: SupabaseClient<any>, product = 'calldesk'): Promise<number> {
-  const base = supabase
+  const { count } = await supabase
     .from('calldesk_outreach_messages')
     .select('id', { count: 'exact', head: true })
     .eq('status', 'sent')
+    .or(laneFilter(laneOf(product)))
     .gte('sent_at', startOfDayInTz().toISOString());
-  const { count } = await (brandFor(product) === CALLDESK_BRAND ? base.not('product', 'like', 'kreativekoala%') : base.like('product', 'kreativekoala%'));
   return count ?? 0;
 }
 
@@ -166,7 +176,7 @@ export async function sendApprovedMessage(supabase: SupabaseClient<any>, message
 
   const toEmail = String(msg.to_email).trim().toLowerCase();
 
-  if (brand === CALLDESK_BRAND) {
+  {
     const cap = dailyCap(product);
     const sent = await sentTodayCount(supabase, product);
     if (sent >= cap) return { ok: false, error: `Daily send cap reached (${sent} of ${cap}); sending resumes ${capResetLabel()}` };

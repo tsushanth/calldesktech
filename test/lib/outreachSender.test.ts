@@ -15,7 +15,7 @@ function fakeSupabase(product: string, failVariant = false, step?: number, sentT
   const client = {
     from(table: string) {
       const q = {
-        select: () => q, eq: () => q, gte: () => q, not: () => q, like: () => q,
+        select: () => q, eq: () => q, gte: () => q, not: () => q, like: () => q, or: () => q,
         then: (res: (v: unknown) => unknown) => res({ count: sentToday }),
         maybeSingle: async () =>
           table === 'calldesk_outreach_messages' ? { data: { id: MSG_ID, status: 'draft', product, lead_id: 'l1', to_email: 'a@b.co', subject: 'S', body_text: 'Hi\n\nA & B', ...(step === undefined ? {} : { step }) }, error: null }
@@ -76,11 +76,14 @@ describe('sendApprovedMessage sample integration', () => {
     expect(await sendApprovedMessage(client, MSG_ID)).toMatchObject({ ok: true });
   });
 
-  it('does not enforce the cap on Kreative Koala brands', async () => {
-    process.env.OUTREACH_FROM_EMAIL_VOXKEY = 'k@send.kreativekoala.llc'; process.env.OUTREACH_POSTAL_ADDRESS_KK = '1 Main St'; process.env.OUTREACH_DAILY_CAP_KK = '1';
+  it('enforces the shared cap on Kreative Koala apps too', async () => {
+    process.env.OUTREACH_FROM_EMAIL_VOXKEY = 'k@send.kreativekoala.llc'; process.env.OUTREACH_POSTAL_ADDRESS_KK = '1 Main St'; process.env.OUTREACH_DAILY_CAP_KK = '5';
     getPublishedSample.mockResolvedValue(null);
-    const { client } = fakeSupabase('kreativekoala:voxkey', false, undefined, 5);
-    expect(await sendApprovedMessage(client, MSG_ID)).toMatchObject({ ok: true });
+    const over = await sendApprovedMessage(fakeSupabase('kreativekoala:voxkey', false, undefined, 5).client, MSG_ID);
+    expect(over).toMatchObject({ ok: false });
+    expect((over as { error: string }).error).toContain('Daily send cap reached (5 of 5)');
+    expect(await sendApprovedMessage(fakeSupabase('kreativekoala:voxkey', false, undefined, 4).client, MSG_ID)).toMatchObject({ ok: true });
+    delete process.env.OUTREACH_DAILY_CAP_KK;
   });
 
   it('passes the dedicated outreach API key for calldesk sends only', async () => {
