@@ -18,8 +18,11 @@ import { listZipEntries, pickZipEntry, streamZipRows } from './zipStream';
 //
 // ---- the files -------------------------------------------------------------
 // https://www.inegi.org.mx/contenidos/masiva/denue/denue_{01..32}_csv.zip, one per
-// federal entity, 6-45 MB compressed. NOTE: the old denue_00_csv.zip (the whole
-// country in one file) is stale and must not be used.
+// federal entity, 4-45 MB compressed — EXCEPT Estado de México (15), which is
+// published as denue_15_1_csv.zip + denue_15_2_csv.zip (see DENUE_SPLIT_STATES).
+// NOTE: the old denue_00_csv.zip (the whole country in one file) is stale and must
+// not be used. A URL that no longer exists is served as HTTP 200 with a 2 KB HTML
+// page, which zipStream.zipSize detects and names.
 //
 // Each archive holds THREE members and the one that matters is the second:
 //   diccionario_de_datos/denue_diccionario_de_datos.csv   (the data dictionary)
@@ -45,12 +48,32 @@ export const DENUE_MEMBER = /conjunto_de_datos\/.*\.csv$/i;
 // The 32 federal entities, as INEGI's two-digit codes.
 export const MX_STATE_CODES = Array.from({ length: 32 }, (_, i) => String(i + 1).padStart(2, '0'));
 
-// INEGI's own entity names, used only to sanity-check that a downloaded archive
-// is the state that was asked for (the `entidad` column carries the name).
-export function denueUrl(state: string): string {
+// STATES WHOSE ARCHIVE IS SPLIT. Estado de México (15) is the most populous
+// state and INEGI publishes it as TWO files, denue_15_1_csv.zip (50 MB) and
+// denue_15_2_csv.zip (30 MB); denue_15_csv.zip does not exist and is served as an
+// HTML "Esta liga ya no existe" page with HTTP 200 (verified 2026-09-24). Every
+// other state is a single denue_NN_csv.zip. Missing this would silently lose the
+// largest state in the country, so the split is explicit here and a state's work
+// unit is a LIST of parts.
+export const DENUE_SPLIT_STATES: Record<string, number[]> = { '15': [1, 2] };
+
+export function denueStateCode(state: string): string {
   const code = state.trim().padStart(2, '0');
   if (!MX_STATE_CODES.includes(code)) throw new Error(`"${state}" is not an INEGI state code (01..32)`);
-  return `${DENUE_BASE}/denue_${code}_csv.zip`;
+  return code;
+}
+
+// Every archive that makes up one state, in order.
+export function denueUrls(state: string): string[] {
+  const code = denueStateCode(state);
+  const parts = DENUE_SPLIT_STATES[code];
+  if (!parts) return [`${DENUE_BASE}/denue_${code}_csv.zip`];
+  return parts.map((p) => `${DENUE_BASE}/denue_${code}_${p}_csv.zip`);
+}
+
+// The first (or only) archive for a state.
+export function denueUrl(state: string): string {
+  return denueUrls(state)[0];
 }
 
 // ---- columns ---------------------------------------------------------------
@@ -324,11 +347,14 @@ export async function findDenueCandidates(product: string, max: number, opts: Mx
 
   for (const state of states) {
     if (result.candidates.length >= max) break;
-    try {
-      const url = denueUrl(state);
-      const { entries } = await listZipEntries(url);
-      const entry = pickZipEntry(entries, DENUE_MEMBER, url);
-      const stats = result.byState[state] ?? (result.byState[state] = { scanned: 0, candidates: 0 });
+    const stats = result.byState[state] ?? (result.byState[state] = { scanned: 0, candidates: 0 });
+    // A state is one or more archives (Estado de México is published as two), and
+    // each part carries its own header row.
+    for (const url of denueUrls(state)) {
+      if (result.candidates.length >= max) break;
+      try {
+        const { entries } = await listZipEntries(url);
+        const entry = pickZipEntry(entries, DENUE_MEMBER, url);
       let idx: Record<string, number> | null = null;
       let cleeAt = -1;
       await streamZipRows({
@@ -355,10 +381,11 @@ export async function findDenueCandidates(product: string, max: number, opts: Mx
         },
         log,
       });
-      log(`mx denue ${product}: state ${state} scanned ${stats.scanned}, candidates ${stats.candidates}`);
-    } catch (e) {
-      result.errors.push(`mx denue ${product} state ${state}: ${e instanceof Error ? e.message : String(e)}`);
+      } catch (e) {
+        result.errors.push(`mx denue ${product} ${url}: ${e instanceof Error ? e.message : String(e)}`);
+      }
     }
+    log(`mx denue ${product}: state ${state} scanned ${stats.scanned}, candidates ${stats.candidates}`);
   }
   log(`mx denue ${product}: scanned ${result.scanned}, candidates ${result.candidates.length} across ${states.length} state(s)`);
   return result;

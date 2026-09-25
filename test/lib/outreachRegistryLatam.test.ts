@@ -15,7 +15,7 @@ import {
 } from '@/lib/outreach/discovery/brCnpjRegistry';
 import {
   toDenueRow, evaluateDenueRow, toDenueLead, denueHeaderIndex, denueDomain, denueUrl,
-  isBigHeadcount, isMxFreeMail, isGenericName, denueSourceKey, findDenueCandidates,
+  isBigHeadcount, isMxFreeMail, isGenericName, denueSourceKey, findDenueCandidates, denueUrls, DENUE_SPLIT_STATES,
   scianForProduct, MX_SCIAN_VERTICAL, MX_PRODUCT_IDS, MX_STATE_CODES,
 } from '@/lib/outreach/discovery/mxDenueRegistry';
 import { accounting, realestate, dental, childcare, physio, vets, taxi, freight, homeservices } from '@/lib/outreach/products';
@@ -254,9 +254,38 @@ describe('zipStream container reader', () => {
     expect(seen[39]).toEqual(['00000039', 'row 39', 'São Paulo']);
   });
 
-  it('refuses to proceed when the server ignores the byte range, rather than downloading gigabytes', async () => {
-    vi.stubGlobal('fetch', vi.fn(async () => new Response(archive, { status: 200, headers: { 'content-length': String(archive.length) } })));
+  // The mirror's CDN ignores Range on a CACHE MISS and honours it once the object
+  // is warm, so a small range is retried before it is given up on.
+  it('retries a small range that came back 200, then gives up rather than downloading gigabytes', async () => {
+    let calls = 0;
+    const flaky = serveZip(archive);
+    vi.stubGlobal('fetch', vi.fn(async (url: string, init?: RequestInit) => {
+      if (init?.method === 'HEAD') return flaky(url, init);
+      calls++;
+      // Cold on the first attempt, warm afterwards.
+      if (calls === 1) return new Response(archive, { status: 200, headers: { 'content-length': String(archive.length) } });
+      return flaky(url, init);
+    }));
+    const { entries } = await listZipEntries('https://example.test/a.zip');
+    expect(entries).toHaveLength(2);
+    expect(calls).toBeGreaterThan(1);
+
+    // A server that never honours ranges is refused, not downloaded.
+    vi.stubGlobal('fetch', vi.fn(async (_u: string, init?: RequestInit) => {
+      if (init?.method === 'HEAD') return new Response(null, { status: 200, headers: { 'content-length': String(archive.length) } });
+      return new Response(archive, { status: 200, headers: { 'content-length': String(archive.length) } });
+    }));
     await expect(listZipEntries('https://example.test/a.zip')).rejects.toThrow(/byte ranges not honoured/);
+  }, 60_000);
+
+  // INEGI serves a URL that no longer exists as HTTP 200 with a 2 KB HTML page
+  // (denue_15_csv.zip does exactly this), which must not surface as a baffling
+  // zip-format error.
+  it('names an HTML error page served as 200 instead of failing on the zip format', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => new Response('<!DOCTYPE html>Esta liga ya no existe', {
+      status: 200, headers: { 'content-length': '2263', 'content-type': 'text/html' },
+    })));
+    await expect(listZipEntries('https://example.test/gone.zip')).rejects.toThrow(/returned an HTML page, not a zip/);
   });
 
   it('rejects an unsupported compression method by name', async () => {
@@ -645,6 +674,20 @@ describe('DENUE header and row parsing', () => {
     expect(MX_STATE_CODES).toHaveLength(32);
     expect(MX_STATE_CODES[0]).toBe('01');
     expect(MX_STATE_CODES[31]).toBe('32');
+  });
+
+  // Estado de México is the most populous state and is published as TWO archives;
+  // denue_15_csv.zip does not exist. Treating it like the others would silently
+  // lose the biggest state in the country.
+  it('knows Estado de México is split into two archives, and every other state is one', () => {
+    expect(denueUrls('15')).toEqual([
+      'https://www.inegi.org.mx/contenidos/masiva/denue/denue_15_1_csv.zip',
+      'https://www.inegi.org.mx/contenidos/masiva/denue/denue_15_2_csv.zip',
+    ]);
+    expect(DENUE_SPLIT_STATES['15']).toEqual([1, 2]);
+    for (const s of MX_STATE_CODES.filter((c) => c !== '15')) expect(denueUrls(s), s).toHaveLength(1);
+    // Every state resolves to at least one archive, so none is silently skipped.
+    expect(MX_STATE_CODES.flatMap(denueUrls)).toHaveLength(33);
   });
 });
 

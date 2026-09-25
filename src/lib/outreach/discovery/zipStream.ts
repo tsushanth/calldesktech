@@ -49,7 +49,7 @@ const EOCD_SIG = 0x06054b50;
 const CD_SIG = 0x02014b50;
 const LOCAL_SIG = 0x04034b50;
 
-async function fetchRange(url: string, from: number, to: number, timeoutMs: number): Promise<Buffer> {
+async function fetchRangeOnce(url: string, from: number, to: number, timeoutMs: number): Promise<Buffer> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
@@ -59,8 +59,8 @@ async function fetchRange(url: string, from: number, to: number, timeoutMs: numb
       redirect: 'follow',
     });
     // 206 is what a range request should return; a 200 means the server ignored
-    // the range and is sending the whole archive, which for a 2 GB file would be
-    // a disaster, so it is refused rather than silently tolerated.
+    // the range and is sending the WHOLE archive, which for a 2 GB file would be
+    // a disaster. The body is cancelled at once rather than read.
     if (res.status !== 206) {
       try { await res.body?.cancel(); } catch { /* already closed */ }
       throw new Error(`${url}: byte ranges not honoured (HTTP ${res.status}); cannot read this archive without downloading it`);
@@ -71,6 +71,29 @@ async function fetchRange(url: string, from: number, to: number, timeoutMs: numb
   }
 }
 
+// The CDN in front of the CNPJ mirror ignores Range on a CACHE MISS: the first
+// request for a cold object is streamed straight from origin with a 200, and only
+// once it is cached do ranges work. Measured on the 563 MB Empresas0.zip, where
+// the first tail read answers 200 and the second and third answer 206. So a 200
+// on a small range is retried rather than treated as fatal — by then the object is
+// warm. The body of the 200 is never read, so the retry costs nothing.
+const RANGE_RETRIES = 4;
+
+async function fetchRange(url: string, from: number, to: number, timeoutMs: number): Promise<Buffer> {
+  let last: unknown;
+  for (let attempt = 0; attempt < RANGE_RETRIES; attempt++) {
+    try {
+      return await fetchRangeOnce(url, from, to, timeoutMs);
+    } catch (e) {
+      last = e;
+      if (!(e instanceof Error) || !/byte ranges not honoured/.test(e.message)) throw e;
+      // Give the CDN a moment to finish caching the object it just streamed.
+      await new Promise((r) => setTimeout(r, 1500 * (attempt + 1)));
+    }
+  }
+  throw last instanceof Error ? last : new Error(String(last));
+}
+
 export async function zipSize(url: string, timeoutMs = 60_000): Promise<number> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
@@ -79,6 +102,14 @@ export async function zipSize(url: string, timeoutMs = 60_000): Promise<number> 
     if (!res.ok) throw new Error(`${url} unavailable (HTTP ${res.status})`);
     const len = Number(res.headers.get('content-length'));
     if (!Number.isFinite(len) || len <= 0) throw new Error(`${url}: no content-length, so the central directory cannot be located`);
+    // INEGI serves a MISSING FILE as HTTP 200 with a 2 KB "Esta liga ya no existe"
+    // HTML page (denue_15_csv.zip does exactly this). Without this check that
+    // arrives later as a baffling "end-of-central-directory not found", so the
+    // real cause — a URL that has moved — is named here instead.
+    const type = (res.headers.get('content-type') ?? '').toLowerCase();
+    if (type.includes('text/html') || type.includes('application/xhtml')) {
+      throw new Error(`${url}: the server returned an HTML page, not a zip (the file has probably moved or been split — check the published file names)`);
+    }
     return len;
   } finally {
     clearTimeout(timer);
