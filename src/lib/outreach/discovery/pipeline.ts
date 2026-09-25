@@ -29,6 +29,8 @@ import { allRgeLeads } from './frRgeRegistry';
 import { allCqcLeads } from './ukCqcDirectory';
 import { allDvsaLeads } from './ukDvsaOperators';
 import { allBrregLeads } from './noBrregEnheter';
+import { allBrCnpjLeads, BR_PRODUCT_IDS } from './brCnpjRegistry';
+import { allDenueLeads, MX_PRODUCT_IDS } from './mxDenueRegistry';
 import { findDentalNppesCandidates } from './dentalNppes';
 import { allChildcareLeads, findChildcareCandidates } from './childcareUs';
 import { discoverWebsite } from './websiteDiscovery';
@@ -821,6 +823,36 @@ const BULK_REGISTRY_SOURCES: Record<string, { products: string[]; load: (product
   'no-brreg': {
     products: ['dental', 'homeservices', 'freight', 'towing', 'insurance', 'homecare'],
     load: (p, isKnown, log) => allBrregLeads(p.id, { isKnown, log }),
+  },
+
+  // LATIN AMERICA. Both are far too big for one run, so they are WORK-UNIT
+  // based and the unit is chosen by environment variable, read here rather than
+  // threaded through the shared `load` signature:
+  //   br-cnpj  FILE=1 (which Estabelecimentos file, 0-9), START_ROW, MAX_ROWS,
+  //            SKIP_NAME_JOIN=1 to skip the Empresas legal-name pass
+  //   mx-denue STATES=09,15 (INEGI state codes; default all 32)
+  // See brCnpjRegistry.ts / mxDenueRegistry.ts for the per-run cost of each.
+  'br-cnpj': {
+    products: BR_PRODUCT_IDS,
+    load: (p, isKnown, log) => allBrCnpjLeads(p.id, {
+      isKnown,
+      log,
+      fileIndex: process.env.FILE ? Number(process.env.FILE) : undefined,
+      startRow: process.env.START_ROW ? Number(process.env.START_ROW) : undefined,
+      maxRows: process.env.MAX_ROWS ? Number(process.env.MAX_ROWS) : undefined,
+      maxCompressedBytes: process.env.MAX_COMPRESSED_BYTES ? Number(process.env.MAX_COMPRESSED_BYTES) : undefined,
+      skipNameJoin: process.env.SKIP_NAME_JOIN === '1',
+    }),
+  },
+  'mx-denue': {
+    products: MX_PRODUCT_IDS,
+    load: (p, isKnown, log) => allDenueLeads(p.id, {
+      isKnown,
+      log,
+      states: process.env.STATES ? process.env.STATES.split(',').map((s) => s.trim()).filter(Boolean) : undefined,
+      maxRowsPerState: process.env.MAX_ROWS ? Number(process.env.MAX_ROWS) : undefined,
+      maxCompressedBytes: process.env.MAX_COMPRESSED_BYTES ? Number(process.env.MAX_COMPRESSED_BYTES) : undefined,
+    }),
   },
 };
 
