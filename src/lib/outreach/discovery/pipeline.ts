@@ -65,6 +65,11 @@ export interface RunOptions {
   researchLimit?: number;
   // Kill switch: polled between stages and inside loops; when true the run winds down cleanly.
   shouldStop?: () => boolean;
+  // Wall-clock budget for the whole run. The HTTP layer caps a run at its
+  // maxDuration and passes no shouldStop, so an overrun used to be killed
+  // mid-stage, leaving the run row stuck at 'running' with finished_at null.
+  // Defaults to OUTREACH_RUN_DEADLINE_SECONDS.
+  deadlineMs?: number;
   // Selects table names, offer facts/prompts/signature, and scoring vocabulary
   // (see ../products.ts). Defaults to calldesk, so every existing caller that
   // doesn't pass this keeps its exact prior behavior.
@@ -165,8 +170,15 @@ export async function runDiscovery(db: Db, opts: RunOptions = {}): Promise<RunSu
   const dryRun = !!opts.dryRun;
   const enrichLimit = opts.enrichLimit ?? 25;
   const draftLimit = opts.draftLimit ?? 10;
+  // Stop a little before the caller's own timeout so the remaining stages unwind
+  // and the run row is finalised. Each draft is committed (message row + the lead's
+  // status flip) before the next one starts, so whatever was already written stays
+  // written when the deadline trips.
+  const deadline = Date.now() + (opts.deadlineMs
+    ?? (Number(process.env.OUTREACH_RUN_DEADLINE_SECONDS) || 540) * 1000);
   const stop = () => {
     if (opts.shouldStop?.()) summary.stopped = true;
+    if (Date.now() >= deadline) summary.stopped = true;
     return summary.stopped;
   };
 
@@ -1218,7 +1230,9 @@ async function stageDraft(db: Db, summary: RunSummary, dryRun: boolean, limit: n
     .eq('status', 'new').eq('contact_status', 'found').eq('region_blocked', false).gte('score', MIN_DRAFT_SCORE), product);
   // With research on, only researched, non-low-fit leads get drafted.
   if (researchOn) query = query.not('researched_at', 'is', null).in('fit', ['high', 'medium', 'unclear']);
-  const { data } = await query.order('score', { ascending: false }).limit(200);
+  // Headroom over `limit`: rows can be dropped below it by the dedupe/suppression
+  // filters below, and a short page would otherwise cap a raised draftLimit.
+  const { data } = await query.order('score', { ascending: false }).limit(Math.max(200, limit + 100));
   const leads = (data ?? []) as LeadRow[];
   if (!leads.length) return;
 
@@ -1232,29 +1246,40 @@ async function stageDraft(db: Db, summary: RunSummary, dryRun: boolean, limit: n
   const sup = (supData ?? []) as { email: string }[];
   const suppressed = new Set(sup.map((s) => String(s.email).toLowerCase()));
 
-  let made = 0;
-  for (const lead of leads) {
-    if (made >= limit || stop()) break;
+  // Filter the whole candidate list up front, claiming each lead id and address as we
+  // go, so the concurrent pass below can never draft the same recipient twice.
+  const queued = leads.filter((lead) => {
     const email = (lead.contact_email ?? '').toLowerCase();
-    if (!email || drafted.has(lead.id) || emailed.has(email) || suppressed.has(email)) continue;
-    try {
+    if (!email || drafted.has(lead.id) || emailed.has(email) || suppressed.has(email)) return false;
+    drafted.add(lead.id);
+    emailed.add(email);
+    return true;
+  });
+
+  // Drafting is one model call per lead. Run a bounded number at a time so a larger
+  // draftLimit still fits the run's wall-clock budget instead of serialising past it.
+  const concurrency = Math.max(1, Math.min(16, Number(process.env.OUTREACH_DRAFT_CONCURRENCY) || 6));
+  let made = 0;
+  for (let i = 0; made < limit && i < queued.length && !stop(); i += concurrency) {
+    const batch = queued.slice(i, i + Math.min(concurrency, limit - made));
+    const settled = await Promise.allSettled(batch.map(async (lead) => {
       const draft = await draftAgencyEmail({
         name: lead.company_name, domain: lead.domain, tier: lead.tier, location: lead.location, description: lead.description,
         dossier: lead.research ?? null, product,
       });
       const { error } = await db.from(messagesTable(product)).insert({
-        lead_id: lead.id, to_email: email, subject: draft.subject, body_text: draft.body, status: 'draft',
+        lead_id: lead.id, to_email: (lead.contact_email ?? '').toLowerCase(), subject: draft.subject, body_text: draft.body, status: 'draft',
         sources: lead.research?.sources ?? [],
         translation_subject: draft.translationSubject ?? null, translation_body: draft.translationBody ?? null,
         ...productInsertFields(product),
       });
       if (error) throw new Error(error.message);
       await db.from(leadsTable(product)).update({ status: 'report_generated', updated_at: new Date().toISOString() }).eq('id', lead.id);
-      emailed.add(email);
-      made++;
-      summary.draftsCreated++;
-    } catch (error) {
-      summary.errors.push(`draft ${lead.company_name}: ${error instanceof Error ? error.message : String(error)}`);
+    }));
+    for (let j = 0; j < batch.length; j++) {
+      const outcome = settled[j];
+      if (outcome.status === 'fulfilled') { made++; summary.draftsCreated++; }
+      else summary.errors.push(`draft ${batch[j].company_name}: ${outcome.reason instanceof Error ? outcome.reason.message : String(outcome.reason)}`);
     }
   }
 }

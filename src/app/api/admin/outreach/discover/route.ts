@@ -19,8 +19,13 @@ export async function POST(request: NextRequest) {
   const dryRun = body.dryRun === true;
   const clamp = (n: unknown, max: number, fallback: number) =>
     Math.min(max, Math.max(0, Number.isFinite(Number(n)) ? Math.floor(Number(n)) : fallback));
-  const enrichLimit = clamp(body.enrichLimit, 40, 10);
-  const draftLimit = clamp(body.draftLimit, 20, 10);
+  // Limits are env-tunable so throughput can be changed without a deploy. The ceiling
+  // has to clear what the run can actually finish inside OUTREACH_RUN_DEADLINE_SECONDS,
+  // otherwise the extra allowance is simply never reached.
+  const enrichMax = Number(process.env.OUTREACH_ENRICH_LIMIT_MAX) || 200;
+  const draftMax = Number(process.env.OUTREACH_DRAFT_LIMIT_MAX) || 600;
+  const enrichLimit = clamp(body.enrichLimit, enrichMax, Number(process.env.OUTREACH_ENRICH_LIMIT) || 25);
+  const draftLimit = clamp(body.draftLimit, draftMax, Number(process.env.OUTREACH_DRAFT_LIMIT) || 100);
 
   const encoder = new TextEncoder();
   const stream = new ReadableStream({
