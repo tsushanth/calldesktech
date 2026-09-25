@@ -1,6 +1,10 @@
 // Pure helpers for scripts/generate-vertical-sample.mjs (no I/O, unit-tested in test/lib/sampleGeneration.test.ts).
 
-export const VERTICALS = ['freight', 'homeservices', 'dental', 'insurance', 'towing', 'septic', 'homecare', 'bailbonds'];
+export const VERTICALS = [
+  'freight', 'homeservices', 'dental', 'insurance', 'towing', 'septic', 'homecare', 'bailbonds',
+  // batch 3
+  'childcare', 'accounting', 'realestate', 'lodging', 'funeral', 'physio', 'taxi', 'vets',
+];
 // HARD CAP on real sample calls for this task. Deliberately a constant, not a flag: raising it means
 // editing this line (or the counter file out/.sample-calls-used) on purpose.
 export const MAX_REAL_CALLS = 6;

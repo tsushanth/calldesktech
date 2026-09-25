@@ -41,6 +41,14 @@ const VERTICALS = [
   { key: 'septic', label: 'Septic' },
   { key: 'homecare', label: 'Home care' },
   { key: 'bailbonds', label: 'Bail bonds' },
+  { key: 'childcare', label: 'Child care' },
+  { key: 'accounting', label: 'Accounting' },
+  { key: 'realestate', label: 'Real estate' },
+  { key: 'lodging', label: 'Guesthouses & campgrounds' },
+  { key: 'funeral', label: 'Funeral homes' },
+  { key: 'physio', label: 'Physio & chiropractic' },
+  { key: 'taxi', label: 'Taxi & private hire' },
+  { key: 'vets', label: 'Veterinary' },
 ] as const;
 const verticalLabel = (product?: string | null) => VERTICALS.find((v) => v.key && product === `calldesk:${v.key}`)?.label ?? null;
 

@@ -21,12 +21,22 @@ one run per day - enrichment <= 30 and drafts <= 10 per run - stops drafting at 
 `NEXT_PUBLIC_SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `OUTREACH_LLM=cli`, optional `OUTREACH_ENRICH_LIMIT`,
 `OUTREACH_DRAFT_LIMIT`, `OUTREACH_SEARCH_QUERIES_PER_DAY` (max 6), `RESEND_API_KEY` + `OUTREACH_ALERT_EMAIL` for failure emails.
 
-## Customer-discovery verticals (freight, homeservices, dental, insurance, towing, septic, homecare, bailbonds)
+## Customer-discovery verticals (16)
+`freight`, `homeservices`, `dental`, `insurance`, `towing`, `septic`, `homecare`, `bailbonds`, and batch 3:
+`childcare`, `accounting`, `realestate`, `lodging`, `funeral`, `physio`, `taxi`, `vets`.
 Separate products on the same shared tables (`product` = `calldesk:<vertical>`), each selected with `PRODUCT=<vertical>`.
 They produce short research-ask drafts (not sales pitches) into the same review queue; sending is still a manual click.
 - `freight`: FMCSA open data (Socrata `6eyk-hxee` active broker authority joined to census `az4n-8mr2` for the published email). Tunables: `OUTREACH_FREIGHT_MAX_PER_RUN` (default 30, max 60), `OUTREACH_FREIGHT_PAGE_SIZE` (default 150), optional free `SOCRATA_APP_TOKEN`.
 - `homeservices` / `dental` / `insurance`: LLM web search + homepage verification. `OUTREACH_VERTICAL_QUERIES_PER_DAY` (default 2, max 6).
 - `bailbonds`: same LLM web search + homepage verification as above (rejects directories/aggregators; drafts carry a no-legal-advice rule).
+- `childcare`: US state child care LICENSING data, three sources, all with a contact email on most rows (`discovery/childcareUs.ts`):
+  - `tx-childcare`: Texas HHSC (`data.texas.gov/bc5r-88dy`). `operation_status='Y'`, and only `Licensed Center` + `Licensed Child-Care Home` — `Listed Family Home`, `Registered Child-Care Home`, `General Residential Operation` and `Child Placing Agency` are all out of scope.
+  - `wa-childcare`: Washington DCYF (`data.wa.gov/was8-3ni8`). `latestoperatingstatus='Active'`; all three programme types kept. The phone column is nearly empty (2,915 of 3,160 rows), so most WA leads have an email and no phone.
+  - `pa-childcare`: Pennsylvania DHS (`data.pa.gov/ajn5-kaxt`). Child Care Center / Family Child Care Home / Group Child Care Home; `Other` is skipped (no licence number, no describable type).
+  - One state per run, rotating by hourly slot weighted by pool size (TX and PA two slots in five each, WA one). Also bulk-importable: `PRODUCT=childcare SOURCE=tx-childcare DRY_RUN=1 ./node_modules/.bin/tsx bulk-import.ts`.
+  - FREE MAIL, deliberately different here: ~41% of usable Texas rows and ~64% of Pennsylvania's publish a gmail/yahoo/aol address, because a small or home-based centre really does run on one, and those are the best-fitting leads in this vertical. So unlike `ca-cdph` (which discards a free-mail address), childcare KEEPS it as the contact. `registryLeadRow` still leaves `domain` null for a free-mail address, so nothing downstream treats it as a verified business domain. Scored -8, not excluded.
+  - National chains and large multi-site operators (KinderCare, Bright Horizons, Goddard, Right At School, YMCA, Boys & Girls Club, …) are skipped outright — 32% of Washington's active rows.
+- `accounting` / `realestate` / `lodging` / `funeral` / `physio` / `taxi` / `vets`: vertical configs, plists and state dirs only. **No discovery source is wired up yet**, so a run for one of these finds nothing until a source is added (add it to `stageRegistry`/`verticalSearch` the way `childcare` was). They exist so the copy, scoring and queue filtering are in place first.
 - `towing` / `septic` / `homecare`: public REGISTRIES with no email. Ingest, then enrich resolves the website and a published email:
   - towing: Washington DOL company registrations (Socrata `data.wa.gov/ucdg-xgbj`, type "Registered Tow Truck Operator", active). Texas TDLR was rejected: its tow licences are per-individual driver licences with no phone/address.
   - septic: Florida DOH septic contractor listing (static HTML, parsed once per run, one lead per business authorization) and Austin liquid waste haulers (Socrata `data.austintexas.gov/pbam-er2r`).
@@ -34,8 +44,10 @@ They produce short research-ask drafts (not sales pitches) into the same review 
   - Registry -> website: the LLM proposes a site by name + city/state; it is kept only if its own pages show the business name AND its registry phone or city+state. Nothing verified means `contact_status='none'` and no draft; the registry phone stays in `signals.registry.phone` for a human call.
   - Tunables: `OUTREACH_REGISTRY_MAX_PER_RUN` (default 12, max 30 new registry leads per run), `OUTREACH_WEBSEARCH_MAX_PER_RUN` (default 12, max 30 LLM website lookups per run; the rest wait for the next run).
 - State dir `~/.calldesk-<vertical>-outreach/` (needs its own `env`, copy of the calldesk one). Templates: `com.calldesk.outreach-<vertical>.plist.template` (not installed by anything).
-- Stagger (local): freight/homeservices/dental/insurance at 10:07..11:37 as in their templates; towing 12:07, septic 12:37, homecare 13:07, bailbonds 13:37.
+- Stagger (local): freight/homeservices/dental/insurance at 10:07..11:37 as in their templates; towing 12:07, septic 12:37, homecare 13:07, bailbonds 13:37, childcare 14:07, accounting 14:37, realestate 15:07, lodging 15:37, funeral 16:07, physio 16:37, taxi 17:07, vets 17:37.
+- Staging a vertical on the mini: `./setup-vertical.sh <vertical>` creates `~/.calldesk-<vertical>-outreach/env` (a copy of an existing vertical's env, never overwritten) and renders its plist into `~/Library/LaunchAgents/`. It does NOT load the agent or run a pass — it prints the `launchctl bootstrap` / `kickstart` and dry-run commands for you to run yourself.
 - Dry run: `PRODUCT=freight DRY_RUN=1 ./node_modules/.bin/tsx run.ts`
+- Draft language: these prompts write in English unless the lead's location maps to a target language (`discovery/../language.ts` -> `agencyDraft.ts` adds "Target language: X"), in which case the whole email is written in that language with the pilot terms unchanged in meaning, plus an English back-translation (`translationSubject`/`translationBody`) for review. Covered: ES, PT, FR (France) and fr-CA (Quebec), NO, IT, NL, PL, SV, ID, TR, VI, TH, JA, KO. Estonia and Singapore are explicitly English.
 - Follow-ups default to 1 for these products (`OUTREACH_MAX_FOLLOWUPS` overrides). The agency research stage is skipped for them.
 
 ## International registry sources, and the hold on them (`bulk-import.ts`, `release-country.ts`)
