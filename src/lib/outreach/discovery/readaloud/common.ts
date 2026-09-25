@@ -83,6 +83,8 @@ const GENERIC_HOSTS = [
   'play.google.com', 'google.com', 'goo.gl', 'bit.ly', 'dev.to', 'hashnode.dev', 'itch.io', 'patreon.com', 'ko-fi.com', 'buymeacoffee.com',
   'sourceforge.net', 'codeberg.org', 'about.me', 'dropbox.com', 'drive.google.com', 'docs.google.com', 'apple.com', 'microsoft.com',
   'jobs.ashbyhq.com', 'ashbyhq.com', 'lever.co', 'greenhouse.io', 'workable.com', 'wellfound.com', 'angel.co', 'news.ycombinator.com',
+  'framer.app', 'framer.website', 'framer.ai', 'webflow.io', 'lovable.app', 'bolt.host', 'streamlit.app', 'replit.dev', 'super.site', 'softr.app',
+  'gumroad.com', 'visualstudio.com', 'apps.shopify.com', 'typedream.app', 'mintlify.app', 'surge.sh', 'deno.dev', 'workers.dev', 'azurewebsites.net',
 ];
 
 // The speech-API vendors we price against, and ourselves: never leads.
@@ -109,10 +111,15 @@ export function orgDomain(urlOrHost: string | null | undefined): string | null {
   if (!/^https?:\/\//i.test(raw)) raw = `https://${raw}`;
   let host = hostOf(raw);
   if (!host || !host.includes('.') || /^\d+\.\d+\.\d+\.\d+$/.test(host)) return null;
-  // Careers/docs/blog/app subdomains belong to the company's main domain.
-  const bare = host.replace(/^(careers|jobs|join|apply|work|hiring|boards|docs|doc|blog|app|dashboard|console|beta|try|help|support|developers?|api|web|en)\./, '');
-  if (bare.includes('.') && !/^(co|com|org|net|ac|gov)\.[a-z]{2}$/.test(bare)) host = bare;
   if (isGenericHost(host)) return null;
+  // Subdomains (careers., docs., blog., app., a product's own subdomain) belong to
+  // the company's registrable domain. Without a public-suffix list: keep three
+  // labels for two-part country suffixes (co.uk, com.br, co.jp), else two.
+  const labels = host.split('.');
+  if (labels.length >= 3) {
+    const twoPartSuffix = labels[labels.length - 1].length === 2 && labels[labels.length - 2].length <= 3;
+    host = labels.slice(twoPartSuffix ? -3 : -2).join('.');
+  }
   return host;
 }
 

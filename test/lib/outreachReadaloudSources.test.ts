@@ -43,6 +43,11 @@ describe('readaloud common: organisation-only filters', () => {
     expect(orgDomain('https://blog.vapi.ai/post')).toBe('vapi.ai');
     expect(orgDomain('acme.co.uk')).toBe('acme.co.uk');
     expect(orgDomain('https://app.co.uk')).toBe('app.co.uk'); // never strip down to a bare public suffix
+    expect(orgDomain('https://coaching.cerebrium.ai/')).toBe('cerebrium.ai');
+    expect(orgDomain('https://www.klubi.com.br/')).toBe('klubi.com.br');
+    expect(orgDomain('https://shop.acme.com.au')).toBe('acme.com.au');
+    expect(orgDomain('https://biggest-decisions-702764.framer.app')).toBeNull();
+    expect(orgDomain('https://marketplace.visualstudio.com/items?x=1')).toBeNull();
     for (const g of ['https://github.com/acme', 'https://acme.github.io', 'https://medium.com/@x', 'https://x.vercel.app', 'https://wordpress.org/plugins/x', 'https://jobs.ashbyhq.com/vapi', 'http://10.0.0.1', '', null]) {
       expect(orgDomain(g as string)).toBeNull();
     }
