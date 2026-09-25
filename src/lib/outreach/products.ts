@@ -173,6 +173,9 @@ const READALOUD_SCORE_VOCABULARY: ScoreVocabularyRule[] = [
   { pattern: /realtime|real-time|streaming/, delta: 10, reason: 'realtime/streaming voice product' },
   { pattern: /telephony|voice agent|ivr|phone agent|call center|contact center/, delta: 10, reason: 'telephony/voice-agent or IVR-replacement product' },
   { pattern: /dubbing|localization|localisation|e-?learning|narration|accessibility|screen reader/, delta: 8, reason: 'dubbing/localization, accessibility, or e-learning narration use case' },
+  // Added with the bulk sources (readaloud/import.ts), whose descriptions are
+  // one-liners and plugin summaries: a speech product said in plain words.
+  { pattern: /text[- ]to[- ]speech|speech[- ]to[- ]text|speech recognition|\btts\b|\basr\b|voice ai|read aloud/, delta: 5, reason: 'speech synthesis/recognition product' },
   { pattern: /enterprise/, delta: -5, reason: 'enterprise focus (harder to switch)' },
 ];
 

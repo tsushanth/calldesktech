@@ -43,6 +43,8 @@ import { discoverWebsite } from './websiteDiscovery';
 import { INTL_HOLD_REASON, intlCountry, type IntlHold, type RegistryLead, type RegistryResult } from './registryCommon';
 import { calldesk, leadsTable, runsTable, messagesTable, suppressionsTable, scopeToProduct, productInsertFields, type ProductConfig } from '../products';
 import type { FormOutreachStatus, FormAttempt } from '../formSubmit';
+import { sumReadaloudAdjust } from './readaloud/import';
+import type { RaSourceFacts } from './readaloud/common';
 
 // The daily discovery harness. One call = one full pass:
 //   directory -> dedupe against existing leads -> enrich (domain, contact)
@@ -136,7 +138,7 @@ interface LeadRow {
   score: number | null;
   enriched_at: string | null;
   research?: Dossier | null;
-  signals: { reasons: string[]; techPlatforms: string[]; registry?: RegistryMeta; intlHold?: IntlHold; contactForm?: ContactForm; formOutreach?: FormOutreach } | null;
+  signals: { reasons: string[]; techPlatforms: string[]; registry?: RegistryMeta; intlHold?: IntlHold; contactForm?: ContactForm; formOutreach?: FormOutreach; readaloud?: { sources?: Record<string, RaSourceFacts> } } | null;
 }
 
 // Registry facts kept on the lead's `signals` (never put in the draft-visible
@@ -1045,6 +1047,15 @@ async function stageEnrich(
       if (!seen.has(row.id) && row.status === 'new' && !row.domain && !row.enriched_at && row.signals?.registry) entries = [...entries, { row, slug: null }];
     }
   }
+  // readaloud leads added by the bulk sources (readaloud/import.ts) arrive with a
+  // domain but no contact yet: pick up any not enriched so far, so the daily run
+  // finds their website's contact email (best score first, within `limit`).
+  if (product.id === 'readaloud') {
+    const seen = new Set(entries.map((e) => e.row.id));
+    for (const row of index.rows()) {
+      if (!seen.has(row.id) && row.status === 'new' && row.domain && !row.enriched_at && row.signals?.readaloud) entries = [...entries, { row, slug: null }];
+    }
+  }
   const rawWeb = Number(process.env.OUTREACH_WEBSEARCH_MAX_PER_RUN);
   const webCap = Math.min(30, Math.max(0, Number.isFinite(rawWeb) && rawWeb >= 0 && process.env.OUTREACH_WEBSEARCH_MAX_PER_RUN ? Math.floor(rawWeb) : 12));
   let webLookups = 0;
@@ -1132,8 +1143,11 @@ async function stageEnrich(
       };
       const reg = lead.signals?.registry;
       const scored = scoreLead({ tier: lead.tier, location: lead.location, description: reg ? `${lead.company_name} ${lead.description ?? ''}` : lead.description }, evidence, product);
-      const rescored = reg ? Math.max(0, Math.min(100, scored.score + reg.adjust)) : scored.score;
-      const reasons = reg ? [...scored.reasons, ...reg.reasons] : scored.reasons;
+      // Source facts from the readaloud bulk sources (competitor customer, job
+      // signal, installs...) are re-applied on every rescore, like registry adjusts.
+      const ra = lead.signals?.readaloud ? sumReadaloudAdjust(lead.signals) : null;
+      const rescored = Math.max(0, Math.min(100, scored.score + (reg?.adjust ?? 0) + (ra?.adjust ?? 0)));
+      const reasons = [...scored.reasons, ...(reg?.reasons ?? []), ...(ra?.reasons ?? [])];
 
       if (dryRun) continue;
       const suppressed = contact.email
@@ -1146,7 +1160,7 @@ async function stageEnrich(
         contact_source_url: contact.sourceUrl,
         enriched_at: now,
         score: rescored,
-        signals: { reasons, techPlatforms, ...(reg ? { registry: reg } : {}), ...(contact.form ? { contactForm: contact.form } : {}), ...(lead.signals?.formOutreach ? { formOutreach: lead.signals.formOutreach } : {}) },
+        signals: { reasons, techPlatforms, ...(reg ? { registry: reg } : {}), ...(lead.signals?.readaloud ? { readaloud: lead.signals.readaloud } : {}), ...(contact.form ? { contactForm: contact.form } : {}), ...(lead.signals?.formOutreach ? { formOutreach: lead.signals.formOutreach } : {}) },
         ...(suppressed ? { status: 'dead' } : {}),
       }).eq('id', lead.id);
       if (error) summary.errors.push(`enrich ${lead.company_name}: ${error.message}`);
