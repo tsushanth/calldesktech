@@ -849,7 +849,7 @@ describe('the international hold, for every new source', () => {
     expect(bulkRegistrySourcesFor(childcare)).toEqual(expect.arrayContaining(['tx-childcare', 'qc-cpe', 'sg-ecda']));
     expect(bulkRegistrySourcesFor(calldesk)).toEqual(expect.arrayContaining(['no-brreg', 'ee-agencies']));
     // The new Norwegian verticals reach Norway through the existing source id.
-    for (const p of [physio, taxi, accounting, vets, realestate]) expect(bulkRegistrySourcesFor(p)).toEqual(['no-brreg']);
+    for (const p of [physio, taxi, accounting, vets, realestate]) expect(bulkRegistrySourcesFor(p)).toContain('no-brreg');
     // And the existing US sources are untouched.
     expect(BULK_REGISTRY_SOURCE_IDS).toEqual(expect.arrayContaining(['fl-dfs', 'nyc-dob', 'va-dpor', 'ar-clb', 'ca-cdph', 'fr-rge', 'uk-cqc', 'uk-dvsa']));
   });

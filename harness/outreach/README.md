@@ -53,6 +53,8 @@ They produce short research-ask drafts (not sales pitches) into the same review 
 ## International registry sources, and the hold on them (`bulk-import.ts`, `release-country.ts`)
 Non-US public registers feed the verticals and — new — the agency/partner audience (`PRODUCT=calldesk`, the
 same pitch the Retell directory serves domestically). They are **bulk-import only** — deliberately not in the
+
+Six non-US public registers feed the same verticals. They are **bulk-import only** — deliberately not in the
 per-run rotation, because every lead they produce is on hold and cannot be drafted or sent, so giving them a
 daily slot would only starve the US sources that actually convert.
 
@@ -106,8 +108,43 @@ to disk. The walk is bounded by a decompressed-byte budget, so a default run cov
 of the name-ordered array rather than the whole register, and says so in the run's errors. Raise
 `byteBudget` to go further.
 
+| `no-brreg` | dental, homeservices, freight, towing, insurance, homecare | Norwegian Enhetsregisteret JSON API (NLOD, no key) | email on ~7%, phone on ~40% |
+| `br-cnpj` | accounting, childcare, dental, freight, homeservices, physio, realestate, taxi, vets | Receita Federal CNPJ open data, whole Brazilian company register (10 huge zips) | email on ~46-72% of active head offices, phone on most — but **42-70% of those emails are free-mail** |
+| `mx-denue` | accounting, childcare, dental, realestate, vets | INEGI DENUE, one zip per state (32) | email is required, so 100% by construction; website on many |
+
     PRODUCT=homeservices SOURCE=fr-rge DRY_RUN=1 ./node_modules/.bin/tsx bulk-import.ts   # counts only
     PRODUCT=homeservices SOURCE=fr-rge ./node_modules/.bin/tsx bulk-import.ts             # insert, all on hold
+
+### Brazil and Mexico are WORK-UNIT based (they are far too big for one run)
+Neither can be done in one pass, and **nothing is ever written to disk** — every archive is inflated straight
+off the network and parsed row by row, so a run needs no free space at all. The work unit is chosen with
+environment variables, which `bulk-import.ts` passes through:
+
+    # BRAZIL — one Estabelecimentos file (0-9) per run, per vertical.
+    # FILE=1..9 is ~342 MB compressed / ~1.08 GB of CSV / ~5.4M rows; FILE=0 is the ~2.1 GB tail.
+    PRODUCT=dental SOURCE=br-cnpj FILE=1 DRY_RUN=1 ./node_modules/.bin/tsx bulk-import.ts
+    PRODUCT=dental SOURCE=br-cnpj FILE=1 ./node_modules/.bin/tsx bulk-import.ts
+    # Resume a file that ran out of time: nextRow from the previous run's output.
+    PRODUCT=dental SOURCE=br-cnpj FILE=1 START_ROW=3200000 ./node_modules/.bin/tsx bulk-import.ts
+    # Options: MAX_ROWS caps the rows read, MAX_COMPRESSED_BYTES caps the download,
+    # SKIP_NAME_JOIN=1 skips the Empresas pass (much faster; loses the rows that have
+    # no nome fantasia, and loses the porte/capital size filter).
+
+    # MEXICO — one or more states per run (INEGI codes 01..32; default all 32).
+    PRODUCT=dental SOURCE=mx-denue STATES=09,15 DRY_RUN=1 ./node_modules/.bin/tsx bulk-import.ts
+    PRODUCT=dental SOURCE=mx-denue STATES=09,15 ./node_modules/.bin/tsx bulk-import.ts
+
+Rough cost per run on the mini: a Brazilian file is ~3 minutes to stream, and the Empresas legal-name join adds
+up to ~9 more (it streams the range-partitioned company files, ~1.4 GB compressed, for the names and the
+`porte_empresa`/`capital_social` size filter), so budget ~12-15 minutes per file per vertical and keep it under
+the 40-minute deadline. Mexico is ~1 minute for a small state and ~3 for CDMX. Full coverage is
+10 files x 9 verticals for Brazil and 32 states x 5 verticals for Mexico, so it is a background campaign run a
+few units at a time, not a single job.
+
+**Brazil's contador problem.** A Brazilian company routinely registers its ACCOUNTANT's email as its CNPJ
+contact address, and one accountant's address can sit on hundreds of unrelated companies. So `br-cnpj` rejects
+any email whose domain reads as an accounting office for every vertical **except** `accounting`, where that
+domain is the business we actually want.
 
 ### THE HOLD — what actually stops an international email going out
 Every lead from these sources is stored `region_blocked = true` with
