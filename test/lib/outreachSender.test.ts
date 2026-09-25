@@ -109,6 +109,21 @@ describe('sendApprovedMessage sample integration', () => {
     delete process.env.OUTREACH_REPLYTO_EMAIL;
   });
 
+  it('readaloud sends from its own address, replies to its own inbox, and uses its own cap', async () => {
+    process.env.OUTREACH_FROM_EMAIL_READALOUD = 'ReadAloud <hello@send.readaloudai.org>';
+    process.env.OUTREACH_REPLYTO_EMAIL_READALOUD = 'hello@readaloudai.org';
+    process.env.OUTREACH_POSTAL_ADDRESS_KK = '1 Main St'; process.env.OUTREACH_DAILY_CAP_READALOUD = '2';
+    getPublishedSample.mockResolvedValue(null);
+    expect(await sendApprovedMessage(fakeSupabase('readaloud', false, undefined, 2).client, MSG_ID)).toMatchObject({ ok: false });
+    expect(await sendApprovedMessage(fakeSupabase('readaloud', false, undefined, 1).client, MSG_ID)).toMatchObject({ ok: true });
+    const args = sendEmail.mock.calls[0][0] as { from: string; replyTo: string; html: string; apiKey?: string };
+    expect(args.from).toBe('ReadAloud <hello@send.readaloudai.org>');
+    expect(args.replyTo).toBe('hello@readaloudai.org');
+    expect(args.html).toContain('readaloudai.org');
+    expect(args.apiKey).toBeUndefined();
+    delete process.env.OUTREACH_DAILY_CAP_READALOUD;
+  });
+
   it('fails a message whose recipient domain cannot receive mail, without sending', async () => {
     domainCanReceiveMail.mockResolvedValue(false);
     const { client, updates } = fakeSupabase('calldesk:freight');

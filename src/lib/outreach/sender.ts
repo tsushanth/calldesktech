@@ -43,10 +43,15 @@ const KK_APP_BRANDS: Record<string, Omit<Brand, 'postalEnvVar' | 'capEnvVar'>> =
   pixora: { name: 'Pixora', siteUrl: 'kreativekoala.llc', fromEnvVar: 'OUTREACH_FROM_EMAIL_PIXORA', replyToEnvVar: 'OUTREACH_REPLYTO_EMAIL_PIXORA' },
   gymlog: { name: 'GymLog', siteUrl: 'kreativekoala.llc', fromEnvVar: 'OUTREACH_FROM_EMAIL_GYMLOG', replyToEnvVar: 'OUTREACH_REPLYTO_EMAIL_GYMLOG' },
 };
+// readaloudai.org (realtime speech API). Sends from its own verified Resend domain; replies land on the
+// readaloudai.org catch-all, which forwards to the founders' inbox. Same legal entity and postal address as
+// the Kreative Koala apps, but its own daily cap and lane so it is paced and paused independently.
+const READALOUD_BRAND: Brand = { name: 'readaloudai.org', siteUrl: 'readaloudai.org', fromEnvVar: 'OUTREACH_FROM_EMAIL_READALOUD', postalEnvVar: KK_POSTAL_ENV, capEnvVar: 'OUTREACH_DAILY_CAP_READALOUD', replyToEnvVar: 'OUTREACH_REPLYTO_EMAIL_READALOUD' };
 // Fallback for any Kreative Koala product key not yet in the map above.
 const KREATIVE_KOALA_BRAND: Brand = { name: 'Kreative Koala LLC', siteUrl: 'kreativekoala.llc', fromEnvVar: 'OUTREACH_FROM_EMAIL_KK', postalEnvVar: KK_POSTAL_ENV, capEnvVar: KK_CAP_ENV, replyToEnvVar: 'OUTREACH_REPLYTO_EMAIL_KK' };
 
 export function brandFor(product: string): Brand {
+  if (product === 'readaloud') return READALOUD_BRAND;
   if (!product.startsWith('kreativekoala')) return CALLDESK_BRAND;
   const key = product.split(':')[1];
   const appBrand = key && KK_APP_BRANDS[key];
@@ -71,12 +76,14 @@ export function capResetLabel(now = new Date(), tz = process.env.OUTREACH_TZ || 
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-export type Lane = 'calldesk' | 'kk';
+export type Lane = 'calldesk' | 'kk' | 'readaloud';
 export function laneOf(product: string): Lane {
+  if (product === 'readaloud') return 'readaloud';
   return product.startsWith('kreativekoala') ? 'kk' : 'calldesk';
 }
 // PostgREST .or() filter matching every product in a lane.
 export function laneFilter(lane: Lane): string {
+  if (lane === 'readaloud') return 'product.eq.readaloud';
   return lane === 'kk' ? 'product.like.kreativekoala%' : 'product.eq.calldesk,product.like.calldesk:%';
 }
 

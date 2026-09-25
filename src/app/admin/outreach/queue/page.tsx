@@ -28,6 +28,7 @@ const PRODUCTS = [
   { key: 'kreativekoala:scribeai', label: 'Scribe AI' },
   { key: 'kreativekoala:meetingmind', label: 'Meeting Mind' },
   { key: 'kreativekoala:vibebuild', label: 'VibeBuild' },
+  { key: 'readaloud', label: 'ReadAloud API' },
 ] as const;
 
 // Verticals live under the Calldesk product; they are a filter and a badge, not separate products.

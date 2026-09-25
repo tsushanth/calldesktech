@@ -44,8 +44,8 @@ export interface ProductConfig {
   // write another product's rows -- confirmed 2026-09-23: calldesk's own
   // drafting stage was starved because its pending-draft count included all
   // of Kreative Koala's pending drafts from the same physical table. A
-  // product with its own dedicated tables (no shared `product` column, e.g.
-  // readaloud_outreach_*) leaves this unset.
+  // product with its own dedicated tables (no shared `product` column)
+  // leaves this unset.
   sharedTableProductValue?: string;
   // Set only for customer-DISCOVERY products (see VERTICAL_DEFS below): short,
   // non-sales research asks to small businesses in one vertical. When set:
@@ -178,7 +178,11 @@ const READALOUD_SCORE_VOCABULARY: ScoreVocabularyRule[] = [
 
 export const readaloud: ProductConfig = {
   id: 'readaloud',
-  tablePrefix: 'readaloud_outreach',
+  // Shares the calldesk_outreach_* tables (tagged product='readaloud') so its drafts show up in the
+  // same admin queue and go through the same capped, paced sender. It used to have its own
+  // readaloud_outreach_* tables (migration 042); those are now unused and left in place.
+  tablePrefix: 'calldesk_outreach',
+  sharedTableProductValue: 'readaloud',
   stateDirName: '.readaloud-outreach',
   baseUrl: 'https://readaloudai.org',
   offerFacts: READALOUD_OFFER_FACTS,
