@@ -23,6 +23,14 @@ function verifySvix(secret: string, id: string, timestamp: string, body: string,
   });
 }
 
+// Resend's delivery_delayed payload carries the reason; keep only non-content fields so the row stays small.
+function delayDetail(data: unknown): unknown {
+  if (!data || typeof data !== 'object') return null;
+  const rest = { ...(data as Record<string, unknown>) };
+  for (const k of ['html', 'text', 'subject', 'to']) delete rest[k];
+  return Object.keys(rest).length ? rest : null;
+}
+
 export async function POST(request: NextRequest) {
   const secret = process.env.RESEND_WEBHOOK_SECRET || '';
   if (!secret) return NextResponse.json({ error: 'not configured' }, { status: 503 });
@@ -54,7 +62,7 @@ export async function POST(request: NextRequest) {
     resend_id: resendId,
     message_id: msg?.id ?? null,
     event,
-    detail: evt.data?.bounce ?? (evt.data as { click?: unknown } | undefined)?.click ?? null,
+    detail: evt.data?.bounce ?? (evt.data as { click?: unknown } | undefined)?.click ?? delayDetail(evt.data),
   });
   if (error && error.code !== '23505') {
     console.error('[webhooks/resend] insert failed:', error.message);

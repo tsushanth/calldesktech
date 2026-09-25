@@ -37,3 +37,8 @@ export function unsubscribeUrl(email: string): string {
   const base = (process.env.NEXT_PUBLIC_APP_URL || 'https://calldesk.tech').replace(/\/$/, '');
   return `${base}/unsubscribe/${makeUnsubscribeToken(email)}`;
 }
+
+export function oneClickUnsubscribeUrl(email: string): string {
+  const base = (process.env.NEXT_PUBLIC_APP_URL || 'https://calldesk.tech').replace(/\/$/, '');
+  return `${base}/api/unsubscribe/${makeUnsubscribeToken(email)}`;
+}

@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { sendEmail } from '@/lib/email';
-import { unsubscribeUrl } from './unsubscribe';
+import { unsubscribeUrl, oneClickUnsubscribeUrl } from './unsubscribe';
+import { domainCanReceiveMail } from './mxCheck';
 import { renderOutreachEmail, escapeHtml, type EmailSample } from './emailHtml';
 import { getPublishedSample, pickVariant, sampleTokenFor, sampleUrl, snippetLines, productSlug } from './samples';
 
@@ -9,8 +10,9 @@ import { getPublishedSample, pickVariant, sampleTokenFor, sampleUrl, snippetLine
 // qualify -- there is no automated send). Every guard below must pass:
 // address configured (CAN-SPAM), recipient not suppressed. Failures are
 // recorded on the message row and returned; nothing here throws for an
-// expected refusal. dailyCap()/sentTodayCount() below are informational only
-// (shown in the admin UI) and no longer enforced here.
+// expected refusal. The Calldesk brand's daily cap is enforced here and shared
+// across every calldesk* product (they all send from one domain, so per-vertical
+// caps would multiply). Kreative Koala brands keep it informational only.
 
 const DEFAULT_DAILY_CAP = 20;
 
@@ -22,7 +24,7 @@ export interface Brand { name: string; siteUrl: string; fromEnvVar: string; post
 // bulk-sending reputation isolated from the root domain); replies route through
 // the bare domain via Cloudflare Email Routing, so replyToEnvVar differs from
 // fromEnvVar wherever that split applies.
-const CALLDESK_BRAND: Brand = { name: 'Calldesk', siteUrl: 'calldesk.tech', fromEnvVar: 'OUTREACH_FROM_EMAIL', postalEnvVar: 'OUTREACH_POSTAL_ADDRESS', capEnvVar: 'OUTREACH_DAILY_CAP' };
+const CALLDESK_BRAND: Brand = { name: 'Calldesk', siteUrl: 'calldesk.tech', fromEnvVar: 'OUTREACH_FROM_EMAIL', postalEnvVar: 'OUTREACH_POSTAL_ADDRESS', capEnvVar: 'OUTREACH_DAILY_CAP', replyToEnvVar: 'OUTREACH_REPLYTO_EMAIL' };
 
 // Each Kreative Koala app sends from its OWN identity, not a shared one --
 // four apps have their own domain (already verified in Resend); the three
@@ -70,12 +72,12 @@ export function capResetLabel(now = new Date(), tz = process.env.OUTREACH_TZ || 
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export async function sentTodayCount(supabase: SupabaseClient<any>, product = 'calldesk'): Promise<number> {
-  const { count } = await supabase
+  const base = supabase
     .from('calldesk_outreach_messages')
     .select('id', { count: 'exact', head: true })
     .eq('status', 'sent')
-    .eq('product', product)
     .gte('sent_at', startOfDayInTz().toISOString());
+  const { count } = await (brandFor(product) === CALLDESK_BRAND ? base.not('product', 'like', 'kreativekoala%') : base.like('product', 'kreativekoala%'));
   return count ?? 0;
 }
 
@@ -164,6 +166,17 @@ export async function sendApprovedMessage(supabase: SupabaseClient<any>, message
 
   const toEmail = String(msg.to_email).trim().toLowerCase();
 
+  if (brand === CALLDESK_BRAND) {
+    const cap = dailyCap(product);
+    const sent = await sentTodayCount(supabase, product);
+    if (sent >= cap) return { ok: false, error: `Daily send cap reached (${sent} of ${cap}); sending resumes ${capResetLabel()}` };
+  }
+
+  if (!(await domainCanReceiveMail(toEmail))) {
+    await supabase.from('calldesk_outreach_messages').update({ status: 'failed', error: 'recipient domain has no mail server' }).eq('id', messageId);
+    return { ok: false, error: 'Recipient domain has no mail server; not sending' };
+  }
+
   const { data: suppressed } = await supabase.from('calldesk_outreach_suppressions').select('id').eq('email', toEmail).maybeSingle();
   if (suppressed) {
     await supabase.from('calldesk_outreach_messages').update({ status: 'failed', error: 'recipient is suppressed' }).eq('id', messageId);
@@ -180,7 +193,8 @@ export async function sendApprovedMessage(supabase: SupabaseClient<any>, message
     text,
     from,
     replyTo,
-    headers: { 'List-Unsubscribe': `<${unsubscribeUrl(toEmail)}>` },
+    headers: { 'List-Unsubscribe': `<${oneClickUnsubscribeUrl(toEmail)}>`, 'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click' },
+    apiKey: brand === CALLDESK_BRAND ? process.env.OUTREACH_RESEND_API_KEY || undefined : undefined,
   });
 
   if (!result.ok) {

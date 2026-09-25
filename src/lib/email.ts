@@ -23,6 +23,8 @@ export interface SendEmailParams {
   from?: string;
   replyTo?: string;
   headers?: Record<string, string>;
+  // Outreach uses its own sending-only key so its reputation and limits stay separate from alerts.
+  apiKey?: string;
 }
 
 export interface SendEmailResult {
@@ -34,8 +36,8 @@ export interface SendEmailResult {
 
 // Never throws — email failures should degrade gracefully (a missed alert
 // must not, for instance, fail the webhook that finalizes a call).
-export async function sendEmail({ to, subject, html, text, from: fromOverride, replyTo, headers }: SendEmailParams): Promise<SendEmailResult> {
-  const apiKey = process.env.RESEND_API_KEY;
+export async function sendEmail({ to, subject, html, text, from: fromOverride, replyTo, headers, apiKey: apiKeyOverride }: SendEmailParams): Promise<SendEmailResult> {
+  const apiKey = apiKeyOverride || process.env.RESEND_API_KEY;
   if (!apiKey) {
     console.warn('[email] RESEND_API_KEY not configured — skipping send to', to);
     return { ok: false, skipped: true, error: 'RESEND_API_KEY not configured' };
