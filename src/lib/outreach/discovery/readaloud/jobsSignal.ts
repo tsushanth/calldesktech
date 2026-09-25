@@ -72,15 +72,22 @@ export function parseAtsJobs(ats: Ats, text: string): AtsJob[] | null {
   return Array.isArray(jobs) ? jobs.filter((x) => x.isListed !== false).map((x) => ({ title: String(x.title ?? ''), url: x.jobUrl ?? null, text: String(x.descriptionPlain ?? '').slice(0, 4000) })) : null;
 }
 
-// A derived slug can belong to a different company with the same word. The
-// board counts as theirs only if some posting mentions their name or domain.
+// A derived slug can belong to a different company with the same word (the
+// Ashby board "hopper" is the travel company hopper.com, not the voice startup
+// withhopper.com). The board counts as theirs only if a posting names their
+// DOMAIN, or names them where their name is also their domain label AND no
+// posting names a different domain for that name.
 export function boardBelongsTo(jobs: AtsJob[], company: Company): boolean {
-  const label = company.domain.split('.')[0].toLowerCase();
-  const name = company.name.toLowerCase();
-  return jobs.some((j) => {
-    const t = j.text.toLowerCase();
-    return t.includes(company.domain.toLowerCase()) || (name.length >= 4 && t.includes(name)) || (label.length >= 5 && t.includes(label));
-  });
+  const domain = company.domain.toLowerCase();
+  const label = domain.split('.')[0];
+  const text = jobs.map((j) => j.text.toLowerCase()).join('\n');
+  if (text.includes(domain)) return true;
+  const name = compactName(company.name);
+  if (name !== label.replace(/[^a-z0-9]/g, '') || label.length < 4) return false;
+  const esc = label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const otherDomain = new RegExp(`\\b${esc}\\.(com|ai|io|co|net|org|app|dev|tech)\\b`, 'g');
+  if ([...text.matchAll(otherDomain)].some((m) => m[0] !== domain)) return false;
+  return new RegExp(`\\b${esc}\\b`).test(text);
 }
 
 export function matchVoiceRoles(jobs: AtsJob[]): AtsJob[] {

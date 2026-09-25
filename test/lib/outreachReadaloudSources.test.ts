@@ -303,6 +303,11 @@ describe('ra-jobs-signal', () => {
     expect(matchVoiceRoles(jobs).map((j) => j.title)).toEqual(['Senior Speech Recognition Engineer', 'ML Engineer, Text-to-Speech']);
     expect(boardBelongsTo(jobs, { name: 'Acme', domain: 'acme.ai' })).toBe(true);
     expect(boardBelongsTo(jobs, { name: 'Zeta', domain: 'zeta.com' })).toBe(false);
+    // Live case, 2026-09-25: the "hopper" board is the travel company, not withhopper.com.
+    const hopperBoard = [{ title: 'Voice Engineer', url: null, text: "enterprise partners access Hopper's lodging capabilities. Apply at hopper.com" }];
+    expect(boardBelongsTo(hopperBoard, { name: 'Hopper', domain: 'withhopper.com' })).toBe(false);
+    expect(boardBelongsTo(hopperBoard, { name: 'Hopper', domain: 'hopper.ai' })).toBe(false); // names another hopper domain
+    expect(boardBelongsTo([{ title: 'x', url: null, text: 'Cresta builds contact center AI' }], { name: 'Cresta', domain: 'cresta.com' })).toBe(true);
   });
 
   it('probes ATS boards and rejects a same-slug board of another company', async () => {
