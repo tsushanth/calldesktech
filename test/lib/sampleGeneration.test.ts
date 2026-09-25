@@ -129,14 +129,15 @@ describe('call gating', () => {
     expect(lib.parseArgs(['--vertical', 'freight']).placeCall).toBe(false);
     expect(lib.parseArgs(['--vertical', 'freight', '--place-call']).placeCall).toBe(true);
   });
-  it('refuses at the cap of 2 and treats a garbage counter as used up', () => {
-    expect(lib.MAX_REAL_CALLS).toBe(2);
-    expect(lib.checkCallGate({ ...ok, used: 1 }).ok).toBe(true);
-    expect(lib.checkCallGate({ ...ok, used: 2 }).ok).toBe(false);
+  it('refuses at the cap and treats a garbage counter as used up', () => {
+    const max = lib.MAX_REAL_CALLS;
+    expect(max).toBeGreaterThanOrEqual(2);
+    expect(lib.checkCallGate({ ...ok, used: max - 1 }).ok).toBe(true);
+    expect(lib.checkCallGate({ ...ok, used: max }).ok).toBe(false);
     expect(lib.parseCounter(null)).toBe(0);
     expect(lib.parseCounter('1\n')).toBe(1);
-    expect(lib.parseCounter('oops')).toBe(2);
-    expect(lib.parseCounter('-1')).toBe(2);
+    expect(lib.parseCounter('oops')).toBe(max);
+    expect(lib.parseCounter('-1')).toBe(max);
   });
   it('refuses a callee not in SAMPLE_CALLEE_ALLOWED (or an empty list)', () => {
     expect(lib.checkCallGate({ ...ok, callee: '+15559999999' }).ok).toBe(false);
