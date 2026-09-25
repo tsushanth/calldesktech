@@ -30,6 +30,7 @@ import { allCqcLeads } from './ukCqcDirectory';
 import { allDvsaLeads } from './ukDvsaOperators';
 import { allBrregLeads } from './noBrregEnheter';
 import { findDentalNppesCandidates } from './dentalNppes';
+import { allChildcareLeads, findChildcareCandidates } from './childcareUs';
 import { discoverWebsite } from './websiteDiscovery';
 import { INTL_HOLD_REASON, intlCountry, type IntlHold, type RegistryLead, type RegistryResult } from './registryCommon';
 import { calldesk, leadsTable, runsTable, messagesTable, suppressionsTable, scopeToProduct, productInsertFields, type ProductConfig } from '../products';
@@ -140,12 +141,13 @@ interface RegistryMeta {
 
 // Customer-discovery products whose leads come from a public REGISTRY that has no
 // email: stageRegistry ingests them, stageEnrich resolves website -> published email.
-const REGISTRY_PRODUCTS = new Set(['towing', 'septic', 'homecare', 'homeservices', 'dental', 'insurance', 'bailbonds']);
+const REGISTRY_PRODUCTS = new Set(['towing', 'septic', 'homecare', 'homeservices', 'dental', 'insurance', 'bailbonds', 'childcare']);
 const REGISTRY_KIND: Record<string, string> = {
   towing: 'towing company (tow truck operator)',
   septic: 'septic tank service / liquid waste hauling company',
   homecare: 'home care agency',
   freight: 'road freight haulage company',
+  childcare: 'child care centre / daycare / preschool',
 };
 
 export async function runDiscovery(db: Db, opts: RunOptions = {}): Promise<RunSummary> {
@@ -802,6 +804,12 @@ const BULK_REGISTRY_SOURCES: Record<string, { products: string[]; load: (product
   'ar-clb': { products: ['homeservices'], load: (_p, isKnown, log) => streamArContractorLeads({ isKnown, log }) },
   'ca-cdph': { products: ['homecare'], load: (_p, isKnown, log) => streamCaCdphLeads({ isKnown, log }) },
 
+  // US child care licensing data. All three publish a contact email on most
+  // rows, so a bulk import lands leads that are already contact_status 'found'.
+  'tx-childcare': { products: ['childcare'], load: (_p, isKnown, log) => allChildcareLeads('tx', { isKnown, log }) },
+  'wa-childcare': { products: ['childcare'], load: (_p, isKnown, log) => allChildcareLeads('wa', { isKnown, log }) },
+  'pa-childcare': { products: ['childcare'], load: (_p, isKnown, log) => allChildcareLeads('pa', { isKnown, log }) },
+
   // INTERNATIONAL sources. These are deliberately bulk-import-only and are NOT in
   // the per-run rotation (registryRotation.ts): every lead they produce is stored
   // on hold and cannot be drafted or sent, so spending the daily per-run slots on
@@ -908,6 +916,7 @@ async function stageRegistry(
   else if (product.id === 'homecare') res = await findHomecareRegistryCandidates(max, { isKnown });
   else if (product.id === 'homeservices') res = await findHomeservicesCandidates(max, { isKnown });
   else if (product.id === 'dental') res = await findDentalNppesCandidates(max, { isKnown });
+  else if (product.id === 'childcare') res = await findChildcareCandidates(max, { isKnown });
   else res = await findFlDfsCandidates(product.id as 'insurance' | 'bailbonds', max, { isKnown });
   summary.errors.push(...res.errors);
   summary.searchDebug = { raw: res.scanned, rejected: Object.entries(res.rejected).map(([k, v]) => `${k}: ${v}`) };
