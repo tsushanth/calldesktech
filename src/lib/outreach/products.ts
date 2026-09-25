@@ -197,7 +197,10 @@ export const readaloud: ProductConfig = {
 // ---------------------------------------------------------------------------
 
 interface VerticalDef {
-  id: 'freight' | 'homeservices' | 'dental' | 'insurance' | 'towing' | 'septic' | 'homecare' | 'bailbonds';
+  id:
+    | 'freight' | 'homeservices' | 'dental' | 'insurance' | 'towing' | 'septic' | 'homecare' | 'bailbonds'
+    // batch 3: eight more verticals, same offer and same shared tables.
+    | 'childcare' | 'accounting' | 'realestate' | 'lodging' | 'funeral' | 'physio' | 'taxi' | 'vets';
   leadLabel: string; // singular, used in the draft prompt ("Freight brokerage: <name>")
   leadPlural: string; // e.g. "freight brokerages"
   topic: string; // what we are researching, in prose
@@ -230,6 +233,20 @@ function extra(v: VerticalDef): string {
   return (v.extraRules ?? []).map((r) => `\n- ${r}`).join('');
 }
 
+// The vertical prompts used to end with a flat "Write in English." while
+// agencyDraft.ts was already adding "Target language: X — write the whole email
+// in X" for a non-English location (language.detectDraftLanguage), so the two
+// instructions contradicted each other and the model had to pick one. The rule
+// is now conditional, matching the calldesk/readaloud prompts: English by
+// default, the target language when the lead data names one, and in that case
+// an English back-translation for the admin who reviews the draft.
+//
+// `kind` is "email" or "follow-up" so the wording names what is being written.
+const LANGUAGE_RULES = (kind: string) =>
+  `- Write in English UNLESS a "Target language" is given in the lead data below. If one is given, write the ENTIRE ${kind} (subject and body) fluently and naturally in that language — not a literal or stilted translation.
+- The pilot terms, and every other offer fact, must mean exactly the same in that language as in English: nothing added, dropped, softened, or made to sound more generous.
+- If a target language is given, ALSO return translationSubject and translationBody: a literal, plain English translation of the subject and body you wrote, for internal review only (it is never sent). If no target language is given, omit both fields.`;
+
 function verticalSystemPrompt(v: VerticalDef): string {
   return `You write short, honest, help-first cold emails from the co-founders of Calldesk (Sushanth and Deepika) to owners and operators of small ${v.leadPlural}. The goal is to offer something concretely useful: a free, capped pilot of a phone agent that catches calls they would otherwise miss. It is not a generic sales pitch, and not a partnership offer.
 
@@ -245,7 +262,7 @@ Rules:
 - Write in the first person plural ("we", "us", "our"). Never use "I", "me" or "my", and never introduce yourselves by name or title.
 - Do NOT write a sign-off or signature; one is added automatically.
 - Any sentence that asks something must end with a question mark.
-- Write in English.`;
+${LANGUAGE_RULES('email')}`;
 }
 
 function verticalFollowUpPrompt(v: VerticalDef): string {
@@ -260,7 +277,7 @@ Rules:
 - Do NOT write a sign-off or signature; one is added automatically.
 - Any sentence that asks something must end with a question mark.
 - On the LAST allowed follow-up (see "This is the final follow-up" note if present), say this is the last note and that we will not follow up again.${extra(v)}
-- Write in English.`;
+${LANGUAGE_RULES('follow-up')}`;
 }
 
 // Words that signal a small, owner-run business (up) versus a chain, franchise
@@ -402,6 +419,206 @@ const VERTICAL_DEFS: VerticalDef[] = [
       CHAIN_DOWN,
     ],
   },
+
+  // ---- batch 3 -------------------------------------------------------------
+  // Same offer, same shared tables, same help-first structure. Each one's
+  // extraRules carry the compliance framing that vertical needs: the agent only
+  // ever takes a name, a callback number and what the caller is asking about,
+  // so no vertical may have it advise, quote, confirm, or triage anything.
+  {
+    id: 'childcare',
+    leadLabel: 'Child care centre',
+    leadPlural: 'child care centres, daycares, nurseries and preschools',
+    topic: 'parent enquiry calls and tour requests that come in while staff are with the children',
+    askAbout: 'how small child care centres handle parent enquiry and tour calls',
+    situation: 'every member of staff is with the children and a parent calls to ask about a place or a tour',
+    agentHandles:
+      "answers, finds out the age of the child and the days of care the parent is asking about, and collects the parent's name and a callback number",
+    subjectHint: 'Help with parent calls while staff are with the children',
+    registryFact:
+      'that it is listed in a public child care licensing dataset or registry, worded exactly as the lead data words it (for example "listed in the Texas Health and Human Services licensing data as a licensed child care operation", or "listed in the Washington State Department of Children, Youth & Families licensing data as a licensed child care center")',
+    extraRules: [
+      'Never refer to, ask about, or speculate about individual children, families, staffing ratios, inspections, licensing compliance, capacity, or enrolment numbers. The only subject is what happens to incoming phone calls.',
+      'Never state or imply that a place is available, or that the agent would offer, hold, or confirm a place, a tour, or a waitlist position. It takes details and a person follows up.',
+    ],
+    scoreVocabulary: [
+      { pattern: /child ?care|day ?care|nursery|preschool|pre-?k\b|early (learning|childhood|education)|montessori|learning cent(er|re)|academy/, delta: 5, reason: 'child care centre, daycare, nursery or preschool' },
+      SMALL_UP,
+      {
+        pattern: /kindercare|bright horizons|goddard|primrose school|la petite academy|childtime|tutor time|learning care group|right at school|kids ?r ?kids|sunshine house|cr[eè]me de la cr[eè]me|lightbridge|celebree|guidepost montessori|new horizon academy|children'?s lighthouse|cadence education|endeavor schools|the learning experience|\bnobel learning\b/,
+        delta: -25,
+        reason: 'national child care chain or franchise brand',
+      },
+      { pattern: /\bymca\b|\bywca\b|boys (and|&) girls club|head start|school district|\bisd\b|elementary school|public school|county of |city of /, delta: -12, reason: 'school district, public programme, or large non-profit rather than an owner-run centre' },
+      CHAIN_DOWN,
+    ],
+  },
+  {
+    id: 'accounting',
+    leadLabel: 'Accounting firm',
+    leadPlural: 'accounting, tax preparation and bookkeeping firms',
+    topic: 'client calls during busy season and the phone follow-up around returns and deadlines',
+    askAbout: 'how small accounting firms handle client calls in busy season',
+    situation: 'everyone is heads-down on returns in busy season, or a client calls close to a deadline after hours',
+    agentHandles:
+      "answers, finds out what the caller needs, and collects their name, whether they are an existing client, and a callback number",
+    subjectHint: 'Help with client calls during busy season',
+    registryFact:
+      'either that it is a local accounting, tax preparation, or bookkeeping firm (from its own website), or, when the lead data words it that way, that it is listed in a public registry or licensee file, worded exactly as the lead data words it — whichever the lead data supports, never both',
+    extraRules: [
+      "Never give or imply tax, accounting, legal or financial advice, and never refer to any caller's or client's financial affairs, filings, refunds, or liabilities. Ask only about how the firm handles its phone calls.",
+      'Never state or imply that the agent would answer a tax question, quote a fee, or take financial details.',
+    ],
+    scoreVocabulary: [
+      { pattern: /\bcpa\b|accounting|accountant|bookkeep|tax (service|preparation|prep|office|advisor)|enrolled agent|\bea\b tax/, delta: 5, reason: 'accounting, tax preparation or bookkeeping firm' },
+      SMALL_UP,
+      { pattern: /h&r block|jackson hewitt|liberty tax|turbotax|intuit|deloitte|\bkpmg\b|\bpwc\b|pricewaterhouse|ernst (and|&) young|\bbdo\b|grant thornton|\brsm\b|crowe|bakertilly|baker tilly/, delta: -25, reason: 'national tax franchise or large accounting network' },
+      CHAIN_DOWN,
+    ],
+  },
+  {
+    id: 'realestate',
+    leadLabel: 'Real estate agency',
+    leadPlural: 'independent real estate agencies and brokerages',
+    topic: 'buyer and renter enquiry calls about listings, and viewing requests',
+    askAbout: 'how small real estate agencies handle buyer and renter enquiry calls',
+    situation: 'the agents are out at viewings or with clients and an enquiry call comes in',
+    agentHandles:
+      "answers, finds out which property or area the caller is asking about and whether they are buying or renting, and collects their name and a callback number",
+    subjectHint: 'Catching enquiry calls while agents are out at viewings',
+    registryFact:
+      'either that it is a local real estate agency or brokerage (from its own website), or, when the lead data words it that way, that it is listed in a public licensee file or registry, worded exactly as the lead data words it — whichever the lead data supports, never both',
+    extraRules: [
+      'Never state or imply anything about a price, a valuation, availability, or any specific property, and give no advice about a transaction. The agent takes the enquiry and a person calls back.',
+      "Never refer to, ask about, or let the agent collect a caller's race, colour, religion, national origin, sex, familial status, disability, or any other protected characteristic, and never imply the agent would screen or qualify callers.",
+    ],
+    scoreVocabulary: [
+      { pattern: /real ?estate|realty|realtor|brokerage|lettings|estate agent|property management|\bhomes\b/, delta: 5, reason: 'real estate agency or brokerage' },
+      SMALL_UP,
+      { pattern: /keller williams|re\/?max|coldwell banker|century 21|\bcompass\b|sotheby|berkshire hathaway home|exp realty|douglas elliman|\bredfin\b|\bzillow\b|opendoor|howard hanna|\bhomeservices of america\b|weichert|better homes and gardens real/, delta: -25, reason: 'national real estate brand or franchise' },
+      CHAIN_DOWN,
+    ],
+  },
+  {
+    id: 'lodging',
+    leadLabel: 'Guesthouse',
+    leadPlural: 'small guesthouses, bed and breakfasts, campgrounds and lodges',
+    topic: 'booking enquiry calls and availability questions taken by phone',
+    askAbout: 'how small guesthouses and campgrounds handle booking calls',
+    situation: 'the owner is turning over rooms, checking guests in, or off the property and a booking call comes in',
+    agentHandles:
+      "answers, finds out the dates and the number of guests the caller is asking about, and collects their name and a callback number",
+    subjectHint: 'Catching booking calls when you are away from the desk',
+    registryFact:
+      'either that it is a small guesthouse, bed and breakfast, campground, or lodge (from its own website), or, when the lead data words it that way, that it is listed in a public registry or licence file, worded exactly as the lead data words it — whichever the lead data supports, never both',
+    extraRules: [
+      'Never state or imply availability, a rate, a deposit, a cancellation policy, or that a booking is made, held, or confirmed. The agent takes the enquiry and a person calls back.',
+      'Never state or imply that the agent connects to a booking site, channel manager, or property management system.',
+    ],
+    scoreVocabulary: [
+      { pattern: /bed (and|&) breakfast|\bb ?& ?b\b|guest ?house|\binn\b|\blodge\b|campground|\brv park\b|cabins?|cottages?|\bmotel\b|hostel|farm ?stay|\bretreat\b/, delta: 5, reason: 'guesthouse, B&B, campground, lodge or similar small property' },
+      SMALL_UP,
+      { pattern: /marriott|hilton|hyatt|\bihg\b|wyndham|choice hotels|best western|holiday inn|radisson|accor|kampgrounds of america|\bkoa\b|airbnb|booking\.com|expedia|\bvrbo\b|\bresorts? international\b/, delta: -25, reason: 'hotel chain, franchise, or online travel platform' },
+      CHAIN_DOWN,
+    ],
+  },
+  {
+    id: 'funeral',
+    leadLabel: 'Funeral home',
+    leadPlural: 'independent funeral homes',
+    topic: 'the calls that come in at any hour after a death, when a family needs to reach someone',
+    askAbout: 'how independent funeral homes cover the phones overnight',
+    situation: 'a call comes in during the night, or while a director is with another family',
+    agentHandles:
+      "answers calmly, takes only the caller's name, where they are calling from, and a callback number, and tells them a director will call them straight back",
+    subjectHint: 'Covering the phones overnight',
+    registryFact:
+      'either that it is an independent funeral home or funeral operator (from its own website), or, when the lead data words it that way, that it is listed in a public licensee file or registry, worded exactly as the lead data words it — whichever the lead data supports, never both',
+    extraRules: [
+      'The subject is bereavement. Write plainly, quietly, and with respect. No sales language of any kind: no benefits framing, no urgency, no scarcity, and no mention of missed revenue, lost business, growth, leads, conversion, or opportunity. Never suggest they are letting families down or losing calls.',
+      'Never describe, imagine, or speculate about a death, a family\'s circumstances, or anything a caller might say. Never call a bereaved family a "customer", "client", "lead", or "enquiry".',
+      'Never state or imply that the agent would comfort, counsel, advise, or handle arrangements, or that it replaces a director. It takes a name and a number so a person can call back.',
+      'Make it easy to ignore: say plainly, in one short clause, that if this is not useful no reply is needed.',
+    ],
+    scoreVocabulary: [
+      { pattern: /funeral|mortuary|cremation|cremator|memorial chapel|funeral home|undertaker/, delta: 5, reason: 'funeral home or funeral operator' },
+      SMALL_UP,
+      { pattern: /service corporation international|dignity memorial|\bstonemor\b|carriage services|neptune society|foundation partners|\bmatthews international\b|park lawn/, delta: -25, reason: 'national funeral group or consolidator' },
+      CHAIN_DOWN,
+    ],
+  },
+  {
+    id: 'physio',
+    leadLabel: 'Physiotherapy clinic',
+    leadPlural: 'physiotherapy, chiropractic and allied-health clinics',
+    topic: 'appointment calls, new-patient enquiries, and reschedules',
+    askAbout: 'how small physiotherapy and chiropractic clinics handle appointment calls',
+    situation: 'the therapists are all in with patients and the front desk is unattended',
+    agentHandles:
+      "answers, takes new-appointment and reschedule requests, and collects the caller's name and a callback number",
+    subjectHint: 'Help with appointment calls while therapists are with patients',
+    registryFact:
+      'either that it is an independent physiotherapy, chiropractic, or allied-health clinic (from its own website), or, when the lead data words it that way, that it is listed in a public healthcare provider registry or government dataset, worded exactly as the lead data words it — whichever the lead data supports, never both',
+    extraRules: [
+      'Never give or imply clinical, medical or rehabilitation advice, and never refer to symptoms, injuries, pain, diagnoses, or treatment. Never suggest the agent assesses, triages, or prioritises anything clinical.',
+      'Never state or imply that the agent books into their diary or connects to their practice-management or scheduling software; it takes the request and a person confirms.',
+    ],
+    scoreVocabulary: [
+      { pattern: /physio|physical therapy|chiroprac|osteopath|sports (injury|medicine|therapy)|\brehab/, delta: 5, reason: 'physiotherapy, chiropractic or allied-health clinic' },
+      { pattern: /podiatr|occupational therapy|speech (and language )?therapy|massage therapy|\bpelvic health\b/, delta: 3, reason: 'other allied-health clinic taking appointment calls' },
+      SMALL_UP,
+      { pattern: /athletico|select physical therapy|\bati physical therapy\b|concentra|the joint chiropractic|us physical therapy|ivy rehab|pivot physical therapy|\bupstream rehab\b/, delta: -25, reason: 'national physical-therapy or chiropractic chain' },
+      CHAIN_DOWN,
+    ],
+  },
+  {
+    id: 'taxi',
+    leadLabel: 'Taxi company',
+    leadPlural: 'independent taxi and private-hire companies',
+    topic: 'booking calls and dispatch, including calls that come in while the dispatcher is on another line',
+    askAbout: 'how small taxi and private-hire companies handle booking calls',
+    situation: 'the dispatcher is already on another call, or the phone rings overnight',
+    agentHandles:
+      "answers, collects the pickup address, the destination, the time wanted, and the caller's name and callback number",
+    subjectHint: 'Catching booking calls when the dispatcher is on another line',
+    registryFact:
+      'either that it is a local taxi or private-hire company (from its own website), or, when the lead data words it that way, that it is listed in a public licensing registry or government dataset, worded exactly as the lead data words it — whichever the lead data supports, never both',
+    extraRules: [
+      'Never state or imply a fare, a price, an arrival or pickup time, or that a car is booked, assigned, confirmed, or on its way. The agent takes the details and a person confirms.',
+      'Never state or imply that the agent connects to their dispatch system, meter, or driver app.',
+    ],
+    scoreVocabulary: [
+      { pattern: /\btaxi\b|\bcabs?\b|private hire|minicab|car service|airport (transfer|shuttle|car)|\blivery\b|\bcar hire\b|\bsedan service\b/, delta: 5, reason: 'taxi or private-hire company' },
+      { pattern: /24\/?7|24[- ]hour|around the clock|dispatch/, delta: 3, reason: 'advertises round-the-clock dispatch (phone-driven demand)' },
+      SMALL_UP,
+      { pattern: /\buber\b|\blyft\b|\bbolt\b|\bcurb\b|via transportation|carey international|\bgett\b|blacklane/, delta: -25, reason: 'ride-hailing platform or national ground-transport brand' },
+      CHAIN_DOWN,
+    ],
+  },
+  {
+    id: 'vets',
+    leadLabel: 'Veterinary practice',
+    leadPlural: 'independent veterinary practices',
+    topic: 'appointment calls and urgent calls about a pet',
+    askAbout: 'how small veterinary practices handle appointment and urgent calls',
+    situation: 'the vets and nurses are all in consults or surgery and a call comes in',
+    agentHandles:
+      "answers, takes appointment requests, and collects the caller's name, the animal's name and species, and a callback number",
+    subjectHint: 'Help with appointment calls while the team is in consults',
+    registryFact:
+      'either that it is an independent veterinary practice (from its own website), or, when the lead data words it that way, that it is listed in a public licensing registry or government dataset, worded exactly as the lead data words it — whichever the lead data supports, never both',
+    extraRules: [
+      "Never give or imply veterinary, medical or first-aid advice, never refer to an animal's symptoms, condition, or treatment, and never suggest the agent assesses, triages, or judges how urgent anything is.",
+      'If the email mentions urgent calls at all, say only that the agent takes the caller\'s details and that a person calls them back, and that anything urgent still reaches a person the way it does today.',
+      'Never state or imply that the agent books into their diary or connects to their practice-management software.',
+    ],
+    scoreVocabulary: [
+      { pattern: /\bvet(erinary|erinarian|s)?\b|animal (hospital|clinic|care cent(er|re))|pet (hospital|clinic)|equine|small animal|\bcat clinic\b/, delta: 5, reason: 'veterinary practice' },
+      SMALL_UP,
+      { pattern: /\bvca\b|banfield|mars veterinary|bluepearl|blue pearl|national veterinary associates|\bnva\b|thrive pet|pathway vet|\bpetco\b|petsmart|\bmedvet\b|\bvetcor\b|\bveg\b urgent/, delta: -25, reason: 'corporate veterinary group or national chain' },
+      CHAIN_DOWN,
+    ],
+  },
 ];
 
 function verticalProduct(v: VerticalDef): ProductConfig {
@@ -420,17 +637,34 @@ function verticalProduct(v: VerticalDef): ProductConfig {
   };
 }
 
-export const freight = verticalProduct(VERTICAL_DEFS[0]);
-export const homeservices = verticalProduct(VERTICAL_DEFS[1]);
-export const dental = verticalProduct(VERTICAL_DEFS[2]);
-export const insurance = verticalProduct(VERTICAL_DEFS[3]);
-export const towing = verticalProduct(VERTICAL_DEFS[4]);
-export const septic = verticalProduct(VERTICAL_DEFS[5]);
-export const homecare = verticalProduct(VERTICAL_DEFS[6]);
-export const bailbonds = verticalProduct(VERTICAL_DEFS[7]);
-export const VERTICAL_PRODUCT_IDS = ['freight', 'homeservices', 'dental', 'insurance', 'towing', 'septic', 'homecare', 'bailbonds'] as const;
+// Built by id rather than by array index: a positional lookup silently pointed
+// at the wrong vertical every time the list grew.
+const VERTICAL_BY_ID = Object.fromEntries(VERTICAL_DEFS.map((v) => [v.id, verticalProduct(v)])) as Record<VerticalDef['id'], ProductConfig>;
 
-const PRODUCTS: Record<string, ProductConfig> = { calldesk, readaloud, freight, homeservices, dental, insurance, towing, septic, homecare, bailbonds };
+export const freight = VERTICAL_BY_ID.freight;
+export const homeservices = VERTICAL_BY_ID.homeservices;
+export const dental = VERTICAL_BY_ID.dental;
+export const insurance = VERTICAL_BY_ID.insurance;
+export const towing = VERTICAL_BY_ID.towing;
+export const septic = VERTICAL_BY_ID.septic;
+export const homecare = VERTICAL_BY_ID.homecare;
+export const bailbonds = VERTICAL_BY_ID.bailbonds;
+// batch 3
+export const childcare = VERTICAL_BY_ID.childcare;
+export const accounting = VERTICAL_BY_ID.accounting;
+export const realestate = VERTICAL_BY_ID.realestate;
+export const lodging = VERTICAL_BY_ID.lodging;
+export const funeral = VERTICAL_BY_ID.funeral;
+export const physio = VERTICAL_BY_ID.physio;
+export const taxi = VERTICAL_BY_ID.taxi;
+export const vets = VERTICAL_BY_ID.vets;
+
+export const VERTICAL_PRODUCT_IDS = [
+  'freight', 'homeservices', 'dental', 'insurance', 'towing', 'septic', 'homecare', 'bailbonds',
+  'childcare', 'accounting', 'realestate', 'lodging', 'funeral', 'physio', 'taxi', 'vets',
+] as const;
+
+const PRODUCTS: Record<string, ProductConfig> = { calldesk, readaloud, ...VERTICAL_BY_ID };
 
 // Resolves a product config from a PRODUCT env-style value, defaulting to
 // calldesk (unset/unknown values fall back to calldesk, never throw) so the

@@ -29,9 +29,13 @@ describe('new vertical products', () => {
       expect(productInsertFields(v)).toEqual({ product: `calldesk:${v.id}` });
       expect(v.vertical?.defaultMaxFollowUps).toBe(2);
     }
-    const all = [freight, homeservices, dental, insurance, ...vs];
-    expect(new Set(all.map((p) => p.sharedTableProductValue)).size).toBe(8);
-    expect([...VERTICAL_PRODUCT_IDS].sort()).toEqual(all.map((p) => p.id).sort());
+    // Batch 3 added eight more verticals, covered by their own suite
+    // (outreachVerticalsBatch3.test.ts). Here we assert that batch 1/2 are all
+    // still registered, and that EVERY registered vertical is collision-free.
+    for (const p of [freight, homeservices, dental, insurance, ...vs]) expect([...VERTICAL_PRODUCT_IDS]).toContain(p.id);
+    const every = VERTICAL_PRODUCT_IDS.map((id) => resolveProduct(id));
+    expect(new Set(every.map((p) => p.sharedTableProductValue)).size).toBe(VERTICAL_PRODUCT_IDS.length);
+    expect(new Set(every.map((p) => p.stateDirName)).size).toBe(VERTICAL_PRODUCT_IDS.length);
     expect(resolveProduct('calldesk')).toBe(calldesk);
     expect(calldesk.vertical).toBeUndefined();
   });

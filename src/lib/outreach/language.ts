@@ -18,7 +18,20 @@ export interface LanguageMatch {
 
 // Ordered by how much lead volume each has shown historically; extend freely
 // as more countries turn up qualified leads.
-const COUNTRY_LANGUAGE: [RegExp, LanguageMatch][] = [
+// `null` means "English, deliberately" — spelled out for the same reason as in
+// COUNTRY_CODE_LANGUAGE below: an English-speaking market should be a decision
+// on the record, not a gap that fell through.
+const COUNTRY_LANGUAGE: [RegExp, LanguageMatch | null][] = [
+  // Quebec is francophone Canada, and its own French: the register and
+  // vocabulary differ enough from France's that a France-French draft reads as
+  // foreign. Listed FIRST so it wins over the France pattern below. The rest of
+  // Canada stays English, which is the default.
+  [/\bqu[ée]bec\b|\bmontr[ée]al\b|\bgatineau\b|\bsherbrooke\b|\btrois-rivi[èe]res\b/i, { code: 'fr-CA', name: 'Canadian French' }],
+  // Estonia: business email there is routinely in English, and nobody here can
+  // review Estonian, so English is the deliberate choice rather than an omission.
+  [/\bestonia\b|\beesti\b|\btallinn\b/i, null],
+  // Singapore: English is an official and the normal business language.
+  [/\bsingapore\b/i, null],
   [/\bspain\b|\bméxico\b|\bmexico\b|\bcolombia\b|\bargentina\b|\bchile\b|\bperu\b|\bperú\b|\bpanam[áa]\b|\becuador\b|\buruguay\b|\bvenezuela\b|\bcosta rica\b|\bguatemala\b|\bbolivia\b|\bparaguay\b|\bdominican republic\b|\bhonduras\b|\bel salvador\b|\bnicaragua\b/i, { code: 'es', name: 'Spanish' }],
   [/\bfrance\b|\bbelgium\b|\bmorocco\b|\btunisia\b|\bsenegal\b|\bivory coast\b|\bc[oô]te d'ivoire\b/i, { code: 'fr', name: 'French' }],
   [/\bbrazil\b|\bbrasil\b|\bportugal\b/i, { code: 'pt', name: 'Portuguese' }],
@@ -55,6 +68,11 @@ const COUNTRY_CODE_LANGUAGE: Record<string, LanguageMatch | null> = {
   IE: null, // Ireland — English
   BR: { code: 'pt', name: 'Portuguese' },
   MX: { code: 'es', name: 'Spanish' },
+  // Quebec's provincial code. Safe to list: QC is not a US state code, and
+  // "CA" deliberately is NOT listed here because it would capture California.
+  QC: { code: 'fr-CA', name: 'Canadian French' },
+  EE: null, // Estonia — English (see COUNTRY_LANGUAGE)
+  SG: null, // Singapore — English
 };
 
 // Regions excluded from ANY outreach at all (see score.ts) also shouldn't
