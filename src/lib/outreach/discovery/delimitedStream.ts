@@ -50,10 +50,16 @@ export interface RowParser {
   end(): string[] | null;
 }
 
-export type Delimiter = 'tab' | 'comma';
+// 'semicolon' is what the international exports use — France's funeral-operator
+// list and the three Tourisme Québec accommodation files. Both are semicolon-
+// separated AND RFC-4180 quoted (Québec quotes every field; France quotes only the
+// fields containing a literal `"`), so they go through CsvRowParser with a
+// different separator rather than through the unquoted TabRowParser.
+export type Delimiter = 'tab' | 'comma' | 'semicolon';
 
 export function makeRowParser(delimiter: Delimiter): RowParser {
-  return delimiter === 'tab' ? new TabRowParser() : new CsvRowParser();
+  if (delimiter === 'tab') return new TabRowParser();
+  return new CsvRowParser(delimiter === 'semicolon' ? ';' : ',');
 }
 
 // Header detection: the first row that contains every required column. Anything

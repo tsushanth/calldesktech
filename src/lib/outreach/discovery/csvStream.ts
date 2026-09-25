@@ -9,6 +9,20 @@ export class CsvRowParser {
   private row: string[] = [];
   private inQuotes = false;
   private quoteJustClosed = false;
+  // The field separator. Defaults to ',' so every existing caller is byte-for-byte
+  // unchanged. The international exports use ';': the French funeral-operator list
+  // and the three Tourisme Québec accommodation files are BOTH semicolon-separated
+  // and RFC-4180 quoted (Québec quotes every field; France quotes only the fields
+  // that contain a literal `"`, of which there are a handful), so they need this
+  // parser's quote handling with a different separator, not a second parser.
+  private readonly sep: string;
+
+  constructor(separator = ',') {
+    if (separator.length !== 1 || separator === '"' || separator === '\n' || separator === '\r') {
+      throw new Error(`invalid CSV separator ${JSON.stringify(separator)}`);
+    }
+    this.sep = separator;
+  }
 
   // Feed one decoded chunk; returns the rows completed by it.
   feed(chunk: string): string[][] {
@@ -30,7 +44,7 @@ export class CsvRowParser {
         }
       }
       if (ch === '"' && this.field === '') { this.inQuotes = true; continue; }
-      if (ch === ',') { this.row.push(this.field); this.field = ''; continue; }
+      if (ch === this.sep) { this.row.push(this.field); this.field = ''; continue; }
       if (ch === '\n') { this.row.push(this.field); out.push(this.row); this.row = []; this.field = ''; continue; }
       if (ch === '\r') continue;
       this.field += ch;
@@ -52,8 +66,8 @@ export class CsvRowParser {
 }
 
 // Convenience for tests and small strings.
-export function parseCsv(text: string): string[][] {
-  const p = new CsvRowParser();
+export function parseCsv(text: string, separator = ','): string[][] {
+  const p = new CsvRowParser(separator);
   const rows = p.feed(text);
   const last = p.end();
   if (last) rows.push(last);

@@ -99,13 +99,23 @@ const FREE_MAIL_INTL_CCTLD = new RegExp(
     'online', 'frisurf', 'broadpark', 'start', 'getmail', 'c2i', 'runbox', 'trollnett', 'hotmail', 'live',
     // United Kingdom
     'blueyonder', 'tiscali', 'talktalk', 'virginmedia', 'btinternet',
-  ].join('|') + ')\\.(fr|no|co\\.uk|uk)$',
+    // Québec / Canada. Essential for the Québec sources: roughly two in five CPE
+    // and garderie mailboxes in the provincial répertoire are a videotron.ca,
+    // bellnet.ca, sympatico.ca or hotmail.ca address rather than a business domain.
+    'videotron', 'bellnet', 'sympatico', 'cgocable', 'telus', 'shaw', 'rogers', 'distributel', 'ebox', 'globetrotter', 'axion', 'sogetel', 'cooptel', 'oricom', 'internet',
+    // Estonia
+    'hot', 'mail', 'online', 'neti', 'estpak',
+  ].join('|') + ')\\.(fr|no|co\\.uk|uk|ca|qc\\.ca|ee)$',
   'i',
 );
 const FREE_MAIL_INTL_EXACT = new Set([
   'googlemail.com', 'gmx.com', 'gmx.net',
   'btinternet.com', 'btconnect.com', 'btopenworld.com', 'virginmedia.com', 'ntlworld.com', 'talktalk.net', 'sky.com',
   'uol.com.br', 'bol.com.br', 'terra.com.br', 'globo.com', 'prodigy.net.mx',
+  // Québec consumer ISPs that sit on .net/.com rather than .ca.
+  'globetrotter.net', 'videotron.com', 'sympatico.com', 'hotmail.fr',
+  // Singapore consumer ISPs (the ECDA child care register publishes a few).
+  'singnet.com.sg', 'pacific.net.sg', 'starhub.net.sg',
 ]);
 
 export function isFreeMail(email: string): boolean {
