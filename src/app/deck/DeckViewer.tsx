@@ -12,7 +12,7 @@ export default function DeckViewer({ slides }: { slides: string[] }) {
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
-    const update = () => setScale(Math.min(1, el.clientWidth / W));
+    const update = () => setScale(Math.min(1, (el.clientWidth - 32) / W));
     update();
     const ro = new ResizeObserver(update);
     ro.observe(el);
