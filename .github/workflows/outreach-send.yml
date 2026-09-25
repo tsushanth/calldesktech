@@ -1,0 +1,35 @@
+name: Outreach paced sending
+
+# Sends at most ONE already-approved outreach message per run, inside the weekday
+# send window and under the shared daily cap (all limits live in the app; see
+# src/lib/outreach/autosend.ts). It never sends drafts. Turn it off without a deploy:
+#   fly secrets unset OUTREACH_AUTOSEND -a calldesk-tech   (or set it to anything but "on")
+#
+# Required repo secret: CRON_SECRET (same value as the Fly app's CRON_SECRET)
+
+on:
+  schedule:
+    - cron: '*/15 * * * *'
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Dry run (report what would be sent, send nothing)'
+        type: boolean
+        default: true
+
+jobs:
+  send:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Send next approved message
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          DRY_RUN: ${{ inputs.dry_run == true }}
+        run: |
+          set -euo pipefail
+          if [ -z "$CRON_SECRET" ]; then echo "CRON_SECRET repo secret must be set" >&2; exit 1; fi
+          curl -sS --fail-with-body --max-time 120 -X POST "https://calldesk.tech/api/admin/outreach/autosend" \
+            -H "Authorization: Bearer $CRON_SECRET" \
+            -H "Content-Type: application/json" \
+            -d "{\"dryRun\": $DRY_RUN}"
