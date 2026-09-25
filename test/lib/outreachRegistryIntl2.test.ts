@@ -23,17 +23,21 @@ import {
   toQcLodgingRow, evaluateQcLodgingRow, toQcLodgingLead, qcLodgingSourceKey, qcLodgingLabel,
   qcLodgingDomain, findQcLodgingCandidates, QC_LODGING_FILES, QC_LODGING_COLUMNS, QC_LODGING_REQUIRED,
 } from '@/lib/outreach/discovery/qcLodging';
+import {
+  toQcRbqRow, evaluateQcRbqRow, toQcRbqLead, qcRbqSourceKey, qcRbqTrades, qcRbqPostcode,
+  findQcRbqCandidates, QC_RBQ_TRADES,
+} from '@/lib/outreach/discovery/qcRbqLicences';
 import { QC_COUNTRY, QC_STATE, QC_LICENCE } from '@/lib/outreach/discovery/qcCommon';
 import {
   toSgEcdaRow, evaluateSgEcdaRow, toSgEcdaLead, sgEcdaSourceKey, sgEcdaDomain, isSgPostcode,
-  parseSgPage, sgEcdaPageUrl, countCentresPerOrg, findSgEcdaCandidates, SgRateLimited,
+  parseSgPage, sgEcdaPageUrl, countCentresPerOrg, findSgEcdaCandidates, SgRateLimited, sgBrand, SG_PRIVATE_ORG_CODE,
   SG_MAX_CENTRES_PER_ORG, type SgPage,
 } from '@/lib/outreach/discovery/sgEcdaChildcare';
 import {
   toEeRow, evaluateEeRow, toEeLead, eeSourceKey, eeDomain, eeDateKey,
   parseZipLocalHeader, JsonObjectSplitter, findEeAgencyCandidates, EE_MIN_EMPLOYEES,
 } from '@/lib/outreach/discovery/eeAriregister';
-import { calldesk, childcare, funeral, lodging, physio, taxi, accounting, vets, realestate } from '@/lib/outreach/products';
+import { calldesk, childcare, funeral, lodging, physio, taxi, accounting, vets, realestate, homeservices } from '@/lib/outreach/products';
 
 const keep = <T>(ev: { keep: boolean } | T) => {
   expect((ev as { keep: boolean }).keep, JSON.stringify(ev)).toBe(true);
@@ -483,6 +487,99 @@ describe('Québec: tourism accommodation', () => {
 });
 
 // ===========================================================================
+describe('Québec: RBQ contractor licences', () => {
+  const lic = (over: Record<string, unknown> = {}, subs: string[] = ['15.5', 'GPC', 'SEC']) => ({
+    Licence: {
+      'Numéro de licence': '1104-8618-06',
+      'Statut de la licence': 'Active',
+      'Type de licence': 'Entrepreneur',
+      Courriel: 'epion@emardcp.com',
+      Adresse: '195 RUE DE LA POINTE-LANGLOIS LAVAL QC CANADA H7L 3J4',
+      NEQ: '1181630154',
+      "Nom de l'intervenant": 'Emard Construction Plomberie Inc',
+      'Numéro de téléphone': '4503334444',
+      Municipalité: 'Laval',
+      'Statut juridique': 'Compagnie',
+      'Région administrative': 'Laval',
+      'Autre nom': null,
+      'Catégories et sous-catégories': subs.map((s, i) => (i === 0 ? { Categorie: 'Specialisee', 'Sous-catégories': s } : { 'Sous-catégories': s })),
+      ...over,
+    },
+  });
+
+  it('maps only the plumbing, HVAC, electrical and roofing subcategories', () => {
+    // The trades that are in, with the label each one produces.
+    expect(QC_RBQ_TRADES['15.5']).toBe('plumbing contractor');
+    expect(QC_RBQ_TRADES['16']).toBe('electrical contractor');
+    expect(QC_RBQ_TRADES['7']).toBe('roofing, insulation and exterior cladding contractor');
+    expect(QC_RBQ_TRADES['15.8']).toBe('ventilation contractor');
+    // The general, civil and administrative subclasses are deliberately absent.
+    for (const code of ['1.1', '1.3', '2.1', '3.2', '4.1', '5.1', '6.1', '8.1', '13.1', 'GPC', 'SEC', 'AGC', '16.5']) {
+      expect(QC_RBQ_TRADES[code], code).toBeUndefined();
+      expect(qcRbqTrades([code]), code).toEqual([]);
+    }
+    // "16" and "16.0" are the same subclass written two ways, as are "7" and "7.0".
+    expect(qcRbqTrades(['16.0'])).toEqual(['16']);
+    expect(qcRbqTrades(['7.0'])).toEqual(['7']);
+    // Several trades on one licence come back most-specific first.
+    expect(qcRbqTrades(['15.8', '16', '15.5'])).toEqual(['15.5', '16', '15.8']);
+  });
+
+  it('builds a held Canadian-French home-services lead from one nested licence object', () => {
+    const row = toQcRbqRow(lic());
+    expect(row.licence).toBe('1104-8618-06');
+    expect(row.subcategories).toEqual(['15.5', 'GPC', 'SEC']);
+    expect(qcRbqPostcode(row.address)).toBe('H7L 3J4');
+    const lead = toQcRbqLead(row, keep(evaluateQcRbqRow(row)));
+    expect(lead.sourceKey).toBe('homeservices:qc:1104-8618-06');
+    expect(lead.country).toBe('CA');
+    expect(lead.state).toBe('QC');
+    expect(lead.location).toBe('Laval, QC');
+    expect(detectDraftLanguage(lead.location)).toEqual({ code: 'fr-CA', name: 'Canadian French' });
+    expect(lead.typeLabel).toBe('plumbing contractor');
+    expect(lead.description).toMatch(/^Listed in the Régie du bâtiment du Québec register of active construction licences as a plumbing contractor, based in Laval, QC\.$/);
+    expect(lead.signalDetail).toContain(QC_LICENCE);
+    expect(qcRbqSourceKey(' 1104-8618-06 ')).toBe('homeservices:qc:1104-8618-06');
+  });
+
+  it('prefers the trade name, and flags a sole trader as the other countries do', () => {
+    const trade = toQcRbqRow(lic({ 'Autre nom': 'PLOMBERIE LAVAL EXPRESS' }));
+    expect(toQcRbqLead(trade, keep(evaluateQcRbqRow(trade))).name).toBe('Plomberie Laval Express');
+    const sole = toQcRbqRow(lic({ 'Statut juridique': 'Personne physique' }));
+    const ev = keep(evaluateQcRbqRow(sole));
+    expect(ev.reasons.join(' ')).toMatch(/SOLE TRADER \(personne physique\)/);
+    expect(ev.adjust).toBeLessThan(keep(evaluateQcRbqRow(toQcRbqRow(lic()))).adjust);
+  });
+
+  it('drops the general licences, the inactive ones, the owner-builders and the public bodies', () => {
+    expect(drop(evaluateQcRbqRow(toQcRbqRow(lic({}, ['1.3', 'GPC'])))).reason).toMatch(/general, civil or administrative/);
+    expect(drop(evaluateQcRbqRow(toQcRbqRow(lic({ 'Statut de la licence': 'Suspendue' })))).reason).toMatch(/not Active/);
+    expect(drop(evaluateQcRbqRow(toQcRbqRow(lic({ 'Type de licence': 'Constructeur-proprietaire' })))).reason).toMatch(/not a contractor licence/);
+    expect(drop(evaluateQcRbqRow(toQcRbqRow(lic({ "Nom de l'intervenant": 'Ville De Drummondville' })))).reason).toMatch(/public body/);
+    expect(drop(evaluateQcRbqRow(toQcRbqRow(lic({ "Nom de l'intervenant": 'Hydro-Quebec' })))).reason).toMatch(/public body/);
+    expect(drop(evaluateQcRbqRow(toQcRbqRow(lic({ Courriel: null })))).reason).toMatch(/no usable email/);
+  });
+
+  it('dedupes on the licence number and raises the alarm if the code map goes stale', async () => {
+    const a = lic();
+    const b = lic({ 'Numéro de licence': '1200-0000-00', Courriel: 'other@electricite.qc.ca', "Nom de l'intervenant": 'Electricite Nord Inc' }, ['16']);
+    const res = await findQcRbqCandidates(50, { textOverride: JSON.stringify({ 'Liste Licence': [a, { ...a }, b] }) });
+    expect(res.scanned).toBe(3);
+    expect(res.candidates.map((c) => c.typeLabel)).toEqual(['plumbing contractor', 'electrical contractor']);
+    expect(res.rejected['duplicate licence number']).toBe(1);
+
+    // THE STALE-MAP ALARM: lots of active contractor licences, none of them mapping.
+    const many = Array.from({ length: 1100 }, (_, i) => lic({
+      'Numéro de licence': `9000-0000-${String(i).padStart(2, '0')}`,
+      Courriel: `c${i}@x${i}.qc.ca`,
+    }, ['99.9']));
+    const stale = await findQcRbqCandidates(50, { textOverride: JSON.stringify({ 'Liste Licence': many }) });
+    expect(stale.candidates).toHaveLength(0);
+    expect(stale.errors.join(' ')).toMatch(/matched a trade subcategory .*probably been renumbered/);
+  });
+});
+
+// ===========================================================================
 describe('Singapore: ECDA licensed child care centres', () => {
   const raw = (over: Record<string, unknown> = {}) => ({
     centre_code: 'PT1234',
@@ -534,18 +631,48 @@ describe('Singapore: ECDA licensed child care centres', () => {
     for (const p of ['5700', '', null, '5700133']) expect(isSgPostcode(p), String(p)).toBe(false);
   });
 
-  it('counts centres per operator from the whole list before judging any of them', async () => {
-    const chain = [1, 2, 3, 4].map((n) => raw({
-      centre_code: `BG000${n}`, organisation_code: 'BG', organisation_description: 'Big Group Pte Ltd',
-      centre_name: `Big Group Centre ${n}`, centre_email_address: `c${n}@biggroup.com.sg`,
+  it('counts centres per operator over the whole list, by email domain and by brand', async () => {
+    // A chain hiding inside the private-operator category: four outlets, one domain.
+    const byDomain = [1, 2, 3, 4].map((n) => raw({
+      centre_code: `PT800${n}`, centre_name: `Bright Beans Preschool @ Outlet ${n}`,
+      centre_email_address: `c${n}@brightbeans.com.sg`,
     }));
-    const counts = countCentresPerOrg([...chain, raw()].map(toSgEcdaRow));
-    expect(counts.get('BG')).toBe(4);
-    expect(counts.get('PT')).toBe(1);
-    const res = await findSgEcdaCandidates(20, { pagesOverride: [{ total: 5, records: [...chain, raw()] }] });
-    expect(res.scanned).toBe(5);
-    expect(res.candidates.map((c) => c.licenseId)).toEqual(['PT1234']);
-    expect(res.rejected['operator runs 4 centres, so it is a chain with a head office rather than an owner-run centre']).toBe(4);
+    // And one hiding behind per-outlet mailboxes: four outlets, one brand.
+    const byBrand = [1, 2, 3, 4].map((n) => raw({
+      centre_code: `PT900${n}`, centre_name: `Happy Trees Preschool (Branch ${n})`,
+      centre_email_address: `branch${n}@happytrees${n}.com.sg`,
+    }));
+    // Four independents that merely share gmail: free-mail must NOT read as a chain.
+    const gmails = [1, 2, 3, 4].map((n) => raw({
+      centre_code: `PT700${n}`, centre_name: `Corner Playhouse ${n}`, centre_email_address: `owner${n}@gmail.com`,
+    }));
+
+    const counts = countCentresPerOrg([...byDomain, ...byBrand, ...gmails, raw()].map(toSgEcdaRow));
+    expect(counts.get('PT8001')).toBe(4); // shared domain
+    expect(counts.get('PT9001')).toBe(4); // shared brand
+    expect(counts.get('PT7001')).toBe(1); // gmail says nothing about ownership
+    expect(counts.get('PT1234')).toBe(1);
+
+    const res = await findSgEcdaCandidates(30, { pagesOverride: [{ total: 13, records: [...byDomain, ...byBrand, ...gmails, raw()] }] });
+    expect(res.scanned).toBe(13);
+    // The two chains are gone; the four gmail independents and the lone centre stay.
+    expect(res.candidates.map((c) => c.licenseId)).toEqual(['PT7001', 'PT7002', 'PT7003', 'PT7004', 'PT1234']);
+    expect(res.rejected['operator runs 4 centres, so it is a chain with a head office rather than an owner-run centre']).toBe(8);
+  });
+
+  it('drops everything that is not the private-operator category, naming the operator', () => {
+    for (const [code, desc] of [['ST', 'PCF Sparkletots Preschool Limited'], ['NT', 'NTUC First Campus Co-Operative Ltd'], ['RC', 'Not-for-Profit Organisation'], ['KM', 'MOE Kindergarten'], ['PW', 'Presbyterian Community Services']] as const) {
+      const r = toSgEcdaRow(raw({ organisation_code: code, organisation_description: desc, centre_name: 'Some Centre' }));
+      const d = drop(evaluateSgEcdaRow(r, 1));
+      expect(d.reason, code).toContain(desc);
+      expect(d.reason, code).toMatch(/rather than a privately owned centre/);
+    }
+    expect(SG_PRIVATE_ORG_CODE).toBe('PT');
+    // The brand is the name without its outlet suffix.
+    expect(sgBrand('STAR LEARNERS @ BISHAN')).toBe('star learners');
+    expect(sgBrand('Little Greenhouse (Yishun)')).toBe('little greenhouse');
+    expect(sgBrand('Ace - Tampines')).toBe('ace');
+    expect(sgBrand('Little Footprints Preschool Pte. Ltd.')).toBe('little footprints');
   });
 
   it('treats an in-body TOO_MANY_REQUESTS as a retryable rate limit, not as end-of-data', () => {
@@ -655,6 +782,39 @@ describe('Estonia: agency leads from the business register', () => {
     expect(out).toHaveLength(2);
     expect(JSON.parse(out[0]).n).toBe('a }{ brace " and quote');
     expect(JSON.parse(out[1])).toEqual({ a: 2 });
+  });
+
+  it('survives a chunk boundary INSIDE an object, however the stream is cut up', () => {
+    // The bug this guards: re-scanning the partial object on the next feed counted
+    // its opening brace twice, the depth never returned to zero, and a 4.6 GB stream
+    // yielded not one object. Every single-character split must still work.
+    const doc = '[{"a":1,"s":"x{y}z"},{"b":{"c":2}},{"d":"\\"}"}]';
+    const expected = ['{"a":1,"s":"x{y}z"}', '{"b":{"c":2}}', '{"d":"\\"}"}'];
+    for (const size of [1, 2, 3, 5, 7, 11, 1000]) {
+      const s = new JsonObjectSplitter();
+      const got: string[] = [];
+      for (let i = 0; i < doc.length; i += size) got.push(...s.feed(doc.slice(i, i + size)));
+      expect(got, `chunk size ${size}`).toEqual(expected);
+      expect(got.map((g) => JSON.parse(g)), `chunk size ${size}`).toEqual([
+        { a: 1, s: 'x{y}z' }, { b: { c: 2 } }, { d: '"}' },
+      ]);
+    }
+  });
+
+  it('can skip past a wrapper key, so an array inside an object is splittable', () => {
+    // The Estonian file is a top-level array and needs no marker. The RBQ licence
+    // file wraps its array in an object, and without skipping the key the only
+    // "top-level object" in the whole document is the wrapper itself.
+    const doc = '{"meta":{"ignored":{"deeply":1}},"Liste Licence":[{"a":1},{"b":2}]}';
+    for (const size of [1, 4, 13, 1000]) {
+      const s = new JsonObjectSplitter('"Liste Licence"');
+      const got: string[] = [];
+      for (let i = 0; i < doc.length; i += size) got.push(...s.feed(doc.slice(i, i + size)));
+      expect(got.map((g) => JSON.parse(g)), `chunk size ${size}`).toEqual([{ a: 1 }, { b: 2 }]);
+    }
+    // Without the marker the wrapper swallows everything, which is exactly the
+    // failure mode the marker exists to avoid.
+    expect(new JsonObjectSplitter().feed(doc)).toEqual([doc]);
   });
 
   it('finds where the deflate data starts in the Zip64 local header, and rejects the rest', () => {
@@ -776,11 +936,12 @@ describe('the international hold, for every new source', () => {
 
   it('registers every new bulk source against the right product, bulk-import only', async () => {
     const { BULK_REGISTRY_SOURCE_IDS, bulkRegistrySourcesFor } = await import('@/lib/outreach/discovery/pipeline');
-    for (const id of ['fr-funeral', 'qc-cpe', 'qc-lodging', 'sg-ecda', 'ee-agencies']) {
+    for (const id of ['fr-funeral', 'qc-cpe', 'qc-lodging', 'qc-rbq', 'sg-ecda', 'ee-agencies']) {
       expect(BULK_REGISTRY_SOURCE_IDS, id).toContain(id);
     }
     expect(bulkRegistrySourcesFor(funeral)).toEqual(['fr-funeral']);
     expect(bulkRegistrySourcesFor(lodging)).toEqual(['qc-lodging']);
+    expect(bulkRegistrySourcesFor(homeservices)).toEqual(expect.arrayContaining(['qc-rbq', 'nyc-dob', 'va-dpor', 'ar-clb', 'fr-rge', 'no-brreg']));
     expect(bulkRegistrySourcesFor(childcare)).toEqual(expect.arrayContaining(['tx-childcare', 'qc-cpe', 'sg-ecda']));
     expect(bulkRegistrySourcesFor(calldesk)).toEqual(expect.arrayContaining(['no-brreg', 'ee-agencies']));
     // The new Norwegian verticals reach Norway through the existing source id.

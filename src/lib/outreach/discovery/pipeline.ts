@@ -32,6 +32,7 @@ import { allBrregLeads } from './noBrregEnheter';
 import { allFrFuneralLeads } from './frFuneralOperators';
 import { allQcCpeLeads } from './qcChildcare';
 import { allQcLodgingLeads } from './qcLodging';
+import { allQcRbqLeads } from './qcRbqLicences';
 import { allSgEcdaLeads } from './sgEcdaChildcare';
 import { allEeAgencyLeads } from './eeAriregister';
 import { findDentalNppesCandidates } from './dentalNppes';
@@ -840,6 +841,10 @@ const BULK_REGISTRY_SOURCES: Record<string, { products: string[]; load: (product
   // on every lead). Held pending a CASL review as well as the ordinary hold.
   'qc-cpe': { products: ['childcare'], load: (_p, isKnown, log) => allQcCpeLeads({ isKnown, log }) },
   'qc-lodging': { products: ['lodging'], load: (_p, isKnown, log) => allQcLodgingLeads({ isKnown, log }) },
+  // RBQ contractor licences, restricted to the plumbing/HVAC/electrical/roofing
+  // subcategories; the general and civil-engineering subclasses are skipped. The
+  // subcategory codes are mapped in qcRbqLicences.QC_RBQ_TRADES.
+  'qc-rbq': { products: ['homeservices'], load: (_p, isKnown, log) => allQcRbqLeads({ isKnown, log }) },
 
   // SINGAPORE, ECDA licensed child care centres (English drafts).
   'sg-ecda': { products: ['childcare'], load: (_p, isKnown, log) => allSgEcdaLeads({ isKnown, log }) },
