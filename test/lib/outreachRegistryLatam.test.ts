@@ -226,6 +226,34 @@ describe('zipStream container reader', () => {
     expect(res.errors ?? []).toEqual([]);
   });
 
+  // The CDN in front of the CNPJ mirror answers a whole-object range with 200 and
+  // the WHOLE FILE from byte 0 — which is exactly what a full-file pass asks for,
+  // so this path is load-bearing in production, not an edge case.
+  it('copes with a 200 whole-file answer by skipping the archive prefix to reach the member', async () => {
+    const ranged = serveZip(archive);
+    vi.stubGlobal('fetch', ranged);
+    const entry = pickZipEntry((await listZipEntries('https://example.test/a.zip')).entries, /conjunto/i);
+
+    // Cloudflare honours a small range but answers a range spanning essentially
+    // the whole object with 200 and the entire file from byte 0.
+    const ranged2 = serveZip(archive);
+    vi.stubGlobal('fetch', vi.fn(async (url: string, init?: RequestInit) => {
+      const m = /bytes=(\d+)-(\d+)/.exec(String((init?.headers as Record<string, string> | undefined)?.Range ?? ''));
+      if (m && Number(m[2]) - Number(m[1]) > archive.length / 2) {
+        return new Response(archive, { status: 200, headers: { 'content-length': String(archive.length) } });
+      }
+      return ranged2(url, init);
+    }));
+    const seen: string[][] = [];
+    const res = await streamZipRows({
+      url: 'https://example.test/a.zip', entry, delimiter: ';', onRow: (row) => { seen.push(row); },
+    });
+    // The member's 40 rows, decoded correctly — not the local header as garbage.
+    expect(res.scanned).toBe(40);
+    expect(seen[0]).toEqual(['00000000', 'row 0', 'São Paulo']);
+    expect(seen[39]).toEqual(['00000039', 'row 39', 'São Paulo']);
+  });
+
   it('refuses to proceed when the server ignores the byte range, rather than downloading gigabytes', async () => {
     vi.stubGlobal('fetch', vi.fn(async () => new Response(archive, { status: 200, headers: { 'content-length': String(archive.length) } })));
     await expect(listZipEntries('https://example.test/a.zip')).rejects.toThrow(/byte ranges not honoured/);

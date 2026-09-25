@@ -537,8 +537,12 @@ export interface BrCnpjResult extends RegistryResult {
   complete: boolean;
 }
 
-// Verifies the configured release folder still resolves, so a stale
-// CNPJ_RELEASE fails with a clear message instead of a mid-stream 404.
+// Verifies a release folder still resolves BEFORE a run commits to it, so a
+// stale CNPJ_RELEASE fails immediately and by name instead of 404-ing part way
+// through. The mirror publishes monthly and drops old folders, so this WILL fire
+// eventually; the fix is to point CNPJ_RELEASE (or RELEASE=) at the newest
+// folder listed at https://dados-abertos-rf-cnpj.casadosdados.com.br/arquivos/.
+// Costs two small range requests per candidate.
 export async function resolveCnpjRelease(candidates: string[] = [CNPJ_RELEASE]): Promise<string> {
   const errors: string[] = [];
   for (const release of candidates) {
@@ -549,7 +553,7 @@ export async function resolveCnpjRelease(candidates: string[] = [CNPJ_RELEASE]):
       errors.push(`${release}: ${e instanceof Error ? e.message : String(e)}`);
     }
   }
-  throw new Error(`no usable CNPJ release folder (${errors.join('; ')})`);
+  throw new Error(`no usable CNPJ release folder — point CNPJ_RELEASE at the newest folder under ${CNPJ_MIRROR}/ (${errors.join('; ')})`);
 }
 
 // One pass over one Estabelecimentos file for one vertical.
@@ -569,7 +573,9 @@ export async function findBrCnpjCandidates(product: string, max: number, opts: B
   let lastRow = startRow;
 
   try {
-    const release = opts.release ?? CNPJ_RELEASE;
+    // Checked up front: a run that is going to stream a gigabyte should fail in
+    // the first second if the monthly release folder has rotated away.
+    const release = opts.rowsOverride ? (opts.release ?? CNPJ_RELEASE) : await resolveCnpjRelease([opts.release ?? CNPJ_RELEASE]);
     const municipalities = opts.municipalities ?? (opts.rowsOverride ? new Map<string, string>() : await loadBrMunicipalities({ release, log }));
 
     const onRow = (row: string[], index: number): boolean | void => {

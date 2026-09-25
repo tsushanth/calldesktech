@@ -247,7 +247,17 @@ export async function streamZipRows(opts: ZipRowOptions): Promise<{ scanned: num
       signal: controller.signal,
       redirect: 'follow',
     });
-    if (res.status !== 206 || !res.body) throw new Error(`${opts.url}: member fetch did not honour the byte range (HTTP ${res.status})`);
+    if (!res.body || (res.status !== 206 && res.status !== 200)) {
+      throw new Error(`${opts.url}: member fetch did not honour the byte range (HTTP ${res.status})`);
+    }
+    // A range that spans essentially the whole object is answered 200 with the
+    // WHOLE FILE by the CDN in front of the CNPJ mirror (Cloudflare does this for
+    // the 563 MB Empresas0.zip, and for any full-file member read). The bytes are
+    // the ones we want, but they start at offset 0 instead of at the member's
+    // data, so the local header has to be skipped by hand before the inflater
+    // sees anything. Refusing instead would make a full-file pass impossible.
+    let skip = res.status === 200 ? dataStart : 0;
+    if (skip) opts.log?.(`${opts.url}: server answered 200 to a whole-object range; skipping the first ${skip} bytes to reach "${entry.name}"`);
 
     const decoder = new TextDecoder(opts.encoding ?? 'latin1');
     const parser = new DelimitedRowParser(opts.delimiter);
@@ -264,7 +274,21 @@ export async function streamZipRows(opts: ZipRowOptions): Promise<{ scanned: num
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const source = Readable.fromWeb(res.body as any);
     const inflate = entry.method === 8 ? zlib.createInflateRaw() : null;
-    const rows = inflate ? (source.pipe(inflate), inflate) : source;
+    // Drops the leading `skip` bytes (the archive prefix a 200 response includes)
+    // so whatever follows starts exactly at the member's compressed data. A
+    // no-op when the server honoured the range, which is the normal case.
+    const { Transform } = await import('node:stream');
+    const trim = new Transform({
+      transform(chunk: Buffer, _enc, cb) {
+        if (skip <= 0) { cb(null, chunk); return; }
+        if (chunk.length <= skip) { skip -= chunk.length; cb(); return; }
+        const rest = chunk.subarray(skip);
+        skip = 0;
+        cb(null, rest);
+      },
+    });
+    source.pipe(trim);
+    const rows = inflate ? (trim.pipe(inflate), inflate) : trim;
     try {
       for await (const chunk of rows as AsyncIterable<Buffer>) {
         for (const row of parser.feed(decoder.decode(chunk, { stream: true }))) {
@@ -274,10 +298,16 @@ export async function streamZipRows(opts: ZipRowOptions): Promise<{ scanned: num
         if (stopped) break;
       }
     } catch (e) {
-      // A deliberately truncated member cannot end cleanly; anything else is real.
-      if (!truncated && !stopped) throw e;
+      // A deliberately truncated member cannot end cleanly. Nor can a whole-object
+      // 200 response, whose body continues past the member into the next local
+      // header and the central directory: the inflater reaches the end of the
+      // deflate stream and then sees trailing bytes. Both are expected; anything
+      // else, or a failure before a single row was read, is real.
+      const benign = truncated || stopped || (res.status === 200 && scanned > 0);
+      if (!benign) throw e;
     } finally {
       source.destroy();
+      trim.destroy();
       inflate?.destroy();
       try { await res.body.cancel(); } catch { /* already consumed or destroyed */ }
     }
