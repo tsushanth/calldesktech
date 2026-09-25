@@ -143,6 +143,7 @@ export async function buildOutreachEmail(
             durationLabel: secs && secs > 0 ? `${Math.floor(secs / 60)}:${String(Math.round(secs % 60)).padStart(2, '0')}` : undefined,
             lines,
             url: sampleUrl(base, product, sampleTokenFor(String(msg.id))),
+            deckUrl: process.env.OUTREACH_DECK_LINK === 'off' ? undefined : `${base}/deck?t=${encodeURIComponent(sampleTokenFor(String(msg.id)))}`,
             disclosure: found.disclosure || 'AI test caller talking to a Calldesk demo agent for a fictional business',
           };
           sampleId = found.id;

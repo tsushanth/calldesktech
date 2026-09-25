@@ -8,6 +8,8 @@ export interface EmailSample {
   lines: { speaker: 'caller' | 'agent'; text: string }[];
   url: string;
   disclosure: string;
+  // Optional link to the hosted pitch deck, shown under the sample-call button.
+  deckUrl?: string;
 }
 
 export interface RenderInput {
@@ -56,6 +58,7 @@ function renderCard(sample: EmailSample, lines: EmailSample['lines']): string {
     `<td bgcolor="#1a1d29" style="background-color:#1a1d29;border-radius:6px;padding:10px 18px">` +
     `<a href="${url}" style="font-family:${FONT};font-size:14px;font-weight:bold;color:#ffffff;text-decoration:none;display:inline-block">Listen to the full sample call</a>` +
     `</td></tr></table>` +
+    (sample.deckUrl ? `<p style="margin:0 0 10px;font-size:13px;line-height:1.4;color:#4b5563">Prefer to read? <a href="${escapeAttr(sample.deckUrl)}" style="color:#2563eb">See our short deck</a>.</p>` : '') +
     `<p style="margin:0;font-size:11px;line-height:1.4;color:#6b7280">${escapeHtml(sample.disclosure)}</p>` +
     `</td></tr></table>`
   );
@@ -76,7 +79,7 @@ export function renderOutreachEmail(input: RenderInput): { html: string; text: s
   if (sample && lines.length > 0) {
     const head = ['Sample call', sample.durationLabel, 'AI demo'].filter(Boolean).join(' · ');
     const body = lines.map((l) => `${l.speaker === 'caller' ? 'Caller' : 'Agent'}: ${l.text}`).join('\n');
-    textSample = `\n\n${head} - ${sample.title}\n${body}\nListen to the full sample call: ${sample.url}\n${sample.disclosure}`;
+    textSample = `\n\n${head} - ${sample.title}\n${body}\nListen to the full sample call: ${sample.url}${sample.deckUrl ? `\nShort deck: ${sample.deckUrl}` : ''}\n${sample.disclosure}`;
   }
   const siteText = site ? `${site.url}\n\n` : '';
   return { html, text: `${siteText}${bodyText}${textSample}${footer.text}` };

@@ -153,6 +153,21 @@ describe('sendApprovedMessage sample integration', () => {
     expect(updates).toContainEqual({ variant: 'sample', sample_id: 's1' });
   });
 
+  it('sample variant links the hosted deck under the sample button, unless OUTREACH_DECK_LINK is off', async () => {
+    getPublishedSample.mockResolvedValue(sample);
+    await sendApprovedMessage(fakeSupabase('calldesk:freight').client, MSG_ID);
+    const on = sendEmail.mock.calls[0][0] as { html: string; text: string };
+    expect(on.html).toMatch(/href="https:\/\/[^"]+\/deck\?t=[^"]+"[^>]*>See our short deck/);
+    expect(on.text).toMatch(/Short deck: https:\/\/\S+\/deck\?t=\S+/);
+    sendEmail.mockClear();
+    process.env.OUTREACH_DECK_LINK = 'off';
+    await sendApprovedMessage(fakeSupabase('calldesk:freight').client, MSG_ID);
+    const off = sendEmail.mock.calls[0][0] as { html: string; text: string };
+    expect(off.html).not.toContain('/deck');
+    expect(off.text).not.toContain('Short deck');
+    delete process.env.OUTREACH_DECK_LINK;
+  });
+
   it('plain variant with a sample available sends no card', async () => {
     process.env.OUTREACH_SAMPLE_VARIANT = 'plain';
     getPublishedSample.mockResolvedValue(sample);
