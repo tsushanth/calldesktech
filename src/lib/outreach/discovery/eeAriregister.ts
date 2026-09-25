@@ -293,18 +293,45 @@ export function parseZipLocalHeader(head: Uint8Array): ZipLocalHeader {
 // ever holding more than the current object. Quote- and escape-aware, so a brace
 // inside a string never confuses it. This is what makes a 4.6 GB array readable.
 export class JsonObjectSplitter {
+  // Optional marker to skip past before splitting starts. The Estonian file is a
+  // top-level ARRAY of companies, so it needs none. The RBQ licence file wraps its
+  // array in an object (`{"Liste Licence":[ ... ]}`), and without skipping past the
+  // key the only "top-level object" in the whole document is the wrapper itself.
+  private readonly startAfter: string | null;
+  private waiting: boolean;
   private buf = '';
+  // How much of `buf` has already been scanned. Essential: without it, a chunk
+  // boundary that falls INSIDE an object makes the next feed re-scan the partial
+  // object from the start and count its opening brace twice, so the depth never
+  // returns to zero and not one object is ever emitted.
+  private pos = 0;
   private depth = 0;
   private start = -1;
   private inString = false;
   private escaped = false;
 
+  constructor(startAfter?: string) {
+    this.startAfter = startAfter ?? null;
+    this.waiting = !!startAfter;
+  }
+
   feed(chunk: string): string[] {
     this.buf += chunk;
     const out: string[] = [];
-    let consumed = 0;
-    for (let i = 0; i < this.buf.length; i++) {
-      const ch = this.buf[i];
+    if (this.waiting) {
+      const at = this.buf.indexOf(this.startAfter as string);
+      if (at < 0) {
+        // The marker can straddle a chunk boundary, so keep just enough of the tail
+        // for it to be found next time.
+        const keepFrom = Math.max(0, this.buf.length - (this.startAfter as string).length);
+        this.buf = this.buf.slice(keepFrom);
+        return out;
+      }
+      this.buf = this.buf.slice(at + (this.startAfter as string).length);
+      this.waiting = false;
+    }
+    for (; this.pos < this.buf.length; this.pos++) {
+      const ch = this.buf[this.pos];
       if (this.inString) {
         if (this.escaped) this.escaped = false;
         else if (ch === '\\') this.escaped = true;
@@ -313,21 +340,23 @@ export class JsonObjectSplitter {
       }
       if (ch === '"') { this.inString = true; continue; }
       if (ch === '{') {
-        if (this.depth === 0) this.start = i;
+        if (this.depth === 0) this.start = this.pos;
         this.depth++;
       } else if (ch === '}') {
         this.depth--;
         if (this.depth === 0 && this.start >= 0) {
-          out.push(this.buf.slice(this.start, i + 1));
-          consumed = i + 1;
+          out.push(this.buf.slice(this.start, this.pos + 1));
           this.start = -1;
+          // Everything up to here is finished with: drop it and rebase the cursor.
+          this.buf = this.buf.slice(this.pos + 1);
+          this.pos = -1; // the for-loop's ++ brings it back to 0
         }
       }
     }
-    // Keep only what is still needed: the partial object being accumulated, or
-    // nothing when between objects.
-    if (this.depth === 0) this.buf = this.buf.slice(consumed);
-    else if (this.start > 0) { this.buf = this.buf.slice(this.start); this.start = 0; }
+    // Between objects there is nothing worth keeping (a comma and some
+    // whitespace); mid-object, keep from the opening brace and rebase.
+    if (this.depth === 0) { this.buf = ''; this.pos = 0; }
+    else if (this.start > 0) { this.buf = this.buf.slice(this.start); this.pos -= this.start; this.start = 0; }
     return out;
   }
 }
