@@ -192,6 +192,59 @@ is Delaware and never Germany.
 - **Brazil, Receita Federal CNPJ dump.** Could not be verified: `dadosabertos.rfb.gov.br`,
   `arquivos.receitafederal.gov.br` and the mirrors all refused or timed out from here. Not built.
 
+## readaloud bulk lead sources (`bulk-import.ts`, `src/lib/outreach/discovery/readaloud/`)
+Eight one-off sources of readaloud leads (companies building on realtime speech). They go through
+`bulk-import.ts` like the registries, but through a sibling importer (`readaloud/import.ts`) rather than
+`BULK_REGISTRY_SOURCES`: they are not registries (no licence/phone/city for `registryLeadRow`), they must not
+take the international registry hold (readaloud's daily stages apply only the DACH block), and the job signal
+enriches existing leads instead of adding new ones. Rows land in `leadsTable(readaloud)` =
+`calldesk_outreach_leads` tagged `product='readaloud'` (the old `readaloud_outreach_*` tables from migration 042
+are unused).
+
+| SOURCE | what | signal_source |
+|---|---|---|
+| `ra-cartesia-customers`, `ra-deepgram-customers` | customer case studies on the vendor's site -> the customer's own website | directory |
+| `ra-yc-voice` | active YC voice/speech/IVR/call-centre companies (yc-oss.github.io mirror) | directory |
+| `ra-github-orgs` | GitHub ORGS whose code calls ElevenLabs/Cartesia/Deepgram, or with speech repos/topics, or voice orgs by country | tech_fingerprint / search |
+| `ra-jobs-signal` | open voice/speech roles on Greenhouse/Lever/Ashby for known companies + a seed list, and HN "Who is hiring" company posts | job_posting |
+| `ra-wp-plugins` | WordPress TTS plugin publishers, >=1000 installs. **Blocked by robots.txt** (see below) | directory |
+| `ra-firefox-tts` | Firefox TTS add-on publishers, >=5000 daily users | directory |
+| `ra-hn-launches` | Show HN voice/speech launches, story URL domain only | search |
+
+    PRODUCT=readaloud SOURCE=ra-yc-voice NO_DB=1 ./node_modules/.bin/tsx bulk-import.ts    # counts, no DB at all
+    PRODUCT=readaloud SOURCE=ra-yc-voice DRY_RUN=1 ./node_modules/.bin/tsx bulk-import.ts  # counts, deduped against the DB
+    PRODUCT=readaloud SOURCE=ra-yc-voice ./node_modules/.bin/tsx bulk-import.ts            # insert + merge
+
+Suggested order: the competitor pages, YC, GitHub, Firefox and HN first, `ra-jobs-signal` LAST (it probes the job
+boards of every readaloud lead already in the DB, so it covers what the others added).
+
+- **Idempotent.** Dedupe on `source_key` (`readaloud:<kind>:<id>`) and domain, within the batch and against
+  existing readaloud leads. A company that is already a lead gets the source's facts merged into
+  `signals.readaloud.sources[<SOURCE>]`, replacing that source's previous facts, so re-runs never stack scores.
+- **Contacts.** New leads keep `contact_status='unknown'`; the daily readaloud run (`stageEnrich`) picks up every
+  un-enriched one with a domain, best score first, and looks for the contact email on their own website. Only a
+  company-ROLE address the source itself publishes (e.g. an add-on's `support@<their domain>`) is stored
+  directly; free-mail and named-person mailboxes never are.
+- **Scoring.** Each source adds an explained adjustment (competitor customer +25, code calls a competing API +20,
+  voice/speech hiring +15/+20, YC +10, installs/users +5..+15, hobbyist signals -10), re-applied on every rescore.
+  Which vendor a company pays is a scoring fact only: the lead `description` never carries it, so drafts cannot
+  mention it.
+- **Env.** `GITHUB_TOKEN` (else `gh auth token`; without either, code search is skipped and the rest runs at the
+  anonymous limit). Optional: `RA_GITHUB_CODE_PAGES` (3), `RA_GITHUB_SEARCH_PAGES` (2), `RA_GITHUB_MAX_ORGS` (400),
+  `RA_GITHUB_PARTS=code,orgs,topics`, `RA_JOBS_MAX_COMPANIES` (400), `RA_JOBS_HN_MONTHS` (3),
+  `RA_JOBS_INCLUDE=ra-yc-voice,...` (also probe the companies of those sources; the default with `NO_DB=1`).
+- **Politeness.** robots.txt is honoured for every host (a 5xx robots.txt counts as disallow), requests are spaced
+  per host (2s on the vendor sites, 7s between GitHub code searches), 429/5xx back off, and a bot challenge ends
+  that source softly. Nothing retries past a block.
+- **robots.txt blocks `ra-wp-plugins`.** `api.wordpress.org/robots.txt` is `Disallow: /` (checked 2026-09-25),
+  so the source stops at the robots check and reports it. The plugins API is a documented public API, so whether
+  robots.txt should govern it is a policy call; the parsers are built and tested, and nothing else changes if
+  that call is made.
+- **Personal data.** Only organisations. GitHub: org accounts only, and only what the org itself publishes (name,
+  blog, public email, location, description); GitHub's terms bar using personal data from the site for
+  marketing. HN: the company's own URL/name/pitch only, never the poster or commenters, never an address from a
+  comment; "Who wants to be hired" threads are never read.
+
 ## Contact-form submission worker (`form-submit.ts`)
 Leads with no public email get a draft in the queue's **forms** tab. A human reads it and clicks
 **Submit for me**, which moves `signals.formOutreach.status` to `queued`. This worker is the only thing
