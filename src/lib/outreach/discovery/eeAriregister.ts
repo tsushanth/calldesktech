@@ -107,9 +107,13 @@ export interface EeRow {
   reportYearEnd: string | null;
 }
 
+// A string, or a number written as one. Anything else is null: String({}) is
+// "[object Object]", and a register that puts an object where a name belongs would
+// otherwise ship that as the company name (the RBQ source hit exactly this).
 function str(x: unknown): string | null {
-  const s = typeof x === 'string' ? x.trim() : x == null ? '' : String(x).trim();
-  return s || null;
+  if (typeof x === 'string') return x.trim() || null;
+  if (typeof x === 'number' || typeof x === 'boolean') return String(x);
+  return null;
 }
 
 export function toEeRow(o: Record<string, unknown>): EeRow {

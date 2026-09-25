@@ -65,6 +65,7 @@ daily slot would only starve the US sources that actually convert.
 | `fr-funeral` | funeral | French national list of authorised funeral operators (data.gouv.fr, **licence "notspecified"** — see below) | email on 98.9%, phone on 85.7% |
 | `qc-cpe` | childcare | Québec Ministère de la Famille directory of CPEs and garderies (donneesquebec.ca, CC-BY 4.0) | email on nearly all rows, but only 2,824 distinct |
 | `qc-lodging` | lodging | Tourisme Québec campings / gîtes / pourvoiries registers (donneesquebec.ca, CC-BY 4.0) | email and phone on most, website on many |
+| `qc-rbq` | homeservices | RBQ register of active construction licences, 87 MB JSON streamed (donneesquebec.ca, CC-BY 4.0) | email on most active contractor licences |
 | `sg-ecda` | childcare | Singapore ECDA list of licensed child care centres (data.gov.sg datastore API) | email, phone and website on nearly all |
 | `ee-agencies` | **calldesk** | Estonian Business Register open data (RIK, 230 MB zip streamed, never saved) | email on ~99% |
 
@@ -81,6 +82,14 @@ licence CC-BY 4.0` in `signals.registry`, so the obligation travels with the dat
 `country = CA` (that is what `COUNTRY=CA release-country.ts` releases) and `location = "<City>, QC"` (that is
 what picks **Canadian** French for the draft). They are additionally held pending a **CASL** review: Canada's
 anti-spam law is consent-based, and nothing about the ordinary hold substitutes for that review.
+
+**`qc-rbq`: the subcategory map is the whole decision.** The export publishes subcategory CODES only, never their
+names, so `qcRbqLicences.QC_RBQ_TRADES` maps them by hand from the RBQ's own published list of specialised-
+contractor subclasses: 15.5 plumbing, 16 electrical, 7 roofing/insulation/cladding, 15.1–15.4 and 15.7–15.8
+heating and ventilation, 15.9–15.10 refrigeration and air conditioning. Every general (1.x–3.x), civil and
+structural subclass is deliberately excluded, as are the administrative codes (GPC, SEC) the export mixes into
+the same array. A renumbering would make that map fail silently, so the run counts how many active contractor
+licences matched no trade at all and raises a loud error if hardly any match.
 
 **Norway moved to SN2025.** A retired industry code returns a perfectly valid, EMPTY result from the Brreg API,
 so a stale code imports nothing and says nothing. `no-brreg` therefore probes every code it is about to use and

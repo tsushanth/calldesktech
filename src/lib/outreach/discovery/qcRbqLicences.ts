@@ -123,9 +123,14 @@ export interface QcRbqRow {
   subcategories: string[];
 }
 
+// A string, or a number written as one. Anything else — and the register really does
+// put an OBJECT in "Nom de l'intervenant" on some rows — is null, because
+// String({}) is "[object Object]" and the live dry run shipped that as a company
+// name before this was tightened.
 function str(x: unknown): string | null {
-  const s = typeof x === 'string' ? x.trim() : x == null ? '' : String(x).trim();
-  return s || null;
+  if (typeof x === 'string') return x.trim() || null;
+  if (typeof x === 'number' || typeof x === 'boolean') return String(x);
+  return null;
 }
 
 // The register writes the address as one line ending in the postal code:
