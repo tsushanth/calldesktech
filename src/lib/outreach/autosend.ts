@@ -46,10 +46,15 @@ async function healthProblem(supabase: SupabaseClient<any>, now: Date, lane: Lan
     .from('calldesk_outreach_messages').select('id', { count: 'exact', head: true })
     .eq('status', 'sent').or(products).gte('sent_at', since);
   const { data: events } = await supabase
-    .from('calldesk_outreach_email_events').select('message_id,event')
+    .from('calldesk_outreach_email_events').select('message_id,event,detail')
     .in('event', ['bounced', 'complained']).gte('occurred_at', since).limit(1000);
   const byMessage = new Map<string, string>();
-  for (const e of (events ?? []) as { message_id: string | null; event: string }[]) if (e.message_id) byMessage.set(e.message_id, e.event);
+  // Only hard (permanent) bounces count toward the pause: a transient bounce (full mailbox, temporary
+  // provider error) says nothing about the address or our reputation and may deliver on a retry.
+  for (const e of (events ?? []) as { message_id: string | null; event: string; detail?: { type?: string } | null }[]) {
+    if (e.event === 'bounced' && String(e.detail?.type ?? '').toLowerCase() === 'transient') continue;
+    if (e.message_id) byMessage.set(e.message_id, e.event);
+  }
   const ids = [...byMessage.keys()];
   let bounced = 0;
   let complained = 0;

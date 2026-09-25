@@ -110,6 +110,15 @@ describe('runAutosend', () => {
     expect(await runAutosend(fake(few), { now: TUE_11AM_PT, send: async () => ({ ok: true as const }) })).toMatchObject({ action: 'sent' });
   });
 
+  it('transient bounces do not count toward the pause; permanent ones still do', async () => {
+    process.env.OUTREACH_DAILY_CAP = '100';
+    const send = async () => ({ ok: true as const });
+    const transient = { ...OK, sentCount: 40, events: [{ message_id: 'a', event: 'bounced', detail: { type: 'Transient' } }, { message_id: 'b', event: 'bounced', detail: { type: 'Transient' } }], bounceMessageIds: ['a', 'b'] };
+    expect(await runAutosend(fake(transient), { now: TUE_11AM_PT, send })).toMatchObject({ action: 'sent' });
+    const permanent = { ...OK, sentCount: 40, events: [{ message_id: 'a', event: 'bounced', detail: { type: 'Permanent' } }, { message_id: 'b', event: 'bounced', detail: { type: 'Permanent' } }], bounceMessageIds: ['a', 'b'] };
+    expect(await runAutosend(fake(permanent), { now: TUE_11AM_PT, send })).toMatchObject({ action: 'paused_health' });
+  });
+
   it('dry run reports the message without sending', async () => {
     const send = vi.fn();
     expect(await runAutosend(fake(OK), { now: TUE_11AM_PT, dry: true, send })).toEqual({ action: 'would_send', messageId: 'm1' });
