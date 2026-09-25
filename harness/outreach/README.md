@@ -36,7 +36,7 @@ They produce short research-ask drafts (not sales pitches) into the same review 
   - One state per run, rotating by hourly slot weighted by pool size (TX and PA two slots in five each, WA one). Also bulk-importable: `PRODUCT=childcare SOURCE=tx-childcare DRY_RUN=1 ./node_modules/.bin/tsx bulk-import.ts`.
   - FREE MAIL, deliberately different here: ~41% of usable Texas rows and ~64% of Pennsylvania's publish a gmail/yahoo/aol address, because a small or home-based centre really does run on one, and those are the best-fitting leads in this vertical. So unlike `ca-cdph` (which discards a free-mail address), childcare KEEPS it as the contact. `registryLeadRow` still leaves `domain` null for a free-mail address, so nothing downstream treats it as a verified business domain. Scored -8, not excluded.
   - National chains and large multi-site operators (KinderCare, Bright Horizons, Goddard, Right At School, YMCA, Boys & Girls Club, …) are skipped outright — 32% of Washington's active rows.
-- `accounting` / `realestate` / `lodging` / `funeral` / `physio` / `taxi` / `vets`: vertical configs, plists and state dirs only. **No discovery source is wired up yet**, so a run for one of these finds nothing until a source is added (add it to `stageRegistry`/`verticalSearch` the way `childcare` was). They exist so the copy, scoring and queue filtering are in place first.
+- `accounting` / `realestate` / `lodging` / `funeral` / `physio` / `taxi` / `vets`: no DOMESTIC discovery source yet, so a `run.ts` pass for one of these still finds nothing (add it to `stageRegistry`/`verticalSearch` the way `childcare` was). They do now have INTERNATIONAL bulk sources, all on hold: `physio`/`taxi`/`accounting`/`vets`/`realestate` via `no-brreg`, `funeral` via `fr-funeral`, `lodging` via `qc-lodging` — see the international section below.
 - `towing` / `septic` / `homecare`: public REGISTRIES with no email. Ingest, then enrich resolves the website and a published email:
   - towing: Washington DOL company registrations (Socrata `data.wa.gov/ucdg-xgbj`, type "Registered Tow Truck Operator", active). Texas TDLR was rejected: its tow licences are per-individual driver licences with no phone/address.
   - septic: Florida DOH septic contractor listing (static HTML, parsed once per run, one lead per business authorization) and Austin liquid waste haulers (Socrata `data.austintexas.gov/pbam-er2r`).
@@ -65,7 +65,6 @@ daily slot would only starve the US sources that actually convert.
 | `fr-funeral` | funeral | French national list of authorised funeral operators (data.gouv.fr, **licence "notspecified"** — see below) | email on 98.9%, phone on 85.7% |
 | `qc-cpe` | childcare | Québec Ministère de la Famille directory of CPEs and garderies (donneesquebec.ca, CC-BY 4.0) | email on nearly all rows, but only 2,824 distinct |
 | `qc-lodging` | lodging | Tourisme Québec campings / gîtes / pourvoiries registers (donneesquebec.ca, CC-BY 4.0) | email and phone on most, website on many |
-| `qc-rbq` | homeservices | RBQ register of active construction licences, 87 MB JSON streamed (donneesquebec.ca, CC-BY 4.0) | email on most active contractor licences |
 | `sg-ecda` | childcare | Singapore ECDA list of licensed child care centres (data.gov.sg datastore API) | email, phone and website on nearly all |
 | `ee-agencies` | **calldesk** | Estonian Business Register open data (RIK, 230 MB zip streamed, never saved) | email on ~99% |
 
@@ -83,13 +82,17 @@ licence CC-BY 4.0` in `signals.registry`, so the obligation travels with the dat
 what picks **Canadian** French for the draft). They are additionally held pending a **CASL** review: Canada's
 anti-spam law is consent-based, and nothing about the ordinary hold substitutes for that review.
 
-**`qc-rbq`: the subcategory map is the whole decision.** The export publishes subcategory CODES only, never their
-names, so `qcRbqLicences.QC_RBQ_TRADES` maps them by hand from the RBQ's own published list of specialised-
-contractor subclasses: 15.5 plumbing, 16 electrical, 7 roofing/insulation/cladding, 15.1–15.4 and 15.7–15.8
-heating and ventilation, 15.9–15.10 refrigeration and air conditioning. Every general (1.x–3.x), civil and
-structural subclass is deliberately excluded, as are the administrative codes (GPC, SEC) the export mixes into
-the same array. A renumbering would make that map fail silently, so the run counts how many active contractor
-licences matched no trade at all and raises a loud error if hardly any match.
+**The RBQ contractor licences were investigated and NOT built.** `donneesquebec.ca` publishes the RBQ's
+`licencesactives` register (54,237 active licences, most with an email), and it would be a good homeservices
+source if the trade could be identified — but it cannot. The export gives subcategory CODES with no names, and
+`Categorie` appears only on the first element of each licence's subcategory array, so a code cannot even be
+attributed to the general or the specialised scheme. Worse, the codes present do not match the RBQ's published
+Annexe I numbering: the live distribution is `GPC` 52,944, `SEC` 52,766, `ADM` 52,688, then `9` 44,160,
+**`7` 43,429**, `8` 43,084, `11.2` 42,675 … — code `7` is on 80% of all active contractor licences, so it is
+plainly not "isolation, étanchéité, couvertures et revêtements extérieurs". If `7` cannot be trusted, neither
+can `15.5` (2,295) or `16` (3,981), however plausible their volumes look. Building it would have meant telling
+tens of thousands of leads we know a trade we cannot show they hold. To revisit it, get the authoritative
+code→name table for THIS export from the RBQ (the published "fiche descriptive" PDF documents the fields only).
 
 **Norway moved to SN2025.** A retired industry code returns a perfectly valid, EMPTY result from the Brreg API,
 so a stale code imports nothing and says nothing. `no-brreg` therefore probes every code it is about to use and

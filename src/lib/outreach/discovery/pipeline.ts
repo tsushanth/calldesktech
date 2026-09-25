@@ -32,7 +32,6 @@ import { allBrregLeads } from './noBrregEnheter';
 import { allFrFuneralLeads } from './frFuneralOperators';
 import { allQcCpeLeads } from './qcChildcare';
 import { allQcLodgingLeads } from './qcLodging';
-import { allQcRbqLeads } from './qcRbqLicences';
 import { allSgEcdaLeads } from './sgEcdaChildcare';
 import { allEeAgencyLeads } from './eeAriregister';
 import { findDentalNppesCandidates } from './dentalNppes';
@@ -841,10 +840,14 @@ const BULK_REGISTRY_SOURCES: Record<string, { products: string[]; load: (product
   // on every lead). Held pending a CASL review as well as the ordinary hold.
   'qc-cpe': { products: ['childcare'], load: (_p, isKnown, log) => allQcCpeLeads({ isKnown, log }) },
   'qc-lodging': { products: ['lodging'], load: (_p, isKnown, log) => allQcLodgingLeads({ isKnown, log }) },
-  // RBQ contractor licences, restricted to the plumbing/HVAC/electrical/roofing
-  // subcategories; the general and civil-engineering subclasses are skipped. The
-  // subcategory codes are mapped in qcRbqLicences.QC_RBQ_TRADES.
-  'qc-rbq': { products: ['homeservices'], load: (_p, isKnown, log) => allQcRbqLeads({ isKnown, log }) },
+  // NOTE: the RBQ contractor licences (donneesquebec.ca 'licencesactives') were
+  // investigated and deliberately NOT built. The export publishes subcategory CODES
+  // with no names and no per-subcategory category, and the codes it contains do not
+  // match the RBQ's published Annexe I numbering: code "7" is on 43,429 of the
+  // 54,237 active contractor licences (80%), so it cannot be the roofing
+  // subcategory, and if that code cannot be trusted neither can "15.5" or "16".
+  // Ingesting it would have meant labelling tens of thousands of leads with a trade
+  // we cannot show they hold. See harness/outreach/README.md.
 
   // SINGAPORE, ECDA licensed child care centres (English drafts).
   'sg-ecda': { products: ['childcare'], load: (_p, isKnown, log) => allSgEcdaLeads({ isKnown, log }) },

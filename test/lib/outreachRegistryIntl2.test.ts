@@ -23,10 +23,6 @@ import {
   toQcLodgingRow, evaluateQcLodgingRow, toQcLodgingLead, qcLodgingSourceKey, qcLodgingLabel,
   qcLodgingDomain, findQcLodgingCandidates, QC_LODGING_FILES, QC_LODGING_COLUMNS, QC_LODGING_REQUIRED,
 } from '@/lib/outreach/discovery/qcLodging';
-import {
-  toQcRbqRow, evaluateQcRbqRow, toQcRbqLead, qcRbqSourceKey, qcRbqTrades, qcRbqPostcode,
-  findQcRbqCandidates, QC_RBQ_TRADES,
-} from '@/lib/outreach/discovery/qcRbqLicences';
 import { QC_COUNTRY, QC_STATE, QC_LICENCE } from '@/lib/outreach/discovery/qcCommon';
 import {
   toSgEcdaRow, evaluateSgEcdaRow, toSgEcdaLead, sgEcdaSourceKey, sgEcdaDomain, isSgPostcode,
@@ -487,99 +483,6 @@ describe('Québec: tourism accommodation', () => {
 });
 
 // ===========================================================================
-describe('Québec: RBQ contractor licences', () => {
-  const lic = (over: Record<string, unknown> = {}, subs: string[] = ['15.5', 'GPC', 'SEC']) => ({
-    Licence: {
-      'Numéro de licence': '1104-8618-06',
-      'Statut de la licence': 'Active',
-      'Type de licence': 'Entrepreneur',
-      Courriel: 'epion@emardcp.com',
-      Adresse: '195 RUE DE LA POINTE-LANGLOIS LAVAL QC CANADA H7L 3J4',
-      NEQ: '1181630154',
-      "Nom de l'intervenant": 'Emard Construction Plomberie Inc',
-      'Numéro de téléphone': '4503334444',
-      Municipalité: 'Laval',
-      'Statut juridique': 'Compagnie',
-      'Région administrative': 'Laval',
-      'Autre nom': null,
-      'Catégories et sous-catégories': subs.map((s, i) => (i === 0 ? { Categorie: 'Specialisee', 'Sous-catégories': s } : { 'Sous-catégories': s })),
-      ...over,
-    },
-  });
-
-  it('maps only the plumbing, HVAC, electrical and roofing subcategories', () => {
-    // The trades that are in, with the label each one produces.
-    expect(QC_RBQ_TRADES['15.5']).toBe('plumbing contractor');
-    expect(QC_RBQ_TRADES['16']).toBe('electrical contractor');
-    expect(QC_RBQ_TRADES['7']).toBe('roofing, insulation and exterior cladding contractor');
-    expect(QC_RBQ_TRADES['15.8']).toBe('ventilation contractor');
-    // The general, civil and administrative subclasses are deliberately absent.
-    for (const code of ['1.1', '1.3', '2.1', '3.2', '4.1', '5.1', '6.1', '8.1', '13.1', 'GPC', 'SEC', 'AGC', '16.5']) {
-      expect(QC_RBQ_TRADES[code], code).toBeUndefined();
-      expect(qcRbqTrades([code]), code).toEqual([]);
-    }
-    // "16" and "16.0" are the same subclass written two ways, as are "7" and "7.0".
-    expect(qcRbqTrades(['16.0'])).toEqual(['16']);
-    expect(qcRbqTrades(['7.0'])).toEqual(['7']);
-    // Several trades on one licence come back most-specific first.
-    expect(qcRbqTrades(['15.8', '16', '15.5'])).toEqual(['15.5', '16', '15.8']);
-  });
-
-  it('builds a held Canadian-French home-services lead from one nested licence object', () => {
-    const row = toQcRbqRow(lic());
-    expect(row.licence).toBe('1104-8618-06');
-    expect(row.subcategories).toEqual(['15.5', 'GPC', 'SEC']);
-    expect(qcRbqPostcode(row.address)).toBe('H7L 3J4');
-    const lead = toQcRbqLead(row, keep(evaluateQcRbqRow(row)));
-    expect(lead.sourceKey).toBe('homeservices:qc:1104-8618-06');
-    expect(lead.country).toBe('CA');
-    expect(lead.state).toBe('QC');
-    expect(lead.location).toBe('Laval, QC');
-    expect(detectDraftLanguage(lead.location)).toEqual({ code: 'fr-CA', name: 'Canadian French' });
-    expect(lead.typeLabel).toBe('plumbing contractor');
-    expect(lead.description).toMatch(/^Listed in the Régie du bâtiment du Québec register of active construction licences as a plumbing contractor, based in Laval, QC\.$/);
-    expect(lead.signalDetail).toContain(QC_LICENCE);
-    expect(qcRbqSourceKey(' 1104-8618-06 ')).toBe('homeservices:qc:1104-8618-06');
-  });
-
-  it('prefers the trade name, and flags a sole trader as the other countries do', () => {
-    const trade = toQcRbqRow(lic({ 'Autre nom': 'PLOMBERIE LAVAL EXPRESS' }));
-    expect(toQcRbqLead(trade, keep(evaluateQcRbqRow(trade))).name).toBe('Plomberie Laval Express');
-    const sole = toQcRbqRow(lic({ 'Statut juridique': 'Personne physique' }));
-    const ev = keep(evaluateQcRbqRow(sole));
-    expect(ev.reasons.join(' ')).toMatch(/SOLE TRADER \(personne physique\)/);
-    expect(ev.adjust).toBeLessThan(keep(evaluateQcRbqRow(toQcRbqRow(lic()))).adjust);
-  });
-
-  it('drops the general licences, the inactive ones, the owner-builders and the public bodies', () => {
-    expect(drop(evaluateQcRbqRow(toQcRbqRow(lic({}, ['1.3', 'GPC'])))).reason).toMatch(/general, civil or administrative/);
-    expect(drop(evaluateQcRbqRow(toQcRbqRow(lic({ 'Statut de la licence': 'Suspendue' })))).reason).toMatch(/not Active/);
-    expect(drop(evaluateQcRbqRow(toQcRbqRow(lic({ 'Type de licence': 'Constructeur-proprietaire' })))).reason).toMatch(/not a contractor licence/);
-    expect(drop(evaluateQcRbqRow(toQcRbqRow(lic({ "Nom de l'intervenant": 'Ville De Drummondville' })))).reason).toMatch(/public body/);
-    expect(drop(evaluateQcRbqRow(toQcRbqRow(lic({ "Nom de l'intervenant": 'Hydro-Quebec' })))).reason).toMatch(/public body/);
-    expect(drop(evaluateQcRbqRow(toQcRbqRow(lic({ Courriel: null })))).reason).toMatch(/no usable email/);
-  });
-
-  it('dedupes on the licence number and raises the alarm if the code map goes stale', async () => {
-    const a = lic();
-    const b = lic({ 'Numéro de licence': '1200-0000-00', Courriel: 'other@electricite.qc.ca', "Nom de l'intervenant": 'Electricite Nord Inc' }, ['16']);
-    const res = await findQcRbqCandidates(50, { textOverride: JSON.stringify({ 'Liste Licence': [a, { ...a }, b] }) });
-    expect(res.scanned).toBe(3);
-    expect(res.candidates.map((c) => c.typeLabel)).toEqual(['plumbing contractor', 'electrical contractor']);
-    expect(res.rejected['duplicate licence number']).toBe(1);
-
-    // THE STALE-MAP ALARM: lots of active contractor licences, none of them mapping.
-    const many = Array.from({ length: 1100 }, (_, i) => lic({
-      'Numéro de licence': `9000-0000-${String(i).padStart(2, '0')}`,
-      Courriel: `c${i}@x${i}.qc.ca`,
-    }, ['99.9']));
-    const stale = await findQcRbqCandidates(50, { textOverride: JSON.stringify({ 'Liste Licence': many }) });
-    expect(stale.candidates).toHaveLength(0);
-    expect(stale.errors.join(' ')).toMatch(/matched a trade subcategory .*probably been renumbered/);
-  });
-});
-
-// ===========================================================================
 describe('Singapore: ECDA licensed child care centres', () => {
   const raw = (over: Record<string, unknown> = {}) => ({
     centre_code: 'PT1234',
@@ -936,12 +839,13 @@ describe('the international hold, for every new source', () => {
 
   it('registers every new bulk source against the right product, bulk-import only', async () => {
     const { BULK_REGISTRY_SOURCE_IDS, bulkRegistrySourcesFor } = await import('@/lib/outreach/discovery/pipeline');
-    for (const id of ['fr-funeral', 'qc-cpe', 'qc-lodging', 'qc-rbq', 'sg-ecda', 'ee-agencies']) {
+    for (const id of ['fr-funeral', 'qc-cpe', 'qc-lodging', 'sg-ecda', 'ee-agencies']) {
       expect(BULK_REGISTRY_SOURCE_IDS, id).toContain(id);
     }
     expect(bulkRegistrySourcesFor(funeral)).toEqual(['fr-funeral']);
     expect(bulkRegistrySourcesFor(lodging)).toEqual(['qc-lodging']);
-    expect(bulkRegistrySourcesFor(homeservices)).toEqual(expect.arrayContaining(['qc-rbq', 'nyc-dob', 'va-dpor', 'ar-clb', 'fr-rge', 'no-brreg']));
+    // The RBQ contractor licences were investigated and deliberately not built.
+    expect(BULK_REGISTRY_SOURCE_IDS).not.toContain('qc-rbq');
     expect(bulkRegistrySourcesFor(childcare)).toEqual(expect.arrayContaining(['tx-childcare', 'qc-cpe', 'sg-ecda']));
     expect(bulkRegistrySourcesFor(calldesk)).toEqual(expect.arrayContaining(['no-brreg', 'ee-agencies']));
     // The new Norwegian verticals reach Norway through the existing source id.
