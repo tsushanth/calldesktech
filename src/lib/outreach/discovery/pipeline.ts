@@ -235,15 +235,27 @@ interface DirectoryEntry {
 
 // PostgREST caps a plain select at 1000 rows, which silently truncates dedupe indexes once a
 // product holds more leads than that (the bulk-imported insurance list is ~44k). Page through.
+//
+// Page with a keyset cursor on the primary key, not OFFSET. OFFSET paging made every page after
+// the first re-scan and re-sort the product's entire lead set to skip the rows it had already
+// returned: at 84k leads (homeservices) that is ~85 sorts of 84k rows per select, and the deep
+// pages exceeded the statement timeout and failed the whole run. `id > lastSeen` is an index
+// range scan, so each page costs the same as the first. Reads the identical rows in the identical
+// order, so dedupe behaviour is unchanged.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-async function selectAll<T>(build: () => any): Promise<T[]> {
+async function selectAll<T extends { id: string }>(build: () => any): Promise<T[]> {
   const PAGE = 1000;
   const out: T[] = [];
-  for (let from = 0; ; from += PAGE) {
-    const { data, error } = await build().order('id', { ascending: true }).range(from, from + PAGE - 1);
+  let cursor: string | undefined;
+  for (;;) {
+    let query = build().order('id', { ascending: true }).limit(PAGE);
+    if (cursor) query = query.gt('id', cursor);
+    const { data, error } = await query;
     if (error) throw new Error(error.message);
-    out.push(...((data ?? []) as T[]));
-    if (!data || data.length < PAGE) break;
+    const rows = (data ?? []) as T[];
+    out.push(...rows);
+    if (rows.length < PAGE) break;
+    cursor = rows[rows.length - 1].id;
   }
   return out;
 }
@@ -651,7 +663,7 @@ async function stageFreight(
   summary.searchCandidates += candidates.length;
   summary.searchDebug = { raw: scanned, rejected: Object.entries(rejected).map(([k, v]) => `${k}: ${v}`) };
 
-  const emailRows = await selectAll<{ contact_email: string | null }>(() => scopeToProduct(db.from(leadsTable(product)).select('contact_email, id'), product));
+  const emailRows = await selectAll<{ id: string; contact_email: string | null }>(() => scopeToProduct(db.from(leadsTable(product)).select('contact_email, id'), product));
   const knownEmails = new Set(emailRows.map((r) => (r.contact_email ?? '').toLowerCase()).filter(Boolean));
   // Suppressions are global by email (no product column), same as the send-time check in sender.ts.
   const { data: supData } = await db.from(suppressionsTable(product)).select('email');
@@ -907,13 +919,13 @@ export async function bulkImportRegistry(
   if (!source) throw new Error(`unknown bulk import source "${sourceId}" (have: ${BULK_REGISTRY_SOURCE_IDS.join(', ')})`);
   if (!source.products.includes(product.id)) throw new Error(`bulk import source "${sourceId}" is for ${source.products.join(', ')}, not ${product.id}`);
   const log = opts.log ?? (() => {});
-  const existing = await selectAll<{ source_key: string | null; contact_email: string | null; domain: string | null }>(() => scopeToProduct(db.from(leadsTable(product)).select('id, source_key, contact_email, domain'), product));
+  const existing = await selectAll<{ id: string; source_key: string | null; contact_email: string | null; domain: string | null }>(() => scopeToProduct(db.from(leadsTable(product)).select('id, source_key, contact_email, domain'), product));
   // The leads table allows one lead per (product, domain): franchise brands and shared-email agencies
   // would otherwise fail every chunk insert and force a slow row-by-row retry.
   const knownDomains = new Set(existing.map((r) => (r.domain ?? '').toLowerCase()).filter(Boolean));
   const knownKeys = new Set(existing.map((r) => r.source_key).filter((k): k is string => !!k));
   const knownEmails = new Set(existing.map((r) => (r.contact_email ?? '').toLowerCase()).filter(Boolean));
-  const supRows = await selectAll<{ email: string }>(() => db.from(suppressionsTable(product)).select('id, email'));
+  const supRows = await selectAll<{ id: string; email: string }>(() => db.from(suppressionsTable(product)).select('id, email'));
   const suppressed = new Set(supRows.map((r) => String(r.email).toLowerCase()));
   log(`existing leads: ${existing.length}, suppressed: ${suppressed.size}`);
 
@@ -993,7 +1005,7 @@ async function stageRegistry(
   const knownEmails = new Set<string>();
   const suppressed = new Set<string>();
   if (withEmail && !dryRun) {
-    const emailRows = await selectAll<{ contact_email: string | null }>(() => scopeToProduct(db.from(leadsTable(product)).select('contact_email, id'), product));
+    const emailRows = await selectAll<{ id: string; contact_email: string | null }>(() => scopeToProduct(db.from(leadsTable(product)).select('contact_email, id'), product));
     for (const r of emailRows) if (r.contact_email) knownEmails.add(r.contact_email.toLowerCase());
     const { data: supData } = await db.from(suppressionsTable(product)).select('email');
     for (const s of (supData ?? []) as { email: string }[]) suppressed.add(String(s.email).toLowerCase());
