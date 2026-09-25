@@ -5,11 +5,11 @@ import { sendApprovedMessage, sentTodayCount, dailyCap, laneFilter, type Lane, t
 // One message per tick, only inside a weekday send window, spaced so the daily cap
 // is spread across the window, and paused automatically when recent deliverability
 // looks bad. Drafts are never sent from here; approval in the queue stays manual.
-// Each lane (all calldesk* products; all kreativekoala:* apps) is paced, capped and
+// Each lane (all calldesk* products; all kreativekoala:* apps; readaloud) is paced, capped and
 // health-checked on its own, so one lane's problems never stall or speed up the other.
 
-export const LANES: Lane[] = ['calldesk', 'kk'];
-const LANE_PRODUCT: Record<Lane, string> = { calldesk: 'calldesk', kk: 'kreativekoala' };
+export const LANES: Lane[] = ['calldesk', 'kk', 'readaloud'];
+const LANE_PRODUCT: Record<Lane, string> = { calldesk: 'calldesk', kk: 'kreativekoala', readaloud: 'readaloud' };
 const HEALTH_WINDOW_MS = 7 * 24 * 3600_000;
 const IN_CHUNK = 100;
 let running = false;
