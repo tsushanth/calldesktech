@@ -51,7 +51,8 @@ They produce short research-ask drafts (not sales pitches) into the same review 
 - Follow-ups default to 1 for these products (`OUTREACH_MAX_FOLLOWUPS` overrides). The agency research stage is skipped for them.
 
 ## International registry sources, and the hold on them (`bulk-import.ts`, `release-country.ts`)
-Four non-US public registers feed the same verticals. They are **bulk-import only** — deliberately not in the
+Non-US public registers feed the verticals and — new — the agency/partner audience (`PRODUCT=calldesk`, the
+same pitch the Retell directory serves domestically). They are **bulk-import only** — deliberately not in the
 per-run rotation, because every lead they produce is on hold and cannot be drafted or sent, so giving them a
 daily slot would only starve the US sources that actually convert.
 
@@ -60,7 +61,38 @@ daily slot would only starve the US sources that actually convert.
 | `fr-rge` | homeservices | French RGE contractor register (ADEME data-fair API, Licence Ouverte, no key) | email on most rows, phone on nearly all |
 | `uk-cqc` | dental, homecare | Care Quality Commission directory of registered locations (one CSV) | **no email**; phone on nearly all, website on many |
 | `uk-dvsa` | freight | Goods vehicle operator licences, 8 traffic-area CSVs (OGL) | **no email, no phone** |
-| `no-brreg` | dental, homeservices, freight, towing, insurance, homecare | Norwegian Enhetsregisteret JSON API (NLOD, no key) | email on ~7%, phone on ~40% |
+| `no-brreg` | dental, homeservices, freight, towing, insurance, homecare, physio, taxi, accounting, vets, realestate, **calldesk** | Norwegian Enhetsregisteret JSON API (NLOD, no key) | email on ~7-47% depending on the industry code |
+| `fr-funeral` | funeral | French national list of authorised funeral operators (data.gouv.fr, **licence "notspecified"** — see below) | email on 98.9%, phone on 85.7% |
+| `qc-cpe` | childcare | Québec Ministère de la Famille directory of CPEs and garderies (donneesquebec.ca, CC-BY 4.0) | email on nearly all rows, but only 2,824 distinct |
+| `qc-lodging` | lodging | Tourisme Québec campings / gîtes / pourvoiries registers (donneesquebec.ca, CC-BY 4.0) | email and phone on most, website on many |
+| `sg-ecda` | childcare | Singapore ECDA list of licensed child care centres (data.gov.sg datastore API) | email, phone and website on nearly all |
+| `ee-agencies` | **calldesk** | Estonian Business Register open data (RIK, 230 MB zip streamed, never saved) | email on ~99% |
+
+**`fr-funeral`: the licence is not settled.** Every other source here states a licence (NLOD, Licence Ouverte,
+OGL, CC-BY 4.0, Singapore ODL). The data.gouv.fr funeral-operator dataset declares its licence as
+`notspecified`, i.e. there is **no published permission to reuse it**. Importing it is safe, because every lead
+lands on the hold and is inert — but **France must not be released for the `funeral` vertical until reuse terms
+are confirmed with the DGCL**, and releasing France for `homeservices` (whose RGE data *is* Licence Ouverte)
+does not settle this dataset. Each `fr-funeral` lead carries the unresolved licence in `signals.registry` so a
+reviewer sees it on the row, not only here.
+
+**Québec: CC-BY 4.0 requires attribution.** Every `qc-*` lead records `source <registry>, donneesquebec.ca,
+licence CC-BY 4.0` in `signals.registry`, so the obligation travels with the data. Québec leads are stored with
+`country = CA` (that is what `COUNTRY=CA release-country.ts` releases) and `location = "<City>, QC"` (that is
+what picks **Canadian** French for the draft). They are additionally held pending a **CASL** review: Canada's
+anti-spam law is consent-based, and nothing about the ordinary hold substitutes for that review.
+
+**Norway moved to SN2025.** A retired industry code returns a perfectly valid, EMPTY result from the Brreg API,
+so a stale code imports nothing and says nothing. `no-brreg` therefore probes every code it is about to use and
+turns a zero-row code into a loud error in the run output (`62.010`, `62.020`, `70.220` and `43.220` are the
+known-dead ones). Several agency codes also exceed the API's 10,000-result window even after the legal-form
+slice; those are split by **registration date** (employee-count slicing is impossible — Brreg refuses any query
+between one and four employees on privacy grounds).
+
+**Estonia is a 230 MB zip that inflates to ~4.6 GB.** It is streamed and inflated in memory and never written
+to disk. The walk is bounded by a decompressed-byte budget, so a default run covers an **alphabetical slice**
+of the name-ordered array rather than the whole register, and says so in the run's errors. Raise
+`byteBudget` to go further.
 
     PRODUCT=homeservices SOURCE=fr-rge DRY_RUN=1 ./node_modules/.bin/tsx bulk-import.ts   # counts only
     PRODUCT=homeservices SOURCE=fr-rge ./node_modules/.bin/tsx bulk-import.ts             # insert, all on hold

@@ -29,6 +29,11 @@ import { allRgeLeads } from './frRgeRegistry';
 import { allCqcLeads } from './ukCqcDirectory';
 import { allDvsaLeads } from './ukDvsaOperators';
 import { allBrregLeads } from './noBrregEnheter';
+import { allFrFuneralLeads } from './frFuneralOperators';
+import { allQcCpeLeads } from './qcChildcare';
+import { allQcLodgingLeads } from './qcLodging';
+import { allSgEcdaLeads } from './sgEcdaChildcare';
+import { allEeAgencyLeads } from './eeAriregister';
 import { findDentalNppesCandidates } from './dentalNppes';
 import { allChildcareLeads, findChildcareCandidates } from './childcareUs';
 import { discoverWebsite } from './websiteDiscovery';
@@ -819,9 +824,28 @@ const BULK_REGISTRY_SOURCES: Record<string, { products: string[]; load: (product
   'uk-cqc': { products: ['dental', 'homecare'], load: (p, isKnown, log) => allCqcLeads(p.id as 'dental' | 'homecare', { isKnown, log }) },
   'uk-dvsa': { products: ['freight'], load: (_p, isKnown, log) => allDvsaLeads({ isKnown, log }) },
   'no-brreg': {
-    products: ['dental', 'homeservices', 'freight', 'towing', 'insurance', 'homecare'],
+    // Norway covers more verticals than any other single source, because it is keyed
+    // on the industry code rather than on a trade licence — and now also the AGENCY
+    // audience (product `calldesk`), which is the partner pitch rather than a vertical.
+    products: ['dental', 'homeservices', 'freight', 'towing', 'insurance', 'homecare', 'physio', 'taxi', 'accounting', 'vets', 'realestate', 'calldesk'],
     load: (p, isKnown, log) => allBrregLeads(p.id, { isKnown, log }),
   },
+
+  // FRANCE, funeral operators. NOTE: this dataset's licence is "notspecified" —
+  // reuse terms must be confirmed with the DGCL before France is released for the
+  // funeral vertical. See frFuneralOperators.ts and harness/outreach/README.md.
+  'fr-funeral': { products: ['funeral'], load: (_p, isKnown, log) => allFrFuneralLeads({ isKnown, log }) },
+
+  // QUÉBEC (country CA, drafts in Canadian French, CC-BY 4.0 attribution recorded
+  // on every lead). Held pending a CASL review as well as the ordinary hold.
+  'qc-cpe': { products: ['childcare'], load: (_p, isKnown, log) => allQcCpeLeads({ isKnown, log }) },
+  'qc-lodging': { products: ['lodging'], load: (_p, isKnown, log) => allQcLodgingLeads({ isKnown, log }) },
+
+  // SINGAPORE, ECDA licensed child care centres (English drafts).
+  'sg-ecda': { products: ['childcare'], load: (_p, isKnown, log) => allSgEcdaLeads({ isKnown, log }) },
+
+  // ESTONIA, the agency/partner audience from the business register (English drafts).
+  'ee-agencies': { products: ['calldesk'], load: (_p, isKnown, log) => allEeAgencyLeads({ isKnown, log }) },
 };
 
 export const BULK_REGISTRY_SOURCE_IDS = Object.keys(BULK_REGISTRY_SOURCES);
