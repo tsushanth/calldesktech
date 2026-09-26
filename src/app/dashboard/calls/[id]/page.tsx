@@ -87,6 +87,12 @@ export default function CallDetailPage() {
           <p className="text-[12.5px] text-gray-400">{formatRelativeTime(call.created_at)}</p>
         </div>
         <OutcomeBadge outcome={call.outcome} />
+        {call.qa_sentiment && (
+          <span className={`rounded-full px-2.5 py-1 text-[12px] font-medium ${
+            call.qa_sentiment === 'positive' ? 'bg-green-50 text-green-700' :
+            call.qa_sentiment === 'negative' ? 'bg-red-50 text-red-700' : 'bg-gray-100 text-gray-600'
+          }`}>{call.qa_sentiment}</span>
+        )}
         <button
           onClick={handleDelete}
           disabled={isDeleting}
@@ -105,6 +111,7 @@ export default function CallDetailPage() {
               <InfoRow label="Caller" value={formatPhoneDisplay(call.caller_phone)} />
               <InfoRow label="Duration" value={formatDuration(call.duration_seconds)} />
               <InfoRow label="Outcome" value={call.outcome} />
+              <InfoRow label="Sentiment" value={call.qa_sentiment ?? '—'} />
               <InfoRow label="Date" value={new Date(call.created_at).toLocaleDateString()} />
               <InfoRow label="Time" value={new Date(call.created_at).toLocaleTimeString()} />
             </div>

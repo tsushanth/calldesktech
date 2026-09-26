@@ -84,6 +84,7 @@ export default function CallsPage() {
                   <th className="px-5 py-3 font-medium">Time</th>
                   <th className="px-5 py-3 font-medium">Duration</th>
                   <th className="px-5 py-3 font-medium">Outcome</th>
+                  <th className="px-5 py-3 font-medium">Sentiment</th>
                   <th className="px-5 py-3" />
                 </tr>
               </thead>
@@ -105,6 +106,9 @@ export default function CallsPage() {
                     <td className="px-5 py-3.5 font-mono text-gray-600">{formatDuration(call.duration_seconds)}</td>
                     <td className="px-5 py-3.5">
                       <OutcomeBadge outcome={call.outcome} />
+                    </td>
+                    <td className="px-5 py-3.5">
+                      <SentimentBadge sentiment={call.qa_sentiment} />
                     </td>
                     <td className="px-5 py-3.5 text-right">
                       <Link href={`/dashboard/calls/${call.id}`} className="text-gray-300 hover:text-gray-500">
@@ -139,6 +143,17 @@ export default function CallsPage() {
       )}
     </>
   );
+}
+
+function SentimentBadge({ sentiment }: { sentiment: string | null }) {
+  const colors: Record<string, string> = {
+    positive: 'bg-green-50 text-green-700',
+    neutral: 'bg-gray-100 text-gray-600',
+    negative: 'bg-red-50 text-red-700',
+  };
+
+  if (!sentiment) return <span className="text-[11.5px] text-gray-300">—</span>;
+  return <span className={`rounded-full px-2.5 py-0.5 text-[11.5px] font-medium ${colors[sentiment] || colors.neutral}`}>{sentiment}</span>;
 }
 
 function OutcomeBadge({ outcome }: { outcome: string }) {

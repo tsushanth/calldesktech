@@ -1505,7 +1505,7 @@ export default function AgentBuilderPage() {
                           <p className="text-[11px] font-medium uppercase tracking-wide text-gray-400">Post-call analysis</p>
                           <button type="button" onClick={() => setPostCallFields((p) => [...p, { name: '', type: 'text', description: '' }])} className="text-[12px] font-medium text-blue-600 hover:text-blue-700">+ Add field</button>
                         </div>
-                        <p className="text-[11.5px] text-gray-400">After each call, an LLM extracts these fields from the transcript. Results show on the call and in the call.completed / call.analyzed webhooks. Currently runs for Retell-engine calls only. None = off.</p>
+                        <p className="text-[11.5px] text-gray-400">After each call, an LLM extracts these fields from the transcript. Results show on the call and in the call.completed / call.analyzed webhooks. None = off.</p>
                         {postCallFields.map((f, i) => (
                           <div key={i} className="space-y-1.5 rounded-lg border border-gray-100 p-2">
                             <div className="flex gap-1.5">
