@@ -1,5 +1,5 @@
 import { getAnthropicClient } from '@/lib/anthropic';
-import { cliComplete, extractJson, usingCli } from './llm';
+import { cliComplete, apiComplete, extractJson, usingApi, usingCli } from './llm';
 import { detectDraftLanguage } from './language';
 import { calldesk, type ProductConfig } from './products';
 
@@ -88,11 +88,9 @@ export async function draftAgencyEmail(input: AgencyDraftInput): Promise<AgencyD
 
   const systemPrompt = product.systemPrompt;
 
-  if (usingCli()) {
-    const text = cliComplete(
-      `${systemPrompt}\n\n${userPrompt}\n\nReply with ONLY a JSON object {"subject": string, "body": string${language ? ', "translationSubject": string, "translationBody": string' : ''}}. No markdown fences, no commentary.`,
-      { maxTurns: 2 },
-    );
+  const jsonInstruction = `Reply with ONLY a JSON object {"subject": string, "body": string${language ? ', "translationSubject": string, "translationBody": string' : ''}}. No markdown fences, no commentary.`;
+
+  const finish = (text: string): AgencyDraft => {
     const parsed = extractJson<AgencyDraft>(text, 'object');
     if (!parsed || typeof parsed.subject !== 'string' || typeof parsed.body !== 'string') throw new Error('Draft reply was not valid JSON');
     return {
@@ -102,6 +100,14 @@ export async function draftAgencyEmail(input: AgencyDraftInput): Promise<AgencyD
         ? { translationSubject: parsed.translationSubject.trim(), translationBody: parsed.translationBody.trim() }
         : {}),
     };
+  };
+
+  if (usingCli()) {
+    return finish(cliComplete(`${systemPrompt}\n\n${userPrompt}\n\n${jsonInstruction}`, { maxTurns: 2 }));
+  }
+
+  if (usingApi()) {
+    return finish(await apiComplete(`${userPrompt}\n\n${jsonInstruction}`, { system: systemPrompt, maxTokens: 1200, timeoutMs: 90_000 }));
   }
 
   const client = getAnthropicClient();

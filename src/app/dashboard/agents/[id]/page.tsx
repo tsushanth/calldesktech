@@ -164,6 +164,7 @@ export default function AgentBuilderPage() {
   const [handbook, setHandbook] = useState('');
   const [transitionFlexibility, setTransitionFlexibility] = useState<'' | 'strict' | 'flexible'>('');
   const [interruptionSensitivity, setInterruptionSensitivity] = useState<'' | 'high' | 'medium' | 'low' | 'off'>('');
+  const [sttKeywords, setSttKeywords] = useState('');
   // Post-call analysis + new engine settings (all default-off, stored under
   // these exact keys in the version's globalSettings).
   const [postCallFields, setPostCallFields] = useState<PostCallField[]>([]);
@@ -225,6 +226,7 @@ export default function AgentBuilderPage() {
     setHandbook(gs.handbook || '');
     setTransitionFlexibility(gs.transitionFlexibility === 'strict' || gs.transitionFlexibility === 'flexible' ? gs.transitionFlexibility : '');
     setInterruptionSensitivity(['high', 'medium', 'low', 'off'].includes(gs.interruptionSensitivity) ? gs.interruptionSensitivity : '');
+    setSttKeywords(typeof gs.sttKeywords === 'string' ? gs.sttKeywords : '');
     setPostCallFields(Array.isArray(gs.postCallAnalysis?.fields) ? gs.postCallAnalysis.fields : []);
     setMaxCallDurationSec(typeof gs.maxCallDurationSec === 'number' ? String(gs.maxCallDurationSec) : '');
     setEndCallAfterSilenceSec(typeof gs.endCallAfterSilenceSec === 'number' ? String(gs.endCallAfterSilenceSec) : '');
@@ -830,6 +832,7 @@ export default function AgentBuilderPage() {
             ...(handbook.trim() ? { handbook: handbook.trim() } : {}),
             ...(transitionFlexibility ? { transitionFlexibility } : {}),
             ...(interruptionSensitivity ? { interruptionSensitivity } : {}),
+            ...(sttKeywords.trim() ? { sttKeywords: sttKeywords.trim() } : {}),
             ...buildNewGlobalSettings(),
           },
         }),
@@ -1336,6 +1339,18 @@ export default function AgentBuilderPage() {
                             <option value="fast">Fast — quicker turn-taking, more false starts</option>
                             <option value="accurate">Accurate — waits longer, fewer false starts</option>
                           </select>
+                        </div>
+                      )}
+                      {channel === 'voice' && agentType === 'conversational_flow' && voiceEngine === 'poc' && (
+                        <div>
+                          <label className="mb-1 block text-[12.5px] font-medium text-gray-500">Keyword boosting (STT)</label>
+                          <input
+                            value={sttKeywords}
+                            onChange={(e) => setSttKeywords(e.target.value)}
+                            placeholder="e.g. Sushant, ReadAloud, Calldesk (comma-separated)"
+                            className="w-full rounded-lg border border-gray-200 bg-white px-3.5 py-2.5 text-[13.5px] focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100"
+                          />
+                          <p className="mt-1 text-[11.5px] text-gray-400">Helps speech recognition catch uncommon names, brands, or product terms.</p>
                         </div>
                       )}
                       {voiceEngine === 'poc' && (
