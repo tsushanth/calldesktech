@@ -165,6 +165,9 @@ export default function AgentBuilderPage() {
   const [transitionFlexibility, setTransitionFlexibility] = useState<'' | 'strict' | 'flexible'>('');
   const [interruptionSensitivity, setInterruptionSensitivity] = useState<'' | 'high' | 'medium' | 'low' | 'off'>('');
   const [sttKeywords, setSttKeywords] = useState('');
+  const [allowLanguageSwitching, setAllowLanguageSwitching] = useState(false);
+  const [switchableLanguages, setSwitchableLanguages] = useState<string[]>([]);
+  const [expressiveDelivery, setExpressiveDelivery] = useState(false);
   // Post-call analysis + new engine settings (all default-off, stored under
   // these exact keys in the version's globalSettings).
   const [postCallFields, setPostCallFields] = useState<PostCallField[]>([]);
@@ -227,6 +230,9 @@ export default function AgentBuilderPage() {
     setTransitionFlexibility(gs.transitionFlexibility === 'strict' || gs.transitionFlexibility === 'flexible' ? gs.transitionFlexibility : '');
     setInterruptionSensitivity(['high', 'medium', 'low', 'off'].includes(gs.interruptionSensitivity) ? gs.interruptionSensitivity : '');
     setSttKeywords(typeof gs.sttKeywords === 'string' ? gs.sttKeywords : '');
+    setAllowLanguageSwitching(gs.allowLanguageSwitching === true);
+    setSwitchableLanguages(Array.isArray(gs.switchableLanguages) ? gs.switchableLanguages.filter((c: unknown) => typeof c === 'string') : []);
+    setExpressiveDelivery(gs.expressiveDelivery === true);
     setPostCallFields(Array.isArray(gs.postCallAnalysis?.fields) ? gs.postCallAnalysis.fields : []);
     setMaxCallDurationSec(typeof gs.maxCallDurationSec === 'number' ? String(gs.maxCallDurationSec) : '');
     setEndCallAfterSilenceSec(typeof gs.endCallAfterSilenceSec === 'number' ? String(gs.endCallAfterSilenceSec) : '');
@@ -833,6 +839,8 @@ export default function AgentBuilderPage() {
             ...(transitionFlexibility ? { transitionFlexibility } : {}),
             ...(interruptionSensitivity ? { interruptionSensitivity } : {}),
             ...(sttKeywords.trim() ? { sttKeywords: sttKeywords.trim() } : {}),
+            ...(allowLanguageSwitching ? { allowLanguageSwitching: true, switchableLanguages } : {}),
+            ...(expressiveDelivery ? { expressiveDelivery: true } : {}),
             ...buildNewGlobalSettings(),
           },
         }),
@@ -1381,6 +1389,49 @@ export default function AgentBuilderPage() {
                             <option value="off">Off — never interrupt the agent</option>
                           </select>
                           <p className="mt-1 text-[11.5px] text-gray-400">Individual steps can override this in their own settings.</p>
+                        </div>
+                      )}
+                      {voiceEngine === 'poc' && (
+                        <div>
+                          <label className="mb-1 block text-[12.5px] font-medium text-gray-500">Expressive delivery</label>
+                          <select
+                            value={expressiveDelivery ? 'on' : 'off'}
+                            onChange={(e) => setExpressiveDelivery(e.target.value === 'on')}
+                            className="w-full rounded-lg border border-gray-200 bg-white px-3.5 py-2.5 text-[13.5px] focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100"
+                          >
+                            <option value="off">Off</option>
+                            <option value="on">On — the agent varies tone per response (empathetic, apologetic, upbeat, etc.)</option>
+                          </select>
+                        </div>
+                      )}
+                      {voiceEngine === 'poc' && (
+                        <div>
+                          <label className="mb-1 block text-[12.5px] font-medium text-gray-500">Allow mid-call language switching</label>
+                          <select
+                            value={allowLanguageSwitching ? 'on' : 'off'}
+                            onChange={(e) => setAllowLanguageSwitching(e.target.value === 'on')}
+                            className="w-full rounded-lg border border-gray-200 bg-white px-3.5 py-2.5 text-[13.5px] focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100"
+                          >
+                            <option value="off">Off — agent stays in one language</option>
+                            <option value="on">On — agent detects and switches languages mid-call</option>
+                          </select>
+                          {allowLanguageSwitching && (
+                            <div className="mt-2">
+                              <p className="mb-1 text-[11.5px] text-gray-400">Which extra languages the caller may switch to</p>
+                              <div className="flex flex-wrap gap-1.5">
+                                {AGENT_LANGUAGES.map((l) => (
+                                  <button
+                                    key={l.code}
+                                    type="button"
+                                    onClick={() => setSwitchableLanguages((prev) => prev.includes(l.code) ? prev.filter((c) => c !== l.code) : [...prev, l.code])}
+                                    className={`rounded-full px-2.5 py-1 text-[12px] font-medium transition ${switchableLanguages.includes(l.code) ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
+                                  >
+                                    {l.label}
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+                          )}
                         </div>
                       )}
                       {voiceEngine === 'poc' && (
