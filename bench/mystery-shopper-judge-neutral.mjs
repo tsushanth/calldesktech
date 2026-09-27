@@ -2,8 +2,8 @@
 // Accepts generic --a / --b with custom labels, so the same judge works for
 // any pair of backends (Calldesk vs Retell, Calldesk vs ThunderPhone, etc.).
 //
-// Runs via the `claude` CLI (OAuth session auth) per repo policy — do NOT burn
-// ANTHROPIC_API_KEY on one-off local analysis.
+// Tries `claude` CLI first (preferred — no API key burn), then falls back to
+// direct Anthropic API using the key in call-loop-poc/.env.
 //
 // Usage:
 //   node mystery-shopper-judge-neutral.mjs \
@@ -13,6 +13,9 @@
 
 import fs from 'node:fs';
 import { spawnSync } from 'node:child_process';
+import { homedir } from 'node:os';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 function arg(name) {
   const i = process.argv.indexOf(`--${name}`);
@@ -117,22 +120,74 @@ ${secondTranscript}
 ${metricsSection(secondMetrics)}
 `;
 
-const result = spawnSync('claude', ['-p', '--output-format', 'text'], {
-  input: PROMPT,
-  encoding: 'utf8',
-  maxBuffer: 10 * 1024 * 1024,
-});
-
-if (result.status !== 0) {
-  console.error('claude CLI failed:', result.stderr);
-  process.exit(1);
+function readApiKey() {
+  const envPath = join(homedir(), 'Documents/GitHub/realtime-tts/call-loop-poc/.env');
+  if (!fs.existsSync(envPath)) return null;
+  const txt = fs.readFileSync(envPath, 'utf8');
+  for (const line of txt.split('\n')) {
+    const m = line.match(/^ANTHROPIC_API_KEY=["']?(.*)["']?\s*$/);
+    if (m) return m[1].trim();
+  }
+  return null;
 }
 
-console.log(result.stdout);
+async function callAnthropicApi(prompt) {
+  const key = readApiKey();
+  if (!key) throw new Error('ANTHROPIC_API_KEY not found in call-loop-poc/.env');
+  const res = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'x-api-key': key,
+      'anthropic-version': '2023-06-01',
+      'content-type': 'application/json',
+    },
+    body: JSON.stringify({
+      model: 'claude-sonnet-4-6',
+      max_tokens: 4096,
+      messages: [{ role: 'user', content: prompt }],
+    }),
+  });
+  if (!res.ok) {
+    const err = await res.text().catch(() => `HTTP ${res.status}`);
+    throw new Error(`Anthropic API error: ${err}`);
+  }
+  const data = await res.json();
+  return data.content?.[0]?.text || '';
+}
+
+function tryClaudeCli() {
+  const result = spawnSync('claude', ['-p', '--output-format', 'text'], {
+    input: PROMPT,
+    encoding: 'utf8',
+    maxBuffer: 10 * 1024 * 1024,
+    timeout: 120_000,
+  });
+  if (result.status !== 0 || !result.stdout || !result.stdout.trim()) {
+    return { ok: false, error: result.stderr || 'empty output', output: '' };
+  }
+  return { ok: true, output: result.stdout };
+}
+
+let output;
+const cliResult = tryClaudeCli();
+if (cliResult.ok) {
+  output = cliResult.output;
+  console.error('[judge] used claude CLI');
+} else {
+  console.error('[judge] claude CLI failed, falling back to Anthropic API:', cliResult.error);
+  try {
+    output = await callAnthropicApi(PROMPT);
+  } catch (err) {
+    console.error('Anthropic API failed:', err.message);
+    process.exit(1);
+  }
+}
+
+console.log(output);
 console.log('\n\n=== DE-ANONYMIZED ===');
 console.log(`Call A = ${firstLabel}`);
 console.log(`Call B = ${secondLabel}`);
 
-const winnerMatch = result.stdout.match(/Winner:\s*\*{0,2}([AB])\b/i);
+const winnerMatch = output.match(/Winner:\s*\*{0,2}([AB])\b/i);
 const winnerLabel = winnerMatch ? { A: firstLabel, B: secondLabel }[winnerMatch[1].toUpperCase()] : null;
 console.log(`WINNER_SYSTEM: ${winnerLabel || 'unknown'}`);

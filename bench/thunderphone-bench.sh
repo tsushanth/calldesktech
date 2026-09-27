@@ -91,6 +91,62 @@ latency_lines() {
   flyctl logs -a call-loop-poc --no-tail 2>&1 | grep "\[call $1\]" | grep -oE '\[latency\].*' || true
 }
 
+# Fetch Caldesk transcript from Supabase (calldesk_call_logs.transcript jsonb).
+# The .env file from call-loop-poc is expected to live at a known relative path.
+fetch_caldesk_transcript() {
+  local biz_sid="$1" out="$2"
+  python3 - "$biz_sid" "$out" <<'PY'
+import json, os, sys
+
+def read_env(path):
+    vals = {}
+    with open(path) as f:
+        for line in f:
+            if '=' in line and not line.startswith('#'):
+                k, v = line.strip().split('=', 1)
+                vals[k] = v.strip().strip('"')
+    return vals
+
+env = read_env(os.path.expanduser('~/Documents/GitHub/realtime-tts/call-loop-poc/.env'))
+url = env.get('SUPABASE_URL')
+key = env.get('SUPABASE_SERVICE_ROLE_KEY')
+if not url or not key:
+    print('SUPABASE creds missing', file=sys.stderr)
+    sys.exit(1)
+
+biz_sid = sys.argv[1]
+out_path = sys.argv[2]
+
+import urllib.request
+req = urllib.request.Request(
+    f"{url}/rest/v1/calldesk_call_logs?retell_call_id=eq.{biz_sid}&select=transcript",
+    headers={
+        'apikey': key,
+        'Authorization': f'Bearer {key}',
+    }
+)
+try:
+    with urllib.request.urlopen(req, timeout=15) as resp:
+        rows = json.loads(resp.read())
+        if not rows:
+            print(f"No calldesk_call_logs row for {biz_sid}", file=sys.stderr)
+            sys.exit(1)
+        transcript = rows[0].get('transcript') or []
+        with open(out_path, 'w') as f:
+            for msg in transcript:
+                role = msg.get('role', '')
+                content = msg.get('content', '')
+                if role == 'user':
+                    f.write(f'Customer: "{content}"\n')
+                elif role == 'assistant':
+                    f.write(f'Business: "{content}"\n')
+        print(f"Caldesk transcript {len(transcript)} turns -> {out_path}")
+except Exception as e:
+    print(f"Supabase query failed: {e}", file=sys.stderr)
+    sys.exit(1)
+PY
+}
+
 # --- per-round execution ---------------------------------------------------
 
 echo "[mystery-shopper-tp] running $ROUNDS round(s)"
@@ -111,6 +167,7 @@ for r in $(seq 1 "$ROUNDS"); do
     | python3 -c "import json,sys; print(json.load(sys.stdin).get('from'))")
   echo "[mystery-shopper-tp] round $r caldesk=$CALDESK_SID thunderphone=$TP_SID shopper-from=$FROM_NUMBER"
 
+  # Wait for both calls to finish
   for sid in "$CALDESK_SID" "$TP_SID"; do
     while true; do
       st=$(tw "https://api.twilio.com/2010-04-01/Accounts/$TWILIO_ACCOUNT_SID/Calls/$sid.json" \
@@ -123,17 +180,17 @@ for r in $(seq 1 "$ROUNDS"); do
     echo "[mystery-shopper-tp] $sid -> $st"
   done
 
+  # Pull Caldesk transcript from Supabase (business leg)
+  BIZ_SID=$(resolve_business_sid "$CALDESK_SID")
+  if [ -n "$BIZ_SID" ]; then
+    echo "[mystery-shopper-tp] pulling Caldesk transcript (bizSid=$BIZ_SID)"
+    fetch_caldesk_transcript "$BIZ_SID" "$RUN_DIR/round-$r-caldesk.txt"
+  else
+    echo "[mystery-shopper-tp] WARNING: could not resolve Caldesk business SID"
+    > "$RUN_DIR/round-$r-caldesk.txt"
+  fi
+
   WINDOW_END=$(($(date +%s) * 1000))
-
-  # --- transcripts ---------------------------------------------------------
-
-  # Caldesk transcript (from own server logs)
-  echo "[mystery-shopper-tp] pulling Caldesk transcript"
-  flyctl logs -a call-loop-poc --no-tail 2>&1 \
-    | grep "\[call $CALDESK_SID\]" \
-    | grep -oE '(user|assistant): ".*"$' \
-    | sed -E 's/^user:/Business:/; s/^assistant:/Customer:/' \
-    > "$RUN_DIR/round-$r-caldesk.txt" || true
 
   # ThunderPhone transcript (via API)
   echo "[mystery-shopper-tp] pulling ThunderPhone transcript"
@@ -143,12 +200,10 @@ sys.path.insert(0, sys.argv[1].rsplit('/', 1)[0])
 from thunderphone_api import find_call_by_time_window, get_call_transcript
 agent_id, from_number, start, end, out_path = sys.argv[2:]
 call = find_call_by_time_window(agent_id, from_number, int(start), int(end))
-transcript = get_call_transcript(call["id"])
-# Normalize labels to match judge convention
-normalized = transcript.replace("Agent:", "Business:").replace("User:", "Customer:")
+transcript = get_call_transcript(call["call_id"])
 with open(out_path, "w") as f:
-    f.write(normalized)
-print(f"ThunderPhone call {call['id']} transcript -> {out_path}")
+    f.write(transcript)
+print(f"ThunderPhone call {call['call_id']} transcript -> {out_path}")
 PY
 
   # --- recordings + objective latency metrics ------------------------------
@@ -167,7 +222,6 @@ PY
 
   # --- Caldesk server-side latency (ours only) -----------------------------
 
-  BIZ_SID=$(resolve_business_sid "$CALDESK_SID")
   if [ -n "$BIZ_SID" ]; then
     latency_lines "$BIZ_SID" > "$RUN_DIR/round-$r-biz-latency.txt"
   fi
