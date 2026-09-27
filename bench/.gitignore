@@ -1,1 +1,12 @@
-results/
+# Auto-generated Python cache
+__pycache__/
+*.pyc
+
+# Large or transient artifacts that shouldn't be committed
+recordings/
+temp/
+*.wav
+*.mp3
+
+# Keep the public benchmark reports
+!results/
