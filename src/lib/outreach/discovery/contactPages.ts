@@ -92,7 +92,15 @@ export function extractEmails(html: string, domain: string): string[] {
     found.add(email);
   }
   // Only accept addresses on the agency's own domain, never a third party's.
-  return [...found].filter((e) => e.split('@')[1].replace(/^www\./, '') === domain);
+  // The regex captures a "www." host as part of the address, so normalize it to the
+  // bare domain instead of returning it verbatim: an unroutable local@www.host bounces.
+  return [...found]
+    .map((e) => {
+      const at = e.lastIndexOf('@');
+      const host = e.slice(at + 1);
+      return host.replace(/^www\./, '') === domain ? `${e.slice(0, at)}@${domain}` : null;
+    })
+    .filter((e): e is string => e !== null);
 }
 
 export function pickBest(emails: string[]): string | null {

@@ -335,6 +335,14 @@ describe('contact extraction', () => {
     expect(extractEmails('<a href="mailto:%20info@acme.com">x</a>', 'acme.com')).toEqual(['info@acme.com']);
     expect(extractEmails('info@acme.com and %20%20sales@acme.com', 'acme.com').sort()).toEqual(['info@acme.com', 'sales@acme.com']);
   });
+  it('normalizes a www. mail host to the bare domain instead of storing it', () => {
+    // customerservice@www.epshawaii.com passed the own-domain check but was unroutable.
+    expect(extractEmails('customerservice@www.epshawaii.com', 'epshawaii.com')).toEqual(['customerservice@epshawaii.com']);
+    expect(extractEmails('<a href="mailto:info@www.acme.com">x</a>', 'acme.com')).toEqual(['info@acme.com']);
+  });
+  it('still rejects third-party hosts', () => {
+    expect(extractEmails('info@www.partner.com sales@acme.com', 'acme.com')).toEqual(['sales@acme.com']);
+  });
 });
 
 describe('LeadIndex.rows', () => {
