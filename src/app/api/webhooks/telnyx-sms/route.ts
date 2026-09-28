@@ -1,34 +1,62 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/supabase';
 import { dispatchWebhookEvent } from '@/lib/webhooks';
+import { verifyTelnyxSignature, verifyTwilioSignature, internalForwardHeaders } from '@/lib/webhookAuth';
 
-// POST /api/webhooks/telnyx-sms — receives inbound SMS from Telnyx.
-// Unauthenticated (called by Telnyx servers). We map the "to" number back
-// to a tenant via calldesk_phone_numbers and record the message.
+// POST /api/webhooks/telnyx-sms — receives inbound SMS from Telnyx (or,
+// as a fallback, Twilio-format form-encoded POSTs).
 //
-// TODO: add Telnyx signature verification once we have a public key API
-// (requires fetching the public key from Telnyx and verifying the
-// Telnyx-Signature-Ed25519 header against raw request body).
+// Signature verification: Telnyx requests are verified via Ed25519
+// (telnyx-signature-ed25519 / telnyx-timestamp headers against
+// TELNYX_PUBLIC_KEY); Twilio-format requests via X-Twilio-Signature
+// (against TWILIO_AUTH_TOKEN). Both checks fail-open (allow + warn) when
+// their secret isn't configured, and fail-closed (401) once it is — see
+// src/lib/webhookAuth.ts.
 export async function POST(request: NextRequest) {
   let raw: any = {};
+  let rawText = '';
+  let formParams: Record<string, string> | null = null;
 
-  // Clone because json() consumes the body
-  const clone = request.clone();
+  rawText = await request.text();
 
   // Try JSON first (Telnyx)
   try {
-    raw = await request.json();
+    raw = JSON.parse(rawText);
   } catch {
     try {
       // Fall back to form-encoded (Twilio)
-      const text = await clone.text();
-      const params = new URLSearchParams(text);
+      const params = new URLSearchParams(rawText);
       const obj: Record<string, string> = {};
       params.forEach((v, k) => { obj[k] = v; });
       raw = obj;
+      formParams = obj;
     } catch (e) {
       console.error('[telnyx-sms] Cannot parse body:', e);
       return NextResponse.json({ error: 'Invalid body' }, { status: 400 });
+    }
+  }
+
+  if (formParams) {
+    // Twilio-format request — verify X-Twilio-Signature
+    const twilioResult = verifyTwilioSignature(
+      request.url,
+      formParams,
+      request.headers.get('x-twilio-signature'),
+    );
+    if (!twilioResult.ok) {
+      console.warn('[telnyx-sms] Twilio signature verification failed:', twilioResult.reason);
+      return NextResponse.json({ error: 'Invalid signature' }, { status: 401 });
+    }
+  } else {
+    // Telnyx JSON request — verify telnyx-signature-ed25519
+    const telnyxResult = verifyTelnyxSignature(
+      rawText,
+      request.headers.get('telnyx-signature-ed25519'),
+      request.headers.get('telnyx-timestamp'),
+    );
+    if (!telnyxResult.ok) {
+      console.warn('[telnyx-sms] Telnyx signature verification failed:', telnyxResult.reason);
+      return NextResponse.json({ error: 'Invalid signature' }, { status: 401 });
     }
   }
 
@@ -134,7 +162,7 @@ export async function POST(request: NextRequest) {
       console.log(`[telnyx-sms] forwarding to ${forwardUrl}`);
       const resp = await fetch(forwardUrl, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...internalForwardHeaders() },
         body: JSON.stringify({
           from: fromNumber,
           to: toNumber,

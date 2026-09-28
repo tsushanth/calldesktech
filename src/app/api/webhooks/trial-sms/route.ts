@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/supabase';
 import { getSmsProvider } from '@/lib/smsProvider';
 import { createTrialForSession } from '@/lib/trial-creator';
+import { verifyTelnyxSignature, verifyInternalForward, INTERNAL_FORWARD_HEADER } from '@/lib/webhookAuth';
 
 /**
  * POST /api/webhooks/trial-sms
@@ -24,9 +25,27 @@ function normalizeE164(num: string | null): string | null {
 const TRIAL_ONBOARDING_NUMBER = normalizeE164(process.env.TRIAL_ONBOARDING_NUMBER || '+12245061194');
 
 export async function POST(req: NextRequest) {
+  const rawText = await req.text();
+
+  // Trusted if either: (a) this is an already-verified internal forward
+  // from telnyx-sms, or (b) it's a direct Telnyx delivery with a valid
+  // Ed25519 signature. See src/lib/webhookAuth.ts for fail-open/closed rules.
+  const internalResult = verifyInternalForward(req.headers.get(INTERNAL_FORWARD_HEADER));
+  if (!internalResult.ok) {
+    const telnyxResult = verifyTelnyxSignature(
+      rawText,
+      req.headers.get('telnyx-signature-ed25519'),
+      req.headers.get('telnyx-timestamp'),
+    );
+    if (!telnyxResult.ok) {
+      console.warn('[trial-sms] signature verification failed:', telnyxResult.reason);
+      return NextResponse.json({ error: 'Invalid signature' }, { status: 401 });
+    }
+  }
+
   let body;
   try {
-    body = await req.json();
+    body = JSON.parse(rawText);
   } catch {
     return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 });
   }
