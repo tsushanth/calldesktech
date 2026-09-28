@@ -206,7 +206,7 @@ PY
     # Judge
     if [ -s "$RUN_DIR/${tier}-round-$r-caldesk.txt" ] && [ -s "$RUN_DIR/${tier}-round-$r-thunderphone.txt" ]; then
       echo "[tp-tier-bench] running blind judge"
-      node "$SCRIPT_DIR/mystery-shopper-judge-neutral.mjs" \
+      node "$SCRIPT_DIR/mystery-shopper-judge-local.mjs" \
         --a "$RUN_DIR/${tier}-round-$r-caldesk.txt" --label-a "Calldesk" \
         --b "$RUN_DIR/${tier}-round-$r-thunderphone.txt" --label-b "ThunderPhone ($tier)" \
         --metrics-a "$RUN_DIR/${tier}-round-$r-caldesk-metrics.json" \
