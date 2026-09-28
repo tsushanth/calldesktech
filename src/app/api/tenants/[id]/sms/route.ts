@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/supabase';
 import { authorizeTenant } from '@/lib/authz';
 import { getSmsProvider } from '@/lib/smsProvider';
+import { dispatchWebhookEvent } from '@/lib/webhooks';
 
 // POST /api/tenants/[id]/sms — send an SMS from one of the tenant's
 // phone numbers via the configured SMS provider (Telnyx, Twilio, or noop).
@@ -52,6 +53,19 @@ export async function POST(
     .select()
     .single();
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+  // Fire tenant webhooks for sms.sent
+  try {
+    await dispatchWebhookEvent(tenantId, 'sms.sent', {
+      sms: data,
+      from: phoneNumber.number,
+      to: toNumber,
+      body: messageBody,
+      direction: 'outbound',
+    });
+  } catch (e) {
+    console.error('[sms] webhook dispatch failed:', e);
+  }
 
   if (sendResult.error) {
     return NextResponse.json({ error: sendResult.error, sms: data }, { status: 502 });
