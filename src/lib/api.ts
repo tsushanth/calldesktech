@@ -5,6 +5,37 @@ import { getSupabase } from './supabase';
 import type { Database } from '@/types/database';
 import type { RetellVoice } from './retell';
 
+// A tenant's own voice — the calldesk_voices row shape (see
+// supabase/migrations/046_mcp_parity.sql). Distinct from RetellVoice, which
+// is Retell's own static catalog.
+export interface TenantVoice {
+  id: string;
+  tenant_id: string;
+  name: string;
+  gender: string | null;
+  language: string;
+  accent: string | null;
+  engine: 'poc' | 'retell';
+  tts_backend: 'kokoro' | 'elevenlabs' | 'cartesia' | 'minimax' | null;
+  sample_url: string | null;
+  is_active: boolean;
+  metadata: Record<string, unknown>;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CreateTenantVoiceInput {
+  id: string;
+  name: string;
+  gender?: string;
+  language?: string;
+  accent?: string;
+  engine?: 'poc' | 'retell';
+  ttsBackend?: 'kokoro' | 'elevenlabs' | 'cartesia' | 'minimax';
+  sampleUrl?: string;
+  metadata?: Record<string, unknown>;
+}
+
 type Tables = Database['public']['Tables'];
 type Tenant = Tables['tenants']['Row'];
 type TenantInsert = Tables['tenants']['Insert'];
@@ -341,6 +372,49 @@ class ApiClient {
     const body = await res.json();
     if (!res.ok) throw new ApiError(body.error || 'Failed to load voices');
     return body.voices || [];
+  }
+
+  // Tenant's own custom voices (calldesk_voices) — separate from the
+  // read-only Retell catalog above. See /api/tenants/[id]/voices.
+  async getTenantVoices(tenantId: string): Promise<TenantVoice[]> {
+    const res = await fetch(`/api/tenants/${tenantId}/voices`);
+    const body = await res.json();
+    if (!res.ok) throw new ApiError(body.error || 'Failed to load voices');
+    return body.voices || [];
+  }
+
+  async createTenantVoice(tenantId: string, input: CreateTenantVoiceInput): Promise<TenantVoice> {
+    const res = await fetch(`/api/tenants/${tenantId}/voices`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(input),
+    });
+    const body = await res.json();
+    if (!res.ok) throw new ApiError(body.error || 'Failed to create voice');
+    return body.voice;
+  }
+
+  async updateTenantVoice(
+    tenantId: string,
+    voiceId: string,
+    patch: Partial<{ name: string; gender: string; language: string; accent: string; sampleUrl: string; isActive: boolean; metadata: Record<string, unknown> }>
+  ): Promise<TenantVoice> {
+    const res = await fetch(`/api/tenants/${tenantId}/voices/${voiceId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(patch),
+    });
+    const body = await res.json();
+    if (!res.ok) throw new ApiError(body.error || 'Failed to update voice');
+    return body.voice;
+  }
+
+  async deleteTenantVoice(tenantId: string, voiceId: string): Promise<void> {
+    const res = await fetch(`/api/tenants/${tenantId}/voices/${voiceId}`, { method: 'DELETE' });
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      throw new ApiError(body.error || 'Failed to delete voice');
+    }
   }
 
   async getChatSessions(tenantId: string, limit = 100): Promise<ChatSessionSummary[]> {

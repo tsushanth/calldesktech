@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useOnboarding } from '@/context/OnboardingContext';
-import { api, type Tenant } from '@/lib/api';
+import { api, type Tenant, type TenantVoice } from '@/lib/api';
 import { formatPhoneDisplay } from '@/lib/utils';
 import { VOICE_OPTIONS, TONE_OPTIONS } from '@/lib/constants';
 import type { RetellVoice } from '@/lib/retell';
@@ -34,6 +34,19 @@ export default function SettingsPage() {
   // fetch fails, so the picker never shows zero choices.
   const [voices, setVoices] = useState<RetellVoice[]>([]);
   const [providerFilter, setProviderFilter] = useState<'all' | RetellVoice['provider']>('all');
+
+  // Tenant's own custom voices (calldesk_voices) — CRUD management, separate
+  // from the read-only Retell catalog picked above. See
+  // /api/tenants/[id]/voices.
+  const [tenantVoices, setTenantVoices] = useState<TenantVoice[]>([]);
+  const [isLoadingTenantVoices, setIsLoadingTenantVoices] = useState(false);
+  const [tenantVoiceMessage, setTenantVoiceMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [newVoiceId, setNewVoiceId] = useState('');
+  const [newVoiceName, setNewVoiceName] = useState('');
+  const [newVoiceGender, setNewVoiceGender] = useState('');
+  const [newVoiceAccent, setNewVoiceAccent] = useState('');
+  const [isCreatingVoice, setIsCreatingVoice] = useState(false);
+  const [deletingVoiceId, setDeletingVoiceId] = useState<string | null>(null);
   const [calApiKey, setCalApiKey] = useState('');
   const [calEventTypeId, setCalEventTypeId] = useState('');
   const [voiceEngine, setVoiceEngine] = useState<VoiceEngine>('poc');
@@ -125,6 +138,63 @@ export default function SettingsPage() {
       cancelled = true;
     };
   }, []);
+
+  const loadTenantVoices = async () => {
+    if (!tenantId) return;
+    setIsLoadingTenantVoices(true);
+    try {
+      const data = await api.getTenantVoices(tenantId);
+      setTenantVoices(data);
+    } catch (err) {
+      console.error('Failed to load tenant voices:', err);
+    } finally {
+      setIsLoadingTenantVoices(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!tenantId || !isHydrated) return;
+    loadTenantVoices();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tenantId, isHydrated]);
+
+  const handleCreateVoice = async () => {
+    if (!tenantId || !newVoiceId.trim() || !newVoiceName.trim()) return;
+    setIsCreatingVoice(true);
+    setTenantVoiceMessage(null);
+    try {
+      await api.createTenantVoice(tenantId, {
+        id: newVoiceId.trim(),
+        name: newVoiceName.trim(),
+        gender: newVoiceGender || undefined,
+        accent: newVoiceAccent || undefined,
+      });
+      setNewVoiceId('');
+      setNewVoiceName('');
+      setNewVoiceGender('');
+      setNewVoiceAccent('');
+      await loadTenantVoices();
+      setTenantVoiceMessage({ type: 'success', text: 'Voice added.' });
+    } catch (err) {
+      setTenantVoiceMessage({ type: 'error', text: err instanceof Error ? err.message : 'Failed to add voice' });
+    } finally {
+      setIsCreatingVoice(false);
+    }
+  };
+
+  const handleDeleteVoice = async (voiceId: string) => {
+    if (!tenantId) return;
+    setDeletingVoiceId(voiceId);
+    setTenantVoiceMessage(null);
+    try {
+      await api.deleteTenantVoice(tenantId, voiceId);
+      await loadTenantVoices();
+    } catch (err) {
+      setTenantVoiceMessage({ type: 'error', text: err instanceof Error ? err.message : 'Failed to delete voice' });
+    } finally {
+      setDeletingVoiceId(null);
+    }
+  };
 
   const handleSaveBlocks = async () => {
     if (!tenantId) return;
@@ -324,6 +394,106 @@ export default function SettingsPage() {
                 <OptionCard key={tone.id} selected={selectedTone === tone.id} onClick={() => setSelectedTone(tone.id)} title={tone.label} description={tone.description} />
               ))}
             </div>
+          </div>
+        </SettingsSection>
+
+        {/* Your Voices — tenant-owned custom voices (calldesk_voices), CRUD
+            against /api/tenants/[id]/voices. Separate from the Retell
+            catalog above; these show up as "Your voices" in the agent
+            editor's voice picker. */}
+        <SettingsSection title="Your Voices" icon={<IconMic />}>
+          <p className="mb-4 text-[13.5px] text-gray-500">
+            Custom voices (clones, uploads, or third-party voice ids) available to pick from when assigning a voice to an agent, alongside Retell&apos;s catalog.
+          </p>
+
+          {tenantVoiceMessage && (
+            <div
+              className={`mb-3 rounded-lg px-3.5 py-2.5 text-[13px] ${
+                tenantVoiceMessage.type === 'success' ? 'border border-green-200 bg-green-50 text-green-700' : 'border border-red-200 bg-red-50 text-red-700'
+              }`}
+            >
+              {tenantVoiceMessage.text}
+            </div>
+          )}
+
+          {isLoadingTenantVoices ? (
+            <p className="text-[13px] text-gray-400">Loading voices…</p>
+          ) : tenantVoices.length === 0 ? (
+            <p className="mb-4 text-[13px] text-gray-400">No custom voices yet.</p>
+          ) : (
+            <div className="mb-4 space-y-2">
+              {tenantVoices.map((v) => (
+                <div key={v.id} className="flex items-center justify-between rounded-lg border border-gray-200 px-3.5 py-2.5">
+                  <div>
+                    <p className="text-[13px] font-medium text-[#1a1d29]">{v.name}</p>
+                    <p className="text-[11.5px] text-gray-400">
+                      {[v.id, v.gender, v.accent, v.language].filter(Boolean).join(' · ')}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => handleDeleteVoice(v.id)}
+                    disabled={deletingVoiceId === v.id}
+                    className="rounded-lg border border-red-200 px-3 py-1.5 text-[12px] font-medium text-red-600 transition hover:bg-red-50 disabled:opacity-50"
+                  >
+                    {deletingVoiceId === v.id ? 'Removing…' : 'Remove'}
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+
+          <div className="grid grid-cols-1 gap-3 border-t border-gray-100 pt-4 sm:grid-cols-4">
+            <div>
+              <label className="mb-1 block text-[12.5px] font-medium text-gray-500">Voice ID</label>
+              <input
+                type="text"
+                value={newVoiceId}
+                onChange={(e) => setNewVoiceId(e.target.value)}
+                placeholder="e.g. custom-adrian"
+                className="w-full rounded-lg border border-gray-200 px-3.5 py-2.5 text-[13.5px] focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100"
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-[12.5px] font-medium text-gray-500">Name</label>
+              <input
+                type="text"
+                value={newVoiceName}
+                onChange={(e) => setNewVoiceName(e.target.value)}
+                placeholder="e.g. Adrian"
+                className="w-full rounded-lg border border-gray-200 px-3.5 py-2.5 text-[13.5px] focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100"
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-[12.5px] font-medium text-gray-500">Gender</label>
+              <input
+                type="text"
+                value={newVoiceGender}
+                onChange={(e) => setNewVoiceGender(e.target.value)}
+                placeholder="e.g. male"
+                className="w-full rounded-lg border border-gray-200 px-3.5 py-2.5 text-[13.5px] focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100"
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-[12.5px] font-medium text-gray-500">Accent</label>
+              <input
+                type="text"
+                value={newVoiceAccent}
+                onChange={(e) => setNewVoiceAccent(e.target.value)}
+                placeholder="e.g. American"
+                className="w-full rounded-lg border border-gray-200 px-3.5 py-2.5 text-[13.5px] focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100"
+              />
+            </div>
+          </div>
+          <div className="mt-3 flex justify-end">
+            <button
+              type="button"
+              onClick={handleCreateVoice}
+              disabled={isCreatingVoice || !newVoiceId.trim() || !newVoiceName.trim()}
+              className="rounded-lg bg-[#1a1d29] px-4 py-2 text-[13px] font-medium text-white transition hover:bg-[#2a2e3d] disabled:opacity-50"
+            >
+              {isCreatingVoice ? 'Adding…' : 'Add Voice'}
+            </button>
           </div>
         </SettingsSection>
 

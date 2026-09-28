@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { AGENT_LANGUAGES, languageForcesPremiumVoice } from '@/lib/languages';
 import { api } from '@/lib/api';
 import type { RetellVoice } from '@/lib/retell';
+import type { TenantVoice } from '@/lib/api';
 import type { Agent, AgentVersion, AgentEnvironment, FlowNode, FlowEdge, StructuredCondition, TtsBackend, Subflow } from '@/types';
 import { AGENT_TEMPLATES } from '@/lib/agentTemplates';
 import { estimatePocCallCost } from '@/lib/costEstimate';
@@ -414,11 +415,20 @@ export default function AgentBuilderPage() {
   const templateCategories = ['All', ...Array.from(new Set(AGENT_TEMPLATES.map((t) => t.category)))];
   const visibleTemplates = templateCategory === 'All' ? AGENT_TEMPLATES : AGENT_TEMPLATES.filter((t) => t.category === templateCategory);
   const [retellVoices, setRetellVoices] = useState<RetellVoice[]>([]);
+  // The tenant's own custom voices (calldesk_voices), shown as a separate
+  // "Your voices" group alongside Retell's static catalog — see
+  // /api/tenants/[id]/voices. Does not replace the Retell list.
+  const [tenantVoices, setTenantVoices] = useState<TenantVoice[]>([]);
 
   useEffect(() => {
     if (voiceEngine !== 'retell' || retellVoices.length > 0) return;
     api.getRetellVoices().then(setRetellVoices).catch((err) => console.error('Failed to load Retell voices:', err));
   }, [voiceEngine, retellVoices.length]);
+
+  useEffect(() => {
+    if (voiceEngine !== 'retell' || !agent?.tenant_id || tenantVoices.length > 0) return;
+    api.getTenantVoices(agent.tenant_id).then(setTenantVoices).catch((err) => console.error('Failed to load tenant voices:', err));
+  }, [voiceEngine, agent?.tenant_id, tenantVoices.length]);
 
   // Renaming a node's id keeps everything that pointed at it (arrows, the
   // start node) pointing at it. An id emptied mid-edit is remembered so the
@@ -1558,9 +1568,18 @@ export default function AgentBuilderPage() {
                           {voiceEngine === 'retell' ? (
                             <select value={voiceId} onChange={(e) => setVoiceId(e.target.value)} className="w-full rounded-lg border border-gray-200 bg-white px-3.5 py-2.5 text-[13.5px] focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100">
                               <option value="">{retellVoices.length === 0 ? 'Loading voices…' : 'Select a voice…'}</option>
-                              {retellVoices.map((v) => (
-                                <option key={v.voice_id} value={v.voice_id}>{v.voice_name} — {v.provider === 'fish_audio' ? 'Fish Audio' : v.provider} · {v.gender}</option>
-                              ))}
+                              {tenantVoices.length > 0 && (
+                                <optgroup label="Your voices">
+                                  {tenantVoices.map((v) => (
+                                    <option key={v.id} value={v.id}>{v.name}{v.accent ? ` — ${v.accent}` : ''}{v.gender ? ` · ${v.gender}` : ''}</option>
+                                  ))}
+                                </optgroup>
+                              )}
+                              <optgroup label="Retell voices">
+                                {retellVoices.map((v) => (
+                                  <option key={v.voice_id} value={v.voice_id}>{v.voice_name} — {v.provider === 'fish_audio' ? 'Fish Audio' : v.provider} · {v.gender}</option>
+                                ))}
+                              </optgroup>
                             </select>
                           ) : (
                             <input value={voiceId} onChange={(e) => setVoiceId(e.target.value)} placeholder="e.g. af_heart" className="w-full rounded-lg border border-gray-200 bg-white px-3.5 py-2.5 text-[13.5px] focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100" />
