@@ -119,6 +119,10 @@ export async function POST(req: NextRequest) {
     body: result.reply,
   });
 
+  if (sendResult.error) {
+    console.error(`[trial-sms] outbound SMS failed: ${sendResult.error}`);
+  }
+
   // Store outbound SMS record
   if (tenantId) {
     await supabase.from('calldesk_sms_messages').insert({

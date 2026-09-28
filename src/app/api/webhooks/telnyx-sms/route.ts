@@ -10,30 +10,48 @@ import { dispatchWebhookEvent } from '@/lib/webhooks';
 // (requires fetching the public key from Telnyx and verifying the
 // Telnyx-Signature-Ed25519 header against raw request body).
 export async function POST(request: NextRequest) {
-  let body;
+  let raw;
   try {
-    body = await request.json();
+    raw = await request.json();
   } catch {
     return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 });
   }
 
-  // Telnyx wraps the event in data.event_type / data.payload
-  const eventType = body?.data?.event_type;
-  const payload = body?.data?.payload;
+  // --- Try Telnyx format first ---
+  const eventType = raw?.data?.event_type;
+  const payload = raw?.data?.payload;
 
-  if (eventType !== 'message.received' || !payload) {
-    return NextResponse.json({ received: true }, { status: 200 }); // acknowledge non-SMS events
+  let toNumber: string | null = null;
+  let fromNumber: string | null = null;
+  let text = '';
+  let providerMessageId: string | null = null;
+  let providerName = 'unknown';
+
+  if (eventType === 'message.received' && payload) {
+    // Telnyx
+    toNumber = normalizeE164(payload.to);
+    fromNumber = normalizeE164(payload.from);
+    text = payload.text || '';
+    providerMessageId = payload.id || raw?.data?.id;
+    providerName = 'telnyx';
+  } else if (raw.From && raw.To && raw.Body) {
+    // Twilio flat format
+    toNumber = normalizeE164(raw.To);
+    fromNumber = normalizeE164(raw.From);
+    text = raw.Body || '';
+    providerMessageId = raw.MessageSid || raw.SmsSid || null;
+    providerName = 'twilio';
+  } else {
+    // Not an SMS event — acknowledge so carrier doesn't retry
+    return NextResponse.json({ received: true }, { status: 200 });
   }
-
-  const toNumber = normalizeE164(payload.to);
-  const fromNumber = normalizeE164(payload.from);
-  const text = payload.text || '';
-  const providerMessageId = payload.id || body?.data?.id;
 
   if (!toNumber || !fromNumber) {
-    console.warn('[telnyx-sms] missing to/from in payload:', payload);
+    console.warn('[telnyx-sms] missing to/from in payload:', raw);
     return NextResponse.json({ error: 'Missing to/from' }, { status: 400 });
   }
+
+  console.log(`[telnyx-sms] ${providerName} inbound: ${fromNumber} → ${toNumber}, body="${text.substring(0,50)}"`);
 
   const supabase = getSupabaseAdmin();
 
@@ -63,7 +81,7 @@ export async function POST(request: NextRequest) {
       direction: 'inbound',
       status: 'received',
       provider_sid: providerMessageId,
-      provider: 'telnyx',
+      provider: providerName,
     })
     .select()
     .single();
