@@ -27,6 +27,16 @@ export const WEBHOOK_EVENTS = [
     label: 'Call analyzed',
     description: "Fires after post-call analysis runs, with the extracted `analysis` fields (only for agents with post-call analysis configured).",
   },
+  {
+    id: 'sms.received',
+    label: 'SMS received',
+    description: "Fires when an inbound SMS arrives at one of your numbers.",
+  },
+  {
+    id: 'sms.sent',
+    label: 'SMS sent',
+    description: "Fires when an outbound SMS is accepted by the provider.",
+  },
 ] as const;
 
 export type WebhookEventId = (typeof WEBHOOK_EVENTS)[number]['id'];

@@ -21,7 +21,11 @@ export async function GET(
   return NextResponse.json({ phoneNumbers: data });
 }
 
-// POST /api/tenants/[id]/phone-numbers — register a number, unrouted
+// POST /api/tenants/[id]/phone-numbers — register a number, unrouted.
+// If you pass source: 'ported', the number is treated as "bring your own"
+// and no purchase is attempted — it's just recorded in the dashboard so
+// you can route it (typically via carrier call-forwarding to one of your
+// purchased numbers, until full SIP trunking is configured).
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -31,7 +35,7 @@ export async function POST(
 
   const { id: tenantId } = await params;
   const supabase = getSupabaseAdmin();
-  const { number } = await request.json();
+  const { number, source = 'ported', label, metadata } = await request.json();
 
   if (!number) {
     return NextResponse.json({ error: 'number is required (E.164 format)' }, { status: 400 });
@@ -39,7 +43,13 @@ export async function POST(
 
   const { data, error } = await supabase
     .from('calldesk_phone_numbers')
-    .insert({ tenant_id: tenantId, number })
+    .insert({
+      tenant_id: tenantId,
+      number,
+      source,
+      label: label ?? null,
+      metadata: metadata ?? {},
+    })
     .select()
     .single();
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
