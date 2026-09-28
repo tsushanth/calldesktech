@@ -1,43 +1,27 @@
 #!/usr/bin/env node
 /**
- * Group B: Text-First Outreach (Twilio + Groq)
+ * Group B: Text-First Outreach (URL Link Drop)
  *
  * Usage:
- *   node outreach/scripts/group-b-text-first.js --csv /tmp/callable-leads.csv --limit 50 --dry-run
+ *   export CALLDESK_API_KEY=cdk_live_...
+ *   node outreach/scripts/group-b-text-first.js --csv /tmp/callable-leads.csv --limit 50
  *
  * What it does:
  *   1. Reads leads from CSV
- *   2. Sends personalized texts via Twilio
- *   3. Tracks in Supabase outreach_text_campaign table
- *   4. Replies classified by Groq (cheap: $0.0002/req)
+ *   2. Sends one text per lead with a link to /trial/start
+ *   3. Tracks in Supabase outreach_text_campaign
  *
- * Requires env vars:
- *   - TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN
- *   - SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY
+ * Template is a single short link drop. No conversation.
+ * Recipient taps the link and completes onboarding in their browser.
+ *
+ * 10DLC note: Even with A2P/Toll-Free delays, short links have lower carrier
+ * friction than multi-message conversations. Still best-effort delivery.
  */
 
 import fs from 'node:fs';
 import { parse } from 'csv-parse/sync';
 
-// Read env
-function loadEnv() {
-  const envPath = `${process.env.HOME}/Documents/GitHub/realtime-tts/call-loop-poc/.env`;
-  const env = {};
-  if (fs.existsSync(envPath)) {
-    for (const line of fs.readFileSync(envPath, 'utf8').split('\n')) {
-      if (line.includes('=') && !line.startsWith('#')) {
-        const [k, ...v] = line.split('=');
-        env[k] = v.join('=').trim().replace(/^["']|["']$/g, '');
-      }
-    }
-  }
-  for (const [k, v] of Object.entries(process.env)) {
-    if (v) env[k] = v;
-  }
-  return env;
-}
-
-const env = loadEnv();
+const BASE = (process.env.CALLDESK_BASE_URL || 'https://calldesk.tech/api/v1').replace(/\/$/, '');
 
 // --- CLI Args ---
 function arg(name) {
@@ -46,109 +30,92 @@ function arg(name) {
 }
 
 const csvPath = arg('csv') || '/tmp/callable-leads.csv';
-const fromNumber = arg('from') || '+12245061194'; // Calldesk number
+const phoneNumberId = arg('phone-number-id');
 const limit = parseInt(arg('limit') || '50', 10);
 const dryRun = process.argv.includes('--dry-run');
 const testNumber = arg('test-number');
 
+if (!phoneNumberId) {
+  console.error('--phone-number-id is required (CallDeskTech SMS number UUID)');
+  process.exit(1);
+}
 if (!fs.existsSync(csvPath)) {
   console.error(`CSV not found: ${csvPath}`);
   process.exit(1);
 }
 
+const API_KEY = process.env.CALLDESK_API_KEY;
+if (!API_KEY) {
+  console.error('CALLDESK_API_KEY is required');
+  process.exit(1);
+}
+
+// --- Load leads ---
 const csvContent = fs.readFileSync(csvPath, 'utf8');
 const records = parse(csvContent, { columns: true, skip_empty_lines: true });
-
 const leads = records
   .filter(r => r.phone && String(r.phone).replace(/\D/g, '').length >= 10)
   .slice(0, limit);
 
-console.log(`=== Group B: Text-First Outreach ===`);
-console.log(`Leads loaded: ${leads.length} from ${csvPath}`);
-console.log(`From number: ${fromNumber}`);
-console.log(`Mode: ${dryRun ? 'DRY RUN (no texts sent)' : 'LIVE'}`);
+console.log(`=== Group B: URL Link Drop ===`);
+console.log(`Leads: ${leads.length}`);
+console.log(`From number ID: ${phoneNumberId}`);
+console.log(`Mode: ${dryRun ? 'DRY RUN' : 'LIVE'}`);
 if (testNumber) console.log(`TEST: All texts go to ${testNumber}`);
-console.log(`Tracking: Supabase outreach_text_campaign`);
-console.log(`Reply classify: Groq (llama-3.1-8b)`);
 console.log('');
 
-// --- Templates ---
-const TEMPLATES = [
-  (lead) => `Hi ${firstName(lead.company)}, quick question — does ${shortName(lead.company)} get missed calls after hours? We're helping ${verticalName(lead.type)} businesses answer those with AI. Worth a 2-min call? — Alex, Calldesk`,
-  (lead) => `Hi ${firstName(lead.company)}, does ${shortName(lead.company)} ever lose leads to voicemail after 5pm? We built an AI phone agent that answers 24/7 and books appointments. Interested in a quick demo? — Alex`,
-  (lead) => `Hi ${firstName(lead.company)}, we're helping ${locationPrefix(lead.location)} ${verticalName(lead.type)} agencies capture after-hours leads with AI voice agents. ${shortName(lead.company)} getting calls you miss? — Alex, Calldesk`,
-];
-
+// --- Helpers ---
 function firstName(company) {
-  const names = ['there', 'Team', 'Owner'];
-  return names[Math.floor(Math.random() * names.length)];
+  return 'there';
 }
 
 function shortName(company) {
   return String(company).replace(/, (LLC|INC|LLP|Corp|DBA.*)$/i, '').trim();
 }
 
-function verticalName(type) {
-  const map = {
-    'licensed insurance agency': 'insurance',
-    'dental practice with an organisational NPI': 'dental',
-    'home care agency': 'home care',
-    'road freight haulage company': 'freight',
-    'towing company (tow truck operator)': 'towing',
-    'septic tank service / liquid waste hauling company': 'septic',
-    'licensed contractor': 'contractor',
-  };
-  return map[type] || 'service';
+function buildBody(lead) {
+  const name = shortName(lead.company || lead.company_name);
+  return `Hi ${firstName(name)}, does ${name} ever miss calls after hours? Free AI receptionist in 2 mins: https://calldesk.tech/trial/start`;
 }
 
-function locationPrefix(location) {
-  const city = String(location || '').split(',')[0];
-  return city || 'local';
-}
-
-function pickTemplate(lead, index) {
-  return TEMPLATES[index % TEMPLATES.length](lead);
-}
-
-// --- Send via Twilio ---
-async function sendSMS(to, body) {
-  const sid = env.TWILIO_ACCOUNT_SID;
-  const token = env.TWILIO_AUTH_TOKEN;
-  if (!sid || !token) throw new Error('TWILIO_ACCOUNT_SID or TWILIO_AUTH_TOKEN missing');
-
-  const url = `https://api.twilio.com/2010-04-01/Accounts/${sid}/Messages.json`;
-  const auth = Buffer.from(`${sid}:${token}`).toString('base64');
-
-  const params = new URLSearchParams();
-  params.append('To', to);
-  params.append('From', fromNumber);
-  params.append('Body', body);
-
+async function api(method, path, body) {
+  const url = `${BASE}${path}`;
   const res = await fetch(url, {
-    method: 'POST',
+    method,
     headers: {
-      'Authorization': `Basic ${auth}`,
-      'Content-Type': 'application/x-www-form-urlencoded',
+      Authorization: `Bearer ${API_KEY}`,
+      'Content-Type': 'application/json',
     },
-    body: params.toString(),
+    body: body === undefined ? undefined : JSON.stringify(body),
   });
-
-  if (!res.ok) {
-    const err = await res.text();
-    throw new Error(`Twilio ${res.status}: ${err}`);
-  }
-
-  return await res.json();
+  const text = await res.text();
+  let data;
+  try { data = text ? JSON.parse(text) : {}; } catch { data = { raw: text }; }
+  if (!res.ok) throw new Error(`CD ${method} ${path} (${res.status}): ${data?.error || text}`);
+  return data;
 }
 
-// --- Track in Supabase ---
-async function trackText(lead, messageSid, body) {
-  const supabaseUrl = env.SUPABASE_URL;
-  const supabaseKey = env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!supabaseUrl || !supabaseKey) {
-    console.warn('  [warn] Supabase not configured, skipping tracking');
-    return;
-  }
+let tenantIdCache;
+async function tenantId() {
+  if (tenantIdCache) return tenantIdCache;
+  const me = await api('GET', '/me');
+  tenantIdCache = me.tenantId;
+  return me.tenantId;
+}
+
+async function sendSMS(toNumber, body) {
+  const tid = await tenantId();
+  return api('POST', `/tenants/${tid}/sms`, {
+    phoneNumberId,
+    toNumber: toNumber.startsWith('+') ? toNumber : `+1${toNumber.replace(/\D/g, '')}`,
+    body,
+  });
+}
+
+async function trackText(lead, smsId, body) {
+  const supabaseUrl = process.env.SUPABASE_URL;
+  const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!supabaseUrl || !supabaseKey) return;
 
   const payload = {
     lead_rank: parseInt(lead.rank) || null,
@@ -157,10 +124,11 @@ async function trackText(lead, messageSid, body) {
     email: lead.email || null,
     location: lead.location,
     score: parseInt(lead.score) || null,
-    message_sid: messageSid,
-    body: body,
+    message_sid: smsId,
+    body,
     status: 'sent',
     sent_at: new Date().toISOString(),
+    onboarding_url: 'https://calldesk.tech/trial/start',
   };
 
   const res = await fetch(`${supabaseUrl}/rest/v1/outreach_text_campaign`, {
@@ -174,7 +142,7 @@ async function trackText(lead, messageSid, body) {
     body: JSON.stringify(payload),
   });
 
-  if (!res.ok) console.warn(`  [warn] Track failed: ${await res.text()}`);
+  if (!res.ok) console.warn(`  [track] Failed: ${await res.text()}`);
 }
 
 // --- Main ---
@@ -183,26 +151,26 @@ async function main() {
 
   for (let i = 0; i < leads.length; i++) {
     const lead = leads[i];
-    const rawPhone = String(lead.phone).replace(/\D/g, '');
-    const to = testNumber || `+1${rawPhone}`;
-    const body = pickTemplate(lead, i);
+    const to = testNumber || `+1${String(lead.phone).replace(/\D/g, '')}`;
+    const body = buildBody(lead);
 
     console.log(`[${i + 1}/${leads.length}] ${lead.company || lead.company_name}`);
     console.log(`  To: ${to}`);
     console.log(`  Body: ${body}`);
 
     if (dryRun) {
-      console.log(`  [DRY RUN] Text prepared`);
+      console.log(`  [DRY RUN]`);
       results.push({ lead: lead.company || lead.company_name, status: 'dry-run', body });
       console.log('');
       continue;
     }
 
     try {
-      const twilioRes = await sendSMS(to, body);
-      console.log(`  ✅ Sent: ${twilioRes.sid}`);
-      await trackText(lead, twilioRes.sid, body);
-      results.push({ lead: lead.company || lead.company_name, status: 'sent', sid: twilioRes.sid, body });
+      const smsRes = await sendSMS(to, body);
+      const smsId = smsRes.sms?.id || 'unknown';
+      console.log(`  ✅ Sent: ${smsId}`);
+      await trackText(lead, smsId, body);
+      results.push({ lead: lead.company || lead.company_name, status: 'sent', smsId, body });
     } catch (err) {
       console.error(`  ❌ Failed: ${err.message}`);
       results.push({ lead: lead.company || lead.company_name, status: 'failed', error: err.message, body });
@@ -218,13 +186,13 @@ async function main() {
 
   console.log('=== SUMMARY ===');
   console.log(`Total: ${results.length}`);
-  if (sent) console.log(`Sent: ${sent}`);
-  if (failed) console.log(`Failed: ${failed}`);
+  console.log(`Sent: ${sent || 0}`);
+  console.log(`Failed: ${failed || 0}`);
   if (dry) console.log(`Dry-run: ${dry}`);
 
-  if (dry) {
-    console.log('\n[Dry run] Remove --dry-run to send live texts');
-  }
+  const resultsPath = `/tmp/group-b-results-${Date.now()}.json`;
+  fs.writeFileSync(resultsPath, JSON.stringify({ sent, failed, dry, total: results.length, results }, null, 2));
+  console.log(`\nResults saved: ${resultsPath}`);
 }
 
 main().catch(err => {

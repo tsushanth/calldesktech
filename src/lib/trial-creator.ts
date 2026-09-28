@@ -98,9 +98,11 @@ export async function createTrialForSession(sessionId: string) {
     name: `[Trial] ${company_name}`,
     mode: 'simple',
   });
+  const agentId = agent.id || agent.agent?.id;
+  if (!agentId) throw new Error('Agent creation did not return an id');
 
   const flow = buildFlow(company_name, greeting, transfer_number);
-  const version = await cdApi('POST', `/agents/${agent.id}/versions`, {
+  const version = await cdApi('POST', `/agents/${agentId}/versions`, {
     flowName: `${company_name} Receptionist`,
     startNodeId: flow.startNodeId,
     nodes: flow.nodes,
@@ -128,7 +130,7 @@ export async function createTrialForSession(sessionId: string) {
   await supabase
     .from('trial_sms_sessions')
     .update({
-      agent_id: agent.id,
+      agent_id: agentId,
       agent_version_id: version.id,
       phone_number_id: number.id,
       assigned_number: assigned,
@@ -137,15 +139,17 @@ export async function createTrialForSession(sessionId: string) {
     })
     .eq('id', sessionId);
 
-  // Send completion SMS
-  const provider = getSmsProvider();
-  const from = process.env.TRIAL_ONBOARDING_NUMBER || '+12245061194';
-  const to = session.from_phone.startsWith('+') ? session.from_phone : `+1${session.from_phone}`;
-  await provider.send({
-    from,
-    to,
-    body: `Done! Your AI is live at ${assigned}. Call it to test. Dashboard: https://calldesk.tech/trial/${sessionId}\n\nQuestions? Reply HELP.`,
-  });
+  // Send completion SMS only if there's a real phone to send to
+  if (session.from_phone && session.from_phone !== 'web' && session.from_phone.length >= 10) {
+    const provider = getSmsProvider();
+    const from = process.env.TRIAL_ONBOARDING_NUMBER || '+12245061194';
+    const to = session.from_phone.startsWith('+') ? session.from_phone : `+1${session.from_phone}`;
+    await provider.send({
+      from,
+      to,
+      body: `Done! Your AI is live at ${assigned}. Call it to test. Dashboard: https://calldesk.tech/trial/${sessionId}`,
+    });
+  }
 
   return { assigned_number: assigned, agent_id: agent.id };
 }
