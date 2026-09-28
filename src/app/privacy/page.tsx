@@ -5,7 +5,7 @@ export const metadata: Metadata = { title: 'Privacy policy | CallDeskTech' };
 
 export default function PrivacyPage() {
   return (
-    <LegalPage title="Privacy policy" updated="September 20, 2026">
+    <LegalPage title="Privacy policy" updated="September 28, 2026">
       <section>
         <h2>What this covers</h2>
         <p>CallDeskTech provides AI voice agents that answer phone calls for businesses. This policy explains what we collect, why, and who else handles it. There are two groups of people: our customers (businesses who set up agents) and callers (people who phone those agents).</p>
@@ -14,9 +14,14 @@ export default function PrivacyPage() {
         <h2>What we collect</h2>
         <ul>
           <li><strong>Account data</strong> from customers: name, email address (through Google sign-in), business details, and billing information handled by Stripe. We do not store card numbers.</li>
-          <li><strong>Call data</strong>: the caller’s phone number, the time and length of the call, a transcript, details the agent collected during the call (such as a name or a booking time), and a call summary. Audio recordings are made only when the customer turns recording on.</li>
+          <li><strong>Call data</strong>: the caller's phone number, the time and length of the call, a transcript, details the agent collected during the call (such as a name or a booking time), and a call summary. Audio recordings are made only when the customer turns recording on.</li>
           <li><strong>Configuration</strong>: agent instructions, knowledge base content, and connected tools a customer sets up.</li>
         </ul>
+      </section>
+      <section>
+        <h2>Text messages (SMS)</h2>
+        <p>If you provide your mobile number to CallDeskTech, you may receive text messages related to customer service, trial setup, account updates, and appointment scheduling. Message frequency varies based on your activity. You can opt out at any time by texting <strong>STOP</strong> to our support number, or texting <strong>HELP</strong> for assistance. Msg&amp;data rates may apply. Consent to receive SMS is not a condition of purchase.</p>
+        <p><strong>Your mobile information will not be sold or shared with third parties for promotional or marketing purposes.</strong></p>
       </section>
       <section>
         <h2>How we use it</h2>
@@ -28,7 +33,7 @@ export default function PrivacyPage() {
         <ul>
           <li>Twilio (telephone calls and text messages)</li>
           <li>Deepgram (speech to text)</li>
-          <li>Anthropic (the language model that writes the agent’s replies)</li>
+          <li>Anthropic (the language model that writes the agent's replies)</li>
           <li>Modal and, when selected, ElevenLabs, Cartesia or MiniMax (text to speech)</li>
           <li>Supabase and Fly.io (database and hosting)</li>
           <li>Stripe (payments) and Google (sign-in)</li>
@@ -42,7 +47,7 @@ export default function PrivacyPage() {
       </section>
       <section>
         <h2>Retention and deletion</h2>
-        <p>Customers can delete calls and agents from their dashboard. We keep account and call data while the account is active. To request deletion of an account, or of a caller’s data, email us and we will act on it within 30 days, except for records we must keep for billing or legal reasons.</p>
+        <p>Customers can delete calls and agents from their dashboard. We keep account and call data while the account is active. To request deletion of an account, or of a caller's data, email us and we will act on it within 30 days, except for records we must keep for billing or legal reasons.</p>
       </section>
       <section>
         <h2>Your rights</h2>
