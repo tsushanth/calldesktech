@@ -3,6 +3,7 @@ import Stripe from 'stripe';
 import { getStripe } from '@/lib/stripe';
 import { getSupabaseAdmin } from '@/lib/supabase';
 import { requireTenantRole } from '@/lib/authz';
+import { getTenantUsageSince } from '@/lib/usage';
 
 // GET /api/tenants/[id]/billing — server-side (service-role Supabase +
 // Stripe SDK). Returns the tenant's current plan, this-period usage,
@@ -125,22 +126,7 @@ export async function GET(
     // the metered dimensions: voice minutes + completed actions.
     let usage = emptyUsage;
     if (periodStart) {
-      const { data: callLogs } = await supabase
-        .from('calldesk_call_logs')
-        .select('duration_seconds, outcome')
-        .eq('tenant_id', tenantId)
-        .gte('created_at', new Date(periodStart * 1000).toISOString());
-
-      if (callLogs) {
-        const totalSeconds = callLogs.reduce((sum, c) => sum + (c.duration_seconds || 0), 0);
-        usage = {
-          calls: callLogs.length,
-          minutes: Math.round(totalSeconds / 60),
-          bookings: callLogs.filter((c) => c.outcome === 'booked').length,
-          transfers: callLogs.filter((c) => c.outcome === 'transferred').length,
-          messages: callLogs.filter((c) => c.outcome === 'voicemail').length,
-        };
-      }
+      usage = await getTenantUsageSince(supabase, tenantId, new Date(periodStart * 1000));
     }
 
     // Upcoming invoice estimate — authoritative dollar figure, aggregated by

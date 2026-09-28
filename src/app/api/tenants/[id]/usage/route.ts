@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/supabase';
 import { authorizeTenant } from '@/lib/authz';
 import { getStripe } from '@/lib/stripe';
+import { summarizeCallLogs } from '@/lib/usage';
 
 // GET /api/tenants/[id]/usage — billing and usage breakdown.
 // Aggregates from calldesk_call_logs, calldesk_sms_messages, and
@@ -31,11 +32,10 @@ export async function GET(
     .gte('created_at', `${startDate}T00:00:00Z`)
     .lte('created_at', `${endDate}T23:59:59Z`);
 
-  const callMinutes = Math.round(
-    (callsAgg || []).reduce((sum, c) => sum + (c.duration_seconds ?? 0), 0) / 60
-  );
-  const bookings = (callsAgg || []).filter((c) => c.outcome === 'booked').length;
-  const transfers = (callsAgg || []).filter((c) => c.outcome === 'transferred').length;
+  const callSummary = summarizeCallLogs(callsAgg || []);
+  const callMinutes = callSummary.minutes;
+  const bookings = callSummary.bookings;
+  const transfers = callSummary.transfers;
 
   // SMS counts (both directions)
   const { data: outboundSms } = await supabase
