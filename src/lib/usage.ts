@@ -9,6 +9,11 @@ import { SupabaseClient } from '@supabase/supabase-js';
 export type CallOutcomeCounts = {
   calls: number;
   minutes: number;
+  // Raw seconds, kept alongside the rounded `minutes` shown to tenants:
+  // the Stripe voice meter (calldesktech_voice_seconds) bills in whole
+  // seconds, and reporting Math.round(seconds/60) to it would be wrong by
+  // up to 60x if seconds were mistaken for minutes, and lossy either way.
+  seconds: number;
   bookings: number;
   transfers: number;
   messages: number;
@@ -25,6 +30,7 @@ export function summarizeCallLogs(
   return {
     calls: rows.length,
     minutes: Math.round(totalSeconds / 60),
+    seconds: totalSeconds,
     bookings: rows.filter((c) => c.outcome === 'booked').length,
     transfers: rows.filter((c) => c.outcome === 'transferred').length,
     messages: rows.filter((c) => c.outcome === 'voicemail').length,

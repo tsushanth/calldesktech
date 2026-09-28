@@ -6,7 +6,7 @@ vi.mock('@/lib/outreach/adminAuth', () => ({
 }));
 
 type TenantRow = { id: string; last_usage_reported_at: string | null };
-type BusinessRow = { tenant_id: string; stripe_subscription_id: string | null };
+type BusinessRow = { tenant_id: string; stripe_customer_id: string | null };
 
 let tenants: TenantRow[] = [];
 let businesses: BusinessRow[] = [];
@@ -42,7 +42,7 @@ vi.mock('@/lib/supabase', () => ({
           return { data: rows, error: null };
         }
         if (table === 'calldesk_businesses') {
-          if (state.notNull) return { data: businesses.filter((x) => x.stripe_subscription_id != null), error: null };
+          if (state.notNull) return { data: businesses.filter((x) => x.stripe_customer_id != null), error: null };
           return { data: businesses, error: null };
         }
         if (table === 'calldesk_tenants') {
@@ -57,20 +57,16 @@ vi.mock('@/lib/supabase', () => ({
   }),
 }));
 
-const createUsageRecord = vi.fn(async () => ({ id: 'ur_1' }));
-const subscriptionsRetrieve = vi.fn();
+type MeterEventPayload = { event_name: string; identifier: string; timestamp: number; payload: { stripe_customer_id: string; value: string } };
+const meterEventsCreate = vi.fn(async (_args: MeterEventPayload) => ({ identifier: 'evt_1' }));
 
 vi.mock('@/lib/stripe', () => ({
   getStripe: () => ({
-    subscriptions: { retrieve: subscriptionsRetrieve },
-    subscriptionItems: { createUsageRecord },
+    billing: { meterEvents: { create: meterEventsCreate } },
   }),
 }));
 
 import { POST } from '@/app/api/admin/billing/report-usage/route';
-import { USAGE_PRICES } from '@/lib/constants';
-
-const VOICE_PRICE = USAGE_PRICES.voice.kokoro;
 
 function req() {
   return new Request('http://localhost/api/admin/billing/report-usage', {
@@ -84,11 +80,7 @@ beforeEach(() => {
   businesses = [];
   callLogs = [];
   tenantUpdates.length = 0;
-  createUsageRecord.mockClear();
-  subscriptionsRetrieve.mockReset();
-  subscriptionsRetrieve.mockResolvedValue({
-    items: { data: [{ id: 'si_voice', price: { id: VOICE_PRICE } }] },
-  });
+  meterEventsCreate.mockClear();
 });
 
 it('rejects unauthenticated requests', async () => {
@@ -96,68 +88,72 @@ it('rejects unauthenticated requests', async () => {
   expect(res.status).toBe(401);
 });
 
-it('reports usage for a tenant with new call minutes since last_usage_reported_at', async () => {
+it('reports usage for a tenant with new call seconds since last_usage_reported_at', async () => {
   tenants = [{ id: 't1', last_usage_reported_at: '2026-01-01T00:00:00.000Z' }];
-  businesses = [{ tenant_id: 't1', stripe_subscription_id: 'sub_1' }];
-  callLogs = [{ tenant_id: 't1', created_at: '2026-01-02T00:00:00.000Z', duration_seconds: 600, outcome: null }]; // 10 minutes
+  businesses = [{ tenant_id: 't1', stripe_customer_id: 'cus_1' }];
+  callLogs = [{ tenant_id: 't1', created_at: '2026-01-02T00:00:00.000Z', duration_seconds: 600, outcome: null }]; // 600 seconds
 
   const body = await (await POST(req())).json();
   expect(body.results).toHaveLength(1);
   expect(body.results[0].status).toBe('reported');
-  expect(body.results[0].recorded).toEqual([{ dimension: 'voice', subscriptionItemId: 'si_voice', quantity: 10 }]);
+  expect(body.results[0].recorded).toEqual([
+    { dimension: 'voice', eventName: 'calldesktech_voice_seconds', value: 600, identifier: expect.stringMatching(/^usage-report:t1:voice:/) },
+  ]);
 
-  expect(createUsageRecord).toHaveBeenCalledTimes(1);
-  const [itemId, payload, opts] = createUsageRecord.mock.calls[0];
-  expect(itemId).toBe('si_voice');
-  expect(payload).toMatchObject({ quantity: 10, action: 'increment' });
-  expect(opts.idempotencyKey).toMatch(/^usage-report:t1:si_voice:/);
+  expect(meterEventsCreate).toHaveBeenCalledTimes(1);
+  const [payload] = meterEventsCreate.mock.calls[0];
+  expect(payload).toMatchObject({
+    event_name: 'calldesktech_voice_seconds',
+    payload: { stripe_customer_id: 'cus_1', value: '600' },
+  });
+  expect(payload.identifier).toMatch(/^usage-report:t1:voice:/);
 
   // last_usage_reported_at advanced so the same window isn't re-reported.
   expect(tenantUpdates).toHaveLength(1);
   expect(tenantUpdates[0].id).toBe('t1');
 });
 
-it('skips a tenant with zero new usage since its last report — no usage record created', async () => {
+it('skips a tenant with zero new usage since its last report — no meter event created', async () => {
   tenants = [{ id: 't2', last_usage_reported_at: '2026-01-01T00:00:00.000Z' }];
-  businesses = [{ tenant_id: 't2', stripe_subscription_id: 'sub_2' }];
+  businesses = [{ tenant_id: 't2', stripe_customer_id: 'cus_2' }];
   callLogs = []; // nothing new
 
   const body = await (await POST(req())).json();
   expect(body.results[0].status).toBe('skipped_zero_usage');
-  expect(createUsageRecord).not.toHaveBeenCalled();
+  expect(meterEventsCreate).not.toHaveBeenCalled();
   expect(tenantUpdates).toHaveLength(0);
 });
 
 it('a tenant with no prior watermark only initializes the baseline — no backfill, no Stripe call', async () => {
   tenants = [{ id: 't4', last_usage_reported_at: null }];
-  businesses = [{ tenant_id: 't4', stripe_subscription_id: 'sub_4' }];
+  businesses = [{ tenant_id: 't4', stripe_customer_id: 'cus_4' }];
   // Months of pre-existing usage that must NOT be reported on this first run.
   callLogs = [{ tenant_id: 't4', created_at: '2025-01-01T00:00:00.000Z', duration_seconds: 6000, outcome: null }];
 
   const body = await (await POST(req())).json();
   expect(body.results[0].status).toBe('baseline_initialized');
-  expect(createUsageRecord).not.toHaveBeenCalled();
+  expect(meterEventsCreate).not.toHaveBeenCalled();
   expect(tenantUpdates).toHaveLength(1);
   expect(tenantUpdates[0].id).toBe('t4');
 
   // Next run (watermark now set) sees no *new* usage — the backlog stays unreported.
   const second = await (await POST(req())).json();
   expect(second.results[0].status).toBe('skipped_zero_usage');
-  expect(createUsageRecord).not.toHaveBeenCalled();
+  expect(meterEventsCreate).not.toHaveBeenCalled();
 });
 
 it('retrying the same run twice does not double-report: second call skips because last_usage_reported_at already advanced', async () => {
   tenants = [{ id: 't3', last_usage_reported_at: '2026-01-01T00:00:00.000Z' }];
-  businesses = [{ tenant_id: 't3', stripe_subscription_id: 'sub_3' }];
-  callLogs = [{ tenant_id: 't3', created_at: '2026-01-02T00:00:00.000Z', duration_seconds: 300, outcome: null }]; // 5 minutes
+  businesses = [{ tenant_id: 't3', stripe_customer_id: 'cus_3' }];
+  callLogs = [{ tenant_id: 't3', created_at: '2026-01-02T00:00:00.000Z', duration_seconds: 300, outcome: null }];
 
   const first = await (await POST(req())).json();
   expect(first.results[0].status).toBe('reported');
-  expect(createUsageRecord).toHaveBeenCalledTimes(1);
+  expect(meterEventsCreate).toHaveBeenCalledTimes(1);
 
   // Retry: last_usage_reported_at has moved past the call log's created_at,
   // so the window is now empty and nothing new is reported.
   const second = await (await POST(req())).json();
   expect(second.results[0].status).toBe('skipped_zero_usage');
-  expect(createUsageRecord).toHaveBeenCalledTimes(1); // still just once
+  expect(meterEventsCreate).toHaveBeenCalledTimes(1); // still just once
 });

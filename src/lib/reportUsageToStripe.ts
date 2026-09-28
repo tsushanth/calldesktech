@@ -1,42 +1,50 @@
 import type Stripe from 'stripe';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { getTenantUsageSince } from './usage';
-import { USAGE_PRICES } from './constants';
 
-// Reports metered usage (voice minutes + booking/transfer/message events)
-// to Stripe against the legacy metered-price subscription-item usage-record
-// API (stripe.subscriptionItems.createUsageRecord), not the newer Billing
-// Meters/meterEvents API.
+// Reports metered usage (voice seconds + booking/transfer/message events) to
+// Stripe via the Billing Meters API (stripe.billing.meterEvents.create).
 //
-// Why the legacy mechanism: USAGE_PRICES (src/lib/constants.ts) holds
-// concrete Stripe Price ids for voice/booking/transfer/message, and
-// syncVoicePriceForTenant (src/lib/stripe.ts) already swaps the
-// subscription's voice line item to whichever of those prices matches the
-// tenant's tts_backend by finding the matching item on
-// `subscription.items.data` — i.e. this app already treats each tenant's
-// subscription as carrying one metered subscription item per dimension,
-// found by price id, not tracked in our own DB. There is no
-// subscription_item_id-style column on calldesk_businesses/calldesk_tenants,
-// so nothing in the schema points at the newer meter-event model (which
-// keys off customer + event name, not subscription items). Given that
-// existing, working precedent, this job re-derives the subscription's
-// current items the same way and posts usage records against them.
-// Confidence: high for "legacy metered subscription items is what this app
-// already uses", medium for "this is Stripe's recommended path going
-// forward" — Stripe has been steering new integrations toward Billing
-// Meters since 2023-10; if this app were built fresh today the meter-event
-// API would likely be preferred. But retrofitting that would mean adding a
-// second, parallel pricing model, not reusing what's already wired up.
+// This is NOT a design choice between two equally-valid mechanisms: the
+// installed `stripe` SDK (package.json "stripe": "^20.2.0") has no
+// `subscriptionItems.createUsageRecord` method at all — Stripe removed the
+// legacy usage-records API from newer SDK versions (confirmed by inspecting
+// the loaded SDK object directly: `subscriptionItems` only exposes
+// create/retrieve/update/list/del). The live USAGE_PRICES
+// (src/lib/constants.ts) were confirmed via a real, read-only
+// `GET /v1/prices/:id` call to have `recurring.usage_type: "metered"` with a
+// `recurring.meter` id set — they are genuinely Meter-backed prices, not
+// legacy metered-subscription-item prices. Billing Meters is the only
+// mechanism that can report usage against them with this SDK.
+//
+// Each meter's `customer_mapping` is `{ type: "by_id", event_payload_key:
+// "stripe_customer_id" }` (confirmed via `GET /v1/billing/meters/:id`), so
+// events are reported against the tenant's Stripe CUSTOMER id
+// (calldesk_businesses.stripe_customer_id), not a subscription item id.
+//
+// Real event names, confirmed the same way (one meter per dimension; the
+// four voice-backend prices in USAGE_PRICES.voice all share the one voice
+// meter, since they're the same billable quantity at different rates):
+//   calldesktech_voice_seconds    (unit: seconds, NOT minutes)
+//   calldesktech_booking_events
+//   calldesktech_transfer_events
+//   calldesktech_message_events
+const METER_EVENT_NAMES = {
+  voice: 'calldesktech_voice_seconds',
+  booking: 'calldesktech_booking_events',
+  transfer: 'calldesktech_transfer_events',
+  message: 'calldesktech_message_events',
+} as const;
 
 export type TenantUsageReportResult =
-  | { tenantId: string; status: 'skipped_no_subscription' }
+  | { tenantId: string; status: 'skipped_no_customer' }
   | { tenantId: string; status: 'baseline_initialized'; until: string }
   | { tenantId: string; status: 'skipped_zero_usage'; since: string | null; until: string }
-  | { tenantId: string; status: 'reported'; since: string | null; until: string; recorded: Array<{ dimension: string; subscriptionItemId: string; quantity: number }> }
+  | { tenantId: string; status: 'reported'; since: string | null; until: string; recorded: Array<{ dimension: string; eventName: string; value: number; identifier: string }> }
   | { tenantId: string; status: 'error'; error: string };
 
 type TenantRow = { id: string; last_usage_reported_at: string | null };
-type BusinessRow = { tenant_id: string; stripe_subscription_id: string | null };
+type BusinessRow = { tenant_id: string; stripe_customer_id: string | null };
 
 // Floors a Date to the start of the current minute. Used as the reporting
 // window's `until` boundary so that a retry issued within the same minute
@@ -61,8 +69,8 @@ export async function reportTenantUsageToStripe(
   now: Date = new Date()
 ): Promise<TenantUsageReportResult> {
   const tenantId = tenant.id;
-  if (!business?.stripe_subscription_id) {
-    return { tenantId, status: 'skipped_no_subscription' };
+  if (!business?.stripe_customer_id) {
+    return { tenantId, status: 'skipped_no_customer' };
   }
 
   const until = floorToMinute(now);
@@ -98,51 +106,40 @@ export async function reportTenantUsageToStripe(
     return { tenantId, status: 'error', error: err instanceof Error ? err.message : String(err) };
   }
 
-  const dimensions: Array<{ dimension: string; priceIds: string[]; quantity: number }> = [
-    { dimension: 'voice', priceIds: Object.values(USAGE_PRICES.voice), quantity: usage.minutes },
-    { dimension: 'booking', priceIds: [USAGE_PRICES.booking], quantity: usage.bookings },
-    { dimension: 'transfer', priceIds: [USAGE_PRICES.transfer], quantity: usage.transfers },
-    { dimension: 'message', priceIds: [USAGE_PRICES.message], quantity: usage.messages },
-  ].filter((d) => d.quantity > 0);
+  type Dimension = { dimension: keyof typeof METER_EVENT_NAMES; value: number };
+  const allDimensions: Dimension[] = [
+    { dimension: 'voice', value: usage.seconds },
+    { dimension: 'booking', value: usage.bookings },
+    { dimension: 'transfer', value: usage.transfers },
+    { dimension: 'message', value: usage.messages },
+  ];
+  const dimensions = allDimensions.filter((d) => d.value > 0);
 
   if (dimensions.length === 0) {
     return { tenantId, status: 'skipped_zero_usage', since: since?.toISOString() ?? null, until: until.toISOString() };
   }
 
-  let subscription: Stripe.Subscription;
-  try {
-    subscription = await stripe.subscriptions.retrieve(business.stripe_subscription_id);
-  } catch (err) {
-    return { tenantId, status: 'error', error: err instanceof Error ? err.message : String(err) };
-  }
-
   const periodKey = `${since ? since.toISOString() : 'epoch'}_${until.toISOString()}`;
-  const recorded: Array<{ dimension: string; subscriptionItemId: string; quantity: number }> = [];
+  const recorded: Array<{ dimension: string; eventName: string; value: number; identifier: string }> = [];
 
   try {
     for (const dim of dimensions) {
-      const item = subscription.items.data.find((i) => dim.priceIds.includes(i.price.id));
-      if (!item) {
-        // No subscription item at this price (e.g. subscription predates
-        // this pricing dimension, or the tenant's plan doesn't include it)
-        // — don't guess at attaching one, matches syncVoicePriceForTenant's
-        // existing no-op behavior for the same situation.
-        continue;
-      }
-      // action: 'increment' — this window's usage is additive on top of
-      // whatever Stripe already has for the current billing period for
-      // this item. Safe because `since`/`until` are a non-overlapping,
-      // monotonically-advancing window per tenant (gated by
-      // last_usage_reported_at), never re-summing a prior window. 'set'
-      // was deliberately avoided: it would require this job to always
-      // recompute the *whole* period's usage, which is a larger blast
-      // radius if that computation is ever wrong.
-      await stripe.subscriptionItems.createUsageRecord(
-        item.id,
-        { quantity: dim.quantity, timestamp: Math.floor(until.getTime() / 1000), action: 'increment' },
-        { idempotencyKey: `usage-report:${tenantId}:${item.id}:${periodKey}` }
-      );
-      recorded.push({ dimension: dim.dimension, subscriptionItemId: item.id, quantity: dim.quantity });
+      const eventName = METER_EVENT_NAMES[dim.dimension];
+      // Identifier doubles as Stripe's idempotency key for meter events (a
+      // duplicate `identifier` within the ~24h dedup window is dropped
+      // server-side), scoped per tenant/dimension/window so a retry within
+      // the same minute can't double-report. Safe because `since`/`until`
+      // are a non-overlapping, monotonically-advancing window per tenant
+      // (gated by last_usage_reported_at) — this always reports NEW usage
+      // for the window, never re-sums a prior one.
+      const identifier = `usage-report:${tenantId}:${dim.dimension}:${periodKey}`;
+      await stripe.billing.meterEvents.create({
+        event_name: eventName,
+        identifier,
+        timestamp: Math.floor(until.getTime() / 1000),
+        payload: { stripe_customer_id: business.stripe_customer_id, value: String(dim.value) },
+      });
+      recorded.push({ dimension: dim.dimension, eventName, value: dim.value, identifier });
     }
   } catch (err) {
     return { tenantId, status: 'error', error: err instanceof Error ? err.message : String(err) };
@@ -163,8 +160,8 @@ export async function reportTenantUsageToStripe(
 export async function runUsageReportingJob(supabase: SupabaseClient, stripe: Stripe, now: Date = new Date()) {
   const { data: businesses, error: bizError } = await supabase
     .from('calldesk_businesses')
-    .select('tenant_id, stripe_subscription_id')
-    .not('stripe_subscription_id', 'is', null);
+    .select('tenant_id, stripe_customer_id')
+    .not('stripe_customer_id', 'is', null);
   if (bizError) throw bizError;
 
   const tenantIds = (businesses ?? []).map((b) => b.tenant_id);
