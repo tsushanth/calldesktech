@@ -78,10 +78,9 @@ def list_phone_numbers():
 def assign_agent_to_number(phone_number_id, agent_id):
     """
     Point a ThunderPhone number at an agent.
-    Payload shape inferred from dashboard API patterns.
     """
     payload = {
-        "inbound_agents": [{"agent_id": agent_id, "weight": 1}]
+        "inbound_agent_id": agent_id
     }
     return _req("PATCH", f"/v1/phone-numbers/{phone_number_id}", payload)
 
@@ -108,18 +107,39 @@ def get_call(call_id):
 
 def get_call_transcript(call_id):
     """
-    ThunderPhone returns transcript in two possible places:
-    1. Inside the call object under 'recording.transcript'
-    2. As a dedicated /calls/{id}/transcript sub-resource
+    Fetch transcript and return as normalized text (Business: / Customer: lines).
+    Handles both dict-with-transcripts and raw-string formats.
     """
     call = get_call(call_id)
     rec = call.get("recording", {})
+    raw = None
     if "transcript" in rec:
-        return rec["transcript"]
-    if "transcript" in call:
-        return call["transcript"]
-    # Fallback
-    return _req("GET", f"/v1/calls/{call_id}/transcript")
+        raw = rec["transcript"]
+    elif "transcript" in call:
+        raw = call["transcript"]
+    else:
+        raw = _req("GET", f"/v1/calls/{call_id}/transcript")
+
+    # Normalize to text
+    if isinstance(raw, dict) and "transcripts" in raw:
+        lines = []
+        for turn in raw["transcripts"]:
+            role = turn.get("role", "")
+            content = turn.get("content", "")
+            label = "Business" if role == "agent" else "Customer" if role == "user" else role.capitalize()
+            lines.append(f'{label}: "{content}"')
+        return "\n".join(lines)
+    if isinstance(raw, list):
+        lines = []
+        for turn in raw:
+            role = turn.get("role", "")
+            content = turn.get("content", "")
+            label = "Business" if role == "agent" else "Customer" if role == "user" else role.capitalize()
+            lines.append(f'{label}: "{content}"')
+        return "\n".join(lines)
+    if isinstance(raw, str):
+        return raw
+    return str(raw)
 
 
 def list_voices():
@@ -134,8 +154,8 @@ def find_call_by_time_window(agent_id, from_number, window_start_ms, window_end_
     params = {
         "agent_id": agent_id,
         "from_number": from_number,
-        "start_timestamp[gte]": window_start_ms,
-        "start_timestamp[lte]": window_end_ms,
+        "start_after": window_start_ms,
+        "start_before": window_end_ms,
         "limit": 5,
     }
     resp = list_calls(**params)

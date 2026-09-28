@@ -1,0 +1,93 @@
+{
+  "id": "54cdd644-d4fe-4067-87d6-46921783ed22",
+  "tenant_id": "5359aa6a-2e1b-4c02-b796-4043a239d506",
+  "name": "receptionist",
+  "nodes": [
+    {
+      "id": "greeting",
+      "type": "greeting",
+      "edges": [
+        {
+          "id": "e_always_booking",
+          "target": "booking",
+          "condition": "always"
+        }
+      ],
+      "prompt": "Greet the caller warmly. If they want to book, ask how you can help then let them speak."
+    },
+    {
+      "id": "booking",
+      "type": "extraction",
+      "edges": [
+        {
+          "id": "e_to_confirm",
+          "target": "confirmation",
+          "condition": "all info collected"
+        }
+      ],
+      "prompt": "Collect the three fields: full name (with spelling), preferred time tomorrow afternoon, and callback number.\n\nIf the caller gives all three in one turn, extract them all and do NOT re-ask.\nIf they give only some, ask only for the missing fields.\n\nWhen all three are collected and the caller has not explicitly confirmed yet, call transition_flow to the confirmation node. Do NOT read details back here \u2014 that happens in confirmation.",
+      "extract": {
+        "name": "string",
+        "preferred_time": "string",
+        "callback_number": "string"
+      }
+    },
+    {
+      "id": "confirmation",
+      "type": "extraction",
+      "edges": [
+        {
+          "id": "e_confirmed",
+          "target": "goodbye",
+          "condition": "caller confirmed details"
+        }
+      ],
+      "prompt": "The caller has already given their name, preferred time, and callback number. Read back: 'So that is [name] at [time] tomorrow, callback [phone]. Does that look right?'\n\nABSOLUTE RULES:\n- Ask the confirmation question EXACTLY ONCE.\n- If they say yes or correct, say 'Perfect, you are all set!' and call transition_flow immediately.\n- If they say no, ask what needs changing and stay here.\n- NEVER ask a second time. NEVER add follow-up questions. NEVER ask about area codes or spelling after confirmation.",
+      "extract": {}
+    },
+    {
+      "id": "take_message",
+      "type": "extraction",
+      "edges": [
+        {
+          "id": "e_message_done",
+          "target": "goodbye",
+          "condition": "name, callback_number, and reason have all been collected"
+        }
+      ],
+      "prompt": "Apologize that no one is available right now, then ask for the caller's name, callback number, and a brief reason for their call.",
+      "extract": {
+        "name": "string",
+        "reason": "string",
+        "callback_number": "string"
+      }
+    },
+    {
+      "id": "transfer",
+      "type": "transfer",
+      "edges": [],
+      "params": {
+        "transferTo": "+12065550100"
+      },
+      "prompt": "Let the caller know you're connecting them now."
+    },
+    {
+      "id": "goodbye",
+      "type": "goodbye",
+      "edges": [],
+      "prompt": "The booking is confirmed. Give a warm farewell and end the call. Do NOT ask any more questions."
+    }
+  ],
+  "global_settings": {
+    "language": null,
+    "startNodeId": "greeting",
+    "returnToFlow": true,
+    "calendarTools": false,
+    "allowInterruptions": true
+  },
+  "is_active": false,
+  "version": 1,
+  "created_at": "2026-09-21T20:57:33.166075+00:00",
+  "updated_at": "2026-09-28T01:33:49.731028+00:00",
+  "agent_id": "f11ec7f8-eff0-4db0-9a98-718bbc89ac1f"
+}
