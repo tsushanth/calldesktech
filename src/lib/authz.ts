@@ -175,7 +175,8 @@ export async function authorizeResource(
     | 'calldesk_phone_numbers'
     | 'calldesk_batch_calls'
     | 'calldesk_chat_sessions'
-    | 'calldesk_agent_versions',
+    | 'calldesk_agent_versions'
+    | 'calldesk_sms_messages',
   id: string
 ): Promise<AuthResult> {
   // Authenticate first so an unauthenticated caller can't probe which ids exist.

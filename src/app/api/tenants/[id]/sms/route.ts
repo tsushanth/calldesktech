@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/supabase';
 import { authorizeTenant } from '@/lib/authz';
+import { getSmsProvider } from '@/lib/smsProvider';
 
 // POST /api/tenants/[id]/sms — send an SMS from one of the tenant's
-// phone numbers via Twilio. Requires TWILIO_ACCOUNT_SID / TWILIO_AUTH_TOKEN.
+// phone numbers via the configured SMS provider (Telnyx, Twilio, or noop).
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -28,34 +29,12 @@ export async function POST(
     return NextResponse.json({ error: 'Phone number not found for this tenant' }, { status: 404 });
   }
 
-  const accountSid = process.env.TWILIO_ACCOUNT_SID;
-  const authToken = process.env.TWILIO_AUTH_TOKEN;
-  if (!accountSid || !authToken) {
-    return NextResponse.json({ error: 'Twilio credentials not configured' }, { status: 500 });
-  }
-
-  // Send via Twilio Messages API
-  const auth64 = Buffer.from(`${accountSid}:${authToken}`).toString('base64');
-  const form = new URLSearchParams();
-  form.set('From', phoneNumber.number);
-  form.set('To', toNumber);
-  form.set('Body', messageBody);
-
-  let twilioSid: string | null = null;
-  try {
-    const res = await fetch(`https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Messages.json`, {
-      method: 'POST',
-      headers: { Authorization: `Basic ${auth64}`, 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: form.toString(),
-    });
-    const body = await res.json() as { sid?: string; error_message?: string };
-    if (!res.ok) {
-      return NextResponse.json({ error: body.error_message || `Twilio error: ${res.status}` }, { status: 502 });
-    }
-    twilioSid = body.sid ?? null;
-  } catch (err) {
-    return NextResponse.json({ error: err instanceof Error ? err.message : 'Twilio request failed' }, { status: 502 });
-  }
+  const provider = getSmsProvider();
+  const sendResult = await provider.send({
+    from: phoneNumber.number,
+    to: toNumber,
+    body: messageBody,
+  });
 
   const { data, error } = await supabase
     .from('calldesk_sms_messages')
@@ -66,12 +45,17 @@ export async function POST(
       to_number: toNumber,
       body: messageBody,
       direction: 'outbound',
-      status: 'queued',
-      provider_sid: twilioSid,
+      status: sendResult.status,
+      provider_sid: sendResult.providerSid,
+      error: sendResult.error,
     })
     .select()
     .single();
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+  if (sendResult.error) {
+    return NextResponse.json({ error: sendResult.error, sms: data }, { status: 502 });
+  }
   return NextResponse.json({ sms: data }, { status: 201 });
 }
 
