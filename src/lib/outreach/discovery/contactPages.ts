@@ -1,7 +1,7 @@
 import { politeFetchText, sleep } from './http';
 
-// Looks for a publicly listed contact email on the agency's OWN website
-// (homepage, /contact, /about). No paid enrichment, no guessing addresses.
+// Looks for a publicly listed contact email AND phone number on the agency's
+// OWN website (homepage, /contact, /about). No paid enrichment, no guessing.
 // Honors robots.txt for the paths it requests. A page with only a form
 // yields status 'form_only' so a human can use the form instead.
 
@@ -17,6 +17,7 @@ export interface ContactForm {
 export interface ContactResult {
   status: 'found' | 'form_only' | 'none';
   email: string | null;
+  phone: string | null; // E.164 format, e.g. +15550147
   sourceUrl: string | null;
   form?: ContactForm;
 }
@@ -62,6 +63,61 @@ const JUNK_LOCALPARTS = ['noreply', 'no-reply', 'donotreply', 'privacy', 'abuse'
 const JUNK_DOMAINS = ['example.com', 'sentry.io', 'wixpress.com', 'godaddy.com', 'domain.com', 'email.com', 'yourdomain.com'];
 const PREFERRED = ['partners', 'partnership', 'hello', 'hi', 'contact', 'info', 'sales', 'team', 'support'];
 const IMAGE_EXT = /\.(png|jpe?g|gif|svg|webp|avif)$/i;
+
+// Phone patterns we accept: tel: links, US-formatted, and international with + prefix.
+// We normalise everything to E.164-ish (digits only, optionally leading +).
+const PHONE_RE_TEL = /href=["']tel:([^"']+)["']/gi;
+const PHONE_RE_US = /\(?\d{3}\)?[\s.\-–/]*\d{3}[\s.\-–/]*\d{4}(?:\s*(?:ext|x)\.?\s*\d{1,5})?/gi;
+const PHONE_RE_INTL = /\+\d[\s\d\-–().]{6,20}\d/gi;
+const PHONE_JUNK = /(?:fax|efax|toll[\s\-]*free|1[\s\-]*800[\s\-]*\d{3}[\s\-]*\d{4})/i; // skip toll-free / fax lines
+
+/** Normalise a scraped phone number to digits-only (with optional leading +). Returns null if unusable. */
+function normalisePhone(raw: string): string | null {
+  // Strip visual separators and whitespace, keep digits and leading +.
+  let digits = raw.replace(/[\s.\-–()/]/g, '');
+  // If it starts with +, keep it; otherwise just digits.
+  if (digits.startsWith('+')) {
+    digits = '+' + digits.slice(1).replace(/\D/g, '');
+  } else {
+    digits = digits.replace(/\D/g, '');
+  }
+  // Must be at least 7 digits (local) and at most 15 (E.164 max).
+  if (digits.length < 7 || digits.length > 16) return null;
+  return digits;
+}
+
+/** Extract phone numbers from raw HTML. Returns unique normalised numbers. */
+export function extractPhones(html: string): string[] {
+  const found = new Set<string>();
+  // tel: links are the most reliable.
+  for (const m of html.matchAll(PHONE_RE_TEL)) {
+    const n = normalisePhone(m[1]);
+    if (n) found.add(n);
+  }
+  // US-formatted numbers.
+  for (const m of html.matchAll(PHONE_RE_US)) {
+    if (PHONE_JUNK.test(m[0])) continue;
+    const n = normalisePhone(m[0]);
+    if (n) found.add(n);
+  }
+  // International with +.
+  for (const m of html.matchAll(PHONE_RE_INTL)) {
+    const n = normalisePhone(m[0]);
+    if (n) found.add(n);
+  }
+  return [...found];
+}
+
+/** Pick the best phone number. Prefer local-looking numbers over international, shorter over longer. */
+export function pickBestPhone(phones: string[]): string | null {
+  if (!phones.length) return null;
+  // If we see exactly one 10-digit US-looking number, prefer it.
+  const us10 = phones.filter((p) => p.length === 10);
+  if (us10.length === 1) return us10[0];
+  // Prefer shorter numbers (fewer digits = more likely direct line, not a long international number).
+  phones.sort((a, b) => a.length - b.length);
+  return phones[0];
+}
 
 function disallowedPaths(robots: string): string[] {
   const out: string[] = [];
@@ -127,11 +183,14 @@ export async function findContact(domain: string): Promise<ContactResult> {
     if (!res.ok) continue;
 
     const email = pickBest(extractEmails(res.text, domain));
-    if (email) return { status: 'found', email, sourceUrl: url };
+    const phones = extractPhones(res.text);
+    const phone = pickBestPhone(phones);
+    if (email) return { status: 'found', email, phone, sourceUrl: url };
+    if (phone) return { status: 'found', email: null, phone, sourceUrl: url };
     const f = detectContactForm(res.text, url);
     if (f && (!contactForm || (contactForm.method === 'embedded' && f.method !== 'embedded'))) contactForm = f;
   }
   return contactForm
-    ? { status: 'form_only', email: null, sourceUrl: contactForm.pageUrl, form: contactForm }
-    : { status: 'none', email: null, sourceUrl: null };
+    ? { status: 'form_only', email: null, phone: null, sourceUrl: contactForm.pageUrl, form: contactForm }
+    : { status: 'none', email: null, phone: null, sourceUrl: null };
 }

@@ -44,6 +44,7 @@ export async function POST(request: NextRequest) {
           company_name: body.companyName,
           domain: body.domain ?? null,
           contact_email: body.contactEmail ?? null,
+          phone: body.phone ?? null,
           signal_source: 'manual',
           signal_detail: body.signalDetail ?? null,
         })

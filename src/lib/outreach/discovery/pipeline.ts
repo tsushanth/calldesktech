@@ -812,6 +812,7 @@ export function registryLeadRow(c: RegistryLead, product: ProductConfig, now: st
   const contactFields = email
     ? { contact_email: email, contact_status: 'found', contact_source_url: c.contactSourceUrl ?? null, enriched_at: now }
     : {};
+  const phoneField = c.phone ? { phone: c.phone } : {};
   // THE INTERNATIONAL HOLD, applied in exactly one place so no source can skip
   // it: a non-US registry lead is stored region_blocked with signals.intlHold,
   // which makes it invisible to enrichment, drafting and sending until a human
@@ -822,6 +823,7 @@ export function registryLeadRow(c: RegistryLead, product: ProductConfig, now: st
     company_name: c.name, domain, source_key: c.sourceKey, tier: null, location: c.location, description: c.description,
     score, region_blocked: !!intlHold, signals: { reasons, techPlatforms: [] as string[], registry, ...(intlHold ? { intlHold } : {}) },
     ...contactFields,
+    ...phoneField,
   };
   return { email, domain, fields };
 }
@@ -1180,6 +1182,7 @@ async function stageEnrich(
       const { error } = await db.from(leadsTable(product)).update({
         domain,
         contact_email: contact.email,
+        phone: contact.phone,
         contact_status: contact.status,
         contact_source_url: contact.sourceUrl,
         enriched_at: now,
