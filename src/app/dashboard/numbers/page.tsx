@@ -1,12 +1,21 @@
 'use client';
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import { useOnboarding } from '@/context/OnboardingContext';
 import { notifyPhoneNumbersChanged } from '@/lib/events';
 import type { PhoneNumber, Agent, AgentVersion, AgentEnvironment } from '@/types';
 
 const ENV_PREFIX = 'env:';
+
+interface PhoneNumberPort {
+  id: string;
+  number: string;
+  status: string;
+  twilio_port_in_request_sid: string | null;
+  last_submit_error: string | null;
+  created_at: string;
+}
 
 // Mirrors Retell's own Phone Numbers screen: a list on the left, and on the
 // right an Inbound Call Agent dropdown and a separate Outbound Call Agent
@@ -36,13 +45,30 @@ export default function PhoneNumbersPage() {
   const [callResult, setCallResult] = useState<{ sid: string; to: string } | null>(null);
   const [callError, setCallError] = useState<string | null>(null);
 
+  // Number porting
+  const [ports, setPorts] = useState<PhoneNumberPort[]>([]);
+  const [showPortForm, setShowPortForm] = useState(false);
+  const [isSubmittingPort, setIsSubmittingPort] = useState(false);
+  const [portError, setPortError] = useState<string | null>(null);
+  const [checkingStatusId, setCheckingStatusId] = useState<string | null>(null);
+  const [portForm, setPortForm] = useState({
+    number: '',
+    losingCarrierName: '',
+    customerType: 'Business',
+    authorizedRepresentative: '',
+    authorizedRepresentativeEmail: '',
+    accountTelephoneNumber: '',
+    accountNumber: '',
+  });
+
   const load = useCallback(async () => {
     if (!tenantId) return;
     setIsLoading(true);
     try {
-      const [numbersRes, agentsRes] = await Promise.all([
+      const [numbersRes, agentsRes, portsRes] = await Promise.all([
         fetch(`/api/tenants/${tenantId}/phone-numbers`),
         fetch(`/api/tenants/${tenantId}/agents`),
+        fetch(`/api/tenants/${tenantId}/phone-numbers/port`),
       ]);
       const numbersBody = await numbersRes.json();
       const agentsBody = await agentsRes.json();
@@ -50,6 +76,10 @@ export default function PhoneNumbersPage() {
       if (!agentsRes.ok) throw new Error(agentsBody.error);
       setNumbers(numbersBody.phoneNumbers);
       setAgents(agentsBody.agents);
+      if (portsRes.ok) {
+        const portsBody = await portsRes.json();
+        setPorts(portsBody.ports || []);
+      }
       setSelectedId((prev) => prev || numbersBody.phoneNumbers[0]?.id || null);
 
       const versionEntries = await Promise.all(
@@ -187,6 +217,60 @@ export default function PhoneNumbersPage() {
       setCallError(err instanceof Error ? err.message : 'Failed to place call');
     } finally {
       setIsCalling(false);
+    }
+  };
+
+  const handleSubmitPort = async () => {
+    if (!tenantId || !portForm.number.trim()) return;
+    setIsSubmittingPort(true);
+    setPortError(null);
+    try {
+      const res = await fetch(`/api/tenants/${tenantId}/phone-numbers/port`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          number: portForm.number.trim(),
+          losingCarrierName: portForm.losingCarrierName.trim() || undefined,
+          customerType: portForm.customerType,
+          authorizedRepresentative: portForm.authorizedRepresentative.trim(),
+          authorizedRepresentativeEmail: portForm.authorizedRepresentativeEmail.trim(),
+          accountTelephoneNumber: portForm.accountTelephoneNumber.trim(),
+          accountNumber: portForm.accountNumber.trim() || undefined,
+        }),
+      });
+      const body = await res.json();
+      if (!res.ok) throw new Error(body.error);
+      setPorts((prev) => [body.port, ...prev]);
+      setShowPortForm(false);
+      setPortForm({
+        number: '',
+        losingCarrierName: '',
+        customerType: 'Business',
+        authorizedRepresentative: '',
+        authorizedRepresentativeEmail: '',
+        accountTelephoneNumber: '',
+        accountNumber: '',
+      });
+    } catch (err) {
+      setPortError(err instanceof Error ? err.message : 'Failed to submit port request');
+    } finally {
+      setIsSubmittingPort(false);
+    }
+  };
+
+  const handleCheckPortStatus = async (portId: string) => {
+    if (!tenantId) return;
+    setCheckingStatusId(portId);
+    setPortError(null);
+    try {
+      const res = await fetch(`/api/tenants/${tenantId}/phone-numbers/port/${portId}/status`);
+      const body = await res.json();
+      if (!res.ok) throw new Error(body.error);
+      setPorts((prev) => prev.map((p) => (p.id === portId ? body.port : p)));
+    } catch (err) {
+      setPortError(err instanceof Error ? err.message : 'Failed to check status');
+    } finally {
+      setCheckingStatusId(null);
     }
   };
 
@@ -371,6 +455,156 @@ export default function PhoneNumbersPage() {
         )}
       </div>
 
+      {/* Port an existing number — submits a real Twilio port-in request
+          (numbers.twilio.com Porting API) and tracks its status. */}
+      <div className="mt-5 rounded-xl border border-gray-200 bg-white p-5">
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-[14px] font-semibold text-[#1a1d29]">Port an existing number</h2>
+            <p className="mt-0.5 text-[12.5px] text-gray-500">
+              Submits a real port-in request to Twilio for a number you own with another carrier. Note: Twilio also requires a supporting document (e.g. a utility bill) to complete the LOA — uploading one isn&apos;t wired up here yet, so submission may come back as &quot;submit_failed&quot; until that&apos;s provided out of band.
+            </p>
+          </div>
+          <button
+            onClick={() => setShowPortForm((v) => !v)}
+            className="flex-none rounded-lg border border-gray-200 px-3.5 py-2 text-[13px] font-medium text-[#1a1d29] transition hover:bg-gray-50"
+          >
+            {showPortForm ? 'Cancel' : '+ Port a number'}
+          </button>
+        </div>
+
+        {portError && (
+          <div className="mt-4 rounded-lg border border-red-200 bg-red-50 px-3.5 py-2.5 text-[13px] text-red-700">{portError}</div>
+        )}
+
+        {showPortForm && (
+          <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <Field label="Number to port (E.164)">
+              <input
+                value={portForm.number}
+                onChange={(e) => setPortForm((f) => ({ ...f, number: e.target.value }))}
+                placeholder="+1..."
+                className="w-full rounded-lg border border-gray-200 px-3.5 py-2.5 font-mono text-[13.5px] focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100"
+              />
+            </Field>
+            <Field label="Current carrier name">
+              <input
+                value={portForm.losingCarrierName}
+                onChange={(e) => setPortForm((f) => ({ ...f, losingCarrierName: e.target.value }))}
+                placeholder="e.g. Verizon"
+                className="w-full rounded-lg border border-gray-200 px-3.5 py-2.5 text-[13.5px] focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100"
+              />
+            </Field>
+            <Field label="Customer type">
+              <select
+                value={portForm.customerType}
+                onChange={(e) => setPortForm((f) => ({ ...f, customerType: e.target.value }))}
+                className="w-full appearance-none rounded-lg border border-gray-200 bg-white px-3.5 py-2.5 text-[13.5px] text-[#1a1d29] focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100"
+              >
+                <option value="Business">Business</option>
+                <option value="Individual">Individual</option>
+              </select>
+            </Field>
+            <Field label="Authorized representative">
+              <input
+                value={portForm.authorizedRepresentative}
+                onChange={(e) => setPortForm((f) => ({ ...f, authorizedRepresentative: e.target.value }))}
+                placeholder="Full name on the account"
+                className="w-full rounded-lg border border-gray-200 px-3.5 py-2.5 text-[13.5px] focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100"
+              />
+            </Field>
+            <Field label="Authorized representative email">
+              <input
+                value={portForm.authorizedRepresentativeEmail}
+                onChange={(e) => setPortForm((f) => ({ ...f, authorizedRepresentativeEmail: e.target.value }))}
+                placeholder="you@company.com"
+                className="w-full rounded-lg border border-gray-200 px-3.5 py-2.5 text-[13.5px] focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100"
+              />
+            </Field>
+            <Field label="Billing/account phone number">
+              <input
+                value={portForm.accountTelephoneNumber}
+                onChange={(e) => setPortForm((f) => ({ ...f, accountTelephoneNumber: e.target.value }))}
+                placeholder="+1..."
+                className="w-full rounded-lg border border-gray-200 px-3.5 py-2.5 font-mono text-[13.5px] focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100"
+              />
+            </Field>
+            <Field label="Carrier account number (if known)">
+              <input
+                value={portForm.accountNumber}
+                onChange={(e) => setPortForm((f) => ({ ...f, accountNumber: e.target.value }))}
+                className="w-full rounded-lg border border-gray-200 px-3.5 py-2.5 text-[13.5px] focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100"
+              />
+            </Field>
+            <div className="sm:col-span-2">
+              <button
+                onClick={handleSubmitPort}
+                disabled={
+                  isSubmittingPort ||
+                  !portForm.number.trim() ||
+                  !portForm.authorizedRepresentative.trim() ||
+                  !portForm.authorizedRepresentativeEmail.trim() ||
+                  !portForm.accountTelephoneNumber.trim()
+                }
+                className="rounded-lg bg-[#1a1d29] px-4 py-2 text-[13.5px] font-medium text-white transition hover:bg-[#2a2e3d] disabled:opacity-40"
+              >
+                {isSubmittingPort ? 'Submitting…' : 'Submit port request'}
+              </button>
+            </div>
+          </div>
+        )}
+
+        {ports.length > 0 && (
+          <div className="mt-5 overflow-hidden rounded-lg border border-gray-100">
+            <table className="w-full text-left text-[13px]">
+              <thead className="bg-gray-50 text-[11px] font-medium uppercase tracking-wider text-gray-400">
+                <tr>
+                  <th className="px-3.5 py-2">Number</th>
+                  <th className="px-3.5 py-2">Status</th>
+                  <th className="px-3.5 py-2">Twilio request ID</th>
+                  <th className="px-3.5 py-2" />
+                </tr>
+              </thead>
+              <tbody>
+                {ports.map((p) => (
+                  <tr key={p.id} className="border-t border-gray-100">
+                    <td className="px-3.5 py-2.5 font-mono">{p.number}</td>
+                    <td className="px-3.5 py-2.5">
+                      <span
+                        className={`rounded-full px-2 py-0.5 text-[11.5px] font-medium ${
+                          p.status === 'Completed'
+                            ? 'bg-green-100 text-green-700'
+                            : p.status === 'submit_failed' || p.status === 'Canceled' || p.status === 'Expired'
+                            ? 'bg-red-100 text-red-700'
+                            : 'bg-amber-100 text-amber-700'
+                        }`}
+                      >
+                        {p.status}
+                      </span>
+                      {p.last_submit_error && (
+                        <p className="mt-1 max-w-[280px] text-[11.5px] text-red-600">{p.last_submit_error}</p>
+                      )}
+                    </td>
+                    <td className="px-3.5 py-2.5 font-mono text-[12px] text-gray-500">
+                      {p.twilio_port_in_request_sid || '—'}
+                    </td>
+                    <td className="px-3.5 py-2.5 text-right">
+                      <button
+                        onClick={() => handleCheckPortStatus(p.id)}
+                        disabled={checkingStatusId === p.id || !p.twilio_port_in_request_sid}
+                        className="rounded-lg border border-gray-200 px-2.5 py-1 text-[12px] font-medium text-[#1a1d29] transition hover:bg-gray-50 disabled:opacity-40"
+                      >
+                        {checkingStatusId === p.id ? 'Checking…' : 'Check status'}
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
       {showCallModal && selected && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/30 p-4" onClick={() => setShowCallModal(false)}>
           <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
@@ -490,6 +724,15 @@ function RoutingSection({
         </select>
         <ChevronIcon className="pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
       </div>
+    </div>
+  );
+}
+
+function Field({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <div>
+      <label className="mb-1.5 block text-[12.5px] font-medium text-[#1a1d29]">{label}</label>
+      {children}
     </div>
   );
 }
