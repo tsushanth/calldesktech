@@ -44,6 +44,13 @@ type BillingData = {
   }>;
 };
 
+type StripeActuals = {
+  invoicesFound: number;
+  totalPaid: number;
+  currency: string;
+  invoiceDetails: Array<{ id: string; amountPaid: number; periodStart: string; periodEnd: string; status: string | null }>;
+};
+
 function formatCurrency(amountInCents: number, currency: string) {
   return new Intl.NumberFormat('en-US', {
     style: 'currency',
@@ -87,6 +94,7 @@ export default function BillingPage() {
   const [error, setError] = useState<string | null>(null);
   const [isOpeningPortal, setIsOpeningPortal] = useState(false);
   const [portalError, setPortalError] = useState<string | null>(null);
+  const [stripeActuals, setStripeActuals] = useState<StripeActuals | null>(null);
 
   useEffect(() => {
     async function loadBilling() {
@@ -98,6 +106,31 @@ export default function BillingPage() {
         const body = await res.json();
         if (!res.ok) throw new Error(body.error || 'Failed to load billing');
         setData(body);
+
+        // Reconcile against actual Stripe invoices for the current billing
+        // period, if there is one. This calls the separate /usage route
+        // (which queries stripe.invoices.list) in addition to /billing
+        // rather than folding its logic into /billing, since the two routes
+        // have different auth (owner-only vs any tenant member) and
+        // /usage's date-range API is used elsewhere — pulling it in here is
+        // additive and doesn't risk either route's existing behavior.
+        if (body.hasSubscription && body.plan?.currentPeriodStart) {
+          const start = new Date(body.plan.currentPeriodStart * 1000).toISOString().split('T')[0];
+          const end = body.plan.currentPeriodEnd
+            ? new Date(body.plan.currentPeriodEnd * 1000).toISOString().split('T')[0]
+            : new Date().toISOString().split('T')[0];
+          try {
+            const usageRes = await fetch(
+              `/api/tenants/${tenantId}/usage?startDate=${start}&endDate=${end}`
+            );
+            const usageBody = await usageRes.json();
+            if (usageRes.ok && usageBody.stripeActuals) {
+              setStripeActuals(usageBody.stripeActuals);
+            }
+          } catch {
+            // Reconciliation is a bonus section — don't fail the page over it.
+          }
+        }
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to load billing');
       } finally {
@@ -238,6 +271,46 @@ export default function BillingPage() {
               <p className="text-[13.5px] text-gray-500">No upcoming invoice to estimate yet.</p>
             )}
           </BillingSection>
+
+          {/* Stripe Actuals — reconciliation of paid invoices in the current
+              period against Stripe, independent of our own estimate above. */}
+          {stripeActuals && (
+            <BillingSection title="Stripe Actuals (this period)" icon={<IconReceipt />}>
+              {stripeActuals.invoicesFound > 0 ? (
+                <>
+                  <div className="mb-4 flex items-baseline justify-between">
+                    <p className="text-[13px] text-gray-500">
+                      Paid to Stripe ({stripeActuals.invoicesFound} invoice
+                      {stripeActuals.invoicesFound === 1 ? '' : 's'})
+                    </p>
+                    <p className="text-[20px] font-semibold text-[#1a1d29]">
+                      {formatCurrency(stripeActuals.totalPaid, stripeActuals.currency)}
+                    </p>
+                  </div>
+                  <div className="divide-y divide-gray-100 border-t border-gray-100">
+                    {stripeActuals.invoiceDetails.map((inv) => (
+                      <div key={inv.id} className="flex items-center justify-between py-2.5">
+                        <span className="text-[13px] text-gray-600">
+                          {inv.periodStart} – {inv.periodEnd}
+                        </span>
+                        <span className="text-[13px] font-medium text-[#1a1d29]">
+                          {formatCurrency(inv.amountPaid, stripeActuals.currency)}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                  <p className="mt-3 text-[12px] text-gray-400">
+                    This reflects what Stripe has actually invoiced and marked paid, as a check
+                    against the upcoming-invoice estimate above.
+                  </p>
+                </>
+              ) : (
+                <p className="text-[13.5px] text-gray-500">
+                  No paid Stripe invoices found for the current period yet.
+                </p>
+              )}
+            </BillingSection>
+          )}
 
           {/* Payment Method */}
           <BillingSection title="Payment Method" icon={<IconCard />}>
