@@ -86,6 +86,27 @@ export async function POST(request: NextRequest) {
     console.error('[telnyx-sms] webhook dispatch failed:', e);
   }
 
+  // If this is the trial onboarding number, pass to the trial handler
+  const trialNumber = process.env.TRIAL_ONBOARDING_NUMBER;
+  if (trialNumber && toNumber === normalizeE164(trialNumber)) {
+    try {
+      const host = request.headers.get('host') || 'calldesk.tech';
+      const proto = request.headers.get('x-forwarded-proto') || 'https';
+      await fetch(`${proto}://${host}/api/webhooks/trial-sms`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          from: fromNumber,
+          to: toNumber,
+          body: text,
+        }),
+      });
+      console.log('[telnyx-sms] forwarded to trial-sms handler');
+    } catch (e) {
+      console.error('[telnyx-sms] trial-sms forward failed:', e);
+    }
+  }
+
   return NextResponse.json({ received: true, id: sms.id }, { status: 200 });
 }
 
