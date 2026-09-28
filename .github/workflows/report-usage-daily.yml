@@ -1,0 +1,33 @@
+name: Report usage to Stripe (daily)
+
+# Reports each tenant's metered usage (voice seconds, booking/transfer/message
+# events) to Stripe via Billing Meters — see src/lib/reportUsageToStripe.ts.
+# A tenant's first-ever run only sets a watermark (no backfill); every run
+# after that reports only usage accrued since the last report.
+#
+# Required repo secrets:
+#   REPORT_USAGE_URL  e.g. https://calldesk.tech/api/admin/billing/report-usage
+#   CRON_SECRET       same value as the CRON_SECRET secret on the Fly app
+
+on:
+  schedule:
+    - cron: '17 7 * * *' # daily, 07:17 UTC
+  workflow_dispatch: {}
+
+jobs:
+  report-usage:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Report usage to Stripe
+        env:
+          URL: ${{ secrets.REPORT_USAGE_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          set -euo pipefail
+          if [ -z "$URL" ] || [ -z "$CRON_SECRET" ]; then
+            echo "REPORT_USAGE_URL and CRON_SECRET repo secrets must be set" >&2
+            exit 1
+          fi
+          curl -sS --fail-with-body --max-time 500 -X POST "$URL" \
+            -H "Authorization: Bearer $CRON_SECRET"
