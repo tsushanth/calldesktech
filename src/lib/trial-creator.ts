@@ -68,10 +68,12 @@ function buildFlow(companyName: string, greeting: string, transferNumber: string
         id: 'transfer',
         type: 'transfer',
         params: { transferTo: t, spokenMessage: 'Transferring you now. One moment please.' },
+        edges: [],
       },
       {
         id: 'goodbye',
         type: 'goodbye',
+        edges: [],
       },
     ],
   };
@@ -151,5 +153,5 @@ export async function createTrialForSession(sessionId: string) {
     });
   }
 
-  return { assigned_number: assigned, agent_id: agent.id };
+  return { assigned_number: assigned, agent_id: agentId };
 }
