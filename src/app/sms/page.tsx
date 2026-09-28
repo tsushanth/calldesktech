@@ -32,7 +32,7 @@ export default function SmsOptInPage() {
           <p className="text-sm text-neutral-600">
             You can also opt in by filling out the form on this page or by
             initiating contact through our{' '}
-            <a href="/trial/start" className="text-blue-600 underline">
+            <a href="/demo" className="text-blue-600 underline">
               trial signup
             </a>
             .

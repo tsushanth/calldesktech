@@ -15,7 +15,7 @@ interface Message {
   translation_subject?: string | null;
   translation_body?: string | null;
   product?: string | null;
-  lead: { company_name: string; domain: string | null; score: number | null; tier: string | null; contact_source_url: string | null; replied_at: string | null } | null;
+  lead: { company_name: string; domain: string | null; score: number | null; tier: string | null; contact_source_url: string | null; replied_at: string | null; phone: string | null } | null;
 }
 
 const TABS = ['draft', 'approved', 'sent', 'failed', 'forms'] as const;
@@ -385,6 +385,7 @@ export default function OutreachQueuePage() {
                   {m.to_email}
                   {m.lead?.domain ? ` · ${m.lead.domain}` : ''}
                   {m.lead?.score != null ? ` · score ${m.lead.score}` : ''}
+                  {m.lead?.phone ? ` · ${m.lead.phone}` : ''}
                   {m.lead?.contact_source_url ? (
                     <>
                       {' · '}

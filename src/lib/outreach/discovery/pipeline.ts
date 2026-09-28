@@ -95,6 +95,7 @@ export interface RunSummary {
   draftsCreated: number;
   formDrafts?: number;
   followUpsCreated: number;
+  phoneBackfilled: number;
   researched: number;
   lowFit: number;
   errors: string[];
@@ -186,7 +187,7 @@ export async function runDiscovery(db: Db, opts: RunOptions = {}): Promise<RunSu
     runId: null, dryRun, status: 'ok', directoryCount: 0, searchCandidates: 0,
     jobPostingCandidates: 0, reviewSiteCandidates: 0, githubCandidates: 0, techFingerprintHits: 0,
     searchDebug: null, stopped: false, leadsSeen: 0, leadsNew: 0,
-    duplicatesSkipped: 0, contactsFound: 0, draftsCreated: 0, followUpsCreated: 0, researched: 0, lowFit: 0, errors: [], sample: { enriched: [], researched: [] },
+    duplicatesSkipped: 0, contactsFound: 0, draftsCreated: 0, followUpsCreated: 0, phoneBackfilled: 0, researched: 0, lowFit: 0, errors: [], sample: { enriched: [], researched: [] },
   };
 
   if (!dryRun) {
@@ -210,6 +211,11 @@ export async function runDiscovery(db: Db, opts: RunOptions = {}): Promise<RunSu
       ...telephonyEntries, ...sttTtsEntries, ...freightEntries, ...verticalEntries, ...registryEntries,
     ];
     if (!stop()) await stageEnrich(db, summary, dryRun, enrichLimit, allEntries, index, stop, product);
+    // Cheap (HTTP fetch + regex, no LLM): revisit a handful of already-'found' leads whose phone is
+    // still missing (they predate phone extraction, or the site didn't show one at the time) so
+    // manual follow-up/calling has a number. Capped small since it only matters for leads we're
+    // actually about to reach, not the whole backlog.
+    if (!stop()) await stagePhoneBackfill(db, summary, dryRun, stop, product);
     // The research stage judges "is this an AI voice agency"; it is agency-specific,
     // so it never runs for the customer-discovery verticals (drafting then does not
     // require a dossier either, since researchOn also gates that).
@@ -1193,6 +1199,40 @@ async function stageEnrich(
       if (error) summary.errors.push(`enrich ${lead.company_name}: ${error.message}`);
     } catch (error) {
       summary.errors.push(`enrich ${lead.company_name}: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  }
+}
+
+const DEFAULT_PHONE_BACKFILL_MAX = 15;
+
+/** Small and capped on purpose: phone is only useful for leads we might actually contact. */
+export function resolvePhoneBackfillCap(raw: string | undefined): number {
+  const n = Number(raw);
+  return Math.min(50, Math.max(0, Number.isFinite(n) && n >= 0 ? Math.floor(n) : DEFAULT_PHONE_BACKFILL_MAX));
+}
+
+async function stagePhoneBackfill(db: Db, summary: RunSummary, dryRun: boolean, stop: () => boolean, product: ProductConfig) {
+  if (dryRun) return;
+  const max = resolvePhoneBackfillCap(process.env.OUTREACH_PHONE_BACKFILL_MAX_PER_RUN);
+  if (max <= 0) return;
+
+  const { data } = await scopeToProduct(db.from(leadsTable(product)).select('id, company_name, domain, signals')
+    .eq('contact_status', 'found').eq('region_blocked', false).is('phone', null).not('domain', 'is', null)
+    .is('signals->>phoneCheckedAt', null), product)
+    .order('score', { ascending: false }).limit(max);
+
+  for (const lead of (data ?? []) as LeadRow[]) {
+    if (stop()) break;
+    try {
+      const contact = await findContact(lead.domain as string);
+      const now = new Date().toISOString();
+      const signals = { ...(lead.signals ?? {}), phoneCheckedAt: now };
+      const update: Record<string, unknown> = { signals };
+      if (contact.phone) { update.phone = contact.phone; summary.phoneBackfilled++; }
+      const { error } = await db.from(leadsTable(product)).update(update).eq('id', lead.id);
+      if (error) summary.errors.push(`phone backfill ${lead.company_name}: ${error.message}`);
+    } catch (error) {
+      summary.errors.push(`phone backfill ${lead.company_name}: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
 }

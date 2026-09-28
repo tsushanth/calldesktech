@@ -131,7 +131,7 @@ export function FinalCTA() {
 const FOOTER_LINKS: { title: string; links: { href: string; label: string }[] }[] = [
   { title: 'Product', links: [{ href: '/#templates', label: 'Templates' }, { href: '/#platform', label: 'Platform' }, { href: '/pricing', label: 'Pricing' }, { href: '/demo', label: 'Live demo' }, { href: '/partners', label: 'Partner program' }] },
   { title: 'Developers', links: [{ href: '/docs', label: 'API reference' }, { href: '/api/v1/openapi.json', label: 'OpenAPI file' }, { href: '/docs#mcp', label: 'MCP server' }] },
-  { title: 'Company', links: [{ href: '/privacy', label: 'Privacy' }, { href: '/terms', label: 'Terms' }, { href: '/partners', label: 'Partners' }] },
+  { title: 'Company', links: [{ href: '/privacy', label: 'Privacy' }, { href: '/terms', label: 'Terms' }, { href: '/sms', label: 'SMS terms' }, { href: '/partners', label: 'Partners' }] },
   { title: 'Account', links: [{ href: '/auth/login', label: 'Sign in' }, { href: '/dashboard', label: 'Dashboard' }] },
 ];
 
@@ -157,7 +157,7 @@ export function SiteFooter() {
             </nav>
           ))}
         </div>
-        <p className="mt-12 text-[13px] text-gray-400">© {new Date().getFullYear()} CallDeskTech</p>
+        <p className="mt-12 text-[13px] text-gray-400">© {new Date().getFullYear()} CallDeskTech — a service of KreativeKoalaSolutions LLC</p>
       </Container>
     </footer>
   );

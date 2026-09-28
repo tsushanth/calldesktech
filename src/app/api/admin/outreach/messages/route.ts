@@ -18,7 +18,7 @@ export async function GET(request: NextRequest) {
   const grouped = product === 'calldesk';
   let query = supabase
     .from('calldesk_outreach_messages')
-    .select('*, lead:calldesk_outreach_leads(company_name, domain, score, tier, contact_source_url, replied_at)')
+    .select('*, lead:calldesk_outreach_leads(company_name, domain, score, tier, contact_source_url, replied_at, phone)')
     .eq('status', status);
   if (!grouped) query = query.eq('product', product);
   else if (/^[a-z]+$/.test(vertical)) query = query.eq('product', `calldesk:${vertical}`);

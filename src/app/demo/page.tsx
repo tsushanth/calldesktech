@@ -118,6 +118,13 @@ export default function DemoSelectionPage() {
           </Card>
         </div>
 
+        {/* SMS support banner */}
+        <div className="mt-8 text-center text-sm text-gray-500 border-t border-gray-100 pt-6">
+          Need help? Text us at{' '}
+          <a href="tel:+18559152245" className="text-blue-600 font-medium">(855) 915-2245</a>{' '}
+          or visit our{' '}
+          <a href="/sms" className="text-blue-600 underline">SMS terms</a>.
+        </div>
       </div>
     </div>
   );

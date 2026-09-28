@@ -353,3 +353,15 @@ describe('LeadIndex.rows', () => {
     expect(idx.rows()).toHaveLength(3);
   });
 });
+
+describe('phone backfill cap', () => {
+  it('defaults to 15, honours a valid override, and clamps to [0,50]', async () => {
+    const { resolvePhoneBackfillCap } = await import('@/lib/outreach/discovery/pipeline');
+    expect(resolvePhoneBackfillCap(undefined)).toBe(15);
+    expect(resolvePhoneBackfillCap('oops')).toBe(15);
+    expect(resolvePhoneBackfillCap('5')).toBe(5);
+    expect(resolvePhoneBackfillCap('0')).toBe(0);
+    expect(resolvePhoneBackfillCap('9999')).toBe(50);
+    expect(resolvePhoneBackfillCap('-3')).toBe(15);
+  });
+});
