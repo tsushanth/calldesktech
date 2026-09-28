@@ -2,7 +2,7 @@
 -- Links to calldesk_outreach_leads via company_name + phone
 
 CREATE TABLE IF NOT EXISTS outreach_text_campaign (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   lead_rank INTEGER,
   company_name TEXT NOT NULL,
   phone TEXT NOT NULL,
