@@ -12,18 +12,22 @@ import { dispatchWebhookEvent } from '@/lib/webhooks';
 export async function POST(request: NextRequest) {
   let raw: any = {};
 
-  // Try JSON first (Telnyx), then fall back to form-encoded (Twilio)
+  // Clone because json() consumes the body
+  const clone = request.clone();
+
+  // Try JSON first (Telnyx)
   try {
     raw = await request.json();
   } catch {
     try {
-      const form = await request.formData();
+      // Fall back to form-encoded (Twilio)
+      const text = await clone.text();
+      const params = new URLSearchParams(text);
       const obj: Record<string, string> = {};
-      form.forEach((v, k) => { obj[k] = String(v); });
+      params.forEach((v, k) => { obj[k] = v; });
       raw = obj;
-    } catch {
-      const ct = request.headers.get('content-type') || 'unknown';
-      console.error(`[telnyx-sms] Cannot parse body. Content-Type: ${ct}`);
+    } catch (e) {
+      console.error('[telnyx-sms] Cannot parse body:', e);
       return NextResponse.json({ error: 'Invalid body' }, { status: 400 });
     }
   }
