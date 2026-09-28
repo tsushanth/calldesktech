@@ -74,6 +74,21 @@ export default function TrialPage() {
             </a>{' '}
             instead.
           </p>
+
+          <p className="mt-6 text-xs text-gray-400">
+            By texting START you consent to receive SMS messages from CallDeskTech
+            (KREATIVEKOALASOLUTIONS LLC) at {displayNumber}. Message frequency
+            varies. Msg &amp; data rates may apply. Consent is not a condition of
+            purchase. Reply STOP to unsubscribe, HELP for help. See our{' '}
+            <a href="/sms" className="underline">
+              SMS Terms
+            </a>{' '}
+            and{' '}
+            <a href="/privacy" className="underline">
+              Privacy Policy
+            </a>
+            .
+          </p>
         </div>
       </Section>
     </div>

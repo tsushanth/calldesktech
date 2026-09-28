@@ -8,7 +8,7 @@ export default function TermsPage() {
     <LegalPage title="Terms of service" updated="September 20, 2026">
       <section>
         <h2>Agreement</h2>
-        <p>By creating an account or using CallDeskTech you agree to these terms. If you use it for a business, you confirm you can bind that business.</p>
+        <p>CallDeskTech is operated by KREATIVEKOALASOLUTIONS LLC (DBA CallDeskTech). By creating an account or using CallDeskTech you agree to these terms. If you use it for a business, you confirm you can bind that business.</p>
       </section>
       <section>
         <h2>The service</h2>

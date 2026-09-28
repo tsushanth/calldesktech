@@ -8,7 +8,7 @@ export default function PrivacyPage() {
     <LegalPage title="Privacy policy" updated="September 28, 2026">
       <section>
         <h2>What this covers</h2>
-        <p>CallDeskTech provides AI voice agents that answer phone calls for businesses. This policy explains what we collect, why, and who else handles it. There are two groups of people: our customers (businesses who set up agents) and callers (people who phone those agents).</p>
+        <p>CallDeskTech (operated by KREATIVEKOALASOLUTIONS LLC, DBA CallDeskTech) provides AI voice agents that answer phone calls for businesses. This policy explains what we collect, why, and who else handles it. There are two groups of people: our customers (businesses who set up agents) and callers (people who phone those agents).</p>
       </section>
       <section>
         <h2>What we collect</h2>

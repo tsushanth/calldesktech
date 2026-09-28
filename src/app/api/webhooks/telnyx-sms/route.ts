@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/supabase';
 import { dispatchWebhookEvent } from '@/lib/webhooks';
 import { verifyTelnyxSignature, verifyTwilioSignature, internalForwardHeaders } from '@/lib/webhookAuth';
+import { isStopKeyword, isHelpKeyword, recordOptOut, HELP_TEXT, STOP_CONFIRMATION_TEXT } from '@/lib/smsOptOut';
+import { getSmsProvider } from '@/lib/smsProvider';
 
 // POST /api/webhooks/telnyx-sms — receives inbound SMS from Telnyx (or,
 // as a fallback, Twilio-format form-encoded POSTs).
@@ -137,6 +139,41 @@ export async function POST(request: NextRequest) {
   if (error) {
     console.error('[telnyx-sms] failed to insert:', error);
     return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+
+  // --- STOP/HELP handling (carrier-required keywords) — short-circuit before
+  // dispatching tenant webhooks or forwarding to the trial flow. This is the
+  // general inbound path for ALL CallDesk numbers, not just the trial number.
+  if (isStopKeyword(text) || isHelpKeyword(text)) {
+    const replyBody = isStopKeyword(text) ? STOP_CONFIRMATION_TEXT : HELP_TEXT;
+    if (isStopKeyword(text)) {
+      await recordOptOut(fromNumber, 'telnyx-sms');
+    }
+
+    if (providerName === 'twilio') {
+      const escaped = replyBody.replace(/&/g, '&amp;').replace(/</g, '&lt;');
+      return new NextResponse(
+        `<?xml version="1.0" encoding="UTF-8"?><Response><Message>${escaped}</Message></Response>`,
+        { status: 200, headers: { 'Content-Type': 'text/xml' } },
+      );
+    }
+
+    const provider = getSmsProvider();
+    const sendResult = await provider.send({ from: toNumber, to: fromNumber, body: replyBody });
+    if (sendResult.error) {
+      console.error('[telnyx-sms] stop/help reply failed:', sendResult.error);
+    }
+    await supabase.from('calldesk_sms_messages').insert({
+      tenant_id: tenantId,
+      phone_number_id: phoneNumber.id,
+      from_number: toNumber,
+      to_number: fromNumber,
+      body: replyBody,
+      direction: 'outbound',
+      status: sendResult.status,
+      error: sendResult.error,
+    });
+    return NextResponse.json({ received: true, id: sms.id, autoReplied: true }, { status: 200 });
   }
 
   // Fire tenant webhooks for sms.received

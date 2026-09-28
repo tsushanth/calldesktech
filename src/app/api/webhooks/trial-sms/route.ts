@@ -3,6 +3,7 @@ import { getSupabaseAdmin } from '@/lib/supabase';
 import { getSmsProvider } from '@/lib/smsProvider';
 import { createTrialForSession } from '@/lib/trial-creator';
 import { verifyTelnyxSignature, verifyInternalForward, INTERNAL_FORWARD_HEADER } from '@/lib/webhookAuth';
+import { isStopKeyword, isHelpKeyword, recordOptOut, HELP_TEXT, STOP_CONFIRMATION_TEXT } from '@/lib/smsOptOut';
 
 /**
  * POST /api/webhooks/trial-sms
@@ -179,17 +180,20 @@ async function runStateMachine(supabase: any, session: any, body: string, fromNu
 
   const send = (reply: string) => ({ reply, nextStep: step });
 
-  // --- STOP handling universal ---
-  if (/stop|unsubscribe|remove|don't text/i.test(text) && step !== 'completed') {
+  // --- STOP handling universal (STOP/UNSUBSCRIBE/CANCEL/END/QUIT) ---
+  if ((isStopKeyword(text) || text.includes('remove')) && step !== 'completed') {
     await supabase.from('trial_sms_sessions').update({ step: 'completed' }).eq('id', session.id);
-    return { reply: 'No problem. You will not receive any more messages.', nextStep: 'completed' };
+    await recordOptOut(fromNumberE164, 'trial-sms');
+    return { reply: STOP_CONFIRMATION_TEXT, nextStep: 'completed' };
+  }
+
+  // --- HELP handling universal -- answers from any state without advancing/resetting it ---
+  if (isHelpKeyword(text) && step !== 'completed') {
+    return send(HELP_TEXT);
   }
 
   switch (step) {
     case 'greeting': {
-      if (text.includes('help')) {
-        return send('Reply START to begin your free trial, or STOP to unsubscribe.');
-      }
       if (text.match(/^(start|yes|ok|sure|go)/i)) {
         await supabase.from('trial_sms_sessions').update({ step: 'company_name' }).eq('id', session.id);
         return { reply: "Great. What's your business name?", nextStep: 'company_name' };

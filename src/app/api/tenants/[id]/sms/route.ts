@@ -3,6 +3,7 @@ import { getSupabaseAdmin } from '@/lib/supabase';
 import { authorizeTenant } from '@/lib/authz';
 import { getSmsProvider } from '@/lib/smsProvider';
 import { dispatchWebhookEvent } from '@/lib/webhooks';
+import { isOptedOut } from '@/lib/smsOptOut';
 
 // POST /api/tenants/[id]/sms — send an SMS from one of the tenant's
 // phone numbers via the configured SMS provider (Telnyx, Twilio, or noop).
@@ -28,6 +29,12 @@ export async function POST(
     .single();
   if (!phoneNumber) {
     return NextResponse.json({ error: 'Phone number not found for this tenant' }, { status: 404 });
+  }
+
+  // Carrier/10DLC compliance: never send to a number that has opted out via
+  // STOP/CANCEL/END/QUIT/UNSUBSCRIBE, regardless of which sender triggered this.
+  if (await isOptedOut(toNumber)) {
+    return NextResponse.json({ error: 'Recipient has opted out of SMS' }, { status: 422 });
   }
 
   const provider = getSmsProvider();

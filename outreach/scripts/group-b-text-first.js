@@ -75,7 +75,7 @@ function shortName(company) {
 
 function buildBody(lead) {
   const name = shortName(lead.company || lead.company_name);
-  return `Hi ${firstName(name)}, does ${name} ever miss calls after hours? Free AI receptionist in 2 mins: https://calldesk.tech/trial/start`;
+  return `Hi ${firstName(name)}, does ${name} ever miss calls after hours? Free AI receptionist in 2 mins: https://calldesk.tech/trial/start\n\nReply STOP to opt out.`;
 }
 
 async function api(method, path, body) {

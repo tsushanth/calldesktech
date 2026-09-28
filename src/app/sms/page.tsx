@@ -22,10 +22,14 @@ export default function SmsOptInPage() {
             Text <strong>START</strong> to{' '}
             <a href="tel:+18559152245" className="text-blue-600 font-medium">
               +1 (855) 915-2245
-            </a>{' '}
-            or{' '}
+            </a>
+            ,{' '}
             <a href="tel:+12705609480" className="text-blue-600 font-medium">
               +1 (270) 560-9480
+            </a>
+            , or{' '}
+            <a href="tel:+12245061194" className="text-blue-600 font-medium">
+              +1 (224) 506-1194
             </a>
             .
           </p>
