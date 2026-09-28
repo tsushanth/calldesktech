@@ -140,6 +140,14 @@ export async function POST(request: NextRequest) {
     }
   }
 
+  if (providerName === 'twilio') {
+    // Twilio expects TwiML XML for SMS webhooks, not JSON
+    return new NextResponse('<?xml version="1.0" encoding="UTF-8"?><Response/>', {
+      status: 200,
+      headers: { 'Content-Type': 'text/xml' },
+    });
+  }
+
   return NextResponse.json({ received: true, id: sms.id }, { status: 200 });
 }
 
