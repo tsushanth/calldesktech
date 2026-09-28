@@ -19,36 +19,52 @@ Two-pronged outreach for Calldesk:
 
 ### Architecture
 ```
-Lead CSV → Twilio SMS → Webhook (on reply) → Classify (Groq/Ollama) → AI Callback
+Lead CSV → CallDeskTech SMS API (Telnyx) → Poll for replies → Classify (Groq) → AI Callback
 ```
 
 ### Components
 
 #### 1. Send Texts
 ```bash
+export CALLDESK_API_KEY=cdk_live_...
+export SUPABASE_URL=https://...
+export SUPABASE_SERVICE_ROLE_KEY=...
+
 node outreach/scripts/group-b-text-first.js \
   --csv /tmp/callable-leads.csv \
-  --from +12245061194 \
+  --phone-number-id <uuid-of-your-cd-number> \
   --limit 50 \
   --dry-run  # Remove for live sending
 ```
+
+Find your phone number ID via MCP or API: `list_phone_numbers`.
 
 **Templates used** (rotated):
 - Direct question: "Quick question — do you get missed calls after hours?"
 - Benefit-focused: "Ever lose leads to voicemail after 5pm?"
 - Social proof: "We're helping [city] agencies capture after-hours leads..."
 
-#### 2. Handle Replies (Webhook)
-Deployed at: `POST /api/webhooks/sms-reply`
+#### 2. Poll for Replies
+```bash
+export SUPABASE_URL=https://...
+export SUPABASE_SERVICE_ROLE_KEY=...
+export GROQ_API_KEY=gsk_...
+
+node outreach/scripts/poll-sms-replies.js --interval=60
+```
 
 What it does:
-1. Receives Twilio inbound SMS
-2. Classifies reply with Groq (interested/not_interested/question/opt_out/unclear)
-3. Stores in `outreach_text_campaign` table
-4. For "interested" replies → triggers AI callback
+1. Polls `calldesk_sms_messages` (inbound via Telnyx webhook) for replies to campaign numbers
+2. Classifies each reply with Groq (interested/not_interested/question/opt_out/unclear)
+3. Updates `outreach_text_campaign` with reply + classification
 
-#### 3. Poll for Warm Replies
+#### 3. Trigger AI Callbacks
 ```bash
+export SUPABASE_URL=https://...
+export SUPABASE_SERVICE_ROLE_KEY=...
+export TEST_CALL_SECRET=...
+export CALL_LOOP_URL=https://call-loop-poc.fly.dev
+
 node outreach/scripts/poll-warm-replies.js --interval=60
 ```
 
@@ -56,22 +72,23 @@ Runs continuously, polls Supabase for unhandled "interested" replies,
 then triggers AI sales call via call-loop-poc.
 
 ### Database
-- Table: `outreach_text_campaign` (migration 048)
-- Tracks: sent, delivered, replied, classified, ai_call_sid
+- Table: `outreach_text_campaign` (migration 051)
+- Tracks: sent, replied, classified, ai_call_sid
+- Inbound SMS stored in: `calldesk_sms_messages` (main app handles Telnyx webhook)
 
-### Twilio Setup
-1. Configure webhook URL for inbound SMS:
-   ```
-   https://your-domain.com/api/webhooks/sms-reply
-   ```
-2. Ensure `TEST_CALL_SECRET` is set in env
-3. Ensure `GROQ_API_KEY` or Ollama is available for classification
+### Telnyx Setup
+SMS sending and receiving is already handled by the CallDeskTech app:
+- Outbound: `POST /api/v1/tenants/{id}/sms` → Telnyx provider
+- Inbound: `/api/webhooks/telnyx-sms` → stored in `calldesk_sms_messages`
+
+No separate Twilio setup needed.
 
 ### Testing
 Test mode: all texts go to a single test number:
 ```bash
 node outreach/scripts/group-b-text-first.js \
   --csv /tmp/callable-leads.csv \
+  --phone-number-id <uuid> \
   --test-number +15551234567 \
   --limit 5
 ```
@@ -80,9 +97,9 @@ node outreach/scripts/group-b-text-first.js \
 
 | Channel | Cost per lead | Notes |
 |---------|--------------|-------|
-| SMS (Twilio) | ~$0.0075 | $0.0075/msg, avg 1-2 msgs |
+| SMS (Telnyx via CallDeskTech) | ~$0.005 | Cheaper than Twilio |
 | AI classification (Groq) | ~$0.0001 | Llama 3.1 8B, negligible |
-| AI callback (Twilio) | ~$0.03/min | Call loop runs on Fly |
+| AI callback (Twilio voice) | ~$0.03/min | Call loop runs on Fly |
 | Human cold call (VA) | ~$0.30/call | $15/hr, 50 calls/hr |
 
 Group B is ~40× cheaper per lead than Group A.
@@ -110,7 +127,6 @@ Group B is ~40× cheaper per lead than Group A.
 ## Files
 
 - `group-a-cold-call.md` — Scripts and objection handling
-- `group-b-text-first.js` — SMS sender
-- `webhook-sms-reply.js` — Inbound SMS handler
+- `group-b-text-first.js` — SMS sender (uses CallDeskTech API)
+- `poll-sms-replies.js` — Inbound reply classifier
 - `poll-warm-replies.js` — AI callback trigger
-- `callable-leads.csv` — Exported lead list (generated)
