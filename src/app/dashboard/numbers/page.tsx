@@ -59,6 +59,16 @@ export default function PhoneNumbersPage() {
     authorizedRepresentativeEmail: '',
     accountTelephoneNumber: '',
     accountNumber: '',
+    // Twilio's losing_carrier_information.address is a required nested
+    // object (street/city/state/zip/country) per a live docs check of
+    // https://www.twilio.com/docs/phone-numbers/port-in/port-in-request-api
+    // on 2026-09-28 — the form previously collected everything else but not
+    // this, so every real submission would have failed on a missing field.
+    addressStreet: '',
+    addressCity: '',
+    addressState: '',
+    addressZip: '',
+    addressCountry: 'US',
   });
   // LOA document upload — Twilio's real PortIn submission requires at least
   // one Utility Bill document sid (see .../port/documents/route.ts). Kept
@@ -268,6 +278,13 @@ export default function PhoneNumbersPage() {
           authorizedRepresentativeEmail: portForm.authorizedRepresentativeEmail.trim(),
           accountTelephoneNumber: portForm.accountTelephoneNumber.trim(),
           accountNumber: portForm.accountNumber.trim() || undefined,
+          billingAddress: {
+            street: portForm.addressStreet.trim(),
+            city: portForm.addressCity.trim(),
+            state: portForm.addressState.trim(),
+            zip: portForm.addressZip.trim(),
+            country: portForm.addressCountry.trim(),
+          },
           documentSids: portDocSid ? [portDocSid] : [],
         }),
       });
@@ -283,6 +300,11 @@ export default function PhoneNumbersPage() {
         authorizedRepresentativeEmail: '',
         accountTelephoneNumber: '',
         accountNumber: '',
+        addressStreet: '',
+        addressCity: '',
+        addressState: '',
+        addressZip: '',
+        addressCountry: 'US',
       });
       setPortDocFile(null);
       setPortDocSid(null);
@@ -572,6 +594,43 @@ export default function PhoneNumbersPage() {
                 className="w-full rounded-lg border border-gray-200 px-3.5 py-2.5 text-[13.5px] focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100"
               />
             </Field>
+            <Field label="Billing address — street">
+              <input
+                value={portForm.addressStreet}
+                onChange={(e) => setPortForm((f) => ({ ...f, addressStreet: e.target.value }))}
+                className="w-full rounded-lg border border-gray-200 px-3.5 py-2.5 text-[13.5px] focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100"
+              />
+            </Field>
+            <Field label="Billing address — city">
+              <input
+                value={portForm.addressCity}
+                onChange={(e) => setPortForm((f) => ({ ...f, addressCity: e.target.value }))}
+                className="w-full rounded-lg border border-gray-200 px-3.5 py-2.5 text-[13.5px] focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100"
+              />
+            </Field>
+            <Field label="Billing address — state">
+              <input
+                value={portForm.addressState}
+                onChange={(e) => setPortForm((f) => ({ ...f, addressState: e.target.value }))}
+                placeholder="TX"
+                className="w-full rounded-lg border border-gray-200 px-3.5 py-2.5 text-[13.5px] focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100"
+              />
+            </Field>
+            <Field label="Billing address — ZIP">
+              <input
+                value={portForm.addressZip}
+                onChange={(e) => setPortForm((f) => ({ ...f, addressZip: e.target.value }))}
+                className="w-full rounded-lg border border-gray-200 px-3.5 py-2.5 text-[13.5px] focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100"
+              />
+            </Field>
+            <Field label="Billing address — country">
+              <input
+                value={portForm.addressCountry}
+                onChange={(e) => setPortForm((f) => ({ ...f, addressCountry: e.target.value }))}
+                placeholder="US"
+                className="w-full rounded-lg border border-gray-200 px-3.5 py-2.5 text-[13.5px] focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100"
+              />
+            </Field>
             <div className="sm:col-span-2">
               <Field label="Utility bill / LOA document (required by Twilio)">
                 <div className="flex flex-wrap items-center gap-2.5">
@@ -616,6 +675,11 @@ export default function PhoneNumbersPage() {
                   !portForm.authorizedRepresentative.trim() ||
                   !portForm.authorizedRepresentativeEmail.trim() ||
                   !portForm.accountTelephoneNumber.trim() ||
+                  !portForm.addressStreet.trim() ||
+                  !portForm.addressCity.trim() ||
+                  !portForm.addressState.trim() ||
+                  !portForm.addressZip.trim() ||
+                  !portForm.addressCountry.trim() ||
                   !portDocSid
                 }
                 title={!portDocSid ? 'Upload the utility bill / LOA document first' : undefined}
