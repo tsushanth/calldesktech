@@ -23,6 +23,8 @@ primary_region = 'iad'
 [env]
   NODE_ENV = 'production'
   PORT = '3000'
+  # Trial onboarding number — prospects text START here to self-serve
+  TRIAL_ONBOARDING_NUMBER = '+12245061194'
 
 [http_service]
   internal_port = 3000
