@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/supabase';
 import { getSmsProvider } from '@/lib/smsProvider';
+import { createTrialForSession } from '@/lib/trial-creator';
 
 /**
  * POST /api/webhooks/trial-sms
@@ -217,7 +218,7 @@ async function runStateMachine(supabase: any, session: any, body: string, fromNu
       await supabase.from('trial_sms_sessions').update({ timezone: tz }).eq('id', session.id);
 
       // Kick off trial creation asynchronously (don't block HTTP response)
-      createTrialAsync(supabase, session.id).catch((err: any) => {
+      createTrialForSession(session.id).catch((err: any) => {
         console.error(`[trial-sms] async creation failed: ${err.message}`);
       });
 
@@ -235,34 +236,6 @@ async function runStateMachine(supabase: any, session: any, body: string, fromNu
       return send('Reply START to set up your AI receptionist in 2 mins.');
     }
   }
-}
-
-// ------------------------------------------------------------------
-// Async trial creation (forked, non-blocking)
-// ------------------------------------------------------------------
-async function createTrialAsync(supabase: any, sessionId: string) {
-  const { data: session } = await supabase
-    .from('trial_sms_sessions')
-    .select('*')
-    .eq('id', sessionId)
-    .single();
-
-  if (!session || !session.company_name) return;
-
-  // Call trial-creator.js via exec (same machine, runs in background)
-  const { spawn } = await import('node:child_process');
-  const child = spawn('node', [
-    `${process.cwd()}/outreach/scripts/trial-creator.js`,
-    '--session-id', sessionId,
-  ], {
-    cwd: process.cwd(),
-    env: process.env,
-    detached: true,
-    stdio: 'ignore',
-  });
-  child.unref();
-
-  console.log(`[trial-sms] Spawned trial-creator for session ${sessionId}`);
 }
 
 // ------------------------------------------------------------------
