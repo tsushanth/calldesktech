@@ -465,6 +465,39 @@ class ApiClient {
     if (!res.ok) throw new ApiError(body.error || 'Failed to load analytics');
     return body;
   }
+
+  // SMS
+  async getSmsConversations(tenantId: string, limit = 50): Promise<SmsConversation[]> {
+    const res = await fetch(`/api/tenants/${tenantId}/sms/conversations?limit=${limit}`);
+    const body = await res.json();
+    if (!res.ok) throw new ApiError(body.error || 'Failed to load conversations');
+    return body.conversations || [];
+  }
+
+  async getSmsThread(tenantId: string, phoneNumber: string): Promise<{ messages: SmsMessage[]; phoneNumber: string }> {
+    const res = await fetch(`/api/tenants/${tenantId}/sms/conversations/${encodeURIComponent(phoneNumber)}`);
+    const body = await res.json();
+    if (!res.ok) throw new ApiError(body.error || 'Failed to load conversation');
+    return { messages: body.messages || [], phoneNumber: body.phoneNumber };
+  }
+
+  async sendSms(tenantId: string, data: { phoneNumberId: string; toNumber: string; body: string }): Promise<SmsMessage> {
+    const res = await fetch(`/api/tenants/${tenantId}/sms`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+    const body = await res.json();
+    if (!res.ok) throw new ApiError(body.error || 'Failed to send SMS');
+    return body.sms;
+  }
+
+  async getPhoneNumbers(tenantId: string): Promise<PhoneNumber[]> {
+    const res = await fetch(`/api/tenants/${tenantId}/phone-numbers`);
+    const body = await res.json();
+    if (!res.ok) throw new ApiError(body.error || 'Failed to load phone numbers');
+    return body.phoneNumbers || [];
+  }
 }
 
 export type CallOutcome = 'booked' | 'answered' | 'transferred' | 'voicemail' | 'abandoned';
@@ -476,6 +509,47 @@ export interface AnalyticsResponse {
   duration: Array<{ date: string; avgDuration: number | null }>;
   outcomes: Array<{ outcome: CallOutcome; count: number }>;
   byHour: Array<{ hour: number; calls: number }>;
+}
+
+// calldesk_sms_messages row — table isn't in the generated Database types
+// (see supabase/migrations/046_mcp_parity.sql), so shaped by hand to match
+// the route handlers' select('*') exactly.
+export interface SmsMessage {
+  id: string;
+  tenant_id: string;
+  phone_number_id: string | null;
+  from_number: string;
+  to_number: string;
+  body: string;
+  direction: 'inbound' | 'outbound';
+  status: 'pending' | 'queued' | 'sent' | 'delivered' | 'failed' | 'received';
+  provider_sid: string | null;
+  error: string | null;
+  read_at?: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+// Shape returned by GET /api/tenants/[id]/sms/conversations (one row per
+// counterpart phone number, derived server-side from calldesk_sms_messages).
+export interface SmsConversation {
+  phoneNumber: string;
+  lastMessageAt: string;
+  preview: string;
+  unreadCount: number;
+  direction: string;
+}
+
+// calldesk_phone_numbers row, shaped to match phone-numbers route's select('*').
+export interface PhoneNumber {
+  id: string;
+  tenant_id: string;
+  number: string;
+  source: string;
+  label: string | null;
+  metadata: Record<string, unknown>;
+  created_at: string;
+  updated_at?: string;
 }
 
 export interface QaOverviewResponse {

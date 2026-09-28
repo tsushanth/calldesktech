@@ -130,6 +130,7 @@ export default function DashboardLayout({
       label: 'Data',
       items: [
         { href: '/dashboard/calls', label: 'Call Logs' },
+        { href: '/dashboard/sms', label: 'Messages' },
         { href: '/dashboard/chat-history', label: 'Chat History' },
         { href: '/dashboard/contacts', label: 'Contacts' },
         { href: '/dashboard/analytics', label: 'Analytics' },
@@ -162,6 +163,7 @@ export default function DashboardLayout({
     '/dashboard/batch-call': <IconBatch />,
     '/dashboard/integrations': <IconIntegrations />,
     '/dashboard/calls': <IconHistory />,
+    '/dashboard/sms': <IconMessage />,
     '/dashboard/chat-history': <IconChat />,
     '/dashboard/contacts': <IconContacts />,
     '/dashboard/analytics': <IconAnalytics />,
@@ -332,6 +334,7 @@ function IconSettings() { return <svg {...iconProps()}><circle cx="12" cy="12" r
 function IconBatch() { return <svg {...iconProps()}><path d="M6.5 4h3l1.5 4-2 1.3a11 11 0 0 0 5.7 5.7l1.3-2 4 1.5v3a1.5 1.5 0 0 1-1.6 1.5A16 16 0 0 1 5 5.6 1.5 1.5 0 0 1 6.5 4Z" /><path d="M17 3.5 20 6l-3 2.5" /></svg>; }
 function IconIntegrations() { return <svg {...iconProps()}><rect x="3" y="3" width="7" height="7" rx="1.5" /><rect x="14" y="3" width="7" height="7" rx="1.5" /><rect x="3" y="14" width="7" height="7" rx="1.5" /><rect x="14" y="14" width="7" height="7" rx="1.5" /></svg>; }
 function IconChat() { return <svg {...iconProps()}><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" /></svg>; }
+function IconMessage() { return <svg {...iconProps()}><path d="M4 5.5A1.5 1.5 0 0 1 5.5 4h13A1.5 1.5 0 0 1 20 5.5v9a1.5 1.5 0 0 1-1.5 1.5H9l-4 4v-4H5.5A1.5 1.5 0 0 1 4 14.5v-9Z" /><path d="M8 8.5h8M8 12h5" /></svg>; }
 function IconContacts() { return <svg {...iconProps()}><circle cx="9" cy="8" r="3.2" /><path d="M3.5 20a5.5 5.5 0 0 1 11 0" /><path d="M16 6.5a3 3 0 0 1 0 6" /><path d="M15 14.3a5 5 0 0 1 5.5 5.2" /></svg>; }
 function IconAnalytics() { return <svg {...iconProps()}><path d="M4 20V10" /><path d="M11 20V4" /><path d="M18 20v-7" /></svg>; }
 function IconMonitor() { return <svg {...iconProps()}><rect x="3" y="4" width="18" height="12" rx="1.5" /><path d="M8 20h8" /><path d="M12 16v4" /><circle cx="9.5" cy="10" r="1" fill="currentColor" /></svg>; }
