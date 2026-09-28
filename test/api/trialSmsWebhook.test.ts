@@ -130,15 +130,11 @@ it('drives a full happy-path flow through to trial creation', async () => {
   expect(store.session()?.transfer_number).toBe('+14155559999');
 
   // 5. timezone -> reports completed and kicks off trial creation.
-  // NOTE (pre-existing bug, not fixed here): the `timezone` state handler's
-  // DB update only sets `{ timezone: tz }` and never sets `step: 'completed'`,
-  // so the session row's step stays 'timezone' even though the HTTP response
-  // claims nextStep 'completed'. Asserting actual behavior here.
   const sessionId = store.session()?.id;
   res = await POST(makeRequest({ to: TO, from: FROM, body: 'America/New_York' }));
   json = await res.json();
   expect(json.step).toBe('completed');
-  expect(store.session()?.step).toBe('timezone');
+  expect(store.session()?.step).toBe('completed');
   expect(createTrialForSession).toHaveBeenCalledWith(sessionId);
   expect(createTrialForSession).toHaveBeenCalledTimes(1);
 });

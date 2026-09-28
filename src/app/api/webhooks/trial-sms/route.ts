@@ -238,7 +238,7 @@ async function runStateMachine(supabase: any, session: any, body: string, fromNu
       if (!valid.includes(tz)) {
         return send(`Please pick: ${valid.join(', ')}`);
       }
-      await supabase.from('trial_sms_sessions').update({ timezone: tz }).eq('id', session.id);
+      await supabase.from('trial_sms_sessions').update({ timezone: tz, step: 'completed' }).eq('id', session.id);
 
       // Kick off trial creation asynchronously (don't block HTTP response)
       createTrialForSession(session.id).catch((err: any) => {
