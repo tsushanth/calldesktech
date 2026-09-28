@@ -99,8 +99,8 @@ class NoopProvider implements SmsProvider {
 // ------------------------------------------------------------------
 // Factory
 // ------------------------------------------------------------------
-export function getSmsProvider(): SmsProvider {
-  const providerType = process.env.SMS_PROVIDER?.toLowerCase();
+export function getSmsProvider(forcedType?: string): SmsProvider {
+  const providerType = forcedType?.toLowerCase() || process.env.SMS_PROVIDER?.toLowerCase();
 
   if (providerType === 'telnyx' || providerType === undefined) {
     const key = process.env.TELNYX_API_KEY;

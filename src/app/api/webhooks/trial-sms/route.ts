@@ -112,7 +112,7 @@ export async function POST(req: NextRequest) {
   const result = await runStateMachine(supabase, currentSession, text, toNumber);
 
   // Send reply
-  const provider = getSmsProvider();
+  const provider = getSmsProvider('twilio'); // trial number +12245061194 is Twilio-owned
   const sendResult = await provider.send({
     from: toNumber,
     to: fromNumber,
