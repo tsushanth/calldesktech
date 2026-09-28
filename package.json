@@ -18,6 +18,7 @@
     "@xyflow/react": "^12.11.6",
     "cheerio": "^1.2.0",
     "clsx": "^2.1.1",
+    "csv-parse": "^7.0.3",
     "dommatrix": "^0.1.1",
     "jsonwebtoken": "^9.0.3",
     "next": "16.1.2",
