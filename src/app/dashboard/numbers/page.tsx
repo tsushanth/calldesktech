@@ -60,6 +60,38 @@ export default function PhoneNumbersPage() {
     accountTelephoneNumber: '',
     accountNumber: '',
   });
+  // LOA document upload — Twilio's real PortIn submission requires at least
+  // one Utility Bill document sid (see .../port/documents/route.ts). Kept
+  // separate from portForm because it goes through its own upload request
+  // BEFORE the port request is submitted, not as part of the same payload.
+  const [portDocFile, setPortDocFile] = useState<File | null>(null);
+  const [isUploadingPortDoc, setIsUploadingPortDoc] = useState(false);
+  const [portDocSid, setPortDocSid] = useState<string | null>(null);
+  const [portDocError, setPortDocError] = useState<string | null>(null);
+
+  const handleUploadPortDocument = async () => {
+    if (!tenantId || !portDocFile) return;
+    setIsUploadingPortDoc(true);
+    setPortDocError(null);
+    try {
+      const fd = new FormData();
+      fd.set('file', portDocFile);
+      fd.set('documentType', 'utility_bill');
+      const res = await fetch(`/api/tenants/${tenantId}/phone-numbers/port/documents`, {
+        method: 'POST',
+        body: fd,
+      });
+      const body = await res.json();
+      if (!res.ok) throw new Error(body.error || 'Document upload failed');
+      if (!body.documentSid) throw new Error('Upload succeeded locally but Twilio did not return a document sid');
+      setPortDocSid(body.documentSid);
+    } catch (err) {
+      setPortDocSid(null);
+      setPortDocError(err instanceof Error ? err.message : 'Failed to upload document');
+    } finally {
+      setIsUploadingPortDoc(false);
+    }
+  };
 
   const load = useCallback(async () => {
     if (!tenantId) return;
@@ -236,6 +268,7 @@ export default function PhoneNumbersPage() {
           authorizedRepresentativeEmail: portForm.authorizedRepresentativeEmail.trim(),
           accountTelephoneNumber: portForm.accountTelephoneNumber.trim(),
           accountNumber: portForm.accountNumber.trim() || undefined,
+          documentSids: portDocSid ? [portDocSid] : [],
         }),
       });
       const body = await res.json();
@@ -251,6 +284,9 @@ export default function PhoneNumbersPage() {
         accountTelephoneNumber: '',
         accountNumber: '',
       });
+      setPortDocFile(null);
+      setPortDocSid(null);
+      setPortDocError(null);
     } catch (err) {
       setPortError(err instanceof Error ? err.message : 'Failed to submit port request');
     } finally {
@@ -462,7 +498,7 @@ export default function PhoneNumbersPage() {
           <div>
             <h2 className="text-[14px] font-semibold text-[#1a1d29]">Port an existing number</h2>
             <p className="mt-0.5 text-[12.5px] text-gray-500">
-              Submits a real port-in request to Twilio for a number you own with another carrier. Note: Twilio also requires a supporting document (e.g. a utility bill) to complete the LOA — uploading one isn&apos;t wired up here yet, so submission may come back as &quot;submit_failed&quot; until that&apos;s provided out of band.
+              Submits a real port-in request to Twilio for a number you own with another carrier. Twilio requires a supporting document (e.g. a utility bill) to complete the LOA — upload it below and wait for it to finish before submitting, or Twilio will reject the request.
             </p>
           </div>
           <button
@@ -537,6 +573,41 @@ export default function PhoneNumbersPage() {
               />
             </Field>
             <div className="sm:col-span-2">
+              <Field label="Utility bill / LOA document (required by Twilio)">
+                <div className="flex flex-wrap items-center gap-2.5">
+                  <input
+                    type="file"
+                    accept="application/pdf,image/png,image/jpeg"
+                    onChange={(e) => {
+                      setPortDocFile(e.target.files?.[0] ?? null);
+                      setPortDocSid(null);
+                      setPortDocError(null);
+                    }}
+                    className="text-[13px] text-gray-600 file:mr-3 file:rounded-lg file:border-0 file:bg-gray-100 file:px-3 file:py-1.5 file:text-[12.5px] file:font-medium file:text-[#1a1d29] hover:file:bg-gray-200"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleUploadPortDocument}
+                    disabled={!portDocFile || isUploadingPortDoc || !!portDocSid}
+                    className="flex-none rounded-lg border border-gray-200 px-3.5 py-1.5 text-[12.5px] font-medium text-[#1a1d29] transition hover:bg-gray-50 disabled:opacity-40"
+                  >
+                    {isUploadingPortDoc ? 'Uploading…' : portDocSid ? 'Uploaded ✓' : 'Upload document'}
+                  </button>
+                </div>
+                {portDocSid && (
+                  <p className="mt-1.5 text-[12px] text-green-700">
+                    Uploaded to Twilio — document sid <span className="font-mono">{portDocSid}</span>
+                  </p>
+                )}
+                {portDocError && <p className="mt-1.5 text-[12px] text-red-600">{portDocError}</p>}
+                {!portDocSid && !portDocError && (
+                  <p className="mt-1.5 text-[12px] text-gray-400">
+                    Submission will be rejected by Twilio without a successfully uploaded document.
+                  </p>
+                )}
+              </Field>
+            </div>
+            <div className="sm:col-span-2">
               <button
                 onClick={handleSubmitPort}
                 disabled={
@@ -544,8 +615,10 @@ export default function PhoneNumbersPage() {
                   !portForm.number.trim() ||
                   !portForm.authorizedRepresentative.trim() ||
                   !portForm.authorizedRepresentativeEmail.trim() ||
-                  !portForm.accountTelephoneNumber.trim()
+                  !portForm.accountTelephoneNumber.trim() ||
+                  !portDocSid
                 }
+                title={!portDocSid ? 'Upload the utility bill / LOA document first' : undefined}
                 className="rounded-lg bg-[#1a1d29] px-4 py-2 text-[13.5px] font-medium text-white transition hover:bg-[#2a2e3d] disabled:opacity-40"
               >
                 {isSubmittingPort ? 'Submitting…' : 'Submit port request'}

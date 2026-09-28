@@ -45,12 +45,15 @@ export async function GET(
 // to Twilio and store the resulting request id + status.
 //
 // NOTE on required fields: Twilio's PortIn create call also requires at
-// least one `documents` entry (a Utility Bill document SID, uploaded via a
-// separate Document resource this repo does not implement — that's document
-// upload/LOA bureaucracy, out of scope per spec). If document_sids isn't
-// supplied, submission will fail at Twilio; that failure is stored as
-// status 'submit_failed' with the Twilio error message, not silently
-// swallowed, so the caller can see exactly why.
+// least one `documents` entry (a Utility Bill document SID). Documents are
+// now uploaded via .../port/documents/route.ts, which stores the raw file
+// in Supabase Storage and uploads it to Twilio's Documents API to obtain a
+// sid; this route only accepts sids that this tenant actually uploaded
+// (verified against phone_number_port_documents below), not arbitrary
+// client-supplied strings. If no verified document_sids survive that check,
+// submission will fail at Twilio; that failure is stored as status
+// 'submit_failed' with the Twilio error message, not silently swallowed, so
+// the caller can see exactly why.
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -85,6 +88,29 @@ export async function POST(
 
   const supabase = getSupabaseAdmin();
 
+  // documentSids now come from the real upload flow
+  // (.../port/documents/route.ts, phone_number_port_documents table), not
+  // out-of-band as before. Verify each sid was actually uploaded by THIS
+  // tenant and made it to Twilio ('uploaded' status) — otherwise tenant A
+  // could submit tenant B's document sid just by knowing/guessing it,
+  // mirroring belongsToTenant() in src/lib/authz.ts. Sids that don't match
+  // are dropped silently from what's sent to Twilio (not a 400): Twilio's
+  // own validation will reject the submission for lacking a Utility Bill if
+  // none survive, which is the same real-error surfacing this route already
+  // relies on below.
+  let verifiedDocumentSids: string[] = [];
+  if (Array.isArray(documentSids) && documentSids.length > 0) {
+    const { data: ownedDocs } = await supabase
+      .from('phone_number_port_documents')
+      .select('twilio_document_sid')
+      .eq('tenant_id', tenantId)
+      .eq('status', 'uploaded')
+      .in('twilio_document_sid', documentSids);
+    verifiedDocumentSids = (ownedDocs ?? [])
+      .map((d) => d.twilio_document_sid)
+      .filter((sid): sid is string => !!sid);
+  }
+
   // Insert a draft row first so we always have a local record, even if the
   // Twilio call fails.
   const { data: draft, error: draftError } = await supabase
@@ -100,7 +126,7 @@ export async function POST(
       account_telephone_number: accountTelephoneNumber,
       account_number: accountNumber ?? null,
       billing_address: billingAddress ?? {},
-      document_sids: documentSids ?? [],
+      document_sids: verifiedDocumentSids,
       target_port_in_date: targetPortInDate ?? null,
       notification_emails: notificationEmails ?? [],
     })
@@ -121,7 +147,7 @@ export async function POST(
   const payload: Record<string, unknown> = {
     account_sid: accountSid,
     phone_numbers: [{ phone_number: number }],
-    documents: documentSids ?? [],
+    documents: verifiedDocumentSids,
     losing_carrier_information: {
       customer_name: losingCarrierName ?? authorizedRepresentative,
       customer_type: customerType,
