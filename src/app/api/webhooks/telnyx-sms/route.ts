@@ -43,9 +43,14 @@ export async function POST(request: NextRequest) {
   let providerName = 'unknown';
 
   if (eventType === 'message.received' && payload) {
-    // Telnyx
-    toNumber = normalizeE164(payload.to);
-    fromNumber = normalizeE164(payload.from);
+    // Telnyx v2 format: to is array, from is object
+    const toEntry = Array.isArray(payload.to) ? payload.to[0] : payload.to;
+    toNumber = normalizeE164(
+      typeof toEntry === 'string' ? toEntry : toEntry?.phone_number
+    );
+    fromNumber = normalizeE164(
+      typeof payload.from === 'string' ? payload.from : payload.from?.phone_number
+    );
     text = payload.text || '';
     providerMessageId = payload.id || raw?.data?.id;
     providerName = 'telnyx';
