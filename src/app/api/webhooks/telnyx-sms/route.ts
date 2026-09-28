@@ -10,11 +10,22 @@ import { dispatchWebhookEvent } from '@/lib/webhooks';
 // (requires fetching the public key from Telnyx and verifying the
 // Telnyx-Signature-Ed25519 header against raw request body).
 export async function POST(request: NextRequest) {
-  let raw;
+  let raw: any = {};
+
+  // Try JSON first (Telnyx), then fall back to form-encoded (Twilio)
   try {
     raw = await request.json();
   } catch {
-    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 });
+    try {
+      const form = await request.formData();
+      const obj: Record<string, string> = {};
+      form.forEach((v, k) => { obj[k] = String(v); });
+      raw = obj;
+    } catch {
+      const ct = request.headers.get('content-type') || 'unknown';
+      console.error(`[telnyx-sms] Cannot parse body. Content-Type: ${ct}`);
+      return NextResponse.json({ error: 'Invalid body' }, { status: 400 });
+    }
   }
 
   // --- Try Telnyx format first ---
@@ -51,7 +62,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Missing to/from' }, { status: 400 });
   }
 
-  console.log(`[telnyx-sms] ${providerName} inbound: ${fromNumber} → ${toNumber}, body="${text.substring(0,50)}"`);
+  console.log(`[telnyx-sms] ${providerName} inbound: ${fromNumber} → ${toNumber}, body="${text.substring(0,50)}", payload keys=${Object.keys(raw).slice(0,10).join(',')}`);
 
   const supabase = getSupabaseAdmin();
 
