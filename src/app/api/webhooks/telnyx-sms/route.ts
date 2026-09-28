@@ -130,7 +130,9 @@ export async function POST(request: NextRequest) {
     try {
       const host = request.headers.get('host') || 'calldesk.tech';
       const proto = request.headers.get('x-forwarded-proto') || 'https';
-      await fetch(`${proto}://${host}/api/webhooks/trial-sms`, {
+      const forwardUrl = `${proto}://${host}/api/webhooks/trial-sms`;
+      console.log(`[telnyx-sms] forwarding to ${forwardUrl}`);
+      const resp = await fetch(forwardUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -139,7 +141,8 @@ export async function POST(request: NextRequest) {
           body: text,
         }),
       });
-      console.log('[telnyx-sms] forwarded to trial-sms handler');
+      const respBody = await resp.text();
+      console.log(`[telnyx-sms] trial-sms response: ${resp.status} ${respBody.slice(0,200)}`);
     } catch (e) {
       console.error('[telnyx-sms] trial-sms forward failed:', e);
     }
