@@ -8,7 +8,7 @@
  *
  * What it does:
  *   1. Reads leads from CSV
- *   2. Sends one text per lead with a link to /trial/start
+ *   2. Sends one text per lead with a link to /demo
  *   3. Tracks in Supabase outreach_text_campaign
  *
  * Template is a single short link drop. No conversation.
@@ -75,7 +75,7 @@ function shortName(company) {
 
 function buildBody(lead) {
   const name = shortName(lead.company || lead.company_name);
-  return `Hi ${firstName(name)}, does ${name} ever miss calls after hours? Free AI receptionist in 2 mins: https://calldesk.tech/trial/start\n\nReply STOP to opt out.`;
+  return `Hi ${firstName(name)}, does ${name} ever miss calls after hours? Free AI receptionist in 2 mins: https://calldesk.tech/demo\n\nReply STOP to opt out.`;
 }
 
 async function api(method, path, body) {
@@ -128,7 +128,7 @@ async function trackText(lead, smsId, body) {
     body,
     status: 'sent',
     sent_at: new Date().toISOString(),
-    onboarding_url: 'https://calldesk.tech/trial/start',
+    onboarding_url: 'https://calldesk.tech/demo',
   };
 
   const res = await fetch(`${supabaseUrl}/rest/v1/outreach_text_campaign`, {
