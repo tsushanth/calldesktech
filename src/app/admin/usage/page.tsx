@@ -35,7 +35,7 @@ export default async function UsagePage() {
   // eslint-disable-next-line react-hooks/purity
   const since = new Date(Date.now() - DAYS * 86400_000).toISOString();
   const [tenants, agents, calls, billing, clients, keys] = await Promise.all([
-    db.from('calldesk_tenants').select('id, user_id, created_at').limit(10000),
+    db.from('calldesk_tenants').select('id, user_id, created_at').not('user_id', 'like', 'demo_%').limit(10000),
     db.from('calldesk_agents').select('tenant_id').limit(20000),
     db.from('calldesk_call_logs').select('tenant_id, duration_seconds, created_at, direction').neq('is_internal_test', true).limit(50000),
     db.from('calldesk_businesses').select('tenant_id, subscription_status').limit(10000),
@@ -43,7 +43,11 @@ export default async function UsagePage() {
     db.from('calldesk_api_keys').select('name, last_used_at, revoked_at').like('name', 'MCP:%').limit(1000),
   ]);
 
-  const T = tenants.data || [], A = agents.data || [], C = calls.data || [], B = billing.data || [];
+  const T = tenants.data || [];
+  const realTenantIds = new Set(T.map((t) => t.id));
+  const A = (agents.data || []).filter((a) => realTenantIds.has(a.tenant_id));
+  const C = (calls.data || []).filter((c) => realTenantIds.has(c.tenant_id));
+  const B = (billing.data || []).filter((b) => realTenantIds.has(b.tenant_id));
   const days = lastDays(DAYS);
   const bucket = (rows: { created_at: string }[], val: (r: never) => number = () => 1) => {
     const m = new Map(days.map((d) => [d, 0]));
