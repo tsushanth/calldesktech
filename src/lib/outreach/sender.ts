@@ -19,12 +19,12 @@ const DEFAULT_DAILY_CAP = 20;
 // Per-product identity for the footer and the env vars that gate sending.
 // 'calldesk' (the default/unprefixed product) keeps using the original env
 // var names so nothing about the existing Calldesk pipeline changes.
-export interface Brand { name: string; siteUrl: string; fromEnvVar: string; postalEnvVar: string; capEnvVar: string; replyToEnvVar?: string }
+export interface Brand { name: string; siteUrl: string; fromEnvVar: string; postalEnvVar: string; capEnvVar: string; replyToEnvVar?: string; deckUrl?: string }
 // Sending domains use a dedicated `send.` subdomain (Resend/DNS convention, keeps
 // bulk-sending reputation isolated from the root domain); replies route through
 // the bare domain via Cloudflare Email Routing, so replyToEnvVar differs from
 // fromEnvVar wherever that split applies.
-const CALLDESK_BRAND: Brand = { name: 'Calldesk', siteUrl: 'calldesk.tech', fromEnvVar: 'OUTREACH_FROM_EMAIL', postalEnvVar: 'OUTREACH_POSTAL_ADDRESS', capEnvVar: 'OUTREACH_DAILY_CAP', replyToEnvVar: 'OUTREACH_REPLYTO_EMAIL' };
+const CALLDESK_BRAND: Brand = { name: 'Calldesk', siteUrl: 'calldesk.tech', fromEnvVar: 'OUTREACH_FROM_EMAIL', postalEnvVar: 'OUTREACH_POSTAL_ADDRESS', capEnvVar: 'OUTREACH_DAILY_CAP', replyToEnvVar: 'OUTREACH_REPLYTO_EMAIL', deckUrl: 'https://calldesk.tech/deck' };
 
 // Each Kreative Koala app sends from its OWN identity, not a shared one --
 // four apps have their own domain (already verified in Resend); the three
@@ -34,6 +34,9 @@ const CALLDESK_BRAND: Brand = { name: 'Calldesk', siteUrl: 'calldesk.tech', from
 // address and one daily send cap (same legal entity, same footer text).
 const KK_POSTAL_ENV = 'OUTREACH_POSTAL_ADDRESS_KK';
 const KK_CAP_ENV = 'OUTREACH_DAILY_CAP_KK';
+// deckUrl is unset until that app's pitch deck is built and hosted; apps with their own site host it
+// at <site>/deck, apps without one (voxkey, pixora, gymlog -- all three share kreativekoala.llc) host
+// it at kreativekoala.llc/deck/<app>.
 const KK_APP_BRANDS: Record<string, Omit<Brand, 'postalEnvVar' | 'capEnvVar'>> = {
   simplyapply: { name: 'SimplyApply', siteUrl: 'simplyappl.ai', fromEnvVar: 'OUTREACH_FROM_EMAIL_SIMPLYAPPLY', replyToEnvVar: 'OUTREACH_REPLYTO_EMAIL_SIMPLYAPPLY' },
   scribeai: { name: 'Scribe AI', siteUrl: 'scribeai.online', fromEnvVar: 'OUTREACH_FROM_EMAIL_SCRIBEAI', replyToEnvVar: 'OUTREACH_REPLYTO_EMAIL_SCRIBEAI' },
@@ -46,7 +49,7 @@ const KK_APP_BRANDS: Record<string, Omit<Brand, 'postalEnvVar' | 'capEnvVar'>> =
 // readaloudai.org (realtime speech API). Sends from its own verified Resend domain; replies land on the
 // readaloudai.org catch-all, which forwards to the founders' inbox. Same legal entity and postal address as
 // the Kreative Koala apps, but its own daily cap and lane so it is paced and paused independently.
-const READALOUD_BRAND: Brand = { name: 'readaloudai.org', siteUrl: 'readaloudai.org', fromEnvVar: 'OUTREACH_FROM_EMAIL_READALOUD', postalEnvVar: KK_POSTAL_ENV, capEnvVar: 'OUTREACH_DAILY_CAP_READALOUD', replyToEnvVar: 'OUTREACH_REPLYTO_EMAIL_READALOUD' };
+const READALOUD_BRAND: Brand = { name: 'readaloudai.org', siteUrl: 'readaloudai.org', fromEnvVar: 'OUTREACH_FROM_EMAIL_READALOUD', postalEnvVar: KK_POSTAL_ENV, capEnvVar: 'OUTREACH_DAILY_CAP_READALOUD', replyToEnvVar: 'OUTREACH_REPLYTO_EMAIL_READALOUD', deckUrl: 'https://readaloudai.org/deck' };
 // Fallback for any Kreative Koala product key not yet in the map above.
 const KREATIVE_KOALA_BRAND: Brand = { name: 'Kreative Koala LLC', siteUrl: 'kreativekoala.llc', fromEnvVar: 'OUTREACH_FROM_EMAIL_KK', postalEnvVar: KK_POSTAL_ENV, capEnvVar: KK_CAP_ENV, replyToEnvVar: 'OUTREACH_REPLYTO_EMAIL_KK' };
 
@@ -156,7 +159,9 @@ export async function buildOutreachEmail(
     sampleId = null;
   }
   if (variant === 'sample' && !emailSample) variant = 'plain';
-  const { html, text } = renderOutreachEmail({ bodyText: String(msg.body_text), footer, sample: emailSample, site: { label: brand.siteUrl, url: /^https?:\/\//.test(brand.siteUrl) ? brand.siteUrl : `https://${brand.siteUrl}` } });
+  const deckUrl = brand.deckUrl && process.env.OUTREACH_DECK_LINK !== 'off'
+    ? `${brand.deckUrl}?t=${encodeURIComponent(sampleTokenFor(String(msg.id)))}` : null;
+  const { html, text } = renderOutreachEmail({ bodyText: String(msg.body_text), footer, sample: emailSample, deckUrl, site: { label: brand.siteUrl, url: /^https?:\/\//.test(brand.siteUrl) ? brand.siteUrl : `https://${brand.siteUrl}` } });
   return { html, text, variant, sampleId };
 }
 

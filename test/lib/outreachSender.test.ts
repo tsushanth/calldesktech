@@ -39,15 +39,51 @@ beforeEach(() => {
 
 const sample = { id: 's1', product: 'calldesk:freight', title: 'Freight', disclosure: 'AI demo', audio_duration_sec: 92, transcript: [{ speaker: 'caller', text: 'hi' }, { speaker: 'agent', text: 'hello' }], snippet: null };
 
+describe('standalone deck link (no sample card)', () => {
+  it('readaloud emails link readaloudai.org/deck even though readaloud has no sample', async () => {
+    process.env.OUTREACH_FROM_EMAIL_READALOUD = 'ReadAloud <hello@send.readaloudai.org>';
+    process.env.OUTREACH_POSTAL_ADDRESS_KK = '1 Main St';
+    getPublishedSample.mockResolvedValue(null);
+    await sendApprovedMessage(fakeSupabase('readaloud').client, MSG_ID);
+    const args = sendEmail.mock.calls[0][0] as { html: string; text: string };
+    expect(args.html).toMatch(/href="https:\/\/readaloudai\.org\/deck\?t=[^"]+"[^>]*>See our short deck/);
+    expect(args.text).toMatch(/Short deck: https:\/\/readaloudai\.org\/deck\?t=\S+/);
+  });
+
+  it('OUTREACH_DECK_LINK=off removes the standalone link too', async () => {
+    process.env.OUTREACH_FROM_EMAIL_READALOUD = 'ReadAloud <hello@send.readaloudai.org>';
+    process.env.OUTREACH_POSTAL_ADDRESS_KK = '1 Main St';
+    process.env.OUTREACH_DECK_LINK = 'off';
+    getPublishedSample.mockResolvedValue(null);
+    await sendApprovedMessage(fakeSupabase('readaloud').client, MSG_ID);
+    const args = sendEmail.mock.calls[0][0] as { html: string; text: string };
+    expect(args.html).not.toContain('/deck');
+    expect(args.text).not.toContain('Short deck');
+    delete process.env.OUTREACH_DECK_LINK;
+  });
+
+  it('a Kreative Koala app with no deck built yet gets no deck link', async () => {
+    process.env.OUTREACH_FROM_EMAIL_VOXKEY = 'k@send.kreativekoala.llc';
+    process.env.OUTREACH_POSTAL_ADDRESS_KK = '1 Main St';
+    getPublishedSample.mockResolvedValue(null);
+    await sendApprovedMessage(fakeSupabase('kreativekoala:voxkey').client, MSG_ID);
+    const args = sendEmail.mock.calls[0][0] as { html: string; text: string };
+    expect(args.html).not.toContain('See our short deck');
+    expect(args.text).not.toContain('Short deck');
+  });
+});
+
 describe('sendApprovedMessage sample integration', () => {
-  it('no sample: email identical to legacy output', async () => {
+  it('no sample: legacy output plus the standalone deck link (calldesk always has one)', async () => {
     getPublishedSample.mockResolvedValue(null);
     const { client } = fakeSupabase('calldesk:freight');
     await sendApprovedMessage(client, MSG_ID);
     const args = sendEmail.mock.calls[0][0] as { html: string; text: string };
     const f = buildFooter('a@b.co', '1 Main St');
-    expect(args.html).toBe(`<div style="font-family:-apple-system,Segoe UI,sans-serif;font-size:15px;line-height:1.6;color:#1a1d29;max-width:560px"><p style="margin:0 0 18px"><a href="https://calldesk.tech" style="color:#2563eb;font-weight:600;text-decoration:none">calldesk.tech</a></p><p style="margin:0 0 14px">Hi</p><p style="margin:0 0 14px">A &amp; B</p>${f.html}</div>`);
-    expect(args.text).toBe(`https://calldesk.tech\n\nHi\n\nA & B${f.text}`);
+    const deckHtml = args.html.match(/<p style="margin:0 0 14px;font-size:13px;[^"]*">Prefer to read\? <a href="[^"]+" style="color:#2563eb">See our short deck<\/a>\.<\/p>/)?.[0] ?? '';
+    expect(deckHtml).toMatch(/href="https:\/\/calldesk\.tech\/deck\?t=[^"]+"/);
+    expect(args.html).toBe(`<div style="font-family:-apple-system,Segoe UI,sans-serif;font-size:15px;line-height:1.6;color:#1a1d29;max-width:560px"><p style="margin:0 0 18px"><a href="https://calldesk.tech" style="color:#2563eb;font-weight:600;text-decoration:none">calldesk.tech</a></p><p style="margin:0 0 14px">Hi</p><p style="margin:0 0 14px">A &amp; B</p>${deckHtml}${f.html}</div>`);
+    expect(args.text).toMatch(/^https:\/\/calldesk\.tech\n\nHi\n\nA & B\nShort deck: https:\/\/calldesk\.tech\/deck\?t=\S+\n/);
   });
 
   it('sends RFC 8058 one-click unsubscribe headers pointing at the POST endpoint', async () => {

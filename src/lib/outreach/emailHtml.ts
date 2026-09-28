@@ -18,6 +18,9 @@ export interface RenderInput {
   sample?: EmailSample | null;
   // Clickable link to the sender's website, shown at the very top of the email.
   site?: { label: string; url: string } | null;
+  // Link to the product's hosted pitch deck. Shown even when there is no sample card
+  // (sample.deckUrl still wins when both are set, so it stays inside the card).
+  deckUrl?: string | null;
 }
 
 const CARD_MAX_LINES = 6;
@@ -72,15 +75,20 @@ export function renderOutreachEmail(input: RenderInput): { html: string; text: s
     .join('');
   const lines = sample ? sample.lines.slice(0, CARD_MAX_LINES) : [];
   const card = sample && lines.length > 0 ? renderCard(sample, lines) : '';
+  const standaloneDeckUrl = input.deckUrl && !(sample && lines.length > 0 && sample.deckUrl) ? input.deckUrl : null;
+  const deckHtml = standaloneDeckUrl
+    ? `<p style="margin:0 0 14px;font-size:13px;color:#4b5563">Prefer to read? <a href="${escapeAttr(standaloneDeckUrl)}" style="color:#2563eb">See our short deck</a>.</p>`
+    : '';
   const siteHtml = site ? `<p style="margin:0 0 18px"><a href="${escapeAttr(site.url)}" style="color:#2563eb;font-weight:600;text-decoration:none">${escapeHtml(site.label)}</a></p>` : '';
-  const html = `<div style="font-family:-apple-system,Segoe UI,sans-serif;font-size:15px;line-height:1.6;color:#1a1d29;max-width:560px">${siteHtml}${paragraphs}${card}${footer.html}</div>`;
+  const html = `<div style="font-family:-apple-system,Segoe UI,sans-serif;font-size:15px;line-height:1.6;color:#1a1d29;max-width:560px">${siteHtml}${paragraphs}${card}${deckHtml}${footer.html}</div>`;
 
   let textSample = '';
+  const deckText = standaloneDeckUrl ? `\nShort deck: ${standaloneDeckUrl}\n` : '';
   if (sample && lines.length > 0) {
     const head = ['Sample call', sample.durationLabel, 'AI demo'].filter(Boolean).join(' · ');
     const body = lines.map((l) => `${l.speaker === 'caller' ? 'Caller' : 'Agent'}: ${l.text}`).join('\n');
     textSample = `\n\n${head} - ${sample.title}\n${body}\nListen to the full sample call: ${sample.url}${sample.deckUrl ? `\nShort deck: ${sample.deckUrl}` : ''}\n${sample.disclosure}`;
   }
   const siteText = site ? `${site.url}\n\n` : '';
-  return { html, text: `${siteText}${bodyText}${textSample}${footer.text}` };
+  return { html, text: `${siteText}${bodyText}${textSample}${deckText}${footer.text}` };
 }
