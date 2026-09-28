@@ -42,7 +42,7 @@ async function cdApi(method, path, body) {
   });
   const text = await res.text();
   let data;
-  try { data = text ? JSON.parse(text) : {}; } catch { data = { raw: text }; }
+  try { data = text ? JSON.parse(text) : {}; } catch { data = { raw: text.slice(0, 500) }; }
   if (!res.ok) throw new Error(`CD ${method} ${path} (${res.status}): ${data?.error || text}`);
   return data;
 }
@@ -57,7 +57,7 @@ async function tenantId() {
 }
 
 // ------------------------------------------------------------------
-// Fetch session
+// Fetch / update session
 // ------------------------------------------------------------------
 async function fetchSession() {
   const res = await fetch(`${SUPABASE_URL}/rest/v1/trial_sms_sessions?id=eq.${sessionId}`, {
@@ -97,16 +97,16 @@ function buildFlow(companyName, greeting, transferNumber) {
       {
         id: 'greeting',
         type: 'greeting',
-        prompt: `Say: "${g}" Then ask: "I can take a message or transfer you if it's urgent. What do you need?"`,
+        prompt: `Say: "${g}" Then ask: "I can take a message, or transfer you to a human if it's urgent. What do you need?"`,
         edges: [
-          { id: 'e_urgent', condition: 'wants to be transferred, says urgent, needs human, or says operator', target: 'transfer' },
-          { id: 'e_message', condition: 'wants to leave a message, anything else, or stays silent', target: 'collect_message' },
+          { id: 'e_urgent', condition: 'says urgent, needs human, wants transfer, or says operator', target: 'transfer' },
+          { id: 'e_message', condition: 'anything else, wants to leave a message, or stays silent', target: 'collect_message' },
         ],
       },
       {
         id: 'collect_message',
         type: 'extraction',
-        prompt: `Say: "No problem. What's your name, callback number, and what do you need?" Collect all three fields.`,
+        prompt: `Say: "No problem. What's your name, callback number, and what do you need?" Collect all three fields — ask for them one by one if the caller only gives partial info.`,
         extract: { name: 'string', phone: 'string', message: 'string' },
         edges: [
           { id: 'e_collected', condition: 'all fields collected', target: 'confirm_message' },
@@ -115,11 +115,12 @@ function buildFlow(companyName, greeting, transferNumber) {
       {
         id: 'confirm_message',
         type: 'greeting',
-        prompt: `Say: "Thanks. I have your message and will pass it along. Have a great day."`,
+        prompt: `Say a natural variation of: "Thanks. I have your message and will pass it along. Have a great day."`,
         edges: [
           { id: 'e_end', condition: 'always', target: 'goodbye' },
         ],
       },
+      // transfer node — spokenMessage is played verbatim before transferring
       {
         id: 'transfer',
         type: 'transfer',
@@ -140,12 +141,9 @@ async function main() {
   const session = await fetchSession();
   console.log(`[trial-creator] Session ${session.id} step=${session.step}`);
 
-  if (session.step !== 'creating') {
-    console.error('Session not ready for creation');
-    process.exit(1);
-  }
-
   const { company_name, greeting, transfer_number, timezone } = session;
+  if (!company_name) throw new Error('company_name missing');
+
   const tid = await tenantId();
 
   // 1. Create agent
@@ -168,7 +166,7 @@ async function main() {
       timezone: timezone || 'America/New_York',
       allowInterruptions: true,
       transitionFlexibility: 'flexible',
-      handbook: `You are the AI receptionist for ${company_name}. Be friendly, concise, and professional. If someone wants to leave a message, collect their name, phone number, and what they need. If they say it's urgent or want to transfer, immediately transfer to ${transfer_number}. Never make up policies or prices.`,
+      handbook: `You are the AI receptionist for ${company_name}. Be friendly, concise, and professional. If someone wants to leave a message, collect their name, phone number, and what they need. If they say it's urgent or want to transfer, immediately transfer to ${transfer_number}. Never make up policies or prices. If asked about pricing, say a human agent from ${company_name} will follow up.`,
     },
     ttsBackend: 'kokoro',
   });
@@ -179,29 +177,26 @@ async function main() {
   const number = await cdApi('POST', `/tenants/${tid}/phone-numbers/purchase`, {
     inbound: 'true',
   });
-  console.log(`  Number: ${number.number || number.phoneNumber} (${number.id})`);
+  const assigned = number.number || number.phoneNumber;
+  if (!assigned) throw new Error('Buy number response missing number');
+  console.log(`  Number: ${assigned} (${number.id})`);
 
-  // 4. Route to agent version
-  console.log(`[trial-creator] Routing number...`);
+  // 4. Route inbound to agent version
+  console.log(`[trial-creator] Routing inbound...`);
   await cdApi('POST', `/phone-numbers/${number.id}/routing`, {
     direction: 'inbound',
     agentVersionId: version.id,
   });
-  await cdApi('POST', `/phone-numbers/${number.id}/routing`, {
-    direction: 'outbound',
-    agentVersionId: version.id,
-  });
-  console.log(`  Routed.`);
+  console.log(`  Inbound routed.`);
 
   // 5. Update session
-  const assigned = number.number || number.phoneNumber;
   await updateSession({
     agent_id: agent.id,
     agent_version_id: version.id,
     phone_number_id: number.id,
     assigned_number: assigned,
     trial_live_at: new Date().toISOString(),
-    step: 'live',
+    step: 'completed',
   });
   console.log(`[trial-creator] Done. ${assigned} is live for ${company_name}.`);
 }
