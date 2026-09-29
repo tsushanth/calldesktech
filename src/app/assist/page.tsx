@@ -25,7 +25,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 interface Turn {
-  speaker: 'you' | 'them';
+  id: number;
+  speaker: 'you' | 'customer';
   text: string;
 }
 
@@ -37,38 +38,44 @@ export default function CallAssistPage() {
   const [error, setError] = useState<string | null>(null);
   const recognitionRef = useRef<any>(null);
   const transcriptRef = useRef('');
-  const pendingRef = useRef(false);
+  const nextIdRef = useRef(0);
+  // Every finalized chunk must get an attribution call — dropping one when
+  // a request is already in flight (the earlier version's behavior) meant
+  // most chunks never got re-labeled at all, since people talk faster than
+  // the ~1-2s round trip. This queue processes one at a time instead of
+  // skipping, so nothing is silently left as the default "you".
+  const queueRef = useRef<{ id: number; chunk: string }[]>([]);
+  const draining = useRef(false);
   const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
   }, [turns]);
 
-  const askForSuggestion = useCallback(async (chunk: string) => {
-    if (pendingRef.current) return;
-    pendingRef.current = true;
+  const drainQueue = useCallback(async () => {
+    if (draining.current) return;
+    draining.current = true;
     try {
-      const res = await fetch('/api/assist/suggest', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${secret}` },
-        body: JSON.stringify({ transcript: transcriptRef.current, chunk }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'request failed');
-      setSuggestion(data.suggestion);
-      if (data.speaker === 'you' || data.speaker === 'customer') {
-        setTurns((prev) => {
-          if (prev.length === 0) return prev;
-          const updated = [...prev];
-          updated[updated.length - 1] = { ...updated[updated.length - 1], speaker: data.speaker };
-          return updated;
-        });
+      while (queueRef.current.length > 0) {
+        const { id, chunk } = queueRef.current.shift()!;
+        try {
+          const res = await fetch('/api/assist/suggest', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${secret}` },
+            body: JSON.stringify({ transcript: transcriptRef.current, chunk }),
+          });
+          const data = await res.json();
+          if (!res.ok) throw new Error(data.error || 'request failed');
+          setSuggestion(data.suggestion);
+          const speaker: 'you' | 'customer' = data.speaker === 'customer' ? 'customer' : 'you';
+          setTurns((prev) => prev.map((t) => (t.id === id ? { ...t, speaker } : t)));
+          setError(null);
+        } catch (e) {
+          setError(e instanceof Error ? e.message : 'suggestion failed');
+        }
       }
-      setError(null);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'suggestion failed');
     } finally {
-      pendingRef.current = false;
+      draining.current = false;
     }
   }, [secret]);
 
@@ -92,11 +99,11 @@ export default function CallAssistPage() {
         transcriptRef.current = (transcriptRef.current + ' ' + finalChunk).slice(-4000);
         // v0 has one mic input, so there's no real audio-level speaker
         // separation — this chunk is shown as "you" provisionally and
-        // re-labeled once the backend's context-based guess comes back
-        // (see askForSuggestion). Good enough for testing against a played
-        // recording; a real two-leg call would need actual per-leg capture.
-        setTurns((prev) => [...prev, { speaker: 'you', text: finalChunk }]);
-        askForSuggestion(finalChunk);
+        // re-labeled once its queued attribution call comes back.
+        const id = nextIdRef.current++;
+        setTurns((prev) => [...prev, { id, speaker: 'you', text: finalChunk }]);
+        queueRef.current.push({ id, chunk: finalChunk });
+        drainQueue();
       }
     };
     recognition.onerror = (event: any) => setError(`mic error: ${event.error}`);
@@ -107,7 +114,7 @@ export default function CallAssistPage() {
     recognition.start();
     setListening(true);
     setError(null);
-  }, [askForSuggestion]);
+  }, [drainQueue]);
 
   const stop = useCallback(() => {
     const recognition = recognitionRef.current;
@@ -178,10 +185,10 @@ export default function CallAssistPage() {
               Nothing yet — press start and speak.
             </li>
           )}
-          {turns.map((t, i) => {
+          {turns.map((t) => {
             const you = t.speaker === 'you';
             return (
-              <li key={i} className={`flex ${you ? 'justify-start' : 'justify-end'}`}>
+              <li key={t.id} className={`flex ${you ? 'justify-start' : 'justify-end'}`}>
                 <div
                   className={`max-w-[85%] rounded-2xl px-4 py-2.5 text-[15px] leading-relaxed ${
                     you ? 'rounded-bl-sm border border-gray-200 bg-white' : 'rounded-br-sm bg-blue-600 text-white'
