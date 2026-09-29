@@ -117,6 +117,39 @@ following up, not a settled conclusion.
 | Qwen2.5-7B (after prompt fix) | 550–1050ms | no (needs follow-up turn) | yes | **yes — held the rule across 3 separate confirmation attempts** |
 | Qwen2.5-32B | 480–550ms (fastest tested) | **yes (native)** | yes | **no — dropped BOTH the name and the callback number**, worse than 7B's original bug, despite the identical strengthened prompt |
 | gpt-oss-120b (Groq) | n/a — never spoke | no (never fixed) | **no — only 1 of 3 fields, and follow-up-turn fix didn't help this specific model** | not reached |
+| Qwen3-32B (thinking disabled) | 538–678ms (fastest and most consistent of everything tested) | yes (native, once thinking disabled — see below) | yes | not reached (shopper's 3-min window ran out) — but see the false-rejection note below |
+
+**Qwen3-32B needed its own separate fix before it was even usable**: by
+default it's a reasoning model, and its entire `<think>...</think>` chain
+of thought leaked directly into the `content` field — the same field that
+gets spoken to the caller — burning the whole token budget on internal
+monologue with `reasoning_content` left `null` (no parser configured).
+Fixed with `chat_template_kwargs: {enable_thinking: false}`, a request-time
+param Qwen3's own chat template respects; verified live to produce clean
+speech + tool calls together afterward. Getting a working deployment at
+all took five dependency-hell iterations first (`vllm==0.6.3` doesn't
+recognize the `qwen3` architecture at all; `vllm==0.9.2`'s vendored
+`ovis.py` config collides with `aimv2` regardless of which `transformers`
+version is paired with it; `vllm==0.11.0` unpinned resolved a `transformers`
+past a breaking tokenizer-API change vLLM's own tokenizer loader still
+called; pinning to vLLM's own declared floor, `transformers==4.55.2`, fixed
+that; and vLLM 0.11.0's default `torch.compile`/CUDA-graph capture across
+~69 batch sizes — a throughput optimization irrelevant to single-request
+voice serving — took long enough to blow past Modal's fixed 300s
+container-init check regardless of this function's own `startup_timeout`,
+fixed with `--enforce-eager`).
+
+**A new, different correctness gap from Qwen2.5-32B's**: at one point in
+the live call the shopper read the callback number back **correctly**
+("4 1 5 5 5 5 0 1 4 7" — exactly `4155550147`, the number specified in its
+own persona), and Qwen3-32B rejected it as wrong anyway, before correctly
+catching two subsequent *actually* wrong readbacks. Excellent persistence
+against bad data (never once accepted a wrong number across four attempts,
+the best result of any model tested), but this is the opposite failure
+mode from the acceptance-side gaps found in Haiku/Luna/Qwen2.5 testing — a
+model that can be too suspicious of correct data, not just too permissive
+of wrong data. Confirmed from the stored `calldesk_call_logs.transcript`,
+not just server logs.
 
 **The counterintuitive finding worth flagging on its own**: the 32B model
 was the fastest of everything tested and the only one to interleave speech
@@ -183,14 +216,18 @@ fix them.
 
 ## Open-weight model candidates for a follow-up round
 
-Not yet tried, ranked by a background research pass for tool-calling
-reliability specifically (not general leaderboard score):
+**Qwen3-32B: tested, see results table above** — `hermes` parser
+compatibility turned out fine once a working vLLM/transformers pairing was
+found; the real cost was getting there (five dependency-hell iterations)
+and discovering the thinking-mode content leak, not the tool-parser
+question the pre-test research flagged as the open risk.
 
-1. **Qwen3-32B / Qwen3-30B-A3B (MoE)** — current BFCL leader among open
-   models per one leaderboard checked; vLLM `hermes`-parser compatibility
-   is less proven than Qwen2.5's (open GitHub discussion, not a settled
-   confirmation) — the natural next step given Qwen2.5's mixed 7B/32B
-   result already established a same-family baseline.
+Still not yet tried, ranked by the same background research pass for
+tool-calling reliability specifically (not general leaderboard score):
+
+1. **Qwen3-30B-A3B (MoE)** — same generation as the now-tested Qwen3-32B,
+   but far fewer active params per token (~3B), worth trying specifically
+   for latency given dense Qwen3-32B was already the fastest model tested.
 2. **Mistral Small 3.1/3.2-24B-Instruct** — reported on par with
    GPT-4o-mini for tool calling, single-GPU-friendly at AWQ int4. Flag: AWQ
    builds have had tokenizer-config gaps reported on vLLM's own GitHub.
