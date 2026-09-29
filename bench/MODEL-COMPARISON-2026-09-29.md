@@ -207,13 +207,18 @@ tool-calling claims and observed community behavior.
 
 ## Speech-to-speech — not yet tried, but infra already exists
 
-`server.js` already has a dormant `VOICE_ENGINE=s2s` path (OpenAI
-Realtime) and `costTracker.js` already has an `openaiRealtimeMini` rate
-table entry — built previously, never exercised in this round. Worth a
-dedicated follow-up test now that OpenAI billing is confirmed live (fixed
-this same session for the Luna leg). A true speech-to-speech model removes
-the cascaded STT->LLM->TTS pipeline entirely, which would sidestep every
-tool-calling-format issue documented above, at the cost of losing the
-`record_field`/`transition_flow` tool-calling model this whole comparison
-was built around — worth checking whether OpenAI Realtime's own tool
-calling is reliable before assuming it's a strict upgrade.
+`server.js` once had a `VOICE_ENGINE=s2s` path (OpenAI Realtime) — **it was
+fully removed on 2026-08-28** ("no flow/billing support, and the OpenAI key
+was pulled... not worth maintaining a dead code path" per the comment left
+in its place), and no trace of the removed code survives in git history
+(the repo's earliest commit already postdates it). `costTracker.js` still
+has an `openaiRealtimeMini` rate table entry left over from when it
+existed. Re-adding this is a from-scratch build, not a flag flip: a new
+Twilio Media Stream <-> OpenAI Realtime WebSocket bridge, audio format
+conversion (Twilio's μ-law 8kHz vs. Realtime's PCM16 24kHz), and Realtime's
+own function-calling protocol (different shape from Chat Completions'
+`tool_calls`) would all need building and testing fresh, including
+checking whether Realtime's tool calling is reliable enough for
+`record_field`/`transition_flow` given how much this comparison already
+found tool-calling reliability varies by provider. Scoped as a real
+follow-up project, not attempted this round.
