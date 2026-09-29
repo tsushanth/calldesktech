@@ -2,27 +2,31 @@
 
 // Internal tool, v0: real-time call-assist prototype.
 //
-// Transcribes the browser's own mic live using the Web Speech API (built
-// into Chrome, no vendor integration needed for this prototype — see the
-// note in /api/assist/suggest for why Deepgram isn't wired up yet) and asks
-// the backend for a goal-anchored suggestion every time a new chunk of
-// speech finalizes: a playbook stage, a ready-to-read line, and a shorter
-// cue to paraphrase instead — see the note in /api/assist/suggest for why
-// both are shown rather than picking one mode.
+// Streams the browser's mic audio to a small relay service
+// (calldesk-assist-relay, a separate tiny process — see its repo for why)
+// which forwards it to Deepgram's live API with diarization on and relays
+// the diarized transcript back. This replaced an earlier Web Speech API +
+// content-guessed-speaker version: Web Speech API struggled to even
+// finalize speech reliably with two blended voices in one mic, and guessing
+// "you" vs "customer" from words alone mislabeled an unambiguous agent
+// greeting on the very first real test. Deepgram's diarization separates
+// speakers by actual voice characteristics, the same technique already
+// proven in the MeetingMind app (Deepgram nova-2, diarize=true) — just
+// applied live instead of to a finished recording.
+//
+// Speaker labels: Deepgram gives numeric speaker indices (0, 1, ...), not
+// roles. The first index heard is labeled "You" and any other index
+// "Customer" — a real, deterministic mapping (not a guess) that holds for
+// how these calls actually go: the agent speaks first.
 //
 // Mic-only: on a video call (Meet/Zoom) with a headset, this picks up both
-// sides well enough to prototype with, because the other party's audio
-// plays through the speaker/headset and bleeds into the mic pickup. It does
-// NOT capture a real two-line phone call — that needs Twilio Media Streams
-// on both legs, which is separate, larger work.
+// sides because the other party's audio plays through the speaker/headset
+// and bleeds into the mic pickup. It does NOT capture a real two-line phone
+// call — that needs Twilio Media Streams on both legs, which is separate,
+// larger work, and unnecessary if this mic-only path proves reliable enough.
 //
-// No speaker labels: tried guessing "you" vs "customer" from conversational
-// content alone (there's only one mono mic input, no real diarization), and
-// it mislabeled an unambiguous agent greeting as the customer on the first
-// real test. Rather than show a wrong guess, the transcript is just a plain
-// unlabeled log — accurate about what this v0 actually knows.
-//
-// Nothing here is recorded or persisted: transcript lives only in this
+// Nothing here is recorded or persisted: audio goes browser -> relay ->
+// Deepgram and back as a live pass-through; transcript lives only in this
 // tab's memory and is discarded on refresh.
 //
 // Visual theme matches src/app/samples/[product]/page.tsx (the shipped
@@ -34,6 +38,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 
 interface Turn {
   id: number;
+  speaker: 'you' | 'customer';
   text: string;
 }
 
@@ -41,6 +46,8 @@ type Stage = 'opening' | 'discovery' | 'objection' | 'close' | 'wrap-up';
 
 const DEFAULT_GOAL =
   'Get the business owner to agree to forward their overflow/after-hours calls to a number we give them, for a free 2-week trial.';
+
+const RELAY_URL = process.env.NEXT_PUBLIC_ASSIST_RELAY_URL || 'wss://calldesk-assist-relay.fly.dev/';
 
 const STAGE_LABEL: Record<Stage, string> = {
   opening: 'Opening',
@@ -77,8 +84,12 @@ export default function CallAssistPage() {
   const [cue, setCue] = useState('');
   const [stage, setStage] = useState<Stage>('opening');
   const [error, setError] = useState<string | null>(null);
-  const recognitionRef = useRef<any>(null);
-  const transcriptRef = useRef('');
+
+  const wsRef = useRef<WebSocket | null>(null);
+  const recorderRef = useRef<MediaRecorder | null>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+  const speakerMapRef = useRef<Map<number, 'you' | 'customer'>>(new Map());
+  const transcriptRef = useRef(''); // "You: ... \nCustomer: ..." rolling log sent to /api/assist/suggest
   const goalRef = useRef(goal);
   const nextIdRef = useRef(0);
   const pendingRef = useRef(false);
@@ -114,44 +125,92 @@ export default function CallAssistPage() {
     }
   }, [secret]);
 
-  const start = useCallback(() => {
-    const SpeechRecognition =
-      (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-    if (!SpeechRecognition) {
-      setError('This browser doesn’t support live speech recognition — use Chrome.');
-      return;
+  const labelFor = useCallback((speakerIndex: number): 'you' | 'customer' => {
+    const map = speakerMapRef.current;
+    if (!map.has(speakerIndex)) {
+      // First index ever heard in this session is "you" (the agent speaks
+      // first on these calls); every other index is "customer".
+      map.set(speakerIndex, map.size === 0 ? 'you' : 'customer');
     }
-    const recognition = new SpeechRecognition();
-    recognition.continuous = true;
-    recognition.interimResults = true;
-    recognition.onresult = (event: any) => {
-      let finalChunk = '';
-      for (let i = event.resultIndex; i < event.results.length; i++) {
-        if (event.results[i].isFinal) finalChunk += event.results[i][0].transcript + ' ';
-      }
-      finalChunk = finalChunk.trim();
-      if (finalChunk) {
-        transcriptRef.current = (transcriptRef.current + ' ' + finalChunk).slice(-4000);
-        setTurns((prev) => [...prev, { id: nextIdRef.current++, text: finalChunk }]);
-        askForSuggestion();
-      }
-    };
-    recognition.onerror = (event: any) => setError(`mic error: ${event.error}`);
-    recognition.onend = () => {
-      if (recognitionRef.current) recognition.start(); // auto-restart, browser stops it periodically
-    };
-    recognitionRef.current = recognition;
-    recognition.start();
-    setListening(true);
-    setError(null);
-  }, [askForSuggestion]);
+    return map.get(speakerIndex)!;
+  }, []);
 
   const stop = useCallback(() => {
-    const recognition = recognitionRef.current;
-    recognitionRef.current = null;
-    recognition?.stop();
+    recorderRef.current?.state !== 'inactive' && recorderRef.current?.stop();
+    recorderRef.current = null;
+    streamRef.current?.getTracks().forEach((t) => t.stop());
+    streamRef.current = null;
+    wsRef.current?.close();
+    wsRef.current = null;
     setListening(false);
   }, []);
+
+  const start = useCallback(async () => {
+    setError(null);
+    speakerMapRef.current = new Map();
+    transcriptRef.current = '';
+
+    let stream: MediaStream;
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    } catch {
+      setError('Mic access was blocked or unavailable — allow microphone access and try again.');
+      return;
+    }
+    streamRef.current = stream;
+
+    const ws = new WebSocket(`${RELAY_URL}?secret=${encodeURIComponent(secret)}`);
+    wsRef.current = ws;
+
+    ws.onopen = () => {
+      const recorder = new MediaRecorder(stream, { mimeType: 'audio/webm;codecs=opus' });
+      recorder.ondataavailable = (e) => {
+        if (e.data.size > 0 && ws.readyState === WebSocket.OPEN) ws.send(e.data);
+      };
+      recorder.start(250);
+      recorderRef.current = recorder;
+      setListening(true);
+    };
+
+    ws.onmessage = (event) => {
+      let msg: any;
+      try {
+        msg = JSON.parse(event.data);
+      } catch {
+        return;
+      }
+      const alt = msg?.channel?.alternatives?.[0];
+      const words: any[] = alt?.words || [];
+      if (!msg?.is_final || words.length === 0) return;
+
+      // Group consecutive words by speaker into one line per turn.
+      let current: { speaker: number; text: string[] } | null = null;
+      const lines: { speaker: number; text: string }[] = [];
+      for (const w of words) {
+        const spk = typeof w.speaker === 'number' ? w.speaker : 0;
+        if (!current || current.speaker !== spk) {
+          if (current) lines.push({ speaker: current.speaker, text: current.text.join(' ') });
+          current = { speaker: spk, text: [w.punctuated_word || w.word] };
+        } else {
+          current.text.push(w.punctuated_word || w.word);
+        }
+      }
+      if (current) lines.push({ speaker: current.speaker, text: current.text.join(' ') });
+
+      for (const l of lines) {
+        const speaker = labelFor(l.speaker);
+        transcriptRef.current = (transcriptRef.current + `\n${speaker === 'you' ? 'You' : 'Customer'}: ${l.text}`).slice(-4000);
+        setTurns((prev) => [...prev, { id: nextIdRef.current++, speaker, text: l.text }]);
+      }
+      askForSuggestion();
+    };
+
+    ws.onerror = () => setError('Lost connection to the assist relay.');
+    ws.onclose = (event) => {
+      if (event.code === 4001) setError('Access code was rejected by the relay.');
+      if (recorderRef.current) stop();
+    };
+  }, [secret, labelFor, askForSuggestion, stop]);
 
   return (
     <main className="min-h-screen bg-[#f7f8fa] text-[#1a1d29]">
@@ -240,18 +299,30 @@ export default function CallAssistPage() {
 
         <h2 className="mt-8 text-[15px] font-semibold">Live transcript</h2>
         <p className="mt-1 text-[13px] text-gray-500">
-          Stays in this tab only, nothing is saved. Not speaker-labeled — one mic can&rsquo;t reliably
-          tell who&rsquo;s talking, so it isn&rsquo;t guessed.
+          Stays in this tab only, nothing is saved. Speakers are separated by voice (Deepgram
+          diarization), not guessed from what&rsquo;s said.
         </p>
-        <div className="mt-3 max-h-[420px] space-y-2 overflow-y-auto rounded-xl border border-gray-200 bg-white p-4">
+        <div className="mt-3 max-h-[420px] space-y-3 overflow-y-auto rounded-xl border border-gray-200 bg-white p-4">
           {turns.length === 0 ? (
             <p className="text-center text-[14px] text-gray-400">Nothing yet — press start and speak.</p>
           ) : (
-            turns.map((t) => (
-              <p key={t.id} className="text-[15px] leading-relaxed text-[#1a1d29]">
-                {t.text}
-              </p>
-            ))
+            turns.map((t) => {
+              const you = t.speaker === 'you';
+              return (
+                <div key={t.id} className={`flex ${you ? 'justify-start' : 'justify-end'}`}>
+                  <div
+                    className={`max-w-[85%] rounded-2xl px-4 py-2.5 text-[15px] leading-relaxed ${
+                      you ? 'rounded-bl-sm border border-gray-200 bg-white' : 'rounded-br-sm bg-blue-600 text-white'
+                    }`}
+                  >
+                    <p className={`mb-0.5 text-[11px] font-semibold uppercase tracking-wider ${you ? 'text-gray-400' : 'text-blue-100'}`}>
+                      {you ? 'You' : 'Customer'}
+                    </p>
+                    {t.text}
+                  </div>
+                </div>
+              );
+            })
           )}
           <div ref={bottomRef} />
         </div>

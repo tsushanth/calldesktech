@@ -29,14 +29,13 @@ import { getAnthropicClient } from '@/lib/anthropic';
 // two-party consent / wiretap statutes — the trigger is intercepting the
 // call's content, not retention).
 //
-// No speaker attribution: an earlier version asked the model to guess who
-// said each chunk ("you" vs "customer") from conversational content alone,
-// since there's only one mono mic input and no real audio diarization.
-// Tested against an actual call transcript and it mislabeled the very first
-// line (an unambiguous agent greeting) as the customer — the guess isn't
-// reliable, so it's not offered at all rather than shown wrong. Real speaker
-// separation needs actual per-leg audio capture (e.g. Twilio Media Streams
-// or a diarization-capable STT), which is separate, larger work.
+// The transcript now arrives pre-labeled "You: ..." / "Customer: ..." —
+// real Deepgram diarization done client-side against the assist relay, not
+// a guess. An earlier version asked THIS endpoint's model to guess the
+// speaker from conversational content alone (single mono mic, no real
+// diarization at the time) and it mislabeled an unambiguous agent greeting
+// as the customer on the first real test. That guessing code is gone; this
+// endpoint now trusts the labels it's given rather than re-deriving them.
 
 const MODEL = process.env.CALL_ASSIST_MODEL || 'claude-haiku-4-5';
 
@@ -46,9 +45,9 @@ const DEFAULT_GOAL =
 const STAGES = ['opening', 'discovery', 'objection', 'close', 'wrap-up'] as const;
 type Stage = (typeof STAGES)[number];
 
-const SYSTEM_PROMPT = `You are coaching a human sales agent live, mid phone call, at a company selling an AI phone-answering service to small US businesses (plumbers, insurance agents, freight brokers, etc).
+const SYSTEM_PROMPT = `You are coaching a human sales agent ("You" in the transcript) live, mid phone call, at a company selling an AI phone-answering service to small US businesses (plumbers, insurance agents, freight brokers, etc). The other party is labeled "Customer".
 
-You will be given the call's goal, then the rolling transcript so far (most recent lines last). Every suggestion must move toward the goal, not just react to the last line — if the conversation has drifted, the right suggestion is often the thing that steers it back, not just a reply in kind.
+You will be given the call's goal, then the rolling transcript so far (most recent lines last, each line prefixed with who said it). Every suggestion must move toward the goal, not just react to the last line — if the conversation has drifted, the right suggestion is often the thing that steers it back, not just a reply in kind. The speaker labels come from real voice-based diarization, not a guess — trust them.
 
 Reply with ONLY a JSON object, no other text:
 {"stage": "opening" | "discovery" | "objection" | "close" | "wrap-up", "line": "...", "cue": "..."}
