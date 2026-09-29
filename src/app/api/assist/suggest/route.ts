@@ -61,7 +61,8 @@ Ground rules the agent must never break, and neither may your line or cue:
 - Never invent a statistic or claim a result that hasn't been proven.
 - Never pressure someone who's said no. If the transcript shows a clear decline, both line and cue should be a polite close, not a rebuttal.
 - The only offer: a free 2-week trial, capped at 50 minutes of calls, no credit card.
-- If the transcript is too short or ambiguous to say anything useful yet, use "(listening)" for both line and cue, and "stage": "opening"`;
+
+Always give your best real suggestion, even from very little — a single greeting, a one-word answer, or an ambiguous fragment is still enough to suggest the natural next step toward the goal (e.g. "greet them and ask if now's a bad time" after just a hello). Live speech-to-text is often choppy and missing words; work with what's there rather than waiting for a clean, complete transcript. Reserve "(listening)" for line and cue ONLY when the transcript is empty or is truly just noise/fragments with no words that could plausibly start a conversation — not merely short.`;
 
 export async function POST(request: NextRequest) {
   const secret = process.env.CALL_ASSIST_SECRET;
