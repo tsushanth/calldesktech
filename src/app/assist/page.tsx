@@ -44,18 +44,26 @@ export default function CallAssistPage() {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
   }, [turns]);
 
-  const askForSuggestion = useCallback(async () => {
+  const askForSuggestion = useCallback(async (chunk: string) => {
     if (pendingRef.current) return;
     pendingRef.current = true;
     try {
       const res = await fetch('/api/assist/suggest', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${secret}` },
-        body: JSON.stringify({ transcript: transcriptRef.current }),
+        body: JSON.stringify({ transcript: transcriptRef.current, chunk }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'request failed');
       setSuggestion(data.suggestion);
+      if (data.speaker === 'you' || data.speaker === 'customer') {
+        setTurns((prev) => {
+          if (prev.length === 0) return prev;
+          const updated = [...prev];
+          updated[updated.length - 1] = { ...updated[updated.length - 1], speaker: data.speaker };
+          return updated;
+        });
+      }
       setError(null);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'suggestion failed');
@@ -82,11 +90,13 @@ export default function CallAssistPage() {
       finalChunk = finalChunk.trim();
       if (finalChunk) {
         transcriptRef.current = (transcriptRef.current + ' ' + finalChunk).slice(-4000);
-        // v0 has one mic input, so there's no real speaker separation yet —
-        // every finalized chunk is shown as "you" (the caller/agent side).
-        // Good enough to see the flow; a two-leg capture would label both.
+        // v0 has one mic input, so there's no real audio-level speaker
+        // separation — this chunk is shown as "you" provisionally and
+        // re-labeled once the backend's context-based guess comes back
+        // (see askForSuggestion). Good enough for testing against a played
+        // recording; a real two-leg call would need actual per-leg capture.
         setTurns((prev) => [...prev, { speaker: 'you', text: finalChunk }]);
-        askForSuggestion();
+        askForSuggestion(finalChunk);
       }
     };
     recognition.onerror = (event: any) => setError(`mic error: ${event.error}`);
