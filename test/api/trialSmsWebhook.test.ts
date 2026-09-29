@@ -59,6 +59,11 @@ function makeStatefulSupabase() {
           }
           return builder;
         };
+        // sms_opt_outs (see src/lib/smsOptOut.ts, migration 058) -- STOP
+        // handling upserts an opt-out row; this mock only needs to resolve
+        // without error, not actually persist anything, since no test
+        // asserts on opt-out storage content.
+        builder.upsert = async () => ({ data: null, error: null });
 
         (builder as unknown as PromiseLike<unknown>).then = (resolve: (v: unknown) => unknown, reject?: (e: unknown) => unknown) =>
           Promise.resolve({ data: null, error: null }).then(resolve, reject);
@@ -151,7 +156,8 @@ it('STOP short-circuits to completed from any state', async () => {
   const json = await res.json();
   expect(json.step).toBe('completed');
   expect(store.session()?.step).toBe('completed');
-  expect(json.replied).toMatch(/will not receive any more messages/i);
+  // STOP_CONFIRMATION_TEXT, src/lib/smsOptOut.ts.
+  expect(json.replied).toMatch(/unsubscribed.*will not receive further messages/i);
 });
 
 it('HELP responds with guidance without changing step', async () => {
@@ -161,6 +167,9 @@ it('HELP responds with guidance without changing step', async () => {
   const res = await POST(makeRequest({ to: TO, from: FROM, body: 'HELP' }));
   const json = await res.json();
   expect(json.step).toBe('greeting');
-  expect(json.replied).toMatch(/START/);
+  // A2P 10DLC compliance copy (HELP_TEXT, src/lib/smsOptOut.ts): brand name,
+  // message-frequency and rates disclosure, STOP instruction, support
+  // contact -- not the trial flow's own "reply START" prompt.
+  expect(json.replied).toMatch(/CallDeskTech.*Reply STOP to unsubscribe/);
   expect(store.session()?.step).toBe('greeting');
 });
