@@ -11,6 +11,19 @@ Everything here is real, run-today findings, not benchmark scores — every
 number came from an actual live phone call through the medical-booking test
 flow (see "Test harness" below), not an offline eval.
 
+**Running tally, updated as models are added**: Haiku is still the only
+model tested with zero correctness failures across all its runs. Every
+alternative tried so far — Luna, gpt-oss-120b, Qwen2.5-7B (before its
+prompt fix), Qwen2.5-32B, Qwen3-32B — has shown at least one real
+correctness gap, even in cases where latency or cost looked favorable
+(Qwen3-32B was the fastest model tested and still false-rejected a correct
+readback; Qwen2.5-32B was the only other model besides Haiku to speak and
+call tools natively in one response, and still dropped two of three
+required fields from a confirmation readback). Cheaper/faster is not yet
+translating into a real Haiku replacement for this flow — see "Results"
+for the per-model breakdown and "Open-weight model candidates" for what's
+still queued to try.
+
 ## Models tested
 
 | Model | Provider | Notes |
