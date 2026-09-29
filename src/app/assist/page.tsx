@@ -58,6 +58,16 @@ const STAGE_COLOR: Record<Stage, string> = {
   'wrap-up': 'bg-gray-100 text-gray-600',
 };
 
+// fetch() Authorization headers must be ISO-8859-1 — a pasted access code
+// can carry an invisible character outside that range (a non-breaking
+// space from a copy, a smart quote from autocorrect, a stray newline) that
+// throws "non ISO-8859-1 code point" deep inside fetch() itself with no
+// useful message. Stripping to the printable ASCII range on input means a
+// messy paste still works instead of failing with a cryptic browser error.
+function sanitizeSecret(value: string): string {
+  return value.replace(/[^\x20-\x7e]/g, '').trim();
+}
+
 export default function CallAssistPage() {
   const [secret, setSecret] = useState('');
   const [goal, setGoal] = useState(DEFAULT_GOAL);
@@ -181,7 +191,7 @@ export default function CallAssistPage() {
             <input
               id="access-code"
               type="password"
-              onChange={(e) => setSecret(e.target.value)}
+              onChange={(e) => setSecret(sanitizeSecret(e.target.value))}
               placeholder="paste the shared code"
               className="mt-2 w-full rounded-lg border border-gray-300 px-3 py-2 text-[15px] outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
             />
