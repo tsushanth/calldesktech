@@ -14,19 +14,24 @@
 // NOT capture a real two-line phone call — that needs Twilio Media Streams
 // on both legs, which is separate, larger work.
 //
+// No speaker labels: tried guessing "you" vs "customer" from conversational
+// content alone (there's only one mono mic input, no real diarization), and
+// it mislabeled an unambiguous agent greeting as the customer on the first
+// real test. Rather than show a wrong guess, the transcript is just a plain
+// unlabeled log — accurate about what this v0 actually knows.
+//
 // Nothing here is recorded or persisted: transcript lives only in this
 // tab's memory and is discarded on refresh.
 //
 // Visual theme matches src/app/samples/[product]/page.tsx (the shipped
-// Calldesk sample-call page) on purpose: same light shell, same chat-bubble
-// transcript, same amber disclosure treatment — this is an internal tool for
-// the same product, not a place to invent a new look.
+// Calldesk sample-call page) on purpose: same light shell, same card
+// treatment, same amber disclosure — this is an internal tool for the same
+// product, not a place to invent a new look.
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 interface Turn {
   id: number;
-  speaker: 'you' | 'customer';
   text: string;
 }
 
@@ -39,43 +44,30 @@ export default function CallAssistPage() {
   const recognitionRef = useRef<any>(null);
   const transcriptRef = useRef('');
   const nextIdRef = useRef(0);
-  // Every finalized chunk must get an attribution call — dropping one when
-  // a request is already in flight (the earlier version's behavior) meant
-  // most chunks never got re-labeled at all, since people talk faster than
-  // the ~1-2s round trip. This queue processes one at a time instead of
-  // skipping, so nothing is silently left as the default "you".
-  const queueRef = useRef<{ id: number; chunk: string }[]>([]);
-  const draining = useRef(false);
+  const pendingRef = useRef(false);
   const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
   }, [turns]);
 
-  const drainQueue = useCallback(async () => {
-    if (draining.current) return;
-    draining.current = true;
+  const askForSuggestion = useCallback(async () => {
+    if (pendingRef.current) return;
+    pendingRef.current = true;
     try {
-      while (queueRef.current.length > 0) {
-        const { id, chunk } = queueRef.current.shift()!;
-        try {
-          const res = await fetch('/api/assist/suggest', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${secret}` },
-            body: JSON.stringify({ transcript: transcriptRef.current, chunk }),
-          });
-          const data = await res.json();
-          if (!res.ok) throw new Error(data.error || 'request failed');
-          setSuggestion(data.suggestion);
-          const speaker: 'you' | 'customer' = data.speaker === 'customer' ? 'customer' : 'you';
-          setTurns((prev) => prev.map((t) => (t.id === id ? { ...t, speaker } : t)));
-          setError(null);
-        } catch (e) {
-          setError(e instanceof Error ? e.message : 'suggestion failed');
-        }
-      }
+      const res = await fetch('/api/assist/suggest', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${secret}` },
+        body: JSON.stringify({ transcript: transcriptRef.current }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'request failed');
+      setSuggestion(data.suggestion);
+      setError(null);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'suggestion failed');
     } finally {
-      draining.current = false;
+      pendingRef.current = false;
     }
   }, [secret]);
 
@@ -97,13 +89,8 @@ export default function CallAssistPage() {
       finalChunk = finalChunk.trim();
       if (finalChunk) {
         transcriptRef.current = (transcriptRef.current + ' ' + finalChunk).slice(-4000);
-        // v0 has one mic input, so there's no real audio-level speaker
-        // separation — this chunk is shown as "you" provisionally and
-        // re-labeled once its queued attribution call comes back.
-        const id = nextIdRef.current++;
-        setTurns((prev) => [...prev, { id, speaker: 'you', text: finalChunk }]);
-        queueRef.current.push({ id, chunk: finalChunk });
-        drainQueue();
+        setTurns((prev) => [...prev, { id: nextIdRef.current++, text: finalChunk }]);
+        askForSuggestion();
       }
     };
     recognition.onerror = (event: any) => setError(`mic error: ${event.error}`);
@@ -114,7 +101,7 @@ export default function CallAssistPage() {
     recognition.start();
     setListening(true);
     setError(null);
-  }, [drainQueue]);
+  }, [askForSuggestion]);
 
   const stop = useCallback(() => {
     const recognition = recognitionRef.current;
@@ -178,32 +165,22 @@ export default function CallAssistPage() {
         </div>
 
         <h2 className="mt-8 text-[15px] font-semibold">Live transcript</h2>
-        <p className="mt-1 text-[13px] text-gray-500">Stays in this tab only. Nothing is saved.</p>
-        <ol className="mt-3 max-h-[420px] space-y-3 overflow-y-auto" aria-label="Live call transcript">
-          {turns.length === 0 && (
-            <li className="rounded-xl border border-dashed border-gray-300 px-4 py-6 text-center text-[14px] text-gray-400">
-              Nothing yet — press start and speak.
-            </li>
+        <p className="mt-1 text-[13px] text-gray-500">
+          Stays in this tab only, nothing is saved. Not speaker-labeled — one mic can&rsquo;t reliably
+          tell who&rsquo;s talking, so it isn&rsquo;t guessed.
+        </p>
+        <div className="mt-3 max-h-[420px] space-y-2 overflow-y-auto rounded-xl border border-gray-200 bg-white p-4">
+          {turns.length === 0 ? (
+            <p className="text-center text-[14px] text-gray-400">Nothing yet — press start and speak.</p>
+          ) : (
+            turns.map((t) => (
+              <p key={t.id} className="text-[15px] leading-relaxed text-[#1a1d29]">
+                {t.text}
+              </p>
+            ))
           )}
-          {turns.map((t) => {
-            const you = t.speaker === 'you';
-            return (
-              <li key={t.id} className={`flex ${you ? 'justify-start' : 'justify-end'}`}>
-                <div
-                  className={`max-w-[85%] rounded-2xl px-4 py-2.5 text-[15px] leading-relaxed ${
-                    you ? 'rounded-bl-sm border border-gray-200 bg-white' : 'rounded-br-sm bg-blue-600 text-white'
-                  }`}
-                >
-                  <p className={`mb-0.5 text-[11px] font-semibold uppercase tracking-wider ${you ? 'text-gray-400' : 'text-blue-100'}`}>
-                    {you ? 'You' : 'Customer'}
-                  </p>
-                  {t.text}
-                </div>
-              </li>
-            );
-          })}
           <div ref={bottomRef} />
-        </ol>
+        </div>
       </div>
     </main>
   );

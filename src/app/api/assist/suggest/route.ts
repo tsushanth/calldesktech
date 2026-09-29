@@ -16,22 +16,27 @@ import { getAnthropicClient } from '@/lib/anthropic';
 // requirement doesn't go away just because nothing here is persisted (see
 // two-party consent / wiretap statutes — the trigger is intercepting the
 // call's content, not retention).
+//
+// No speaker attribution: an earlier version asked the model to guess who
+// said each chunk ("you" vs "customer") from conversational content alone,
+// since there's only one mono mic input and no real audio diarization.
+// Tested against an actual call transcript and it mislabeled the very first
+// line (an unambiguous agent greeting) as the customer — the guess isn't
+// reliable, so it's not offered at all rather than shown wrong. Real speaker
+// separation needs actual per-leg audio capture (e.g. Twilio Media Streams
+// or a diarization-capable STT), which is separate, larger work.
 
 const MODEL = process.env.CALL_ASSIST_MODEL || 'claude-haiku-4-5';
 
 const SYSTEM_PROMPT = `You are coaching a human sales agent live, mid phone call, at a company selling an AI phone-answering service to small US businesses (plumbers, insurance agents, freight brokers, etc). The agent forwards their overflow/after-hours calls to us for a free trial.
 
-You will be given the rolling transcript so far (most recent lines last), then the single newest chunk that just finalized. There is only one microphone, so the newest chunk's speaker is NOT already known — decide it yourself from context (who was talking last, whether this chunk reads like a question/answer/continuation, self-identifying language, etc).
-
-Reply with ONLY a JSON object, no other text: {"speaker": "you" | "customer", "suggestion": "..."}
-- "speaker": who most likely said the newest chunk. "you" = the sales agent (our side); "customer" = the business owner/prospect being called.
-- "suggestion": ONE short line (under 20 words) of what the agent should say or do next. No preamble, no quotes inside it.
+You will be given the rolling transcript so far, most recent lines last. Reply with ONE short line (under 20 words) of what the agent should say or do next. No preamble, no quotes, no explanation — just the line itself, ready to read or paraphrase.
 
 Ground rules the agent must never break, and neither may your suggestion:
 - Never invent a statistic or claim a result that hasn't been proven.
 - Never pressure someone who's said no. If the transcript shows a clear decline, suggest a polite close, not a rebuttal.
 - The only offer: a free 2-week trial, capped at 50 minutes of calls, no credit card.
-- If there's too little to go on yet, use "suggestion": "(listening)"`;
+- If the transcript is too short or ambiguous to say anything useful yet, reply exactly: (listening)`;
 
 export async function POST(request: NextRequest) {
   const secret = process.env.CALL_ASSIST_SECRET;
@@ -45,32 +50,20 @@ export async function POST(request: NextRequest) {
 
   const body = await request.json().catch(() => ({}));
   const transcript = typeof body.transcript === 'string' ? body.transcript.slice(-4000) : '';
-  const chunk = typeof body.chunk === 'string' ? body.chunk.slice(-500) : '';
   if (!transcript.trim()) {
-    return NextResponse.json({ suggestion: '(listening)', speaker: 'you' });
+    return NextResponse.json({ suggestion: '(listening)' });
   }
 
   try {
     const message = await getAnthropicClient().messages.create({
       model: MODEL,
-      max_tokens: 100,
+      max_tokens: 60,
       system: SYSTEM_PROMPT,
-      messages: [
-        { role: 'user', content: `Rolling transcript so far:\n${transcript}\n\nNewest chunk to attribute: "${chunk || transcript}"` },
-      ],
+      messages: [{ role: 'user', content: transcript }],
     });
     const text = message.content.find((b) => b.type === 'text');
-    const raw = text && 'text' in text ? text.text.trim() : '';
-    let suggestion = '(listening)';
-    let speaker: 'you' | 'customer' = 'you';
-    try {
-      const parsed = JSON.parse(raw.replace(/^```json\s*|\s*```$/g, ''));
-      if (typeof parsed.suggestion === 'string') suggestion = parsed.suggestion;
-      if (parsed.speaker === 'you' || parsed.speaker === 'customer') speaker = parsed.speaker;
-    } catch {
-      if (raw) suggestion = raw; // model didn't return JSON — still show something useful
-    }
-    return NextResponse.json({ suggestion, speaker });
+    const suggestion = text && 'text' in text ? text.text.trim() : '(listening)';
+    return NextResponse.json({ suggestion });
   } catch (err) {
     return NextResponse.json(
       { error: err instanceof Error ? err.message : 'suggestion failed' },
