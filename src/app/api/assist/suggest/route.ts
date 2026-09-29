@@ -3,9 +3,21 @@ import { getAnthropicClient } from '@/lib/anthropic';
 
 // POST /api/assist/suggest — real-time sales-call coaching, v0.
 //
-// Takes the rolling transcript of a live conversation (produced client-side
-// by the browser's own speech recognition — nothing is recorded or stored
-// here) and returns one short suggestion for what the agent should say next.
+// Takes a call goal plus the rolling transcript of a live conversation
+// (produced client-side by the browser's own speech recognition — nothing
+// is recorded or stored here) and returns:
+//   - stage: where the call is relative to the goal (industry-standard
+//     "playbook stage" framing — Cresta/Balto-style tools track this so
+//     suggestions are anchored to the goal, not just the last couple of
+//     lines)
+//   - line: a ready-to-read verbatim sentence
+//   - cue: a short direction to paraphrase in the agent's own words
+// Both line and cue are always returned — which one an agent reaches for
+// is a per-moment judgment call (precision-critical moments like pricing
+// favor the verbatim line; rapport-building moments favor the cue so it
+// doesn't sound read-aloud), matching how Cresta/Balto offer both rather
+// than forcing one mode for the whole call.
+//
 // Gated by CALL_ASSIST_SECRET, mirroring the bearer-secret pattern already
 // used for demo-call/live rather than the NextAuth/session flow, since the
 // page this serves is an internal tool, not a customer-facing one.
@@ -28,15 +40,28 @@ import { getAnthropicClient } from '@/lib/anthropic';
 
 const MODEL = process.env.CALL_ASSIST_MODEL || 'claude-haiku-4-5';
 
-const SYSTEM_PROMPT = `You are coaching a human sales agent live, mid phone call, at a company selling an AI phone-answering service to small US businesses (plumbers, insurance agents, freight brokers, etc). The agent forwards their overflow/after-hours calls to us for a free trial.
+const DEFAULT_GOAL =
+  'Get the business owner to agree to forward their overflow/after-hours calls to a number we give them, for a free 2-week trial of our AI phone-answering service.';
 
-You will be given the rolling transcript so far, most recent lines last. Reply with ONE short line (under 20 words) of what the agent should say or do next. No preamble, no quotes, no explanation — just the line itself, ready to read or paraphrase.
+const STAGES = ['opening', 'discovery', 'objection', 'close', 'wrap-up'] as const;
+type Stage = (typeof STAGES)[number];
 
-Ground rules the agent must never break, and neither may your suggestion:
+const SYSTEM_PROMPT = `You are coaching a human sales agent live, mid phone call, at a company selling an AI phone-answering service to small US businesses (plumbers, insurance agents, freight brokers, etc).
+
+You will be given the call's goal, then the rolling transcript so far (most recent lines last). Every suggestion must move toward the goal, not just react to the last line — if the conversation has drifted, the right suggestion is often the thing that steers it back, not just a reply in kind.
+
+Reply with ONLY a JSON object, no other text:
+{"stage": "opening" | "discovery" | "objection" | "close" | "wrap-up", "line": "...", "cue": "..."}
+- "stage": where this call is relative to the goal right now.
+- "line": ONE ready-to-read sentence (under 20 words) the agent could say verbatim.
+- "cue": a short direction (under 12 words) for what to bring up, for the agent to phrase in their own words instead, e.g. "ask what happens to calls when the crew's on a job".
+- line and cue should point at the same next move, just in two forms — not two different ideas.
+
+Ground rules the agent must never break, and neither may your line or cue:
 - Never invent a statistic or claim a result that hasn't been proven.
-- Never pressure someone who's said no. If the transcript shows a clear decline, suggest a polite close, not a rebuttal.
+- Never pressure someone who's said no. If the transcript shows a clear decline, both line and cue should be a polite close, not a rebuttal.
 - The only offer: a free 2-week trial, capped at 50 minutes of calls, no credit card.
-- If the transcript is too short or ambiguous to say anything useful yet, reply exactly: (listening)`;
+- If the transcript is too short or ambiguous to say anything useful yet, use "(listening)" for both line and cue, and "stage": "opening"`;
 
 export async function POST(request: NextRequest) {
   const secret = process.env.CALL_ASSIST_SECRET;
@@ -50,20 +75,32 @@ export async function POST(request: NextRequest) {
 
   const body = await request.json().catch(() => ({}));
   const transcript = typeof body.transcript === 'string' ? body.transcript.slice(-4000) : '';
+  const goal = typeof body.goal === 'string' && body.goal.trim() ? body.goal.trim().slice(0, 500) : DEFAULT_GOAL;
   if (!transcript.trim()) {
-    return NextResponse.json({ suggestion: '(listening)' });
+    return NextResponse.json({ line: '(listening)', cue: '(listening)', stage: 'opening' as Stage });
   }
 
   try {
     const message = await getAnthropicClient().messages.create({
       model: MODEL,
-      max_tokens: 60,
+      max_tokens: 150,
       system: SYSTEM_PROMPT,
-      messages: [{ role: 'user', content: transcript }],
+      messages: [{ role: 'user', content: `Call goal: ${goal}\n\nTranscript so far:\n${transcript}` }],
     });
     const text = message.content.find((b) => b.type === 'text');
-    const suggestion = text && 'text' in text ? text.text.trim() : '(listening)';
-    return NextResponse.json({ suggestion });
+    const raw = text && 'text' in text ? text.text.trim() : '';
+    let line = '(listening)';
+    let cue = '(listening)';
+    let stage: Stage = 'opening';
+    try {
+      const parsed = JSON.parse(raw.replace(/^```json\s*|\s*```$/g, ''));
+      if (typeof parsed.line === 'string') line = parsed.line;
+      if (typeof parsed.cue === 'string') cue = parsed.cue;
+      if (STAGES.includes(parsed.stage)) stage = parsed.stage;
+    } catch {
+      if (raw) line = raw; // model didn't return JSON — still show something useful
+    }
+    return NextResponse.json({ line, cue, stage });
   } catch (err) {
     return NextResponse.json(
       { error: err instanceof Error ? err.message : 'suggestion failed' },

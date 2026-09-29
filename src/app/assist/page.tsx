@@ -5,8 +5,10 @@
 // Transcribes the browser's own mic live using the Web Speech API (built
 // into Chrome, no vendor integration needed for this prototype — see the
 // note in /api/assist/suggest for why Deepgram isn't wired up yet) and asks
-// the backend for one short coaching suggestion every time a new chunk of
-// speech finalizes.
+// the backend for a goal-anchored suggestion every time a new chunk of
+// speech finalizes: a playbook stage, a ready-to-read line, and a shorter
+// cue to paraphrase instead — see the note in /api/assist/suggest for why
+// both are shown rather than picking one mode.
 //
 // Mic-only: on a video call (Meet/Zoom) with a headset, this picks up both
 // sides well enough to prototype with, because the other party's audio
@@ -35,17 +37,46 @@ interface Turn {
   text: string;
 }
 
+type Stage = 'opening' | 'discovery' | 'objection' | 'close' | 'wrap-up';
+
+const DEFAULT_GOAL =
+  'Get the business owner to agree to forward their overflow/after-hours calls to a number we give them, for a free 2-week trial.';
+
+const STAGE_LABEL: Record<Stage, string> = {
+  opening: 'Opening',
+  discovery: 'Discovery',
+  objection: 'Handling objection',
+  close: 'Closing',
+  'wrap-up': 'Wrap-up',
+};
+
+const STAGE_COLOR: Record<Stage, string> = {
+  opening: 'bg-gray-100 text-gray-600',
+  discovery: 'bg-blue-50 text-blue-700',
+  objection: 'bg-amber-50 text-amber-800',
+  close: 'bg-green-50 text-green-700',
+  'wrap-up': 'bg-gray-100 text-gray-600',
+};
+
 export default function CallAssistPage() {
   const [secret, setSecret] = useState('');
+  const [goal, setGoal] = useState(DEFAULT_GOAL);
   const [listening, setListening] = useState(false);
   const [turns, setTurns] = useState<Turn[]>([]);
-  const [suggestion, setSuggestion] = useState('Press start and speak — a suggestion will appear here.');
+  const [line, setLine] = useState('Press start and speak — a suggestion will appear here.');
+  const [cue, setCue] = useState('');
+  const [stage, setStage] = useState<Stage>('opening');
   const [error, setError] = useState<string | null>(null);
   const recognitionRef = useRef<any>(null);
   const transcriptRef = useRef('');
+  const goalRef = useRef(goal);
   const nextIdRef = useRef(0);
   const pendingRef = useRef(false);
   const bottomRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    goalRef.current = goal;
+  }, [goal]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
@@ -58,11 +89,13 @@ export default function CallAssistPage() {
       const res = await fetch('/api/assist/suggest', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${secret}` },
-        body: JSON.stringify({ transcript: transcriptRef.current }),
+        body: JSON.stringify({ transcript: transcriptRef.current, goal: goalRef.current }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'request failed');
-      setSuggestion(data.suggestion);
+      setLine(data.line);
+      setCue(data.cue);
+      if (data.stage) setStage(data.stage);
       setError(null);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'suggestion failed');
@@ -122,8 +155,26 @@ export default function CallAssistPage() {
           nothing here is &mdash; the disclosure covers processing the call, not storage.
         </div>
 
+        <div className="mt-6 rounded-xl border border-gray-200 bg-white p-4">
+          <label className="block text-[13px] font-medium text-gray-600" htmlFor="call-goal">
+            Call goal
+          </label>
+          <textarea
+            id="call-goal"
+            value={goal}
+            onChange={(e) => setGoal(e.target.value)}
+            rows={2}
+            disabled={listening}
+            className="mt-2 w-full resize-none rounded-lg border border-gray-300 px-3 py-2 text-[14px] outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 disabled:bg-gray-50 disabled:text-gray-500"
+          />
+          <p className="mt-1.5 text-[12px] text-gray-400">
+            Every suggestion aims at this, not just the last thing said. Edit before you start
+            listening — locked while a call is live so the goal doesn&rsquo;t shift mid-call.
+          </p>
+        </div>
+
         {!secret ? (
-          <div className="mt-6 rounded-xl border border-gray-200 bg-white p-4">
+          <div className="mt-4 rounded-xl border border-gray-200 bg-white p-4">
             <label className="block text-[13px] font-medium text-gray-600" htmlFor="access-code">
               Access code
             </label>
@@ -136,7 +187,7 @@ export default function CallAssistPage() {
             />
           </div>
         ) : (
-          <div className="mt-6 flex items-center gap-3">
+          <div className="mt-4 flex items-center gap-3">
             <button
               onClick={listening ? stop : start}
               className={`rounded-lg px-4 py-2 text-[14px] font-semibold text-white transition-colors ${
@@ -158,11 +209,24 @@ export default function CallAssistPage() {
           <p className="mt-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-[13px] text-red-700">{error}</p>
         )}
 
-        <h2 className="mt-8 text-[15px] font-semibold">Suggested next line</h2>
-        <div className="mt-3 rounded-xl border border-gray-200 border-l-4 border-l-blue-600 bg-white px-4 py-3.5">
-          <p className="mb-0.5 text-[11px] font-semibold uppercase tracking-wider text-blue-600">Say this next</p>
-          <p className="text-[17px] font-medium leading-relaxed">{suggestion}</p>
+        <div className="mt-8 flex items-center gap-2">
+          <h2 className="text-[15px] font-semibold">Suggested next move</h2>
+          <span className={`rounded-full px-2.5 py-0.5 text-[12px] font-medium ${STAGE_COLOR[stage]}`}>
+            {STAGE_LABEL[stage]}
+          </span>
         </div>
+
+        <div className="mt-3 rounded-xl border border-gray-200 border-l-4 border-l-blue-600 bg-white px-4 py-3.5">
+          <p className="mb-0.5 text-[11px] font-semibold uppercase tracking-wider text-blue-600">Read it</p>
+          <p className="text-[17px] font-medium leading-relaxed">{line}</p>
+        </div>
+
+        {cue && cue !== line && (
+          <div className="mt-2 rounded-xl border border-gray-200 bg-white px-4 py-3">
+            <p className="mb-0.5 text-[11px] font-semibold uppercase tracking-wider text-gray-400">Or bring up, in your own words</p>
+            <p className="text-[15px] leading-relaxed text-gray-700">{cue}</p>
+          </div>
+        )}
 
         <h2 className="mt-8 text-[15px] font-semibold">Live transcript</h2>
         <p className="mt-1 text-[13px] text-gray-500">
