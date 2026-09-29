@@ -17,38 +17,32 @@
 // Nothing here is recorded or persisted: transcript lives only in this
 // tab's memory and is discarded on refresh.
 //
-// Dark theme with every color set explicitly (background, text, borders) —
-// the first version left several elements with no explicit color and let
-// the browser's dark-mode UA defaults render near-invisible pale-on-pale
-// text; this version never relies on an inherited/default color anywhere.
+// Visual theme matches src/app/samples/[product]/page.tsx (the shipped
+// Calldesk sample-call page) on purpose: same light shell, same chat-bubble
+// transcript, same amber disclosure treatment — this is an internal tool for
+// the same product, not a place to invent a new look.
 
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
-const colors = {
-  bg: '#0b0d10',
-  panel: '#15181d',
-  panelBorder: '#262b33',
-  text: '#e6e8eb',
-  textDim: '#8b93a1',
-  accent: '#22c55e',
-  accentText: '#eafff1',
-  accentPanel: '#0f2417',
-  accentBorder: '#1f7a44',
-  warnPanel: '#2a2210',
-  warnBorder: '#5c4a12',
-  warnText: '#f2c94c',
-  danger: '#ef4444',
-};
+interface Turn {
+  speaker: 'you' | 'them';
+  text: string;
+}
 
 export default function CallAssistPage() {
   const [secret, setSecret] = useState('');
   const [listening, setListening] = useState(false);
-  const [transcript, setTranscript] = useState('');
-  const [suggestion, setSuggestion] = useState('(listening)');
+  const [turns, setTurns] = useState<Turn[]>([]);
+  const [suggestion, setSuggestion] = useState('Press start and speak — a suggestion will appear here.');
   const [error, setError] = useState<string | null>(null);
   const recognitionRef = useRef<any>(null);
   const transcriptRef = useRef('');
   const pendingRef = useRef(false);
+  const bottomRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
+  }, [turns]);
 
   const askForSuggestion = useCallback(async () => {
     if (pendingRef.current) return;
@@ -85,9 +79,13 @@ export default function CallAssistPage() {
       for (let i = event.resultIndex; i < event.results.length; i++) {
         if (event.results[i].isFinal) finalChunk += event.results[i][0].transcript + ' ';
       }
-      if (finalChunk.trim()) {
+      finalChunk = finalChunk.trim();
+      if (finalChunk) {
         transcriptRef.current = (transcriptRef.current + ' ' + finalChunk).slice(-4000);
-        setTranscript(transcriptRef.current);
+        // v0 has one mic input, so there's no real speaker separation yet —
+        // every finalized chunk is shown as "you" (the caller/agent side).
+        // Good enough to see the flow; a two-leg capture would label both.
+        setTurns((prev) => [...prev, { speaker: 'you', text: finalChunk }]);
         askForSuggestion();
       }
     };
@@ -109,117 +107,87 @@ export default function CallAssistPage() {
   }, []);
 
   return (
-    <div style={{ minHeight: '100vh', background: colors.bg, color: colors.text }}>
-      <div style={{ maxWidth: 760, margin: '0 auto', padding: '40px 20px', fontFamily: 'system-ui, -apple-system, sans-serif' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
-          <h1 style={{ fontSize: 22, fontWeight: 700, color: colors.text, margin: 0 }}>Call assist</h1>
-          <span style={{ fontSize: 12, color: colors.textDim, border: `1px solid ${colors.panelBorder}`, borderRadius: 999, padding: '3px 10px' }}>
-            v0 prototype
-          </span>
+    <main className="min-h-screen bg-[#f7f8fa] text-[#1a1d29]">
+      <div className="mx-auto max-w-2xl px-4 py-8 sm:py-12">
+        <p className="text-[13px] font-semibold uppercase tracking-wider text-gray-400">Calldesk</p>
+        <h1 className="mt-1 text-2xl font-semibold leading-tight sm:text-3xl">Call assist</h1>
+
+        <div role="note" className="mt-5 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-[14px] leading-relaxed text-amber-900">
+          Say &ldquo;this call may be monitored for quality&rdquo; (or equivalent) before the real
+          conversation starts. That&rsquo;s required regardless of whether anything is saved &mdash;
+          nothing here is &mdash; the disclosure covers processing the call, not storage.
         </div>
 
-        <p style={{ color: colors.warnText, background: colors.warnPanel, border: `1px solid ${colors.warnBorder}`, borderRadius: 8, padding: 12, fontSize: 13, lineHeight: 1.5 }}>
-          Reminder: say &ldquo;this call may be monitored/recorded for quality&rdquo; (or equivalent)
-          before the substantive part of any real call this is used on. That disclosure is required
-          regardless of whether anything is actually saved &mdash; nothing here is, but the legal
-          trigger is processing the call&rsquo;s content, not storage.
-        </p>
-
-        {!secret && (
-          <div style={{ margin: '20px 0' }}>
-            <label style={{ display: 'block', fontSize: 13, color: colors.textDim, marginBottom: 6 }}>Access code</label>
+        {!secret ? (
+          <div className="mt-6 rounded-xl border border-gray-200 bg-white p-4">
+            <label className="block text-[13px] font-medium text-gray-600" htmlFor="access-code">
+              Access code
+            </label>
             <input
+              id="access-code"
               type="password"
               onChange={(e) => setSecret(e.target.value)}
-              style={{
-                padding: 10,
-                width: '100%',
-                boxSizing: 'border-box',
-                background: colors.panel,
-                border: `1px solid ${colors.panelBorder}`,
-                borderRadius: 8,
-                color: colors.text,
-                fontSize: 14,
-              }}
               placeholder="paste the shared code"
+              className="mt-2 w-full rounded-lg border border-gray-300 px-3 py-2 text-[15px] outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
             />
           </div>
+        ) : (
+          <div className="mt-6 flex items-center gap-3">
+            <button
+              onClick={listening ? stop : start}
+              className={`rounded-lg px-4 py-2 text-[14px] font-semibold text-white transition-colors ${
+                listening ? 'bg-red-600 hover:bg-red-700' : 'bg-blue-600 hover:bg-blue-700'
+              }`}
+            >
+              {listening ? 'Stop listening' : 'Start listening'}
+            </button>
+            {listening && (
+              <span className="flex items-center gap-1.5 text-[13px] text-gray-500">
+                <span className="inline-block h-2 w-2 animate-pulse rounded-full bg-red-500" aria-hidden />
+                Listening
+              </span>
+            )}
+          </div>
         )}
-
-        <div style={{ display: 'flex', gap: 10, margin: '20px 0' }}>
-          <button
-            onClick={listening ? stop : start}
-            disabled={!secret}
-            style={{
-              padding: '10px 20px',
-              background: listening ? colors.danger : colors.accent,
-              color: '#08130c',
-              fontWeight: 600,
-              border: 'none',
-              borderRadius: 8,
-              fontSize: 14,
-              cursor: secret ? 'pointer' : 'not-allowed',
-              opacity: secret ? 1 : 0.5,
-            }}
-          >
-            {listening ? '● Stop listening' : 'Start listening'}
-          </button>
-          {listening && (
-            <span style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: colors.textDim }}>
-              <span style={{ width: 8, height: 8, borderRadius: '50%', background: colors.accent, display: 'inline-block' }} />
-              live
-            </span>
-          )}
-        </div>
 
         {error && (
-          <p style={{ color: colors.danger, fontSize: 13, background: '#2a1414', border: '1px solid #5c1f1f', borderRadius: 8, padding: 10 }}>
-            {error}
-          </p>
+          <p className="mt-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-[13px] text-red-700">{error}</p>
         )}
 
-        <div style={{ margin: '24px 0' }}>
-          <div style={{ fontSize: 12, fontWeight: 600, letterSpacing: 0.5, color: colors.textDim, marginBottom: 8 }}>
-            SUGGESTED NEXT LINE
-          </div>
-          <div
-            style={{
-              fontSize: 24,
-              lineHeight: 1.4,
-              fontWeight: 600,
-              padding: 20,
-              background: colors.accentPanel,
-              border: `1px solid ${colors.accentBorder}`,
-              borderRadius: 12,
-              minHeight: 40,
-              color: colors.accentText,
-            }}
-          >
-            {suggestion}
-          </div>
+        <h2 className="mt-8 text-[15px] font-semibold">Suggested next line</h2>
+        <div className="mt-3 rounded-xl border border-gray-200 border-l-4 border-l-blue-600 bg-white px-4 py-3.5">
+          <p className="mb-0.5 text-[11px] font-semibold uppercase tracking-wider text-blue-600">Say this next</p>
+          <p className="text-[17px] font-medium leading-relaxed">{suggestion}</p>
         </div>
 
-        <div>
-          <div style={{ fontSize: 12, fontWeight: 600, letterSpacing: 0.5, color: colors.textDim, marginBottom: 8 }}>
-            LIVE TRANSCRIPT (this tab only, not saved)
-          </div>
-          <div
-            style={{
-              fontSize: 14,
-              lineHeight: 1.6,
-              color: colors.text,
-              padding: 16,
-              background: colors.panel,
-              border: `1px solid ${colors.panelBorder}`,
-              borderRadius: 12,
-              minHeight: 140,
-              whiteSpace: 'pre-wrap',
-            }}
-          >
-            {transcript || <span style={{ color: colors.textDim }}>Nothing yet — press start and speak.</span>}
-          </div>
-        </div>
+        <h2 className="mt-8 text-[15px] font-semibold">Live transcript</h2>
+        <p className="mt-1 text-[13px] text-gray-500">Stays in this tab only. Nothing is saved.</p>
+        <ol className="mt-3 max-h-[420px] space-y-3 overflow-y-auto" aria-label="Live call transcript">
+          {turns.length === 0 && (
+            <li className="rounded-xl border border-dashed border-gray-300 px-4 py-6 text-center text-[14px] text-gray-400">
+              Nothing yet — press start and speak.
+            </li>
+          )}
+          {turns.map((t, i) => {
+            const you = t.speaker === 'you';
+            return (
+              <li key={i} className={`flex ${you ? 'justify-start' : 'justify-end'}`}>
+                <div
+                  className={`max-w-[85%] rounded-2xl px-4 py-2.5 text-[15px] leading-relaxed ${
+                    you ? 'rounded-bl-sm border border-gray-200 bg-white' : 'rounded-br-sm bg-blue-600 text-white'
+                  }`}
+                >
+                  <p className={`mb-0.5 text-[11px] font-semibold uppercase tracking-wider ${you ? 'text-gray-400' : 'text-blue-100'}`}>
+                    {you ? 'You' : 'Customer'}
+                  </p>
+                  {t.text}
+                </div>
+              </li>
+            );
+          })}
+          <div ref={bottomRef} />
+        </ol>
       </div>
-    </div>
+    </main>
   );
 }
