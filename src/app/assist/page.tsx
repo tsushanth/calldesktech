@@ -150,6 +150,21 @@ export default function CallAssistPage() {
     speakerMapRef.current = new Map();
     transcriptRef.current = '';
 
+    // MediaRecorder's supported formats vary by browser — Safari doesn't
+    // support WebM/Opus at all. An earlier version hardcoded
+    // 'audio/webm;codecs=opus' with no support check and no try/catch: on
+    // an unsupported browser the constructor throws synchronously inside
+    // ws.onopen, which silently swallows the error (no UI feedback, nothing
+    // sent, listening state never flips) — exactly a "nothing happens, no
+    // transcript" report with no clue why. Check support up front and fail
+    // loudly instead.
+    const CANDIDATE_TYPES = ['audio/webm;codecs=opus', 'audio/webm', 'audio/ogg;codecs=opus'];
+    const mimeType = CANDIDATE_TYPES.find((t) => typeof MediaRecorder !== 'undefined' && MediaRecorder.isTypeSupported?.(t));
+    if (!mimeType) {
+      setError('This browser can’t record audio in a format this tool supports — use Chrome or Edge.');
+      return;
+    }
+
     let stream: MediaStream;
     try {
       stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -163,13 +178,19 @@ export default function CallAssistPage() {
     wsRef.current = ws;
 
     ws.onopen = () => {
-      const recorder = new MediaRecorder(stream, { mimeType: 'audio/webm;codecs=opus' });
-      recorder.ondataavailable = (e) => {
-        if (e.data.size > 0 && ws.readyState === WebSocket.OPEN) ws.send(e.data);
-      };
-      recorder.start(250);
-      recorderRef.current = recorder;
-      setListening(true);
+      try {
+        const recorder = new MediaRecorder(stream, { mimeType });
+        recorder.ondataavailable = (e) => {
+          if (e.data.size > 0 && ws.readyState === WebSocket.OPEN) ws.send(e.data);
+        };
+        recorder.onerror = () => setError('Recording stopped unexpectedly — try starting again.');
+        recorder.start(250);
+        recorderRef.current = recorder;
+        setListening(true);
+      } catch (e) {
+        setError(e instanceof Error ? `Couldn't start recording: ${e.message}` : 'Couldn’t start recording.');
+        ws.close();
+      }
     };
 
     ws.onmessage = (event) => {
