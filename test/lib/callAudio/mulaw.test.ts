@@ -107,17 +107,18 @@ describe('mulawToWav (dashboard preview of a stored asset)', () => {
 
 describe('loudness normalization (a quiet generated clip must be audible next to TTS speech)', () => {
   const decodedRms = (mu: Buffer) => rms(Array.from(mu).map(decodeMuLaw));
-  // Real ReadAloud chime measured on the failed phone test: RMS ~450, peak -20 dBFS — inaudible next to speech.
-  it('raises a very quiet clip to the target level (~2500 RMS)', () => {
+  // Measured on the real phone line: the agent's TTS speech is RMS ~2600-2800. A chime at equal RMS was
+  // still "barely audible" (sparse tonal audio reads far quieter than dense speech), so the target is ~2x speech.
+  it('raises a very quiet clip to the target level (~5000 RMS, about 2x the agent\'s speech)', () => {
     const out = wavToMulaw8k(makeWav([tone(1000, 24000, 1, 400)], 24000));
     const level = decodedRms(out.subarray(400, 7600));
-    expect(level).toBeGreaterThan(2500 * 0.8);
-    expect(level).toBeLessThan(2500 * 1.25);
+    expect(level).toBeGreaterThan(5000 * 0.8);
+    expect(level).toBeLessThan(5000 * 1.25);
   });
   it('turns a too-loud clip down rather than blasting the caller', () => {
     const out = wavToMulaw8k(makeWav([tone(1000, 24000, 1, 30000)], 24000));
     const level = decodedRms(out.subarray(400, 7600));
-    expect(level).toBeLessThan(2500 * 1.25);
+    expect(level).toBeLessThan(5000 * 1.25);
   });
   it('never clips: peaky audio is limited by the peak ceiling instead of hitting full scale', () => {
     // Mostly quiet with rare sharp spikes: matching RMS alone would push the spikes past full scale.
@@ -129,7 +130,7 @@ describe('loudness normalization (a quiet generated clip must be audible next to
   it('does not turn a near-silent noise floor into loud hiss (gain is capped; true silence still rejected)', () => {
     const noise = Array.from({ length: 8000 }, (_, i) => (i % 2 === 0 ? 20 : -20)); // peak 20: just above the silence floor
     const out = wavToMulaw8k(makeWav([noise], 8000));
-    expect(decodedRms(out)).toBeLessThan(2500 * 0.5);
+    expect(decodedRms(out)).toBeLessThan(5000 * 0.5);
     expect(() => wavToMulaw8k(makeWav([new Array(4000).fill(3)], 8000))).toThrow(/silent/i);
   });
 });

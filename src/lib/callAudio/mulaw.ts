@@ -10,10 +10,11 @@ const TARGET_RATE = 8000;
 // Below this peak amplitude (of 32768) the clip is treated as silence.
 const SILENT_PEAK = 16;
 // Loudness the clip is normalized to. Generated audio comes back very quiet (a real ReadAloud chime
-// measured RMS ~450 / -20 dBFS peak) while the agent's TTS speech on the same call sits around RMS
-// 2000-4000 — an un-normalized jingle plays ~20dB under the voice and is effectively inaudible on a
-// phone. Target a touch under speech level so a jingle is clear without out-shouting the agent.
-const TARGET_RMS = 2500;
+// measured RMS ~450 / -20 dBFS peak), and an un-normalized jingle plays far under the agent's voice.
+// Measured on the real phone line, the agent's TTS speech is RMS ~2600-2800. Matching that (2500) still
+// left a chime "barely audible" in a live call: sparse, tonal audio reads much quieter than dense speech
+// at the same RMS. So target ~2x speech (+6dB); the peak ceiling below is what keeps it from clipping.
+const TARGET_RMS = 5000;
 // Hard ceiling so a peaky clip (sharp transients) is limited instead of clipping at full scale.
 const PEAK_CEILING = 32767 * 0.9;
 // Never amplify more than this (26dB): a near-silent noise floor must not become loud hiss.

@@ -2,14 +2,12 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/supabase';
 import { authorizeTenant, requireTenantRole } from '@/lib/authz';
 import { createCallAudioAsset, type CallAudioType } from '@/lib/callAudio/assets';
-import { generateSoundEffectWav } from '@/lib/callAudio/readaloudClient';
+import { makeWavGenerator } from '@/lib/callAudio/generate';
 import { makeSupabaseCallAudioDeps, CALL_AUDIO_TABLE } from '@/lib/callAudio/supabaseDeps';
 import { toHttpError } from '@/lib/callAudio/errors';
 
-// ReadAloud generation can take ~60s on a cold GPU worker.
+// Generation can take up to ~a minute (ReadAloud GPU worker is the slow case).
 export const maxDuration = 120;
-
-const READALOUD_MCP_URL = process.env.READALOUD_MCP_URL || 'https://readaloudai.org/mcp';
 
 // GET — the tenant's assets (metadata only; audio is fetched via .../[assetId]/audio for preview).
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -41,9 +39,8 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   }
 
   try {
-    const deps = makeSupabaseCallAudioDeps(getSupabaseAdmin(), {
-      generateWav: (input) => generateSoundEffectWav(input, { apiKey: process.env.READALOUD_API_KEY, url: READALOUD_MCP_URL }),
-    });
+    // Provider (ElevenLabs by default, ReadAloud via CALL_AUDIO_PROVIDER) is chosen in generate.ts.
+    const deps = makeSupabaseCallAudioDeps(getSupabaseAdmin(), { generateWav: makeWavGenerator() });
     const asset = await createCallAudioAsset(
       { tenantId, type: body.type as CallAudioType, name: body.name, description: body.description ?? '', prompt: body.prompt, durationSec: body.durationSec },
       deps
