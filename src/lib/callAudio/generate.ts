@@ -22,7 +22,12 @@ export function makeWavGenerator(
 ): (input: Input) => Promise<Buffer> {
   const provider = (env.CALL_AUDIO_PROVIDER || 'elevenlabs').trim().toLowerCase();
   return async (input) => {
-    if (provider === 'elevenlabs') return impls.elevenlabs(input, { apiKey: env.ELEVENLABS_API_KEY });
+    if (provider === 'elevenlabs') {
+      // A dedicated key first: ElevenLabs keys can be permission-restricted, and the general
+      // ELEVENLABS_API_KEY on the web app is (it lacks sound_generation). Falls back to the general key.
+      const apiKey = env.ELEVENLABS_SOUNDS_API_KEY?.trim() || env.ELEVENLABS_API_KEY;
+      return impls.elevenlabs(input, { apiKey });
+    }
     if (provider === 'readaloud') {
       return impls.readaloud(input, { apiKey: env.READALOUD_API_KEY, url: env.READALOUD_MCP_URL || DEFAULT_READALOUD_URL });
     }
