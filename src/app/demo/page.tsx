@@ -1,13 +1,16 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
+import { useSession } from 'next-auth/react';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { useOnboarding } from '@/context/OnboardingContext';
+import { DEMO_SIGN_IN_URL } from '@/components/demo/RequireSignIn';
 
 export default function DemoSelectionPage() {
   const router = useRouter();
   const { setDemoType } = useOnboarding();
+  const { status } = useSession();
 
   const handleSampleDemo = () => {
     setDemoType('sample');
@@ -16,7 +19,8 @@ export default function DemoSelectionPage() {
 
   const handleFocusedDemo = () => {
     setDemoType('focused');
-    router.push('/demo/focused');
+    // Setting up a business creates a workspace, which needs a signed-in user.
+    router.push(status === 'unauthenticated' ? DEMO_SIGN_IN_URL : '/demo/focused');
   };
 
   return (
@@ -114,6 +118,7 @@ export default function DemoSelectionPage() {
               <Button className="w-full">
                 Set Up My Business
               </Button>
+              <p className="mt-3 text-xs text-gray-500">Sign in with Google to continue.</p>
             </div>
           </Card>
         </div>

@@ -228,6 +228,9 @@ export default function BrowserDemoCall({ intro = false }: { intro?: boolean }) 
       };
 
       ws.onclose = () => {
+        // An abandoned socket (this effect was cleaned up, e.g. React's dev-mode
+        // double mount) must not mark the call that replaced it as ended.
+        if (cancelled) return;
         if (connectedAt !== null) {
           track('demo_call_ended', { mode: 'browser', variant: intro ? 'intro' : 'demo', duration_seconds: Math.round((Date.now() - connectedAt) / 1000) });
           connectedAt = null;
