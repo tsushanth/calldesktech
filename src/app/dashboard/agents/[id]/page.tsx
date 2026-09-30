@@ -5,6 +5,7 @@ import { useParams, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { AGENT_LANGUAGES, languageForcesPremiumVoice } from '@/lib/languages';
 import { api } from '@/lib/api';
+import { track } from '@/components/Analytics';
 import type { RetellVoice } from '@/lib/retell';
 import type { TenantVoice } from '@/lib/api';
 import type { Agent, AgentVersion, AgentEnvironment, FlowNode, FlowEdge, StructuredCondition, TtsBackend, Subflow } from '@/types';
@@ -678,6 +679,7 @@ export default function AgentBuilderPage() {
       });
       const body = await res.json();
       if (!res.ok) throw new Error(body.error);
+      track('agent_version_created', { voice_engine: v.voice_engine });
       applyVersionToBuilder(body.version as AgentVersion, gs, flowNodes);
       setShowEditor(true);
       setShowVersionHistory(false);
@@ -857,6 +859,7 @@ export default function AgentBuilderPage() {
       });
       const body = await res.json();
       if (!res.ok) throw new Error(body.error);
+      track('agent_version_created', { voice_engine: voiceEngine });
       setBasedOnVersionNumber(body.version.version_number);
       setFlowName(`v${body.version.version_number + 1}`);
       loadAgent();

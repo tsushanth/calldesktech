@@ -20,6 +20,8 @@ export default function FocusedDemoCallPage() {
     startCallPolling,
     stopCallPolling,
     retryDemoCall,
+    canUseBrowserDemo,
+    switchToBrowserDemo,
     isLoading,
     error,
   } = useOnboarding();
@@ -152,9 +154,22 @@ export default function FocusedDemoCallPage() {
               {error && (
                 <p className="text-sm text-red-600">{error}</p>
               )}
+              <p className="text-sm text-gray-600">
+                {callStatus === 'failed'
+                  ? "We couldn't place the call."
+                  : "Your phone didn't ring through."}{' '}
+                Some phones block calls from unknown numbers, or label them &ldquo;scam likely&rdquo;. Check
+                that your carrier&apos;s call blocking is off for this number, or try the demo in your browser instead.
+              </p>
+              {canUseBrowserDemo && (
+                <Button onClick={switchToBrowserDemo}>
+                  Try the demo in your browser
+                </Button>
+              )}
               <Button
                 onClick={retryDemoCall}
                 isLoading={isLoading}
+                variant={canUseBrowserDemo ? 'secondary' : undefined}
               >
                 Try Again
               </Button>

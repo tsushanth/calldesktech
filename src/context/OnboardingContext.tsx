@@ -120,6 +120,10 @@ interface OnboardingActions {
   // Business operations
   createTenantAndStartDemo: () => Promise<void>;
   retryDemoCall: () => Promise<void>;
+  // True when a failed phone demo can fall back to the in-browser demo: the
+  // focused-demo agent flow exists and the in-house engine is active.
+  canUseBrowserDemo: boolean;
+  switchToBrowserDemo: () => void;
 
   // Call polling
   startCallPolling: () => void;
@@ -142,6 +146,15 @@ type OnboardingContextType = OnboardingState & OnboardingActions;
 const OnboardingContext = createContext<OnboardingContextType | null>(null);
 
 // Storage keys
+// Short, non-identifying failure category for analytics (never the raw error
+// message, which can echo user-supplied data).
+function failureReason(err: unknown): string {
+  const e = err as { status?: number; statusCode?: number };
+  const status = e?.status ?? e?.statusCode;
+  if (typeof status === 'number') return `http_${status}`;
+  return err instanceof TypeError ? 'network' : 'error';
+}
+
 const STORAGE_KEYS = {
   tenantId: 'calldesk_tenant_id',
   businessName: 'calldesk_business_name',
@@ -221,6 +234,13 @@ export function OnboardingProvider({ children }: { children: React.ReactNode }) 
   // checkCallStatus reads from sidesteps the closure entirely: the interval
   // always sees whatever callId is current, regardless of when it was created.
   const callIdRef = useRef<string | null>(null);
+  // Workspace (+ agent flow) created by the last focused-demo start, so a
+  // retried start with unchanged inputs reuses it instead of creating another.
+  const demoAttemptRef = useRef<{
+    key: string;
+    tenant: Awaited<ReturnType<typeof api.createTenant>>;
+    flow: { startNodeId: string; nodes: FlowNode[] } | null;
+  } | null>(null);
   useEffect(() => {
     callIdRef.current = callId;
   }, [callId]);
@@ -361,7 +381,7 @@ export function OnboardingProvider({ children }: { children: React.ReactNode }) 
       body: JSON.stringify({ tenant_id: tid, phone_number: formatPhoneE164(ownerPhone), blocks: wizardBlocks, transfer_to: transferToNumber || undefined }),
     });
     const body = await res.json().catch(() => ({}));
-    if (!res.ok) throw new Error(body.error || 'Could not place the call');
+    if (!res.ok) throw Object.assign(new Error(body.error || 'Could not place the call'), { status: res.status });
     return body as { call_id: string; status: string };
   }, [ownerPhone, wizardBlocks, transferToNumber]);
 
@@ -406,15 +426,29 @@ export function OnboardingProvider({ children }: { children: React.ReactNode }) 
         // instead of re-deciding from the env var, so this tenant's very first
         // call and every future Settings-page/retry read of it agree with each
         // other from birth.
-        const demoUserId = `demo_${Date.now()}_${Math.random().toString(36).substring(7)}`;
+        //
+        // A failed or retried start (busy/rate-limited call, network error)
+        // must not leave a new tenant + agent behind on every click, so an
+        // attempt with the same inputs reuses the workspace created by the
+        // previous one.
+        const attemptKey = JSON.stringify({ businessName, wizardBlocks, transferToNumber, engine: getVoiceEngine() });
+        const prior = demoAttemptRef.current;
+        const reuse = prior !== null && prior.key === attemptKey;
 
-        const tenantResponse = await api.createTenant({
-          name: businessName,
-          userId: demoUserId,
-          areaCode: undefined,
-          voiceEngine: getVoiceEngine(),
-        });
-
+        let tenantResponse: Awaited<ReturnType<typeof api.createTenant>>;
+        if (reuse) {
+          tenantResponse = prior.tenant;
+        } else {
+          const demoUserId = `demo_${Date.now()}_${Math.random().toString(36).substring(7)}`;
+          tenantResponse = await api.createTenant({
+            name: businessName,
+            userId: demoUserId,
+            areaCode: undefined,
+            voiceEngine: getVoiceEngine(),
+          });
+          demoAttemptRef.current = { key: attemptKey, tenant: tenantResponse, flow: null };
+          track('tenant_created', { voice_engine: getVoiceEngine() });
+        }
         setTenantId(tenantResponse.id);
         if (tenantResponse.phone_number) {
           setAssignedPhoneNumber(tenantResponse.phone_number);
@@ -429,7 +463,10 @@ export function OnboardingProvider({ children }: { children: React.ReactNode }) 
         // synthesized flow directly), and for the retell branch the demo
         // call already goes through the older initiateDemoCall path either way.
         let flow: { startNodeId: string; nodes: FlowNode[] } | null = null;
-        try {
+        if (reuse && prior.flow) {
+          flow = prior.flow;
+          setAgentFlow(flow);
+        } else try {
           const agentRes = await fetch(`/api/tenants/${tenantResponse.id}/agents`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -458,6 +495,7 @@ export function OnboardingProvider({ children }: { children: React.ReactNode }) 
           const versionBody = await versionRes.json();
           if (!versionRes.ok) throw new Error(versionBody.error);
           flow = { startNodeId: synthesized.startNodeId, nodes: synthesized.nodes };
+          if (demoAttemptRef.current) demoAttemptRef.current.flow = flow;
           setAgentFlow(flow);
         } catch (agentErr) {
           console.error('Failed to create agent/version from wizard blocks (non-fatal):', agentErr);
@@ -526,6 +564,7 @@ export function OnboardingProvider({ children }: { children: React.ReactNode }) 
         router.push('/demo/sample/call');
       }
     } catch (err) {
+      track('demo_call_failed', { mode: demoMechanism, reason: failureReason(err) });
       setError(err instanceof Error ? err.message : 'Failed to start demo');
     } finally {
       setIsLoading(false);
@@ -591,11 +630,25 @@ export function OnboardingProvider({ children }: { children: React.ReactNode }) 
       setCallStatus(callResponse.status);
       setIsCallInProgress(true);
     } catch (err) {
+      track('demo_call_failed', { mode: demoMechanism, reason: failureReason(err) });
       setError(err instanceof Error ? err.message : 'Failed to start call');
     } finally {
       setIsLoading(false);
     }
   }, [tenantId, ownerPhone, demoType, selectedProfileId, router, demoMechanism, placeLiveDemoCall]);
+
+  // A phone demo can fail for reasons on the visitor's side (carrier call
+  // blocking, "scam likely" labelling, Do Not Disturb). The in-browser demo
+  // needs no phone, so offer it as a way to still try the product.
+  const canUseBrowserDemo = demoType === 'focused' && agentFlow !== null && isPocEngine({ voice_engine: getVoiceEngine() });
+  const switchToBrowserDemo = useCallback(() => {
+    track('demo_call_requested', { mode: 'browser', fallback: true });
+    setDemoMechanism('browser');
+    setError(null);
+    setIsCallInProgress(true);
+    setCallStatus('in-progress');
+    router.push('/demo/poc/call');
+  }, [router]);
 
   // Stop polling
   const stopCallPolling = useCallback(() => {
@@ -624,6 +677,11 @@ export function OnboardingProvider({ children }: { children: React.ReactNode }) 
           status.status === 'busy' || status.status === 'no-answer') {
         setIsCallInProgress(false);
         stopCallPolling();
+        if (status.status === 'completed') {
+          track('demo_call_ended', { mode: 'phone', duration_seconds: status.duration });
+        } else {
+          track('demo_call_failed', { mode: 'phone', reason: `call_${status.status}` });
+        }
       }
     } catch (err) {
       console.error('Failed to check call status:', err);
@@ -725,6 +783,7 @@ export function OnboardingProvider({ children }: { children: React.ReactNode }) 
 
   // Reset all state
   const reset = useCallback(() => {
+    demoAttemptRef.current = null;
     setTenantId(null);
     setBusinessName('');
     setOwnerPhone('');
@@ -850,6 +909,8 @@ export function OnboardingProvider({ children }: { children: React.ReactNode }) 
 
     createTenantAndStartDemo,
     retryDemoCall,
+    canUseBrowserDemo,
+    switchToBrowserDemo,
     startCallPolling,
     stopCallPolling,
     checkCallStatus,

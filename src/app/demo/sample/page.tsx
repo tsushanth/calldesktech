@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { useOnboarding } from '@/context/OnboardingContext';
+import { track } from '@/components/Analytics';
 import { CAPABILITY_DEMOS, type DemoProfileId } from '@/lib/constants';
 
 export default function SampleDemoProfilesPage() {
@@ -55,7 +56,10 @@ export default function SampleDemoProfilesPage() {
               hover
               selected={selectedProfileId === id}
               className="cursor-pointer p-5"
-              onClick={() => selectProfile(id)}
+              onClick={() => {
+                selectProfile(id);
+                track('capability_demo_selected', { capability: id });
+              }}
             >
               <div className="flex items-start gap-3">
                 <div className={`w-12 h-12 ${profile.color} rounded-lg flex items-center justify-center text-2xl`}>

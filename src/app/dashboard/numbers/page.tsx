@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useMemo, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import { useOnboarding } from '@/context/OnboardingContext';
+import { track } from '@/components/Analytics';
 import { notifyPhoneNumbersChanged } from '@/lib/events';
 import type { PhoneNumber, Agent, AgentVersion, AgentEnvironment } from '@/types';
 
@@ -234,6 +235,7 @@ export default function PhoneNumbersPage() {
       const body = await res.json();
       if (!res.ok) throw new Error(body.error);
       setNumbers((prev) => prev.map((n) => (n.id === selectedId ? body.phoneNumber : n)));
+      if (isEnv || selection) track('phone_number_routed', { direction });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to route number');
     } finally {
