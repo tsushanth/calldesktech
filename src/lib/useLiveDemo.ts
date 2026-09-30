@@ -76,6 +76,9 @@ export function useLiveDemo() {
   const idRef = useRef(0);
   const startedAtRef = useRef<number | null>(null);
   const turnsRef = useRef(0);
+  // Set when the server refuses the session (limits), so the panel goes back to
+  // the examples with the message instead of showing a finished call.
+  const blockedRef = useRef(false);
   const statusRef = useRef<DemoStatus>('idle');
   // Kept in step with `status` so callbacks can read the current value.
   const updateStatus = useCallback((next: DemoStatus) => {
@@ -172,6 +175,13 @@ export function useLiveDemo() {
 
   const finish = useCallback(() => {
     if (statusRef.current === 'ended' || statusRef.current === 'idle') return;
+    if (blockedRef.current) {
+      blockedRef.current = false;
+      startedAtRef.current = null;
+      teardown();
+      updateStatus('idle');
+      return;
+    }
     if (startedAtRef.current !== null) {
       track('hero_demo_ended', {
         duration_seconds: Math.round((Date.now() - startedAtRef.current) / 1000),
@@ -191,6 +201,7 @@ export function useLiveDemo() {
         return;
       }
       setError(null);
+      blockedRef.current = false;
       setMessages([]);
       setSecondsLeft(INTRO_MAX_SECONDS);
       turnsRef.current = 0;
@@ -229,14 +240,19 @@ export function useLiveDemo() {
           playPCM16(evt.data);
           return;
         }
-        let msg: { type?: string; text?: string; message?: string };
+        let msg: { type?: string; text?: string; message?: string; code?: string };
         try { msg = JSON.parse(evt.data as string); } catch { return; }
         if (msg.type === 'assistant_turn' && msg.text?.trim()) addMessage('agent', msg.text);
         else if (msg.type === 'user_turn' && msg.text?.trim()) {
           turnsRef.current += 1;
           addMessage('caller', msg.text);
         } else if (msg.type === 'barge_in') stopPlayback();
-        else if (msg.type === 'error') setError('Something went wrong with the demo. Try again.');
+        else if (msg.type === 'error') {
+          // The server's limit errors carry a code and a message written for visitors.
+          if (msg.code === 'session_limit') return; // the normal end of the time limit
+          if (msg.code) blockedRef.current = true;
+          setError(msg.code && msg.message ? msg.message : 'Something went wrong with the demo. Try again.');
+        }
       };
 
       ws.onerror = () => setError("Couldn't reach the demo. Check your connection and try again.");
