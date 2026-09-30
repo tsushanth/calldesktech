@@ -34,11 +34,12 @@ export default function SmsOptInPage() {
             .
           </p>
           <p className="text-sm text-neutral-600 mb-4">
-            These same numbers are shown on our{' '}
+            Our{' '}
             <a href="/demo" className="text-blue-600 underline">
               trial signup page
-            </a>
-            . We only text you after you text us first.
+            </a>{' '}
+            also shows our support number, (855) 915-2245, and links to these
+            terms. We only text you after you text us first.
           </p>
           <div className="rounded-lg bg-neutral-50 border border-neutral-200 p-4 text-sm text-neutral-700">
             <p className="font-medium mb-2">Consent disclosure</p>
