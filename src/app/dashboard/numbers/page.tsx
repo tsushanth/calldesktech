@@ -33,6 +33,7 @@ export default function PhoneNumbersPage() {
   const [environmentsByAgent, setEnvironmentsByAgent] = useState<Record<string, AgentEnvironment[]>>({});
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [newNumber, setNewNumber] = useState('');
+  const [showRegister, setShowRegister] = useState(false);
   const [search, setSearch] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -181,6 +182,7 @@ export default function PhoneNumbersPage() {
       setNumbers((prev) => [body.phoneNumber, ...prev]);
       setSelectedId(body.phoneNumber.id);
       setNewNumber('');
+      setShowRegister(false);
       notifyPhoneNumbersChanged();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to add number');
@@ -376,53 +378,67 @@ export default function PhoneNumbersPage() {
         {/* Left: number list */}
         <div className="h-fit overflow-hidden rounded-xl border border-gray-200 bg-white">
           <div className="space-y-2.5 border-b border-gray-100 p-3">
-            {/* Was a side-by-side flex-1 input + flex-none button — at this
-                column's fixed 300px width, the two together genuinely don't
-                fit, and overflow-hidden clipped the button's own text
-                instead of wrapping it. Stacked vertically, neither can ever
-                clip regardless of column width. */}
-            <div className="space-y-1.5">
+            {/* Buy: the area code only modifies the buy action, so the two
+                live in one row. Register-your-own is a secondary path behind
+                a link, and search only appears once the list is long enough
+                to need it. */}
+            <div className="flex gap-2">
               <input
                 value={buyAreaCode}
-                onChange={(e) => setBuyAreaCode(e.target.value)}
-                placeholder="Area code (optional)"
+                onChange={(e) => setBuyAreaCode(e.target.value.replace(/\D/g, ''))}
+                placeholder="Area"
+                title="Area code (optional)"
+                aria-label="Area code (optional)"
+                inputMode="numeric"
                 maxLength={3}
-                className="w-full rounded-lg border border-gray-200 px-3 py-1.5 font-mono text-[13px] focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100"
+                className="w-16 flex-none rounded-lg border border-gray-200 px-2.5 py-1.5 text-center font-mono text-[13px] focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100"
                 onKeyDown={(e) => e.key === 'Enter' && handleBuyNumber()}
               />
               <button
                 onClick={handleBuyNumber}
                 disabled={isBuying}
-                className="w-full rounded-lg bg-blue-600 px-3 py-1.5 text-[13px] font-medium text-white transition hover:bg-blue-700 disabled:opacity-40"
+                className="min-w-0 flex-1 rounded-lg bg-blue-600 px-3 py-1.5 text-[13px] font-medium text-white transition hover:bg-blue-700 disabled:opacity-40"
               >
                 {isBuying ? 'Buying…' : 'Buy a number'}
               </button>
             </div>
-            <div className="flex gap-2">
-              <input
-                value={newNumber}
-                onChange={(e) => setNewNumber(e.target.value)}
-                placeholder="Or register a number you own"
-                className="min-w-0 flex-1 rounded-lg border border-gray-200 px-3 py-1.5 font-mono text-[13px] focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100"
-                onKeyDown={(e) => e.key === 'Enter' && handleAddNumber()}
-              />
+            {showRegister ? (
+              <div className="flex gap-2">
+                <input
+                  autoFocus
+                  value={newNumber}
+                  onChange={(e) => setNewNumber(e.target.value)}
+                  placeholder="+1 your number"
+                  className="min-w-0 flex-1 rounded-lg border border-gray-200 px-3 py-1.5 font-mono text-[13px] focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100"
+                  onKeyDown={(e) => e.key === 'Enter' && handleAddNumber()}
+                />
+                <button
+                  onClick={handleAddNumber}
+                  disabled={isSaving || !newNumber.trim()}
+                  className="flex-none rounded-lg bg-[#1a1d29] px-3 py-1.5 text-[13px] font-medium text-white transition hover:bg-[#2a2e3d] disabled:opacity-40"
+                >
+                  Add
+                </button>
+              </div>
+            ) : (
               <button
-                onClick={handleAddNumber}
-                disabled={isSaving || !newNumber.trim()}
-                className="flex-none rounded-lg bg-[#1a1d29] px-3 py-1.5 text-[13px] font-medium text-white transition hover:bg-[#2a2e3d] disabled:opacity-40"
+                onClick={() => setShowRegister(true)}
+                className="text-[12.5px] text-gray-500 underline-offset-2 transition hover:text-blue-600 hover:underline"
               >
-                +
+                Already own a number? Add it
               </button>
-            </div>
-            <div className="relative">
-              <SearchIcon className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400" />
-              <input
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search phone numbers"
-                className="w-full rounded-lg border border-gray-200 py-1.5 pl-8 pr-3 text-[13px] placeholder:text-gray-400 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100"
-              />
-            </div>
+            )}
+            {numbers.length > 5 && (
+              <div className="relative">
+                <SearchIcon className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400" />
+                <input
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder="Search phone numbers"
+                  className="w-full rounded-lg border border-gray-200 py-1.5 pl-8 pr-3 text-[13px] placeholder:text-gray-400 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100"
+                />
+              </div>
+            )}
           </div>
           {filteredNumbers.length === 0 ? (
             <div className="p-6 text-center text-[13px] text-gray-400">No numbers yet.</div>
