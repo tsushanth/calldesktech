@@ -7,7 +7,7 @@ import { CALL_AUDIO_TABLE, CALL_AUDIO_BUCKET } from '@/lib/callAudio/supabaseDep
 // Both the lookup and the delete are scoped to the tenant, so an asset id from another tenant is a 404.
 export async function DELETE(request: NextRequest, { params }: { params: Promise<{ id: string; assetId: string }> }) {
   const { id: tenantId, assetId } = await params;
-  const auth = await requireTenantRole(request, tenantId, ['owner', 'admin'], { apiKeysAllowed: false });
+  const auth = await requireTenantRole(request, tenantId, ['owner', 'admin'], { apiKeysAllowed: true });
   if (!auth.ok) return auth.response;
 
   const supabase = getSupabaseAdmin();

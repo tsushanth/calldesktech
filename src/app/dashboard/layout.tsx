@@ -116,7 +116,7 @@ export default function DashboardLayout({
       items: [
         { href: '/dashboard/agents', label: 'Agents' },
         { href: '/dashboard/knowledge', label: 'Knowledge Base' },
-        { href: '/dashboard/call-audio', label: 'Call Audio' },
+        { href: '/dashboard/call-audio', label: 'Sounds' },
       ],
     },
     {

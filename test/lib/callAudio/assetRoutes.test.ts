@@ -32,10 +32,10 @@ const denied = (status: number) => ({ ok: false, response: NextResponse.json({ e
 beforeEach(() => { vi.clearAllMocks(); eqs.length = 0; removed.length = 0; row = { mulaw8k_storage_path: 't1/a1.raw' }; });
 
 describe('DELETE asset', () => {
-  it('owner/admin only, and never touches storage for a denied caller', async () => {
+  it('owner/admin only (API keys allowed, tenant-pinned), and never touches storage for a denied caller', async () => {
     requireTenantRole.mockResolvedValue(denied(404));
     expect((await DELETE(req('DELETE'), ctx)).status).toBe(404);
-    expect(requireTenantRole).toHaveBeenCalledWith(expect.anything(), 'tenant-1', ['owner', 'admin'], { apiKeysAllowed: false });
+    expect(requireTenantRole).toHaveBeenCalledWith(expect.anything(), 'tenant-1', ['owner', 'admin'], { apiKeysAllowed: true });
     expect(removed).toHaveLength(0);
   });
   it('scopes the row lookup AND delete to the tenant (a guessed asset id from another tenant is a 404)', async () => {

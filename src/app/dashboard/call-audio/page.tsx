@@ -112,7 +112,7 @@ export default function CallAudioPage() {
   const remove = async (a: Asset) => {
     if (!tenantId || !confirm(`Delete "${a.name}"? Callers will stop hearing it.`)) return;
     const res = await fetch(`/api/tenants/${tenantId}/call-audio/${a.id}`, { method: 'DELETE' });
-    if (!res.ok) { setError('Could not delete this audio'); return; }
+    if (!res.ok) { setError('Could not delete this sound'); return; }
     await load();
   };
 
@@ -123,15 +123,16 @@ export default function CallAudioPage() {
   return (
     <div className="mx-auto max-w-3xl space-y-8 p-6">
       <div>
-        <h1 className="text-2xl font-semibold">Call Audio</h1>
+        <h1 className="text-2xl font-semibold">Sounds</h1>
         <p className="mt-1 text-sm text-gray-600">
-          A short jingle when a call connects, and sound effects your agent can play at the right moment.
-          Applies to calls on the in-house engine only; agents on Retell are unaffected. Each sound is generated once here, never during a call.
+          Two kinds of sound for your calls. The <strong>intro jingle</strong> plays automatically when a call connects, before the greeting.
+          <strong> Sound effects</strong> are played by your agent during the call, when the situation you describe comes up.
+          Applies to agents on the in-house engine only; agents on Retell are unaffected. Each sound is generated once here, never during a call.
         </p>
       </div>
 
       {error && <div role="alert" className="rounded border border-red-200 bg-red-50 p-3 text-sm text-red-700">{error}</div>}
-      {loadFailed && <div className="text-sm text-gray-500">Couldn&apos;t load your current audio. Try refreshing.</div>}
+      {loadFailed && <div className="text-sm text-gray-500">Couldn&apos;t load your sounds. Try refreshing.</div>}
 
       <section className="space-y-3">
         <h2 className="text-lg font-medium">Intro jingle</h2>

@@ -18,11 +18,11 @@ const goodBody = { type: 'sound_effect', name: 'chime', description: 'after book
 beforeEach(() => { vi.clearAllMocks(); process.env.READALOUD_API_KEY = 'k'; });
 
 describe('POST /api/tenants/[id]/call-audio', () => {
-  it('requires owner/admin, session only (no API keys) — and never generates for a denied caller', async () => {
+  it('requires owner/admin, API keys allowed (tenant-pinned, so the MCP tools can create) — and never generates for a denied caller', async () => {
     requireTenantRole.mockResolvedValue(denied(404));
     const res = await POST(req(goodBody), ctx);
     expect(res.status).toBe(404);
-    expect(requireTenantRole).toHaveBeenCalledWith(expect.anything(), 'tenant-1', ['owner', 'admin'], { apiKeysAllowed: false });
+    expect(requireTenantRole).toHaveBeenCalledWith(expect.anything(), 'tenant-1', ['owner', 'admin'], { apiKeysAllowed: true });
     expect(createCallAudioAsset).not.toHaveBeenCalled();
   });
   it('creates the asset for an authorized caller and returns 201 with the row (no audio bytes)', async () => {

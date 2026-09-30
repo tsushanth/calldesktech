@@ -68,6 +68,18 @@ const ops: Record<string, Partial<Record<Method, Op>>> = {
     post: { tag: 'Knowledge bases', summary: 'Add Q&A items', body: { items: '{ question: string, answer: string }[]' }, bodyRequired: ['items'], returns: '{ items }' },
   },
 
+  // Sounds: the intro jingle + sound effects a workspace's in-house-engine agents play on calls.
+  [`/tenants/${T}/call-audio`]: {
+    get: { tag: 'Sounds', summary: 'List jingle and sound effects', description: 'Returns the workspace\'s jingle and sound effects (`asset_type` is `jingle` or `sound_effect`); `enabled: false` rows are ones that were replaced.', returns: '{ assets }' },
+    post: { tag: 'Sounds', summary: 'Generate a jingle or sound effect', description: 'Generates the sound from a text description, then stores it. Spends generation credits. A workspace has one jingle and up to 10 sound effects; a new jingle replaces the current one, and reusing a sound effect `name` replaces that effect. `durationSec` is 1-12. A sound effect needs a `description` saying WHEN the agent should play it: the agent reads it. Only plays on agents running the in-house engine; Retell agents are unaffected. Can take up to a minute.', body: { type: "'jingle' | 'sound_effect'", name: 'string (letters, numbers, _ and -)', description: 'string (required for sound_effect)', prompt: 'string (what the sound should be, max 500 chars)', durationSec: 'number (1-12)' }, bodyRequired: ['type', 'name', 'prompt', 'durationSec'], returns: '{ asset }' },
+  },
+  [`/tenants/${T}/call-audio/{soundId}`]: {
+    delete: { tag: 'Sounds', summary: 'Delete a jingle or sound effect', description: 'Callers stop hearing it immediately.', returns: '{ ok }' },
+  },
+  [`/tenants/${T}/call-audio/{soundId}/audio`]: {
+    get: { tag: 'Sounds', summary: 'Preview a sound', description: 'Returns a playable WAV (`audio/wav`) of exactly what callers hear.', returns: 'audio/wav' },
+  },
+
   '/agents/{agentId}/environments': {
     get: { tag: 'Agents', summary: 'List an agent\'s environments', description: 'Every agent has "staging" and "production", each pointing at the version it currently runs (null if nothing has been promoted into it yet).', returns: '{ environments: { id, name, version_id, updated_at }[] }' },
   },

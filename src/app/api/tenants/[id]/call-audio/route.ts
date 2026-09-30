@@ -24,10 +24,11 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 }
 
 // POST — generate + store a jingle or sound effect (replacing the tenant's current one it supersedes).
-// Owner/admin only, session only: it spends ReadAloud credits and changes what live callers hear.
+// Owner/admin, API keys allowed (a key is pinned to its own tenant; the MCP tools call this). Spends
+// generation credits and changes what live callers hear, hence the role gate.
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id: tenantId } = await params;
-  const auth = await requireTenantRole(request, tenantId, ['owner', 'admin'], { apiKeysAllowed: false });
+  const auth = await requireTenantRole(request, tenantId, ['owner', 'admin'], { apiKeysAllowed: true });
   if (!auth.ok) return auth.response;
 
   const body = await request.json().catch(() => null);

@@ -103,6 +103,21 @@ server.registerTool('create_knowledge_base', { description: 'Create a knowledge 
 server.registerTool('add_knowledge_items', { description: 'Add Q&A items to a knowledge base.', annotations: WRITE, inputSchema: { knowledgeBaseId: z.string(), items: z.array(z.object({ question: z.string(), answer: z.string() })).min(1) } }, run((a: any) => api('POST', `/knowledge-bases/${a.knowledgeBaseId}/items`, { items: a.items })));
 server.registerTool('delete_knowledge_base', { description: 'Delete a knowledge base and its items.', annotations: DESTROY, inputSchema: { knowledgeBaseId: z.string() } }, run((a: any) => api('DELETE', `/knowledge-bases/${a.knowledgeBaseId}`)));
 
+// ---- sounds: intro jingle + sound effects (in-house voice engine only — Retell agents are unaffected)
+const SOUNDS_NOTE = 'Only plays on agents running the in-house engine; Retell agents are unaffected.';
+server.registerTool('list_sounds', { description: `List this workspace's intro jingle and sound effects (type, name, what each is for, whether it is active). ${SOUNDS_NOTE}`, annotations: READ, inputSchema: {} }, run(async () => api('GET', `/tenants/${await tenant()}/call-audio`)));
+server.registerTool('create_jingle', {
+  description: `Generate the intro jingle: a short tune that plays when a call connects, before the agent's greeting. Spends generation credits. A workspace has one jingle; creating a new one replaces the current one. Give 1-12 seconds. ${SOUNDS_NOTE}`,
+  annotations: COSTS,
+  inputSchema: { prompt: z.string().min(1).max(500).describe('Describe the jingle, e.g. "a short upbeat three-note bell jingle, bright and friendly"'), durationSec: z.number().min(1).max(12).optional().describe('Length in seconds, default 4'), name: z.string().regex(/^[A-Za-z0-9_-]{1,64}$/).optional().describe('Default "intro"') },
+}, run(async (a: any) => api('POST', `/tenants/${await tenant()}/call-audio`, { type: 'jingle', name: a.name ?? 'intro', description: '', prompt: a.prompt, durationSec: a.durationSec ?? 4 })));
+server.registerTool('create_sound_effect', {
+  description: `Generate a sound effect the agent can play mid-call. The agent decides when, from the description you give, so say exactly when it applies. Spends generation credits. Up to 10 per workspace; reusing a name replaces that effect. Give 1-12 seconds. ${SOUNDS_NOTE}`,
+  annotations: COSTS,
+  inputSchema: { name: z.string().regex(/^[A-Za-z0-9_-]{1,64}$/).describe('Short slug, e.g. booking_confirmed_chime'), description: z.string().min(1).describe('WHEN the agent should play it, e.g. "Right after an appointment is booked". The agent reads this.'), prompt: z.string().min(1).max(500).describe('Describe the sound, e.g. "a soft two-note confirmation chime"'), durationSec: z.number().min(1).max(12).optional().describe('Length in seconds, default 2') },
+}, run(async (a: any) => api('POST', `/tenants/${await tenant()}/call-audio`, { type: 'sound_effect', name: a.name, description: a.description, prompt: a.prompt, durationSec: a.durationSec ?? 2 })));
+server.registerTool('delete_sound', { description: 'Delete a jingle or sound effect by id (from list_sounds). Callers stop hearing it immediately.', annotations: DESTROY, inputSchema: { soundId: z.string() } }, run(async (a: any) => api('DELETE', `/tenants/${await tenant()}/call-audio/${a.soundId}`)));
+
 // ---- numbers & calls
 server.registerTool('list_phone_numbers', { description: 'List phone numbers and which agent versions they route to.', annotations: READ, inputSchema: {} }, run(async () => api('GET', `/tenants/${await tenant()}/phone-numbers`)));
 server.registerTool('set_number_routing', { description: 'Route a number’s inbound or outbound calls to a specific agent version, OR to an environment (see list_agent_environments/promote_agent_environment) — pass exactly one of agentVersionId or environmentId. Environment routing means promoting a new version later takes effect on this number automatically. Pass agentVersionId: null to disable a direction.', annotations: WRITE, inputSchema: { phoneNumberId: z.string(), direction: z.enum(['inbound', 'outbound']), agentVersionId: z.string().nullable().optional(), environmentId: z.string().optional() } }, run((a: any) => api('POST', `/phone-numbers/${a.phoneNumberId}/routing`, { direction: a.direction, agentVersionId: a.agentVersionId, environmentId: a.environmentId })));
