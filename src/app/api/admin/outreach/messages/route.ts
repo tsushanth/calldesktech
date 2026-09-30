@@ -20,7 +20,14 @@ export async function GET(request: NextRequest) {
     .from('calldesk_outreach_messages')
     .select('*, lead:calldesk_outreach_leads(company_name, domain, score, tier, contact_source_url, replied_at, phone)')
     .eq('status', status);
-  if (!grouped) query = query.eq('product', product);
+  // The UI's product dropdown sends the short, CLI-facing id (e.g. 'readaloud'), which for
+  // readaloud is NOT what's stored in the product column (that's 'readaloud:api', a deliberate
+  // split from .id -- see products.ts). An exact .eq('product', product) here silently matched
+  // zero rows for readaloud after that split shipped, since the column never equals the bare
+  // 'readaloud' string. Prefix-match it the same way sender.ts's laneFilter does, so this keeps
+  // working if a future 'readaloud:app' product is added to the same lane.
+  if (product === 'readaloud') query = query.like('product', 'readaloud:%');
+  else if (!grouped) query = query.eq('product', product);
   else if (/^[a-z]+$/.test(vertical)) query = query.eq('product', `calldesk:${vertical}`);
   else query = query.or('product.eq.calldesk,product.like.calldesk:%');
   const { data, error } = await query
