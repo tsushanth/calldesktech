@@ -5,11 +5,14 @@
 //
 //   tsx harness/outreach/verify-backtest.ts                      # no key: prints the selection only
 //   EMAIL_VERIFY_API_KEY=... tsx harness/outreach/verify-backtest.ts
+//   EMAIL_VERIFY_PROVIDER=zerobounce LIMIT=5 POS_ONLY=1 EMAIL_VERIFY_API_KEY=... tsx harness/outreach/verify-backtest.ts
 import { getSupabaseAdmin } from '@/lib/supabase';
 import { verifyMailbox, type Verdict } from '@/lib/outreach/emailVerify';
 
-const LIMIT = Math.max(10, Number(process.env.LIMIT) || 100);
-const MAX_POS = Math.floor(LIMIT * 0.4);
+const LIMIT = Math.max(1, Number(process.env.LIMIT) || 100);
+// POS_ONLY=1 spends every credit on known-bad addresses (for tiny free tiers): measures the catch rate only.
+const POS_ONLY = process.env.POS_ONLY === '1';
+const MAX_POS = POS_ONLY ? LIMIT : Math.floor(LIMIT * 0.4);
 
 async function main() {
   const db = getSupabaseAdmin();
@@ -32,7 +35,7 @@ async function main() {
   };
   const pos = [...(await emailsOf([...bad])).entries()].slice(0, MAX_POS);
   const posSet = new Set(pos.map(([e]) => e));
-  const pool = [...good].sort(() => Math.random() - 0.5).slice(0, (LIMIT - pos.length) * 2);
+  const pool = POS_ONLY ? [] : [...good].sort(() => Math.random() - 0.5).slice(0, (LIMIT - pos.length) * 2);
   const neg = [...(await emailsOf(pool)).entries()].filter(([e]) => !posSet.has(e)).slice(0, LIMIT - pos.length);
   console.log(`selected ${pos.length} known-bad + ${neg.length} known-delivered = ${pos.length + neg.length} credits`);
 
