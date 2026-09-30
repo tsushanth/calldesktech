@@ -1082,6 +1082,10 @@ async function stageRegistry(
   return entries;
 }
 
+// Set only by enrichBacklogBatch (below) for the duration of one call; null in normal runs, so the
+// daily pipeline is unaffected. Lets a backlog run restrict stageEnrich to chosen sources/shards.
+let enrichRowFilter: ((r: LeadRow) => boolean) | null = null;
+
 async function stageEnrich(
   db: Db, summary: RunSummary, dryRun: boolean, limit: number, entriesIn: DirectoryEntry[], index: LeadIndex<LeadRow>, stop: () => boolean, product: ProductConfig,
 ) {
@@ -1112,6 +1116,7 @@ async function stageEnrich(
 
   const candidates = entries
     .filter((e) => e.row.status !== 'dead' && !e.row.region_blocked)
+    .filter((e) => enrichRowFilter?.(e.row) ?? true)
     .filter((e) => !e.row.enriched_at || (e.row.contact_status !== 'found' && new Date(e.row.enriched_at).getTime() < recheckBefore))
     .sort((a, b) => (b.row.score ?? 0) - (a.row.score ?? 0))
     .slice(0, limit);
@@ -1218,6 +1223,49 @@ async function stageEnrich(
       summary.errors.push(`enrich ${lead.company_name}: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
+}
+
+export interface EnrichBacklogResult { pending: number; contactsFound: number; searchFailures: number; errors: string[]; statuses: Record<string, number> }
+
+/**
+ * One batch of website-discovery + contact enrichment for registry leads that have never been
+ * enriched, run OUTSIDE the daily run's budget (harness/outreach/enrich-continuous.ts loops this).
+ * It is the same stageEnrich the daily run uses, so the verification of each found website and every
+ * dedupe/suppression rule are unchanged; only the candidate set is narrowed (source prefixes and/or
+ * a stable id shard so several processes can work in parallel without overlapping). The index is
+ * reloaded on every call because stageEnrich marks leads enriched in the database, not in memory.
+ * Each batch is bounded by OUTREACH_WEBSEARCH_MAX_PER_RUN (max 30 website searches).
+ */
+export async function enrichBacklogBatch(
+  db: Db, product: ProductConfig,
+  opts: { limit: number; sourcePrefixes?: string[]; shard?: { index: number; count: number } },
+): Promise<EnrichBacklogResult> {
+  const existing = await selectAll<LeadRow>(() => scopeToProduct(db.from(leadsTable(product)).select('*'), product));
+  const index = new LeadIndex<LeadRow>(existing);
+  const inScope = (r: LeadRow) => {
+    if (opts.sourcePrefixes?.length && !opts.sourcePrefixes.some((p) => (r.source_key ?? '').startsWith(p))) return false;
+    if (opts.shard && opts.shard.count > 1) {
+      const h = parseInt(r.id.replace(/-/g, '').slice(-6), 16);
+      if (h % opts.shard.count !== opts.shard.index) return false;
+    }
+    return true;
+  };
+  const pending = existing.filter((r) => inScope(r) && r.status === 'new' && !r.domain && !r.enriched_at && !r.region_blocked && r.signals?.registry).length;
+  const summary: RunSummary = {
+    runId: null, dryRun: false, status: 'ok', directoryCount: 0, searchCandidates: 0,
+    jobPostingCandidates: 0, reviewSiteCandidates: 0, githubCandidates: 0, techFingerprintHits: 0,
+    searchDebug: null, stopped: false, leadsSeen: 0, leadsNew: 0,
+    duplicatesSkipped: 0, contactsFound: 0, draftsCreated: 0, followUpsCreated: 0, phoneBackfilled: 0, researched: 0, lowFit: 0, errors: [], sample: { enriched: [], researched: [] },
+  };
+  enrichRowFilter = inScope;
+  try {
+    await stageEnrich(db, summary, false, opts.limit, [], index, () => false, product);
+  } finally {
+    enrichRowFilter = null;
+  }
+  const statuses: Record<string, number> = {};
+  for (const e of summary.sample.enriched) { const k = e.status.startsWith('no-site') ? 'no-site' : e.status.startsWith('duplicate') ? 'duplicate' : e.status; statuses[k] = (statuses[k] || 0) + 1; }
+  return { pending, contactsFound: summary.contactsFound, searchFailures: summary.errors.filter((e) => e.includes('search failed')).length, errors: summary.errors, statuses };
 }
 
 const DEFAULT_PHONE_BACKFILL_MAX = 15;
