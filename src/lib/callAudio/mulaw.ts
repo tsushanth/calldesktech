@@ -9,6 +9,15 @@ const CLIP = 32635;
 const TARGET_RATE = 8000;
 // Below this peak amplitude (of 32768) the clip is treated as silence.
 const SILENT_PEAK = 16;
+// Loudness the clip is normalized to. Generated audio comes back very quiet (a real ReadAloud chime
+// measured RMS ~450 / -20 dBFS peak) while the agent's TTS speech on the same call sits around RMS
+// 2000-4000 — an un-normalized jingle plays ~20dB under the voice and is effectively inaudible on a
+// phone. Target a touch under speech level so a jingle is clear without out-shouting the agent.
+const TARGET_RMS = 2500;
+// Hard ceiling so a peaky clip (sharp transients) is limited instead of clipping at full scale.
+const PEAK_CEILING = 32767 * 0.9;
+// Never amplify more than this (26dB): a near-silent noise floor must not become loud hiss.
+const MAX_GAIN = 20;
 
 // Standard G.711 mu-law encoder for one signed 16-bit sample.
 export function encodeMuLaw(sample: number): number {
@@ -104,15 +113,22 @@ function resampleTo8k(src: Float64Array, srcRate: number): Float64Array {
   return out;
 }
 
-export function wavToMulaw8k(wav: Buffer): Buffer {
+export function wavToMulaw8k(wav: Buffer, opts: { normalize?: boolean } = {}): Buffer {
   const { sampleRate, samples } = parseWav(wav);
   if (samples.length === 0) throw new Error('WAV contains no audio');
   const pcm = resampleTo8k(samples, sampleRate);
   let peak = 0;
-  for (const s of pcm) peak = Math.max(peak, Math.abs(s));
+  let sumSq = 0;
+  for (const s of pcm) {
+    peak = Math.max(peak, Math.abs(s));
+    sumSq += s * s;
+  }
   if (peak < SILENT_PEAK) throw new Error('Generated audio is silent');
+  // Gain toward the target RMS, but never past the peak ceiling or the max-gain cap.
+  const rms = Math.sqrt(sumSq / pcm.length);
+  const gain = opts.normalize === false ? 1 : Math.min(TARGET_RMS / rms, PEAK_CEILING / peak, MAX_GAIN);
   const out = Buffer.alloc(pcm.length);
-  for (let i = 0; i < pcm.length; i++) out[i] = encodeMuLaw(Math.round(pcm[i]));
+  for (let i = 0; i < pcm.length; i++) out[i] = encodeMuLaw(Math.round(pcm[i] * gain));
   return out;
 }
 

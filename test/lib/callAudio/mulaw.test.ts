@@ -73,18 +73,18 @@ describe('wavToMulaw8k', () => {
     expect(out.length).toBe(8000);
   });
   it('keeps an in-band tone (1kHz) at near-full level', () => {
-    const out = wavToMulaw8k(makeWav([tone(1000, 24000, 1)], 24000));
+    const out = wavToMulaw8k(makeWav([tone(1000, 24000, 1)], 24000), { normalize: false });
     const decoded = Array.from(out.subarray(400, 7600)).map(decodeMuLaw); // skip filter edge transients
     expect(rms(decoded)).toBeGreaterThan(12000 * 0.707 * 0.85);
   });
   it('strongly attenuates an out-of-band tone (6kHz) instead of aliasing it into band', () => {
     // Naive decimation would fold 6kHz down to a loud 2kHz tone at ~full amplitude.
-    const out = wavToMulaw8k(makeWav([tone(6000, 24000, 1)], 24000));
+    const out = wavToMulaw8k(makeWav([tone(6000, 24000, 1)], 24000), { normalize: false });
     const decoded = Array.from(out.subarray(400, 7600)).map(decodeMuLaw);
     expect(rms(decoded)).toBeLessThan(12000 * 0.707 * 0.05);
   });
   it('passes 8kHz input through without resampling', () => {
-    const out = wavToMulaw8k(makeWav([[0, 1000, -1000, 32767]], 8000));
+    const out = wavToMulaw8k(makeWav([[0, 1000, -1000, 32767]], 8000), { normalize: false });
     expect(Array.from(out)).toEqual([0xff, 0xce, 0x4e, 0x80]);
   });
   it('rejects silent or empty audio (a blank asset would be a silent jingle)', () => {
@@ -102,5 +102,34 @@ describe('mulawToWav (dashboard preview of a stored asset)', () => {
     expect(parsed.sampleRate).toBe(8000);
     expect(Array.from(parsed.samples)).toEqual(Array.from(mulaw).map(decodeMuLaw));
     expect(wav.readUInt32LE(4)).toBe(wav.length - 8); // RIFF size is consistent
+  });
+});
+
+describe('loudness normalization (a quiet generated clip must be audible next to TTS speech)', () => {
+  const decodedRms = (mu: Buffer) => rms(Array.from(mu).map(decodeMuLaw));
+  // Real ReadAloud chime measured on the failed phone test: RMS ~450, peak -20 dBFS — inaudible next to speech.
+  it('raises a very quiet clip to the target level (~2500 RMS)', () => {
+    const out = wavToMulaw8k(makeWav([tone(1000, 24000, 1, 400)], 24000));
+    const level = decodedRms(out.subarray(400, 7600));
+    expect(level).toBeGreaterThan(2500 * 0.8);
+    expect(level).toBeLessThan(2500 * 1.25);
+  });
+  it('turns a too-loud clip down rather than blasting the caller', () => {
+    const out = wavToMulaw8k(makeWav([tone(1000, 24000, 1, 30000)], 24000));
+    const level = decodedRms(out.subarray(400, 7600));
+    expect(level).toBeLessThan(2500 * 1.25);
+  });
+  it('never clips: peaky audio is limited by the peak ceiling instead of hitting full scale', () => {
+    // Mostly quiet with rare sharp spikes: matching RMS alone would push the spikes past full scale.
+    const s = tone(1000, 24000, 1, 300).map((v, i) => (i % 2400 === 0 ? 20000 : v));
+    const out = wavToMulaw8k(makeWav([s], 24000));
+    const peak = Math.max(...Array.from(out).map((b) => Math.abs(decodeMuLaw(b))));
+    expect(peak).toBeLessThanOrEqual(32767 * 0.9 + 600); // ceiling + mu-law quantization
+  });
+  it('does not turn a near-silent noise floor into loud hiss (gain is capped; true silence still rejected)', () => {
+    const noise = Array.from({ length: 8000 }, (_, i) => (i % 2 === 0 ? 20 : -20)); // peak 20: just above the silence floor
+    const out = wavToMulaw8k(makeWav([noise], 8000));
+    expect(decodedRms(out)).toBeLessThan(2500 * 0.5);
+    expect(() => wavToMulaw8k(makeWav([new Array(4000).fill(3)], 8000))).toThrow(/silent/i);
   });
 });
