@@ -181,11 +181,22 @@ const READALOUD_SCORE_VOCABULARY: ScoreVocabularyRule[] = [
 
 export const readaloud: ProductConfig = {
   id: 'readaloud',
-  // Shares the calldesk_outreach_* tables (tagged product='readaloud') so its drafts show up in the
-  // same admin queue and go through the same capped, paced sender. It used to have its own
+  // Shares the calldesk_outreach_* tables (tagged product='readaloud:api') so its drafts show up in
+  // the same admin queue and go through the same capped, paced sender. It used to have its own
   // readaloud_outreach_* tables (migration 042); those are now unused and left in place.
+  //
+  // DB-stored value is 'readaloud:api', not bare 'readaloud': this config is actually the
+  // readaloudai.org API/developer-integration pitch (see the offer facts and system prompt below --
+  // realtime STT/TTS API, priced per minute, pitched to teams building voice products), a distinct
+  // audience from the ReadAloud consumer app. The bare 'readaloud' id is kept as the CLI-facing
+  // PRODUCT value (unchanged -- matches every launchd job, run_cycle.sh invocation, and the .id-based
+  // checks in discovery/pipeline.ts and discovery/readaloud/import.ts, none of which needed to
+  // change), exactly the same short-id-vs-full-product-id split every calldesk vertical already
+  // uses (e.g. id 'freight' / sharedTableProductValue 'calldesk:freight'). A future
+  // 'readaloud:app' product for the consumer app would get its own ProductConfig and PRODUCTS key,
+  // sharing this lane (see laneFilter in sender.ts, already prefix-matched for this).
   tablePrefix: 'calldesk_outreach',
-  sharedTableProductValue: 'readaloud',
+  sharedTableProductValue: 'readaloud:api',
   stateDirName: '.readaloud-outreach',
   baseUrl: 'https://readaloudai.org',
   offerFacts: READALOUD_OFFER_FACTS,

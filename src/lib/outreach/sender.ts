@@ -85,8 +85,10 @@ export function laneOf(product: string): Lane {
   return product.startsWith('kreativekoala') ? 'kk' : 'calldesk';
 }
 // PostgREST .or() filter matching every product in a lane.
+// readaloud: prefix-matched like calldesk/kk (not an exact 'readaloud:api' match) so a future
+// 'readaloud:app' product shares this lane's cap/pacing/health-check automatically.
 export function laneFilter(lane: Lane): string {
-  if (lane === 'readaloud') return 'product.eq.readaloud';
+  if (lane === 'readaloud') return 'product.like.readaloud:%';
   return lane === 'kk' ? 'product.like.kreativekoala%' : 'product.eq.calldesk,product.like.calldesk:%';
 }
 
