@@ -9,6 +9,7 @@ import {
 } from './primitives';
 import { MESH } from './gradient';
 import { Reveal } from './Reveal';
+import { DailyFootage } from './DailyFootage';
 
 /**
  * FAQ, final CTA and footer.
@@ -107,20 +108,23 @@ export function FAQ() {
 export function FinalCTA() {
   return (
     <section className="px-2 pb-2">
-      <div className="relative isolate overflow-hidden rounded-[28px] text-center text-white" style={{ background: '#0a2a86' }}>
+      <div className="relative isolate overflow-hidden rounded-[28px] text-white" style={{ background: '#0a2a86' }}>
         <div aria-hidden className="mesh-drift absolute -inset-[8%] -z-10" style={{ background: MESH }} />
         <Reveal>
-          <div className="mx-auto max-w-[820px] px-6 py-24 md:py-36">
-            <h2 className="font-[family-name:var(--font-serif)] text-[44px] font-normal leading-[0.98] tracking-[-0.03em] md:text-[80px]">
-              Hear it handle your first call in under a minute.
-            </h2>
-            <p className="mx-auto mt-7 max-w-[500px] text-[16px] leading-[1.55] text-white/80">
-              No install, no card, no sales call. Pick a template and listen to it run.
-            </p>
-            <div className="mt-9 flex flex-wrap justify-center gap-3">
-              <LightButton href="/demo" size="lg">Try free demo</LightButton>
-              <GlassButton href="/pricing" size="lg">See pricing</GlassButton>
+          <div className="mx-auto grid max-w-[1160px] items-center gap-10 px-6 py-16 md:grid-cols-[1.1fr_0.9fr] md:gap-14 md:py-24">
+            <div>
+              <h2 className="font-[family-name:var(--font-serif)] text-[42px] font-normal leading-[0.98] tracking-[-0.03em] md:text-[68px]">
+                Hear it handle your first call in under a minute.
+              </h2>
+              <p className="mt-7 max-w-[460px] text-[16px] leading-[1.55] text-white/80">
+                No install, no card, no sales call. Pick a template and listen to it run.
+              </p>
+              <div className="mt-9 flex flex-wrap gap-3">
+                <LightButton href="/demo" size="lg">Try free demo</LightButton>
+                <GlassButton href="/pricing" size="lg">See pricing</GlassButton>
+              </div>
             </div>
+            <DailyFootage scenario="salon" salt={1} className="relative aspect-[4/3] w-full rounded-2xl shadow-[0_24px_80px_-20px_rgba(0,18,46,0.6)]" />
           </div>
         </Reveal>
       </div>

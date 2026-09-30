@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { Container, PrimaryButton } from './primitives';
 import { Reveal } from './Reveal';
-import { ORB } from './gradient';
+import { DEMO_CALLER_PHOTO } from '@/lib/sitePhotos';
 
 /**
  * Live-demo module, in the arrangement the reference site uses: a white card
@@ -35,7 +35,16 @@ export function CallPreview() {
         <div className="mt-12 grid gap-4 md:mt-16 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.05fr)]">
           <Reveal>
             <div className="flex h-full flex-col items-center justify-center rounded-2xl border border-[#e4e4f0] bg-white px-6 py-12">
-              <span aria-hidden className="block h-[220px] w-[220px] rounded-full md:h-[280px] md:w-[280px]" style={{ background: ORB }} />
+              <span aria-hidden className="relative block h-[220px] w-[220px] overflow-hidden rounded-full shadow-[0_18px_50px_-18px_rgba(0,18,46,0.5)] ring-4 ring-white md:h-[280px] md:w-[280px]">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={DEMO_CALLER_PHOTO}
+                  alt=""
+                  loading="lazy"
+                  className="h-full w-full scale-[2] object-cover"
+                  style={{ objectPosition: '54% 28%', transformOrigin: '54% 28%' }}
+                />
+              </span>
               <ul className="mt-10 flex max-w-[460px] flex-wrap justify-center gap-2">
                 {USE_CASES.map((u) => (
                   <li key={u}>

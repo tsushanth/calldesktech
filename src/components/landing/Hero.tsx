@@ -4,6 +4,8 @@ import { useCallback, useState } from 'react';
 import { GlassButton } from './primitives';
 import { MESH } from './gradient';
 import { HERO_SCENARIOS } from '@/lib/heroScenarios';
+import { clipForDay, hasClips } from '@/lib/heroPool';
+import { useToday } from '@/lib/useToday';
 import { useLiveDemo } from '@/lib/useLiveDemo';
 import { track } from '@/components/Analytics';
 import { HeroCallPanel } from './HeroCallPanel';
@@ -22,17 +24,21 @@ export function Hero() {
   const [paused, setPaused] = useState(false);
   const live = useLiveDemo();
   const inCall = live.status === 'connecting' || live.status === 'live' || live.status === 'ended';
-  const scenario = HERO_SCENARIOS[active];
+  const day = useToday();
+  // The order of the examples, and the footage for each, change every day.
+  const scenarios = day === null ? HERO_SCENARIOS : [...HERO_SCENARIOS.slice(day % HERO_SCENARIOS.length), ...HERO_SCENARIOS.slice(0, day % HERO_SCENARIOS.length)];
+  const scenario = scenarios[active];
+  const clip = day === null ? null : clipForDay(scenario.id, day);
 
   const next = useCallback(() => setActive((i) => (i + 1) % HERO_SCENARIOS.length), []);
   const choose = (i: number) => {
     setActive(i);
-    track('hero_scenario_selected', { scenario: HERO_SCENARIOS[i].id });
+    track('hero_scenario_selected', { scenario: scenarios[i].id });
   };
 
   const tabs = (extra: string) => (
     <div role="tablist" aria-label="Example calls" className={`flex flex-wrap gap-2 ${extra} ${inCall ? 'opacity-40' : ''}`}>
-      {HERO_SCENARIOS.map((s, i) => (
+      {scenarios.map((s, i) => (
         <button
           key={s.id}
           type="button"
@@ -90,7 +96,7 @@ export function Hero() {
             onFocus={() => setPaused(true)}
             onBlur={() => setPaused(false)}
           >
-            <HeroCallPanel scenario={scenario} paused={paused} onFinishedExample={next} live={live} />
+            <HeroCallPanel scenario={scenario} clip={clip} hasFootage={hasClips(scenario.id)} paused={paused} onFinishedExample={next} live={live} />
             {tabs('mt-5 md:hidden')}
           </div>
         </div>

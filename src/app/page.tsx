@@ -1,6 +1,7 @@
 import { SiteHeader } from "@/components/landing/SiteHeader";
 import { Hero } from "@/components/landing/Hero";
 import { CallPreview } from "@/components/landing/CallPreview";
+import { FootageBand } from "@/components/landing/FootageBand";
 import {
   BuildingBlocks,
   Capabilities,
@@ -48,6 +49,7 @@ export default function Home() {
         <Capabilities />
         <BuildingBlocks />
         <ContactCenter />
+        <FootageBand />
         <HowItWorks />
         <Developers />
         <Trust />

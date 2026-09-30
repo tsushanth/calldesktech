@@ -1,0 +1,320 @@
+{
+  "license": "Envato Elements, registered to the project \"calldesk.tech\"",
+  "sources": [
+    {
+      "file": "blonde-woman-chatting-on-the-phone-at-home-2026-09-16-14-57-38-utc.mov",
+      "scenario": "dental",
+      "itemId": "4L24LZ2",
+      "title": "Woman Talking on Mobile at Evening in Living Room",
+      "itemUrl": "https://elements.envato.com/woman-talking-on-mobile-at-evening-in-living-room-4L24LZ2"
+    },
+    {
+      "file": "construction-worker-talking-on-phone-at-constructi-2026-09-17-20-23-52-utc.mov",
+      "scenario": "contractor",
+      "itemId": "5K75SGU",
+      "title": "Portrait of Engineer or Foreman Talking By Mobile Phone on Building Area Professional Architect or",
+      "itemUrl": "https://elements.envato.com/portrait-of-engineer-or-foreman-talking-by-mobile--5K75SGU"
+    },
+    {
+      "file": "construction-worker-talking-on-phone-at-job-site-2026-09-17-18-21-10-utc.mov",
+      "scenario": "contractor",
+      "itemId": "LU6C7LS",
+      "title": "Construction worker that is in white hard hat is talking by phone",
+      "itemUrl": "https://elements.envato.com/construction-worker-that-is-in-white-hard-hat-is-t-LU6C7LS"
+    },
+    {
+      "file": "lawyer-woman-talking-on-phone-at-desk-2026-09-17-15-32-24-utc.mp4",
+      "scenario": "law",
+      "itemId": "LW2ZX2V",
+      "title": "Female Lawyer Talking on phone in Office",
+      "itemUrl": "https://elements.envato.com/female-lawyer-talking-on-phone-in-office-LW2ZX2V"
+    },
+    {
+      "file": "man-talking-on-phone-at-construction-site-2026-09-17-12-20-58-utc.mov",
+      "scenario": "contractor",
+      "itemId": "2FSZZGT",
+      "title": "Foreman Talking with Client Via Modern Gadget",
+      "itemUrl": "https://elements.envato.com/foreman-talking-with-client-via-modern-gadget-2FSZZGT"
+    },
+    {
+      "file": "man-with-beard-talking-on-smartphone-in-workshop-2026-09-17-11-10-23-utc.mov",
+      "scenario": "owner",
+      "itemId": "VW7LA8P",
+      "title": "Bearded Young Worker in Workshop Talking on the Phone",
+      "itemUrl": "https://elements.envato.com/bearded-young-worker-in-workshop-talking-on-the-ph-VW7LA8P"
+    },
+    {
+      "file": "professional-lawyer-talking-on-smartphone-at-desk-2026-09-17-04-27-29-utc.mp4",
+      "scenario": "law",
+      "itemId": "TTCKGPR",
+      "title": "Male Lawyer Talking on Phone in Office",
+      "itemUrl": "https://elements.envato.com/male-lawyer-talking-on-phone-in-office-TTCKGPR"
+    },
+    {
+      "file": "professional-man-talking-on-phone-at-office-desk-2026-09-17-20-57-35-utc.mov",
+      "scenario": "law",
+      "itemId": "SLNZQUW",
+      "title": "Asian businessman lawyer talking on phone while working in courtroom.",
+      "itemUrl": "https://elements.envato.com/asian-businessman-lawyer-talking-on-phone-while-wo-SLNZQUW"
+    },
+    {
+      "file": "smiling-young-female-healthcare-professional-answe-2026-09-18-06-04-45-utc.mp4",
+      "scenario": "frontdesk",
+      "itemId": "QQASZ72",
+      "title": "Adult African woman in grey scrubs at clinic desk hearing phone ringing, answering phone, typing",
+      "itemUrl": "https://elements.envato.com/adult-african-woman-in-grey-scrubs-at-clinic-desk--QQASZ72"
+    },
+    {
+      "file": "woman-sitting-on-couch-talking-on-the-phone-2026-09-17-08-25-01-utc.mov",
+      "scenario": "dental",
+      "itemId": "RXLZ64K",
+      "title": "Happy Young Woman Talking on Phone in Apartment",
+      "itemUrl": "https://elements.envato.com/happy-young-woman-talking-on-phone-in-apartment-RXLZ64K"
+    },
+    {
+      "file": "woman-talking-on-mobile-phone-indoors-by-window-2026-09-17-10-35-44-utc.mov",
+      "scenario": "dental",
+      "itemId": "S9VA8SW",
+      "title": "Woman Having Phone Talk at Home",
+      "itemUrl": "https://elements.envato.com/woman-having-phone-talk-at-home-S9VA8SW"
+    },
+    {
+      "file": "woman-talking-on-phone-while-getting-hair-styled-2026-09-17-01-45-18-utc.mov",
+      "scenario": "salon",
+      "itemId": "37PDPN3",
+      "title": "Closeup High Angle View Woman Talking on Phone in Slow Motion As Unrecognizable Hairstylist Spraying",
+      "itemUrl": "https://elements.envato.com/closeup-high-angle-view-woman-talking-on-phone-in--37PDPN3"
+    },
+    {
+      "file": "woman-talking-on-phone-while-getting-hair-styled-2026-09-17-03-18-15-utc.mov",
+      "scenario": "salon",
+      "itemId": "Y6TKHVZ",
+      "title": "Hair Care In Fashion Studio. Beautiful Young Woman.",
+      "itemUrl": "https://elements.envato.com/hair-care-in-fashion-studio-beautiful-young-woman-Y6TKHVZ"
+    },
+    {
+      "file": "woman-with-blonde-hair-talking-on-mobile-phone-2026-09-30-02-47-55-utc.mov",
+      "scenario": "salon",
+      "itemId": "KD3SYJF",
+      "title": "Phone call, schedule and tablet with woman in salon for appointment, calendar or consultation",
+      "itemUrl": "https://elements.envato.com/phone-call-schedule-and-tablet-with-woman-in-salon-KD3SYJF"
+    },
+    {
+      "file": "young-man-talking-on-phone-in-business-2026-09-18-03-00-09-utc.mov",
+      "scenario": "owner",
+      "itemId": "CEMH4TL",
+      "title": "African american male barista using tablet and talking on smartphone at coffee shop, slow motion",
+      "itemUrl": "https://elements.envato.com/african-american-male-barista-using-tablet-and-tal-CEMH4TL"
+    },
+    {
+      "file": "young-woman-talking-on-phone-at-workplace-2026-09-17-03-45-07-utc.mov",
+      "scenario": "owner",
+      "itemId": "LEE4L4K",
+      "title": "Caucasian Woman Florist Takes an Order in a Flower Shop By Phone Clarifies Details with the Customer",
+      "itemUrl": "https://elements.envato.com/caucasian-woman-florist-takes-an-order-in-a-flower-LEE4L4K"
+    },
+    {
+      "file": "~/Desktop/calldesk-hero-assets/frontdesk-WRPAB2N.mov",
+      "scenario": "frontdesk",
+      "itemId": "WRPAB2N",
+      "title": "Office Manager Answering The Call",
+      "itemUrl": "https://elements.envato.com/office-manager-answering-the-call-WRPAB2N"
+    },
+    {
+      "file": "~/Desktop/calldesk-hero-assets/frontdesk-Y2G86JM.mov",
+      "scenario": "frontdesk",
+      "itemId": "Y2G86JM",
+      "title": "Portrait Of a Beautiful Smiling Nurse At Desk Station While Talking On The Phone.",
+      "itemUrl": "https://elements.envato.com/portrait-of-a-beautiful-smiling-nurse-at-desk-stat-Y2G86JM"
+    },
+    {
+      "file": "woman-using-voice-command-on-smartphone-at-home-2026-09-17-11-42-42-utc.mov",
+      "scenario": "dental",
+      "title": "Woman Talking on Mobile Phone at Home",
+      "itemId": "EJVEALZ",
+      "itemUrl": "https://elements.envato.com/woman-talking-on-mobile-phone-at-home-EJVEALZ"
+    },
+    {
+      "file": "professional-construction-worker-talking-on-smartp-2026-09-18-08-12-11-utc.mov",
+      "scenario": "contractor",
+      "title": "professional construction worker talking on smartp",
+      "slug": "54368ea",
+      "itemUrl": null
+    },
+    {
+      "file": "woman-with-blonde-hair-relaxing-at-home-on-phone-2026-09-17-10-17-21-utc.mov",
+      "scenario": "dental",
+      "title": "woman with blonde hair relaxing at home on phone",
+      "slug": "e0e686e",
+      "itemUrl": null
+    },
+    {
+      "file": "woman-working-on-laptop-and-talking-on-phone-indoo-2026-09-17-18-13-01-utc.mov",
+      "scenario": "dental",
+      "title": "Attractive Young Girl Talking On A Phone In The Night",
+      "itemId": "DQL5ZKH",
+      "itemUrl": "https://elements.envato.com/attractive-young-girl-talking-on-a-phone-in-the-ni-DQL5ZKH"
+    },
+    {
+      "file": "woman-talking-on-smartphone-while-holding-clipboar-2026-09-16-17-33-55-utc.mov",
+      "scenario": "owner",
+      "title": "woman talking on smartphone while holding clipboar",
+      "slug": "d879f07",
+      "itemUrl": null
+    },
+    {
+      "file": "smiling-woman-talking-on-telephone-in-doctor-s-off-2026-09-18-02-38-28-utc.mov",
+      "scenario": "frontdesk",
+      "title": "Portrait of medical receptionist sitting at front desk, talking on telephone, slow motion",
+      "itemId": "YLY7QTP",
+      "itemUrl": "https://elements.envato.com/portrait-of-medical-receptionist-sitting-at-front--YLY7QTP"
+    },
+    {
+      "file": "woman-in-scrubs-working-at-computer-and-talking-2026-09-17-19-49-45-utc.mov",
+      "scenario": "frontdesk",
+      "title": "Hispanic female doctor telemedicine specialist working at hospital calling online",
+      "itemId": "L56URMM",
+      "itemUrl": "https://elements.envato.com/hispanic-female-doctor-telemedicine-specialist-wor-L56URMM"
+    },
+    {
+      "file": "woman-talks-on-phone-in-flower-shop-2026-09-17-12-13-46-utc.mov",
+      "scenario": "owner",
+      "title": "Woman Florist Owner of a Flower Shop is Talking with a Customer on the Phone Small Business Selling",
+      "itemId": "HK2PWE4",
+      "itemUrl": "https://elements.envato.com/woman-florist-owner-of-a-flower-shop-is-talking-wi-HK2PWE4"
+    },
+    {
+      "file": "man-in-suit-talking-on-phone-at-desk-2026-09-16-06-03-44-utc.mov",
+      "scenario": "law",
+      "title": "Young Lawyer Talking Mobile Phone and Working on Laptop at Table in Law Office",
+      "itemId": "2ETZYQN",
+      "itemUrl": "https://elements.envato.com/young-lawyer-talking-mobile-phone-and-working-on-l-2ETZYQN"
+    },
+    {
+      "file": "woman-talking-on-phone-indoors-close-up-2026-09-16-14-19-09-utc.mov",
+      "scenario": "dental",
+      "title": "Woman Talking on Mobile at Evening in Living Room",
+      "itemId": "N89XHBN",
+      "itemUrl": "https://elements.envato.com/woman-talking-on-mobile-at-evening-in-living-room-N89XHBN"
+    },
+    {
+      "file": "woman-at-hair-salon-talking-on-cellphone-2026-09-18-05-02-12-utc.mov",
+      "scenario": "salon",
+      "title": "Professional Hairdresser Communicates with Client Over Phone Dialogue Between Beauty Expert and",
+      "itemId": "2FDQJFF",
+      "itemUrl": "https://elements.envato.com/professional-hairdresser-communicates-with-client--2FDQJFF"
+    },
+    {
+      "file": "hairdresser-taking-a-call-holding-a-tablet-2026-09-30-02-47-54-utc.mov",
+      "scenario": "salon",
+      "title": "Salon, phone call and woman with tablet, discussion or digital app for schedule",
+      "itemId": "SRM7FK7",
+      "itemUrl": "https://elements.envato.com/salon-phone-call-and-woman-with-tablet-discussion--SRM7FK7"
+    },
+    {
+      "file": "man-talking-on-phone-at-desk-with-laptop-2026-09-17-06-52-15-utc.mov",
+      "scenario": "owner",
+      "title": "Fashion designer, startup or bad news with phone or talking or sitting, hand or entrepreneur",
+      "itemId": "VQ9CZ4Q",
+      "itemUrl": "https://elements.envato.com/fashion-designer-startup-or-bad-news-with-phone-or-VQ9CZ4Q"
+    },
+    {
+      "file": "woman-relaxing-on-sofa-talking-on-phone-2026-09-17-11-15-41-utc.mov",
+      "scenario": "dental",
+      "title": "Adult Woman in Sofa Talking on Smartphone. Boudoir Scene, Slider Shot",
+      "itemId": "R7HD97S",
+      "itemUrl": "https://elements.envato.com/adult-woman-in-sofa-talking-on-smartphone-boudoir--R7HD97S"
+    },
+    {
+      "file": "professional-man-talking-on-phone-at-office-desk-2026-09-17-09-21-06-utc.mov",
+      "scenario": "law",
+      "title": "Business, phone call and man in office, documents and communication with laptop",
+      "itemId": "5RM5X2Z",
+      "itemUrl": "https://elements.envato.com/business-phone-call-and-man-in-office-documents-an-5RM5X2Z"
+    },
+    {
+      "file": "friendly-woman-on-phone-in-doctor-s-office-2026-09-18-02-59-46-utc.mov",
+      "scenario": "frontdesk",
+      "title": "Portrait of medical receptionist sitting at front desk, talking on telephone, slow motion",
+      "itemId": "QXMXGFN",
+      "itemUrl": "https://elements.envato.com/portrait-of-medical-receptionist-sitting-at-front--QXMXGFN"
+    },
+    {
+      "file": "woman-working-on-laptop-in-flower-store-2026-09-17-13-05-13-utc.mov",
+      "scenario": "owner",
+      "title": "Mature adult shop owner working at counter in plant nursery on cell phone and laptop",
+      "itemId": "M2AW7AN",
+      "itemUrl": "https://elements.envato.com/mature-adult-shop-owner-working-at-counter-in-plan-M2AW7AN"
+    },
+    {
+      "file": "man-talking-on-phone-while-working-at-desk-2026-09-17-11-43-53-utc.mov",
+      "scenario": "law",
+      "title": "man talking on phone while working at desk",
+      "slug": "cfb7525",
+      "itemUrl": null
+    },
+    {
+      "file": "construction-worker-talking-on-phone-at-building-s-2026-09-16-20-22-49-utc.mov",
+      "scenario": "contractor",
+      "title": "construction worker talking on phone at building s",
+      "slug": "2843006",
+      "itemUrl": null
+    },
+    {
+      "file": "construction-worker-talking-on-the-phone-at-constr-2026-09-17-18-13-51-utc.mov",
+      "scenario": "contractor",
+      "title": "Civil Engineer Talking on the Phone at a Construction Site",
+      "itemId": "L3VTUXH",
+      "itemUrl": "https://elements.envato.com/civil-engineer-talking-on-the-phone-at-a-construct-L3VTUXH"
+    },
+    {
+      "file": "woman-talking-on-the-phone-during-hair-highlightin-2026-09-17-20-52-05-utc.mov",
+      "scenario": "salon",
+      "title": "Caucasian Woman Receives Hairstyling Woman in Salon Highlighted with Foil Casual Moment of Woman",
+      "itemId": "X7HBHQG",
+      "itemUrl": "https://elements.envato.com/caucasian-woman-receives-hairstyling-woman-in-salo-X7HBHQG"
+    },
+    {
+      "file": "young-woman-talks-on-cell-phone-in-workshop-2026-09-18-02-51-21-utc.mov",
+      "scenario": "owner",
+      "title": "young woman talks on cell phone in workshop",
+      "slug": "9413115",
+      "itemUrl": null
+    },
+    {
+      "file": "woman-working-at-modern-medical-clinic-reception-d-2026-09-16-09-13-56-utc.mov",
+      "scenario": "frontdesk",
+      "title": "woman working at modern medical clinic reception d",
+      "slug": "bd6a7a8",
+      "itemUrl": null
+    },
+    {
+      "file": "young-woman-attorney-speaking-on-phone-at-desk-2026-09-17-15-29-59-utc.mp4",
+      "scenario": "law",
+      "title": "Female Judge Talking on phone in Courtroom",
+      "itemId": "JZDDN4T",
+      "itemUrl": "https://elements.envato.com/female-judge-talking-on-phone-in-courtroom-JZDDN4T"
+    },
+    {
+      "file": "man-talking-on-phone-and-using-laptop-in-office-2026-09-16-20-56-09-utc.mp4",
+      "scenario": "law",
+      "title": "Male Lawyer Talking on Phone with Client at work",
+      "itemId": "EGNYQ3D",
+      "itemUrl": "https://elements.envato.com/male-lawyer-talking-on-phone-with-client-at-work-EGNYQ3D"
+    },
+    {
+      "file": "~/Desktop/calldesk-hero-assets/frontdesk-MC4GQ8B.mov",
+      "scenario": "frontdesk",
+      "title": "Beautiful Smiling Nurse At Desk Station Talking On The Phone",
+      "itemId": "MC4GQ8B",
+      "itemUrl": "https://elements.envato.com/beautiful-smiling-nurse-at-desk-station-talking-on-MC4GQ8B"
+    },
+    {
+      "file": "~/Desktop/calldesk-hero-assets/contractor-zip114.mov",
+      "scenario": "contractor",
+      "title": "114_QXJjaGl0ZWN0c184.mov",
+      "slug": "9f4ec02",
+      "itemUrl": null
+    }
+  ]
+}

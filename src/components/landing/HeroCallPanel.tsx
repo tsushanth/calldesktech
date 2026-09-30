@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import type { HeroScenario } from '@/lib/heroScenarios';
+import type { HeroClip } from '@/lib/heroPool';
 import type { useLiveDemo } from '@/lib/useLiveDemo';
 
 type Live = ReturnType<typeof useLiveDemo>;
@@ -55,13 +56,49 @@ function Bubble({ who, text }: { who: 'caller' | 'agent'; text: string }) {
   );
 }
 
+function FootageTile({ clip, caption, reduced }: { clip: HeroClip | null; caption: string; reduced: boolean }) {
+  return (
+    <div className="relative mx-5 mt-4 aspect-[16/7] shrink-0 overflow-hidden rounded-xl bg-[#00122e]">
+      {clip &&
+        (reduced ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={clip.poster} alt="" className="h-full w-full object-cover" />
+        ) : (
+          <video
+            key={clip.id}
+            src={clip.video}
+            poster={clip.poster}
+            className="hero-swap h-full w-full object-cover"
+            autoPlay
+            muted
+            loop
+            playsInline
+            preload="metadata"
+            aria-hidden
+            tabIndex={-1}
+          />
+        ))}
+      <div className="pointer-events-none absolute inset-x-0 bottom-0 flex items-end justify-between gap-3 bg-gradient-to-t from-[#00122e]/75 to-transparent px-3 pb-2.5 pt-8 text-[12px] text-white">
+        <span>{caption}</span>
+        <span className="text-white/70">Illustrative footage</span>
+      </div>
+    </div>
+  );
+}
+
 export function HeroCallPanel({
   scenario,
+  clip,
+  hasFootage,
   paused,
   onFinishedExample,
   live,
 }: {
   scenario: HeroScenario;
+  /** Today's footage for this scenario; null until the page knows today's date. */
+  clip: HeroClip | null;
+  /** Whether this scenario has footage at all, so its space is held before the clip is chosen. */
+  hasFootage: boolean;
   paused: boolean;
   onFinishedExample: () => void;
   live: Live;
@@ -120,7 +157,7 @@ export function HeroCallPanel({
   })();
 
   return (
-    <div className="flex h-[520px] w-full flex-col overflow-hidden rounded-[20px] bg-white text-[#00122e] shadow-[0_24px_80px_-20px_rgba(0,18,46,0.55)] md:h-[560px]">
+    <div className="flex h-[600px] w-full flex-col overflow-hidden rounded-[20px] bg-white text-[#00122e] shadow-[0_24px_80px_-20px_rgba(0,18,46,0.55)] md:h-[640px]">
       <div className="flex items-center justify-between gap-3 border-b border-[#00122e]/10 px-5 py-3.5">
         {isLive ? (
           <>
@@ -144,6 +181,8 @@ export function HeroCallPanel({
           </>
         )}
       </div>
+
+      {hasFootage && !isLive && !ended && <FootageTile clip={clip} caption={scenario.caption} reduced={reduced} />}
 
       <div
         ref={listRef}

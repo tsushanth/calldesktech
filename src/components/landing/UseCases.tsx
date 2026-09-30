@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { Card, CardBody, CardTitle, PrimaryButton, SecondaryButton } from './primitives';
+import { TEMPLATE_GROUP_PHOTOS } from '@/lib/sitePhotos';
 
 export interface UseCaseTemplate {
   id: string;
@@ -49,6 +50,19 @@ export function UseCasePicker({ groups }: { groups: UseCaseGroup[] }) {
       </div>
 
       <div id={`usecase-panel-${group.id}`} role="tabpanel" aria-labelledby={`usecase-tab-${group.id}`}>
+        {TEMPLATE_GROUP_PHOTOS[group.id] && (
+          <div key={group.id} className="hero-swap relative mt-6 h-[200px] overflow-hidden rounded-2xl md:h-[260px]">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={TEMPLATE_GROUP_PHOTOS[group.id].src}
+              alt=""
+              loading="lazy"
+              className="h-full w-full object-cover"
+              style={{ objectPosition: TEMPLATE_GROUP_PHOTOS[group.id].position }}
+            />
+            <div aria-hidden className="absolute inset-0 bg-gradient-to-tr from-[#00122e]/25 via-transparent to-[#0a2a86]/15" />
+          </div>
+        )}
         <p className="mt-6 max-w-[620px] text-[16px] leading-[1.5] text-gray-500">{group.blurb}</p>
         <div className="mt-8 grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {group.templates.map((t) => (
