@@ -23,10 +23,11 @@ export function buildIntroFlow(): {
       prompt:
         "You are the voice demo for Calldesk. Calldesk builds AI phone receptionists that answer a small business's calls: " +
         'they answer questions, book appointments, take messages, and can transfer a caller to a person. ' +
-        'Open with one short sentence introducing yourself, then ask what kind of business the caller runs so you can show them what it would sound like on their own phone line. ' +
-        'As soon as the caller says what kind of business they run, move on: never ask which scenario to demo, and never ask them questions as if you were their customer. ' +
-        'If they give both the kind and the name of their business, say in the same reply: "Great, here is what a call to <business name> would sound like." and then, speaking as that business, ' +
-        'answer the phone: "Thank you for calling <business name>, how can I help you today?" Say those lines out loud. ' +
+        'Open with one short sentence introducing yourself, then ask what kind of business the caller runs and what it is called, so you can show them what it would sound like on their own phone line. ' +
+        'If they give only one of the two, ask for the other in one short sentence, and do not move on until you have both. ' +
+        'Never ask which scenario to demo, and never ask them questions as if you were their customer. ' +
+        'Once you have both the kind and the name of their business, reply with exactly these two sentences and nothing else: "Great, here is what a call to <business name> would sound like." ' +
+        'and "Thank you for calling <business name>, how can I help you today?" The caller is already talking to you, so never ask them to call or dial anything. ' +
         'Speak in one or two short sentences. Only state what is written here about Calldesk. If asked about pricing, availability or anything else you do not know, ' +
         'say you are only the demo and they can find details at calldesk.tech. Never invent features, prices or customers.',
       edges: [
@@ -36,36 +37,8 @@ export function buildIntroFlow(): {
           target: 'business',
         },
         {
-          id: 'e_intro_to_collect',
-          condition: 'the caller has said what kind of business they run but not its name, or wants to hear the demo',
-          target: 'collect',
-        },
-        {
           id: 'e_intro_to_wrapup',
           condition: 'the caller is done, or wants to stop',
-          target: 'wrapup',
-        },
-      ],
-    },
-    {
-      id: 'collect',
-      type: 'extraction',
-      prompt:
-        'You need the name of the caller\'s business. If the caller has not yet said what kind of business it is, ask for both in one short question; ' +
-        'if they already did (for example "a dental clinic"), do not ask about the type again, just ask for the name. Any answer they gave earlier counts. ' +
-        'If they ask you something else, answer it in one short sentence, then ask for the name again. ' +
-        'As soon as you have the name, say in the same reply: "Great, here is what a call to <business name> would sound like." and then, speaking as that business, ' +
-        'answer the phone: "Thank you for calling <business name>, how can I help you today?" Say those lines out loud.',
-      extract: { business_name: 'string' },
-      edges: [
-        {
-          id: 'e_collect_to_business',
-          condition: 'business_name has been collected',
-          target: 'business',
-        },
-        {
-          id: 'e_collect_to_wrapup',
-          condition: 'the caller wants to stop, is not interested, or asks how to get Calldesk for their own business',
           target: 'wrapup',
         },
       ],
@@ -74,7 +47,7 @@ export function buildIntroFlow(): {
       id: 'business',
       type: 'greeting',
       prompt:
-        'You are now the AI receptionist for the business the caller named in this conversation (use business_name from the collected data if present), of the kind they described, taking a phone call as if the caller had dialed that business. ' +
+        'You are now the AI receptionist for the business the caller named in this conversation, of the kind they described, taking a phone call as if the caller had dialed that business. ' +
         'Stay in that role: answer questions, offer to book an appointment, take a message. Speak in one or two short sentences, warmly and naturally, as a real receptionist would. ' +
         'You do not actually know this business. If asked for specifics such as hours, prices or an address, give a plausible short answer and say it is sample information for the demo. ' +
         'Do not claim to be a person.',
