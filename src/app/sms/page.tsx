@@ -33,14 +33,34 @@ export default function SmsOptInPage() {
             </a>
             .
           </p>
-          <p className="text-sm text-neutral-600">
-            You can also opt in by filling out the form on this page or by
-            initiating contact through our{' '}
+          <p className="text-sm text-neutral-600 mb-4">
+            These same numbers are shown on our{' '}
             <a href="/demo" className="text-blue-600 underline">
-              trial signup
+              trial signup page
             </a>
-            .
+            . We only text you after you text us first.
           </p>
+          <div className="rounded-lg bg-neutral-50 border border-neutral-200 p-4 text-sm text-neutral-700">
+            <p className="font-medium mb-2">Consent disclosure</p>
+            <p>
+              By texting START to one of the numbers above, you agree to
+              receive customer care text messages from CallDeskTech (operated
+              by KREATIVEKOALASOLUTIONS LLC), including trial setup links,
+              account updates, appointment scheduling updates, and technical
+              support replies. Message frequency varies, typically 1&ndash;3
+              messages per interaction. Message and data rates may apply.
+              Reply STOP to opt out or HELP for help. Consent is not a
+              condition of purchase. See our{' '}
+              <a href="/privacy" className="text-blue-600 underline">
+                Privacy Policy
+              </a>{' '}
+              and{' '}
+              <a href="/terms" className="text-blue-600 underline">
+                Terms of Service
+              </a>
+              .
+            </p>
+          </div>
         </section>
 
         <section className="bg-white rounded-xl border border-neutral-200 p-6 mb-6">
@@ -80,7 +100,13 @@ export default function SmsOptInPage() {
             .
           </p>
           <p className="text-sm text-neutral-600">
-            Msg&amp;data rates may apply. Consent is not a condition of purchase.
+            Message and data rates may apply. Consent is not a condition of
+            purchase. Your mobile information will not be sold or shared with
+            third parties for promotional or marketing purposes. Details in our{' '}
+            <a href="/privacy" className="text-blue-600 underline">
+              Privacy Policy
+            </a>
+            .
           </p>
         </section>
 
