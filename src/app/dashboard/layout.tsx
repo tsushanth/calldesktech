@@ -116,6 +116,7 @@ export default function DashboardLayout({
       items: [
         { href: '/dashboard/agents', label: 'Agents' },
         { href: '/dashboard/knowledge', label: 'Knowledge Base' },
+        { href: '/dashboard/call-audio', label: 'Call Audio' },
       ],
     },
     {
@@ -159,6 +160,7 @@ export default function DashboardLayout({
     '/dashboard': <IconHome />,
     '/dashboard/agents': <IconAgents />,
     '/dashboard/knowledge': <IconBook />,
+    '/dashboard/call-audio': <IconSound />,
     '/dashboard/numbers': <IconPhone />,
     '/dashboard/batch-call': <IconBatch />,
     '/dashboard/integrations': <IconIntegrations />,
@@ -328,6 +330,7 @@ function iconProps() {
 function IconHome() { return <svg {...iconProps()}><path d="M3 11.5 12 4l9 7.5" /><path d="M5.5 10v9a1 1 0 0 0 1 1H9a1 1 0 0 0 1-1v-4a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v4a1 1 0 0 0 1 1h2.5a1 1 0 0 0 1-1v-9" /></svg>; }
 function IconAgents() { return <svg {...iconProps()}><rect x="4" y="8" width="16" height="11" rx="2" /><path d="M9 8V6a3 3 0 0 1 6 0v2" /><circle cx="9" cy="13.5" r="1" fill="currentColor" /><circle cx="15" cy="13.5" r="1" fill="currentColor" /></svg>; }
 function IconBook() { return <svg {...iconProps()}><path d="M4 5.5A1.5 1.5 0 0 1 5.5 4H12v16H5.5A1.5 1.5 0 0 1 4 18.5v-13Z" /><path d="M20 5.5A1.5 1.5 0 0 0 18.5 4H12v16h6.5a1.5 1.5 0 0 0 1.5-1.5v-13Z" /></svg>; }
+function IconSound() { return <svg {...iconProps()}><path d="M4 10v4h3l4 3V7l-4 3H4z" /><path d="M15 9.5a3.5 3.5 0 0 1 0 5M17.5 7a7 7 0 0 1 0 10" /></svg>; }
 function IconPhone() { return <svg {...iconProps()}><path d="M6.5 4h3l1.5 4-2 1.3a11 11 0 0 0 5.7 5.7l1.3-2 4 1.5v3a1.5 1.5 0 0 1-1.6 1.5A16 16 0 0 1 5 5.6 1.5 1.5 0 0 1 6.5 4Z" /></svg>; }
 function IconHistory() { return <svg {...iconProps()}><circle cx="12" cy="12" r="8.5" /><path d="M12 7.5V12l3 2" /></svg>; }
 function IconSettings() { return <svg {...iconProps()}><circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.9 2.9l-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.6V21a2 2 0 1 1-4 0v-.2a1.7 1.7 0 0 0-1-1.5 1.7 1.7 0 0 0-1.9.3l-.1.1a2 2 0 1 1-2.9-2.9l.1-.1a1.7 1.7 0 0 0 .3-1.9 1.7 1.7 0 0 0-1.6-1H3a2 2 0 1 1 0-4h.2a1.7 1.7 0 0 0 1.5-1 1.7 1.7 0 0 0-.3-1.9l-.1-.1A2 2 0 1 1 7.2 3.5l.1.1a1.7 1.7 0 0 0 1.9.3H9a1.7 1.7 0 0 0 1-1.6V2a2 2 0 1 1 4 0v.2a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.9-.3l.1-.1a2 2 0 1 1 2.9 2.9l-.1.1a1.7 1.7 0 0 0-.3 1.9V9a1.7 1.7 0 0 0 1.6 1H21a2 2 0 1 1 0 4h-.2a1.7 1.7 0 0 0-1.5 1Z" /></svg>; }
