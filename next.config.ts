@@ -28,6 +28,18 @@ const nextConfig: NextConfig = {
     return [{ source: '/api/v1/:path*', destination: '/api/:path*' }];
   },
   serverExternalPackages: ['pdf-parse', 'pdfjs-dist', 'playwright-core'],
+  // The landing page's footage and photos are static files that change at most
+  // when scripts/hero-ingest.mjs is re-run. Next serves public/ files with
+  // max-age=0 by default, so every visit re-checked each clip; cache for a day
+  // (matching the daily rotation) and let browsers reuse a stale copy while they
+  // refresh it.
+  async headers() {
+    const cache = [{ key: 'Cache-Control', value: 'public, max-age=86400, stale-while-revalidate=604800' }];
+    return [
+      { source: '/hero/:path*', headers: cache },
+      { source: '/photos/:path*', headers: cache },
+    ];
+  },
 };
 
 export default nextConfig;
