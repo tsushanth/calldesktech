@@ -20,7 +20,7 @@ export default function PrivacyPage() {
       </section>
       <section>
         <h2>Text messages (SMS)</h2>
-        <p>If you provide your mobile number to CallDeskTech, you may receive text messages related to customer service, trial setup, account updates, and appointment scheduling. Message frequency varies based on your activity. You can opt out at any time by texting <strong>STOP</strong> to our support number, or texting <strong>HELP</strong> for assistance. Msg&amp;data rates may apply. Consent to receive SMS is not a condition of purchase.</p>
+        <p>If you provide your mobile number to CallDeskTech, you may receive text messages related to customer service, trial setup, account updates, and appointment scheduling. Message frequency varies based on your activity. You can opt out at any time by texting <strong>STOP</strong> to our support number, or texting <strong>HELP</strong> for assistance. Message and data rates may apply. Consent to receive SMS is not a condition of purchase.</p>
         <p><strong>Your mobile information will not be sold or shared with third parties for promotional or marketing purposes.</strong></p>
       </section>
       <section>
