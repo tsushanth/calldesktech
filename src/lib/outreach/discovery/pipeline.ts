@@ -196,6 +196,26 @@ export async function runDiscovery(db: Db, opts: RunOptions = {}): Promise<RunSu
   }
 
   try {
+    // The research stage judges "is this an AI voice agency"; it is agency-specific,
+    // so it never runs for the customer-discovery verticals (drafting then does not
+    // require a dossier either, since researchOn also gates that). Computed up front
+    // (env var + product.vertical only, no dependency on any stage output) so the
+    // early stageDraft call below can use the same value as the original later one.
+    const researchOn = process.env.OUTREACH_RESEARCH === '1' && !product.vertical;
+
+    // Draft (and its form-outreach counterpart) from the EXISTING backlog first, before any of
+    // this run's own discovery stages -- stageDraft takes no `entries`/`index` from them, it
+    // independently re-queries the leads table by score, so running it first costs nothing.
+    // Discovered why this had to move: a registry-sourced, large-pool product (insurance's
+    // underlying registry alone is 23k+ rows) can burn the entire ~9-minute run deadline inside
+    // stageRegistry/stageEnrich alone, so `stageDraft` down at the bottom never even started --
+    // 0 drafts, 0 errors, every run, for insurance/homeservices/dental specifically, while a
+    // non-registry product like freight (which finishes fast) drafted fine. Moving drafting first
+    // means a slow discovery pass can eat the rest of its own budget without blocking the backlog
+    // that's already sitting there ready to go out.
+    if (!stop()) await stageDraft(db, summary, dryRun, draftLimit, stop, researchOn, product);
+    if (!stop() && product.vertical) await stageFormDrafts(db, summary, dryRun, draftLimit, stop, product);
+
     const { entries, index } = await stageDirectory(db, summary, dryRun, product);
     const searchEntries = stop() ? [] : await stageSearch(db, summary, dryRun, index, stop, product);
     const jobPostingEntries = stop() ? [] : await stageJobPostings(db, summary, dryRun, index, stop, product);
@@ -216,13 +236,10 @@ export async function runDiscovery(db: Db, opts: RunOptions = {}): Promise<RunSu
     // manual follow-up/calling has a number. Capped small since it only matters for leads we're
     // actually about to reach, not the whole backlog.
     if (!stop()) await stagePhoneBackfill(db, summary, dryRun, stop, product);
-    // The research stage judges "is this an AI voice agency"; it is agency-specific,
-    // so it never runs for the customer-discovery verticals (drafting then does not
-    // require a dossier either, since researchOn also gates that).
-    const researchOn = process.env.OUTREACH_RESEARCH === '1' && !product.vertical;
+    // Populates dossier/fit for leads stageDraft (already run above, for this run) will only pick
+    // up on a FUTURE run -- a one-run lag, not a correctness issue (same convergence pattern every
+    // other stage here already has).
     if (researchOn && !stop()) await stageResearch(db, summary, dryRun, opts.researchLimit ?? 5, stop, product);
-    if (!stop()) await stageDraft(db, summary, dryRun, draftLimit, stop, researchOn, product);
-    if (!stop() && product.vertical) await stageFormDrafts(db, summary, dryRun, draftLimit, stop, product);
     if (!stop()) await stageFollowUp(db, summary, dryRun, stop, product);
   } catch (error) {
     summary.status = 'error';
