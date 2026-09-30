@@ -2,6 +2,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { sendEmail } from '@/lib/email';
 import { unsubscribeUrl, oneClickUnsubscribeUrl } from './unsubscribe';
 import { domainCanReceiveMail } from './mxCheck';
+import { verifyLeadEmail, shouldBlock } from './emailVerify';
 import { renderOutreachEmail, escapeHtml, type EmailSample } from './emailHtml';
 import { getPublishedSample, pickVariant, sampleTokenFor, sampleUrl, snippetLines, productSlug } from './samples';
 
@@ -183,7 +184,7 @@ export async function sendApprovedMessage(supabase: SupabaseClient<any>, message
   const from = (process.env[brand.fromEnvVar] || '').trim();
   if (!from) return { ok: false, error: `${brand.fromEnvVar} is not set` };
 
-  const { data: lead } = await supabase.from('calldesk_outreach_leads').select('region_blocked').eq('id', msg.lead_id).maybeSingle();
+  const { data: lead } = await supabase.from('calldesk_outreach_leads').select('id, region_blocked, signals').eq('id', msg.lead_id).maybeSingle();
   if (lead?.region_blocked) {
     await supabase.from('calldesk_outreach_messages').update({ status: 'failed', error: 'lead is in an excluded region (DE/AT/CH)' }).eq('id', messageId);
     return { ok: false, error: 'This lead is in an excluded region (Germany/Austria/Switzerland); not sending' };
@@ -206,6 +207,17 @@ export async function sendApprovedMessage(supabase: SupabaseClient<any>, message
   if (suppressed) {
     await supabase.from('calldesk_outreach_messages').update({ status: 'failed', error: 'recipient is suppressed' }).eq('id', messageId);
     return { ok: false, error: 'Recipient has unsubscribed' };
+  }
+
+  // Mailbox-level check (skipped when EMAIL_VERIFY_API_KEY is unset; fails open on provider errors).
+  // A definitively bad mailbox is suppressed so no other message can reach it either.
+  const verification = await verifyLeadEmail(supabase, lead ?? null, toEmail);
+  if (verification.verdict === 'unknown' && verification.detail) console.warn(`[outreach/sender] mailbox verification inconclusive for ${toEmail}: ${verification.detail}`);
+  if (shouldBlock(verification)) {
+    const why = `mailbox verification: ${verification.verdict}${verification.detail ? ` (${verification.detail})` : ''}`;
+    await supabase.from('calldesk_outreach_messages').update({ status: 'failed', error: why }).eq('id', messageId);
+    await supabase.from('calldesk_outreach_suppressions').upsert({ email: toEmail, reason: `${why} [${verification.provider}]` }, { onConflict: 'email' });
+    return { ok: false, error: `Recipient mailbox failed verification (${verification.detail || verification.verdict}); not sending` };
   }
 
   const { html, text, variant, sampleId } = await buildOutreachEmail(supabase, msg, { toEmail, product, brand, postalAddress });
