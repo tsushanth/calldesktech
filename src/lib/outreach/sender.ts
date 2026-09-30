@@ -29,7 +29,7 @@ const CALLDESK_BRAND: Brand = { name: 'Calldesk', siteUrl: 'calldesk.tech', from
 
 // Each Kreative Koala app sends from its OWN identity, not a shared one --
 // four apps have their own domain (already verified in Resend); the three
-// without one (VoxKey, Pixora, GymLog -- Kreative Koala LLC is their real
+// without one (VoxKey, Pixora, GymLog -- KreativeKoalaSolutions LLC is their real
 // publisher either way) get a distinct address on the parent domain instead
 // of a shared generic "outreach@" sender. All seven still share one postal
 // address and one daily send cap (same legal entity, same footer text).
@@ -52,7 +52,7 @@ const KK_APP_BRANDS: Record<string, Omit<Brand, 'postalEnvVar' | 'capEnvVar'>> =
 // the Kreative Koala apps, but its own daily cap and lane so it is paced and paused independently.
 const READALOUD_BRAND: Brand = { name: 'readaloudai.org', siteUrl: 'readaloudai.org', fromEnvVar: 'OUTREACH_FROM_EMAIL_READALOUD', postalEnvVar: KK_POSTAL_ENV, capEnvVar: 'OUTREACH_DAILY_CAP_READALOUD', replyToEnvVar: 'OUTREACH_REPLYTO_EMAIL_READALOUD', deckUrl: 'https://readaloudai.org/deck' };
 // Fallback for any Kreative Koala product key not yet in the map above.
-const KREATIVE_KOALA_BRAND: Brand = { name: 'Kreative Koala LLC', siteUrl: 'kreativekoala.llc', fromEnvVar: 'OUTREACH_FROM_EMAIL_KK', postalEnvVar: KK_POSTAL_ENV, capEnvVar: KK_CAP_ENV, replyToEnvVar: 'OUTREACH_REPLYTO_EMAIL_KK' };
+const KREATIVE_KOALA_BRAND: Brand = { name: 'KreativeKoalaSolutions LLC', siteUrl: 'kreativekoala.llc', fromEnvVar: 'OUTREACH_FROM_EMAIL_KK', postalEnvVar: KK_POSTAL_ENV, capEnvVar: KK_CAP_ENV, replyToEnvVar: 'OUTREACH_REPLYTO_EMAIL_KK' };
 
 export function brandFor(product: string): Brand {
   if (product === 'readaloud') return READALOUD_BRAND;
