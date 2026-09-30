@@ -71,19 +71,35 @@ const PHONE_RE_US = /\(?\d{3}\)?[\s.\-–/]*\d{3}[\s.\-–/]*\d{4}(?:\s*(?:ext|x
 const PHONE_RE_INTL = /\+\d[\s\d\-–().]{6,20}\d/gi;
 const PHONE_JUNK = /(?:fax|efax|toll[\s\-]*free|1[\s\-]*800[\s\-]*\d{3}[\s\-]*\d{4})/i; // skip toll-free / fax lines
 
-/** Normalise a scraped phone number to digits-only (with optional leading +). Returns null if unusable. */
+/** True for a plausible North American number: NXX-NXX-XXXX, no 555/all-same-digit/placeholder patterns. */
+function isPlausibleNanp(d: string): boolean {
+  if (!/^[2-9]\d{2}[2-9]\d{6}$/.test(d)) return false;
+  if (d.slice(1, 3) === '11') return false; // N11 service codes are never area codes
+  if (/^(\d)\1{9}$/.test(d) || d.slice(3, 6) === '555' || d.slice(3) === '0000000') return false;
+  return true;
+}
+
+/**
+ * Normalise a scraped phone number. US/CA numbers come back as 10 digits and MUST be a plausible
+ * NANP number (this is what rejects Unix timestamps, IDs and license numbers that happen to be
+ * ten digits). International numbers need an explicit + and 8-15 digits. Returns null if unusable.
+ */
 function normalisePhone(raw: string): string | null {
-  // Strip visual separators and whitespace, keep digits and leading +.
-  let digits = raw.replace(/[\s.\-–()/]/g, '');
-  // If it starts with +, keep it; otherwise just digits.
-  if (digits.startsWith('+')) {
-    digits = '+' + digits.slice(1).replace(/\D/g, '');
-  } else {
-    digits = digits.replace(/\D/g, '');
+  const intl = raw.trim().startsWith('+');
+  let digits = raw.replace(/\D/g, '');
+  if (intl) {
+    if (digits.length === 11 && digits[0] === '1') return isPlausibleNanp(digits.slice(1)) ? digits.slice(1) : null;
+    return digits.length >= 8 && digits.length <= 15 ? '+' + digits : null;
   }
-  // Must be at least 7 digits (local) and at most 15 (E.164 max).
-  if (digits.length < 7 || digits.length > 16) return null;
-  return digits;
+  if (digits.length === 11 && digits[0] === '1') digits = digits.slice(1);
+  return isPlausibleNanp(digits) ? digits : null;
+}
+
+function visibleText(html: string): string {
+  return html
+    .replace(/<script[\s\S]*?<\/script>|<style[\s\S]*?<\/style>|<noscript[\s\S]*?<\/noscript>/gi, ' ')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/&nbsp;|&#160;/g, ' ');
 }
 
 /** Extract phone numbers from raw HTML. Returns unique normalised numbers. */
@@ -91,31 +107,33 @@ export function extractPhones(html: string): string[] {
   const found = new Set<string>();
   // tel: links are the most reliable.
   for (const m of html.matchAll(PHONE_RE_TEL)) {
-    const n = normalisePhone(m[1]);
+    const n = normalisePhone(decodeURIComponent(m[1]));
     if (n) found.add(n);
   }
-  // US-formatted numbers.
-  for (const m of html.matchAll(PHONE_RE_US)) {
+  // US-formatted numbers, from visible text only (never attributes/scripts/JSON, where 10-digit
+  // timestamps and IDs live) and never as a slice of a longer digit run.
+  const text = visibleText(html);
+  for (const m of text.matchAll(PHONE_RE_US)) {
     if (PHONE_JUNK.test(m[0])) continue;
+    const i = m.index ?? 0;
+    if (/\d/.test(text[i - 1] ?? ' ') || /\d/.test(text[i + m[0].length] ?? ' ')) continue;
     const n = normalisePhone(m[0]);
     if (n) found.add(n);
   }
   // International with +.
-  for (const m of html.matchAll(PHONE_RE_INTL)) {
+  for (const m of text.matchAll(PHONE_RE_INTL)) {
     const n = normalisePhone(m[0]);
     if (n) found.add(n);
   }
   return [...found];
 }
 
-/** Pick the best phone number. Prefer local-looking numbers over international, shorter over longer. */
+/** Pick the best phone number: a single US 10-digit if present, else the first in page order. */
 export function pickBestPhone(phones: string[]): string | null {
   if (!phones.length) return null;
-  // If we see exactly one 10-digit US-looking number, prefer it.
   const us10 = phones.filter((p) => p.length === 10);
   if (us10.length === 1) return us10[0];
-  // Prefer shorter numbers (fewer digits = more likely direct line, not a long international number).
-  phones.sort((a, b) => a.length - b.length);
+  if (us10.length > 1) return us10[0]; // page order: the header/contact number normally comes first
   return phones[0];
 }
 
