@@ -1222,10 +1222,14 @@ async function stageEnrich(
 
 const DEFAULT_PHONE_BACKFILL_MAX = 15;
 
-/** Small and capped on purpose: phone is only useful for leads we might actually contact. */
+// Was capped at 50/run on the assumption that phone only matters for leads we're about to email —
+// no longer true: phone outreach (cold calling, hired callers doing 100-200 dials/day) is now an
+// independent track from email, not gated on it, so the dialable pool needs to grow far faster
+// than 50/product/day. This is a plain HTTP fetch + regex per lead (findContact), no LLM call, so
+// a much higher per-run cap costs wall-clock time within the run's deadline, not API spend.
 export function resolvePhoneBackfillCap(raw: string | undefined): number {
   const n = Number(raw);
-  return Math.min(50, Math.max(0, Number.isFinite(n) && n >= 0 ? Math.floor(n) : DEFAULT_PHONE_BACKFILL_MAX));
+  return Math.min(1000, Math.max(0, Number.isFinite(n) && n >= 0 ? Math.floor(n) : DEFAULT_PHONE_BACKFILL_MAX));
 }
 
 async function stagePhoneBackfill(db: Db, summary: RunSummary, dryRun: boolean, stop: () => boolean, product: ProductConfig) {
@@ -1238,19 +1242,26 @@ async function stagePhoneBackfill(db: Db, summary: RunSummary, dryRun: boolean, 
     .is('signals->>phoneCheckedAt', null), product)
     .order('score', { ascending: false }).limit(max);
 
-  for (const lead of (data ?? []) as LeadRow[]) {
-    if (stop()) break;
-    try {
-      const contact = await findContact(lead.domain as string);
-      const now = new Date().toISOString();
-      const signals = { ...(lead.signals ?? {}), phoneCheckedAt: now };
-      const update: Record<string, unknown> = { signals };
-      if (contact.phone) { update.phone = contact.phone; summary.phoneBackfilled++; }
-      const { error } = await db.from(leadsTable(product)).update(update).eq('id', lead.id);
-      if (error) summary.errors.push(`phone backfill ${lead.company_name}: ${error.message}`);
-    } catch (error) {
-      summary.errors.push(`phone backfill ${lead.company_name}: ${error instanceof Error ? error.message : String(error)}`);
-    }
+  const leads = (data ?? []) as LeadRow[];
+  // Each lead is an independent HTTP fetch (findContact), not an LLM call, so this parallelizes
+  // cleanly -- was one-at-a-time before, which meant raising `max` alone barely moved throughput
+  // within a run's remaining time budget.
+  const concurrency = Math.max(1, Math.min(20, Number(process.env.OUTREACH_PHONE_BACKFILL_CONCURRENCY) || 10));
+  for (let i = 0; i < leads.length && !stop(); i += concurrency) {
+    const batch = leads.slice(i, i + concurrency);
+    await Promise.allSettled(batch.map(async (lead) => {
+      try {
+        const contact = await findContact(lead.domain as string);
+        const now = new Date().toISOString();
+        const signals = { ...(lead.signals ?? {}), phoneCheckedAt: now };
+        const update: Record<string, unknown> = { signals };
+        if (contact.phone) { update.phone = contact.phone; summary.phoneBackfilled++; }
+        const { error } = await db.from(leadsTable(product)).update(update).eq('id', lead.id);
+        if (error) summary.errors.push(`phone backfill ${lead.company_name}: ${error.message}`);
+      } catch (error) {
+        summary.errors.push(`phone backfill ${lead.company_name}: ${error instanceof Error ? error.message : String(error)}`);
+      }
+    }));
   }
 }
 
