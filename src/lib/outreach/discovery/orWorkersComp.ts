@@ -1,4 +1,6 @@
 import { socrataGet } from './socrata';
+import { sleep } from './http';
+import { callerPhoneExclusion } from './callerPhonePolicy';
 import { titleCase, cityState, describeRegistryLead, emptyResult, formatUsPhone, reject, splitDba, type RegistryLead, type RegistryResult } from './registryCommon';
 
 // Cross-vertical discovery from the Oregon Department of Consumer and Business
@@ -69,6 +71,8 @@ export interface OrEmployerRow {
   employer_num?: string;
   legal_business_name?: string;
   naics?: string;
+  ownership?: string; // 10 federal, 20 state, 30 local government, 50 private
+  entity_code?: string; // 1 individual, 2 corporation, 3 political subdivision, 4 husband/wife partnership, 8 union, B LLC ...
   employees_range?: string;
   ppb_address2?: string;
   ppb_city?: string;
@@ -85,7 +89,7 @@ export type Evaluation = { keep: true; adjust: number; reasons: string[] } | { k
 
 const PEO = /\b(staffing|staff leasing|employee leasing|\bpeo\b|personnel|temporaries|labor ready|payroll|administrative services)\b/i;
 const INSTITUTIONAL = /\b(hospital|health system|medical center|university|college|school district|county of|city of|state of oregon|providence|legacy health|kaiser|oregon health (&|and) science|\bohsu\b|samaritan)\b/i;
-const NATIONAL = /\b(aspen dental|heartland dental|pacific dental|smile brands|western dental|affordable dentures|roto[- ]?rooter|mr\.? rooter|benjamin franklin plumbing|one hour heating|aire serv|ars\/?rescue rooter|service experts|home depot|lowe'?s|state farm|allstate|farmers insurance|geico|progressive|liberty mutual|nationwide|american family|usaa|brown\s*&\s*brown|gallagher|hub international|acrisure|goosehead|kindercare|bright horizons|primrose|goddard school|\bymca\b|boys (and|&) girls club|banfield|vca |petco|amedisys|encompass health|enhabit|gentiva|bayada|marriott|hilton|hyatt|best western|motel 6|holiday inn|comfort inn|super 8|choice hotels|wyndham|dignity memorial|service corporation|\bsci\b|h&r block|jackson hewitt|re\/max|keller williams|coldwell banker|century 21|compass real estate)\b/i;
+const NATIONAL = /\b(aspen dental|heartland dental|pacific dental|smile brands|western dental|affordable dentures|roto[- ]?rooter|mr\.? rooter|benjamin franklin plumbing|one hour heating|aire serv|ars\/?rescue rooter|service experts|home depot|lowe'?s|state farm|allstate|farmers insurance|geico|progressive|liberty mutual|nationwide|american family|usaa|brown\s*&\s*brown|gallagher|hub international|acrisure|goosehead|kindercare|bright horizons|primrose|goddard school|\bymca\b|boys (and|&) girls club|banfield|vca |petco|amedisys|encompass health|enhabit|gentiva|bayada|marriott|hilton|hyatt|best western|motel 6|holiday inn|comfort inn|super 8|choice hotels|wyndham|dignity memorial|service corporation|\bsci\b|h&r block|jackson hewitt|re\/max|keller williams|coldwell banker|century 21|compass real estate|airbnb|alderwoods|luna care|nva |independence american insurance|reinsurance)\b/i;
 
 // "2026-03-29T00:00:00.000" -> Date (UTC); null if unparsable.
 export function parseOrDate(raw: string | null | undefined): Date | null {
@@ -106,6 +110,9 @@ export function evaluateOrEmployerRow(r: OrEmployerRow, now = new Date()): Evalu
   if ((r.insurer_status ?? '') !== '1') return { keep: false, reason: 'coverage not active' };
   const end = parseOrDate(r.liad_end_date);
   if (end && end.getTime() < now.getTime()) return { keep: false, reason: 'policy expired' };
+  const own = (r.ownership ?? '').trim();
+  if (own && own !== '50') return { keep: false, reason: 'government employer (ownership code not private)' };
+  if (['3', '8', 'C', 'D'].includes((r.entity_code ?? '').trim().toUpperCase())) return { keep: false, reason: 'political subdivision, union, trust or estate' };
   if (PEO.test(name)) return { keep: false, reason: 'staffing agency, PEO or payroll company' };
   if (INSTITUTIONAL.test(name)) return { keep: false, reason: 'hospital, institution or government employer' };
   if (NATIONAL.test(name)) return { keep: false, reason: 'national chain or franchise name' };
@@ -137,6 +144,12 @@ export function toOrEmployerLead(productId: string, cls: OrNaicsClass, r: OrEmpl
   const state = (r.ppb_state?.trim() || 'OR').toUpperCase();
   const location = cityState(city, state);
   const phone = orPhone(r);
+  const band = (r.employees_range ?? '').trim();
+  const entity = (r.entity_code ?? '').trim();
+  // entity 1 = individual (sole proprietor), 4 = husband/wife partnership (typically run from the home);
+  // a 1-10 employer whose legal name is just a person is the same thing when the entity code is missing.
+  const soleProprietor = entity === '1' || entity === '4' || (band === '1-10' && !entity && callerPhoneExclusion({ name: legal }) !== null);
+  const callerPhoneExcluded = phone ? callerPhoneExclusion({ name: legal, soleProprietor }) : null;
   const typeLabel = `business with active workers’ compensation coverage in the "${cls.label}" NAICS class`;
   return {
     sourceKey: orSourceKey(productId, r),
@@ -145,6 +158,7 @@ export function toOrEmployerLead(productId: string, cls: OrNaicsClass, r: OrEmpl
     city: city ? titleCase(city) : null,
     state,
     phone,
+    callerPhoneExcluded,
     licenseId: (r.employer_num ?? '').trim(),
     registryName: OR_WC_REGISTRY,
     typeLabel,
@@ -159,7 +173,7 @@ export function toOrEmployerLead(productId: string, cls: OrNaicsClass, r: OrEmpl
 
 // ---- network ---------------------------------------------------------------
 
-const SELECT = 'employer_num,legal_business_name,naics,employees_range,ppb_address2,ppb_city,ppb_state,ppb_zip,insurer_status,insurer_status_date,liad_end_date,phone_area,phone';
+const SELECT = 'employer_num,legal_business_name,naics,ownership,entity_code,employees_range,ppb_address2,ppb_city,ppb_state,ppb_zip,insurer_status,insurer_status_date,liad_end_date,phone_area,phone';
 const PAGE = 1000;
 const DAY_MS = 86_400_000;
 
@@ -220,6 +234,51 @@ export async function findOrEmployerCandidates(
     }
   } catch (e) {
     result.errors.push(`${productId} or: ${e instanceof Error ? e.message : String(e)}`);
+  }
+  return result;
+}
+
+
+const OR_MAX_PAGES = 100;
+
+// Every active employer in every NAICS class of the vertical, fully paged (the file is ~11.5k active rows in
+// the 14 verticals; Socrata returns at most $limit rows per call, so each class is walked with a stable
+// $order=employer_num and $offset until the server's own count(*) is reached). Throws when a class comes back
+// short or a page is empty before the count: a partial file must never look like a complete import.
+export async function streamOrEmployerLeads(
+  productId: string,
+  opts: { now?: Date; isKnown?: (sourceKey: string) => boolean; pageSize?: number; pauseMs?: number; log?: (m: string) => void } = {},
+): Promise<RegistryResult> {
+  const now = opts.now ?? new Date();
+  const log = opts.log ?? (() => {});
+  const page = opts.pageSize ?? PAGE;
+  const classes = OR_NAICS[productId];
+  if (!classes?.length) throw new Error(`or wc: no NAICS class for ${productId}`);
+  const result = emptyResult();
+  const seen = new Set<string>();
+  for (const cls of classes) {
+    const total = await countOrEmployers(cls.code, now, log);
+    if (total <= 0) throw new Error(`or wc: no active employers for NAICS ${cls.code}`);
+    let fetched = 0;
+    for (let n = 0; fetched < total; n++) {
+      if (n >= OR_MAX_PAGES) throw new Error(`or wc: NAICS ${cls.code} exceeded ${OR_MAX_PAGES} pages`);
+      const rows = await fetchOrEmployers(cls.code, fetched, page, now, log);
+      if (!rows.length) throw new Error(`or wc: NAICS ${cls.code} returned ${fetched} of ${total} rows (empty page)`);
+      fetched += rows.length;
+      for (const r of rows) {
+        result.scanned++;
+        if (!(r.employer_num ?? '').trim()) { reject(result, 'no employer number'); continue; }
+        const key = orSourceKey(productId, r);
+        if (seen.has(key)) { reject(result, 'duplicate employer number'); continue; }
+        seen.add(key);
+        if (opts.isKnown?.(key)) { reject(result, 'already known'); continue; }
+        const ev = evaluateOrEmployerRow(r, now);
+        if (!ev.keep) { reject(result, ev.reason); continue; }
+        result.candidates.push(toOrEmployerLead(productId, cls, r, ev));
+      }
+      await sleep(opts.pauseMs ?? 250);
+    }
+    log(`or wc ${productId} NAICS ${cls.code}: ${fetched}/${total} rows`);
   }
   return result;
 }

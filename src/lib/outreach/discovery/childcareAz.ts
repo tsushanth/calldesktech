@@ -1,4 +1,5 @@
 import { DISCOVERY_UA } from './http';
+import { callerPhoneExclusion } from './callerPhonePolicy';
 import { scoreChildcareRow, toCapacity } from './childcareUs';
 import { titleCase, cityState, describeRegistryLead, emptyResult, formatUsPhone, reject, type RegistryLead, type RegistryResult } from './registryCommon';
 
@@ -37,7 +38,7 @@ export interface AzChildcareRow {
   RUN_DATE?: number | null;
 }
 
-const CHAIN = /\b(kindercare|knowledge (beginnings|universal)|bright horizons|goddard school|primrose school|la petite academy|childtime|tutor time|learning care group|everbrook|right at school|kids ?r ?kids|sunshine house|cr[eè]me de la cr[eè]me|lightbridge academy|celebree|guidepost montessori|new horizon academy|children'?s lighthouse|cadence education|endeavor schools|the learning experience|nobel learning|childcare network|\bymca\b|\bywca\b|boys (and|&) girls club|challenge island|arizona child care association)\b/i;
+const CHAIN = /\b(kindercare|knowledge (beginnings|universal)|bright horizons|goddard school|primrose school|la petite academy|childtime|tutor time|learning care group|everbrook|right at school|kids ?r ?kids|sunshine house|cr[eè]me de la cr[eè]me|lightbridge academy|celebree|guidepost montessori|new horizon academy|children'?s lighthouse|cadence education|endeavor schools|the learning experience|nobel learning|childcare network|\bymca\b|\bywca\b|boys (and|&) girls club|challenge island|arizona child care association|head start|school district|[a-z]\.?s\.?d\.?\s*#\s*\d+)\b/i;
 
 export type Evaluation = { keep: true; adjust: number; reasons: string[]; typeLabel: string } | { keep: false; reason: string };
 
@@ -76,6 +77,8 @@ export function toAzChildcareLead(r: AzChildcareRow, ev: { adjust: number; reaso
     city: city ? titleCase(city) : null,
     state: 'AZ',
     phone,
+    // An ADHS 'child care group home' is licensed in the provider's own residence (up to 10 children).
+    callerPhoneExcluded: phone ? callerPhoneExclusion({ name: (r.FACILITY_NAME ?? '').replace(/\s+/g, ' ').trim(), homeBased: /group home/i.test(r.TYPE ?? ''), typeLabel: ev.typeLabel }) : null,
     licenseId: id.toUpperCase(),
     registryName: AZ_CC_REGISTRY,
     typeLabel: ev.typeLabel,
@@ -95,6 +98,10 @@ export function toAzChildcareLead(r: AzChildcareRow, ev: { adjust: number; reaso
 export async function fetchAzChildcareRows(opts: { layerUrl?: string; log?: (m: string) => void } = {}): Promise<AzChildcareRow[]> {
   const base = opts.layerUrl ?? AZ_CC_LAYER;
   const out: AzChildcareRow[] = [];
+  // The server's own count, so a short walk (a page cut off mid-way) throws instead of importing part of the layer.
+  const cres = await fetch(`${base}/query?${new URLSearchParams({ where: '1=1', returnCountOnly: 'true', f: 'json' }).toString()}`, { headers: { 'User-Agent': DISCOVERY_UA, Accept: 'application/json' }, signal: AbortSignal.timeout(60_000) });
+  if (!cres.ok) throw new Error(`AZ ADHS GIS unavailable (HTTP ${cres.status})`);
+  const expected = ((await cres.json()) as { count?: number }).count;
   for (let offset = 0; offset < 20_000;) {
     const qs = new URLSearchParams({ where: '1=1', outFields: '*', returnGeometry: 'false', f: 'json', orderByFields: 'OBJECTID', resultOffset: String(offset), resultRecordCount: '1000' });
     const res = await fetch(`${base}/query?${qs.toString()}`, { headers: { 'User-Agent': DISCOVERY_UA, Accept: 'application/json' }, signal: AbortSignal.timeout(60_000) });
@@ -107,6 +114,7 @@ export async function fetchAzChildcareRows(opts: { layerUrl?: string; log?: (m: 
     if (!feats.length || !j.exceededTransferLimit) break;
     offset += feats.length;
   }
+  if (typeof expected === 'number' && out.length !== expected) throw new Error(`AZ ADHS child care layer returned ${out.length} of ${expected} rows`);
   if (out.length < 500) throw new Error(`AZ ADHS child care layer returned only ${out.length} rows`);
   return out;
 }

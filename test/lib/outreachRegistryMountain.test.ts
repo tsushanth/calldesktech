@@ -1,15 +1,19 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi, afterEach } from 'vitest';
 import {
-  parseNvDoiCsv, evaluateNvDoiRow, toNvDoiLead, parseNvDate, nvDoiPageUrl, NV_DOI_CSV_URL, streamNvDoiLeads,
+  parseNvDoiCsv, evaluateNvDoiRow, fetchNvDoiType, toNvDoiLead, parseNvDate, nvDoiPageUrl, NV_DOI_CSV_URL, streamNvDoiLeads,
 } from '@/lib/outreach/discovery/nvDoiFirms';
 import {
-  evaluateOrEmployerRow, toOrEmployerLead, orPhone, orSourceKey, orClassForDay, orSupportsVertical, OR_NAICS, type OrEmployerRow,
+  evaluateOrEmployerRow, toOrEmployerLead, streamOrEmployerLeads, orPhone, orSourceKey, orClassForDay, orSupportsVertical, OR_NAICS, type OrEmployerRow,
 } from '@/lib/outreach/discovery/orWorkersComp';
 import {
   evaluateAzChildcareRow, toAzChildcareLead, streamAzChildcareLeads, type AzChildcareRow,
 } from '@/lib/outreach/discovery/childcareAz';
 
 const NOW = new Date('2026-09-30T12:00:00Z');
+
+vi.mock('@/lib/outreach/discovery/socrata', () => ({ socrataGet: vi.fn() }));
+import { socrataGet } from '@/lib/outreach/discovery/socrata';
+afterEach(() => { vi.unstubAllGlobals(); });
 
 // ---------------------------------------------------------------------------
 describe('NV DOI firm list', () => {
@@ -171,5 +175,125 @@ describe('AZ DHS child care layer', () => {
     expect(r.scanned).toBe(2);
     expect(r.candidates).toHaveLength(1);
     expect(r.rejected['already known']).toBe(1);
+  });
+});
+
+// ---------------------------------------------------------------------------
+describe('caller-phone policy per loader', () => {
+  it('NV: a person-named agency keeps its email but loses the callable phone; a real agency keeps both', () => {
+    const mk = (name: string) => {
+      const r = { licenseType: 'Resident Producer Firm', license: '9', name, city: 'Reno', state: 'NV', zip: null, phone: '775-555-0100', email: 'a@b-agency.com', issued: null, expires: '12/31/2028' };
+      const ev = evaluateNvDoiRow(r, 'insurance', NOW);
+      if (!ev.keep) throw new Error('should keep');
+      return toNvDoiLead(r, 'insurance', ev);
+    };
+    const person = mk('Mark Paradis');
+    expect(person.callerPhoneExcluded).toBe('person-named business');
+    expect(person.email).toBe('a@b-agency.com');
+    for (const biz of ['Straight Outta Vegas Bail Bonds', 'Policy Pioneers', 'Hall Adventures', 'Wilson & Cunningham West Insurance Agency']) expect(mk(biz).callerPhoneExcluded).toBeNull();
+  });
+
+  it('OR: entity code 1 (individual) and 4 (husband/wife) are sole proprietors; named LLCs and PCs are not; no phone means nothing to exclude', () => {
+    const base: OrEmployerRow = { employer_num: '1', legal_business_name: 'CLIMATE CONTROL MOORE', naics: '238220', ownership: '50', entity_code: '1', employees_range: '1-10', ppb_city: 'BEND', ppb_state: 'OR', insurer_status: '1', liad_end_date: '2027-01-01T00:00:00.000', phone_area: '541', phone: '5551212' };
+    const lead = (o: Partial<OrEmployerRow>) => { const r = { ...base, ...o }; const ev = evaluateOrEmployerRow(r, NOW); if (!ev.keep) throw new Error('kept?'); return toOrEmployerLead('homeservices', OR_NAICS.homeservices[0], r, ev); };
+    expect(lead({}).callerPhoneExcluded).toBe('sole proprietor');
+    expect(lead({ entity_code: '4' }).callerPhoneExcluded).toBe('sole proprietor');
+    expect(lead({ entity_code: '', legal_business_name: 'DOUGLAS WALTER MATICHAK' }).callerPhoneExcluded).toBe('sole proprietor');
+    expect(lead({ entity_code: 'B', legal_business_name: 'ROSE CITY PLUMBING LLC' }).callerPhoneExcluded).toBeNull();
+    expect(lead({ entity_code: '2', legal_business_name: 'Hills Family Dentistry Pc' }).callerPhoneExcluded).toBeNull();
+    expect(lead({ phone: '' }).callerPhoneExcluded).toBeNull();
+  });
+
+  it('OR: government, union and trust employers are rejected', () => {
+    const r: OrEmployerRow = { employer_num: '2', legal_business_name: 'SMALL TOWN FIRE DISTRICT', ownership: '30', entity_code: '3', insurer_status: '1', liad_end_date: '2027-01-01T00:00:00.000' };
+    expect(evaluateOrEmployerRow(r, NOW).keep).toBe(false);
+    expect(evaluateOrEmployerRow({ ...r, ownership: '50', entity_code: '8' }, NOW).keep).toBe(false);
+  });
+
+  it('AZ: every group home (licensed in a residence) is home-based; a centre with a business name is not; a person-named centre is', () => {
+    const row = (o: Partial<AzChildcareRow>): AzChildcareRow => ({ FACID: 'A1', LICENSE_NUMBER: 'A1', FACILITY_NAME: 'Little Owls Preschool', Telephone: '6232493211', TYPE: 'Child Care Center', Capacity: '10.0', CITY: 'Mesa', OPERATION_STATUS: 'Active', ...o });
+    const lead = (o: Partial<AzChildcareRow>) => { const r = row(o); const ev = evaluateAzChildcareRow(r, NOW); if (!ev.keep) throw new Error('kept?'); return toAzChildcareLead(r, ev); };
+    expect(lead({ TYPE: 'Child Care Group Home', FACILITY_NAME: 'Happy Hearts Daycare' }).callerPhoneExcluded).toBe('home-based provider');
+    expect(lead({}).callerPhoneExcluded).toBeNull();
+    expect(lead({ FACILITY_NAME: 'Maria Gonzalez' }).callerPhoneExcluded).toBe('person-named business');
+    expect(lead({ FACILITY_NAME: 'Busy Bees Arizona Tempe' }).callerPhoneExcluded).toBeNull();
+    expect(evaluateAzChildcareRow(row({ FACILITY_NAME: 'Apache Junction Head Start' }), NOW).keep).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------
+describe('OR full paging', () => {
+  const mkRow = (n: number): OrEmployerRow => ({
+    employer_num: String(1000 + n), legal_business_name: `ACME ROOFING ${n} LLC`, naics: '238160', ownership: '50', entity_code: 'B', employees_range: '1-10',
+    ppb_city: 'SALEM', ppb_state: 'OR', insurer_status: '1', liad_end_date: '2027-01-01T00:00:00.000', phone_area: '503', phone: '5550000',
+  });
+  const serve = (total: number, opts: { shortAfter?: number } = {}) => {
+    const all = Array.from({ length: total }, (_, i) => mkRow(i));
+    vi.mocked(socrataGet).mockImplementation(async (_h, _d, params) => {
+      if (params.$select === 'count(*)') return [{ count: String(total) }] as never;
+      const off = Number(params.$offset), lim = Number(params.$limit);
+      expect(params.$order).toBe('employer_num');
+      const stop = opts.shortAfter ?? total;
+      return all.slice(off, Math.min(off + lim, stop)) as never;
+    });
+  };
+
+  it('pages past the first page for a class larger than the page size', async () => {
+    serve(2500);
+    const r = await streamOrEmployerLeads('septic', { now: NOW, pageSize: 1000, pauseMs: 0 });
+    expect(r.scanned).toBe(2500);
+    expect(r.candidates).toHaveLength(2500);
+    expect(new Set(r.candidates.map((c) => c.sourceKey)).size).toBe(2500);
+  });
+
+  it('throws instead of returning a partial import when pages run dry before the count', async () => {
+    serve(2500, { shortAfter: 1500 });
+    await expect(streamOrEmployerLeads('septic', { now: NOW, pageSize: 1000, pauseMs: 0 })).rejects.toThrow(/1500 of 2500/);
+  });
+
+  it('collapses a repeated employer number across pages', async () => {
+    vi.mocked(socrataGet).mockImplementation(async (_h, _d, params) => (params.$select === 'count(*)' ? [{ count: '3' }] : [mkRow(1), mkRow(1), mkRow(2)]) as never);
+    const r = await streamOrEmployerLeads('septic', { now: NOW, pageSize: 1000, pauseMs: 0 });
+    expect(r.candidates).toHaveLength(2);
+    expect(r.rejected['duplicate employer number']).toBe(1);
+  });
+});
+
+// ---------------------------------------------------------------------------
+describe('NV download failure modes', () => {
+  const csvHeader = 'Firm License Type,License ,Name,City,State,Zip,Phone,Email,Original Issue Date ,Expiration Date ';
+  const stub = (body: string, ct = 'text/csv', status = 200) => {
+    vi.stubGlobal('fetch', vi.fn(async (url: string) => {
+      if (String(url).includes('request=')) return new Response(body, { status, headers: { 'content-type': ct } });
+      return new Response('<html></html>', { status: 200, headers: { 'set-cookie': 'ORA_WWV_APP=abc; path=/' } });
+    }));
+  };
+
+  it('throws when APEX returns HTML (session lost) or a header-only CSV', async () => {
+    stub('<html>login</html>', 'text/html');
+    await expect(fetchNvDoiType('Resident Funeral Seller')).rejects.toThrow(/not a CSV/);
+    stub(csvHeader);
+    await expect(fetchNvDoiType('Resident Funeral Seller')).rejects.toThrow(/no rows/);
+  });
+
+  it('throws when the CSV holds other license types (filter ignored)', async () => {
+    stub(`${csvHeader}\nResident Producer Firm,1,A Agency,Reno,Nv,89501,775-555-0100,a@a-agency.com,1/1/2010,12/31/2028`);
+    await expect(fetchNvDoiType('Resident Funeral Seller')).rejects.toThrow(/another license type/);
+  });
+
+  it('throws on an HTTP error from the download', async () => {
+    stub('x', 'text/csv', 500);
+    await expect(fetchNvDoiType('Resident Funeral Seller')).rejects.toThrow(/HTTP 500/);
+  });
+
+  it('sends the session cookie from the page request on the CSV request', async () => {
+    const seen: string[] = [];
+    vi.stubGlobal('fetch', vi.fn(async (url: string, init: { headers: Record<string, string> }) => {
+      if (String(url).includes('request=')) { seen.push(init.headers.Cookie ?? ''); return new Response(`${csvHeader}\nResident Funeral Seller,1,Good Mortuary,Reno,Nv,89501,775-555-0100,a@good.com,1/1/2010,12/31/2028`, { headers: { 'content-type': 'text/csv' } }); }
+      return new Response('', { status: 200, headers: { 'set-cookie': 'ORA_WWV_APP=abc; path=/' } });
+    }));
+    const rows = await fetchNvDoiType('Resident Funeral Seller');
+    expect(rows).toHaveLength(1);
+    expect(seen[0]).toContain('ORA_WWV_APP=abc');
   });
 });

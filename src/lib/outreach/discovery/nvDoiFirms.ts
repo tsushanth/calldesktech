@@ -2,6 +2,7 @@ import { parseCsv } from './csvStream';
 import { cleanEmail, isFreeMail } from './freightFmcsa';
 import { DISCOVERY_UA } from './http';
 import { looksLikeIndividual } from './individualName';
+import { callerPhoneExclusion } from './callerPhonePolicy';
 import { titleCase, cityState, describeRegistryLead, emptyResult, formatUsPhone, reject, type RegistryLead, type RegistryResult } from './registryCommon';
 
 // Insurance, bail-bonds and funeral discovery from the Nevada Division of
@@ -101,9 +102,9 @@ export type Evaluation = { keep: true; adjust: number; reasons: string[] } | { k
 
 const BIG_INSURANCE = /\b(state farm|allstate|farmers insurance|geico|progressive|liberty mutual|nationwide|american family|usaa|travelers|the hartford|aaa\b|marsh|mclennan|aon\b|gallagher|brown\s*&\s*brown|\busi\b|hub international|acrisure|alliant insurance|nfp corp|lockton|willis towers|risk strategies|goosehead|policygenius|safeco|foremost)\b/i;
 const BIG_BAIL = /\b(aladdin bail|bad boys bail|all ?pro bail|lexington national|american bankers insurance|financial casualty|allegheny casualty|international fidelity)\b/i;
-const BIG_FUNERAL = /\b(dignity memorial|service corporation international|\bsci\b|stewart enterprises|carriage services|park lawn|funeral directors life)\b/i;
+const BIG_FUNERAL = /\b(dignity memorial|service corporation international|\bsci\b|alderwoods|stewart enterprises|carriage services|park lawn|funeral directors life)\b/i;
 // Limited-line licensees that are not insurance agencies.
-const NAME_JUNK = /\b(self[- ]?storage|storage|credit union|\bfcu\b|\bbank\b|car rental|rent[- ]a[- ]car|autobarn|travel|warranty|title (insurance|agency)|adjust(ing|ers?)|premium finance|mortgage)\b/i;
+const NAME_JUNK = /\b(self[- ]?storage|storage|credit union|\bfcu\b|\bbank\b|car rental|rent[- ]a[- ]car|autobarn|travel|warranty|title (insurance|agency)|adjust(ing|ers?)|premium finance|mortgage|automotive|auto sales|motors|motorcars|dealership|reinsurance)\b/i;
 const CAPTIVE_DOMAIN = /^(.*\.)?(statefarm|allstate|farmersagent|farmersagency|farmersinsurance|geico|progressive|libertymutual|amfam|amfamagent|nationwide|usaa|thehartford|travelers|goosehead|aaa|shelterinsurance|countryfinancial|americanfamily)\.(com|net|org)$/i;
 
 export function evaluateNvDoiRow(r: NvDoiRow, vertical: NvDoiVertical, now = new Date()): Evaluation {
@@ -146,6 +147,7 @@ export function toNvDoiLead(r: NvDoiRow, vertical: NvDoiVertical, ev: { adjust: 
     city: r.city ? titleCase(r.city) : null,
     state,
     phone,
+    callerPhoneExcluded: phone ? callerPhoneExclusion({ name: r.name, typeLabel }) : null,
     licenseId: r.license.toUpperCase(),
     registryName: NV_DOI_REGISTRY,
     typeLabel,
@@ -219,6 +221,9 @@ export async function fetchNvDoiType(licenseType: string, opts: { timeoutMs?: nu
   opts.log?.(`nv doi ${licenseType}: ${rows.length} rows`);
   // The report returns only the selected type; a header-only reply means APEX did not keep the session.
   if (!rows.length) throw new Error(`NV DOI returned no rows for ${licenseType}`);
+  // If APEX dropped the session filter the CSV holds every license type: that is a wrong (not partial) answer, so fail.
+  const wanted = rows.filter((r) => r.licenseType === licenseType).length;
+  if (wanted !== rows.length) throw new Error(`NV DOI returned ${rows.length - wanted} rows of another license type for ${licenseType} (session filter not applied)`);
   return rows;
 }
 
