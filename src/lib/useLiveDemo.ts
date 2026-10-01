@@ -7,6 +7,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { buildIntroFlow, INTRO_MAX_SECONDS } from '@/lib/introFlow';
 import { getCallLoopWsUrl } from '@/lib/voiceEngine';
+import { demoTtsFields } from '@/lib/demoVoice';
 import { track } from '@/components/Analytics';
 
 export type DemoMessage = { id: number; role: 'caller' | 'agent'; text: string };
@@ -226,8 +227,7 @@ export function useLiveDemo() {
           JSON.stringify({
             type: 'context',
             flow: INTRO_FLOW,
-            ttsBackend: 'elevenlabs',
-            ttsModel: 'eleven_turbo_v2_5',
+            ...demoTtsFields(),
           })
         );
         updateStatus('live');

@@ -15,6 +15,7 @@ import { getCallLoopWsUrl } from '@/lib/voiceEngine';
 import { api } from '@/lib/api';
 import { track } from '@/components/Analytics';
 import { buildIntroFlow } from '@/lib/introFlow';
+import { demoTtsFields, demoAudioFields, DEMO_SFX_PROMPT_HINT } from '@/lib/demoVoice';
 
 type LogLine = { text: string; cls: 'user' | 'assistant' | 'muted' };
 
@@ -23,7 +24,8 @@ function buildSystemPrompt(businessName: string, businessType: string, voiceStyl
     `You are an AI receptionist for ${businessName}, a ${businessType} business. ` +
     `Tone: ${voiceStyle}. Keep replies to 1-2 short sentences unless asked for more detail. ` +
     `Never use markdown, bullet points, or emoji — this is spoken audio. ` +
-    `Help the caller book an appointment, answer questions about services, and hours.`
+    `Help the caller book an appointment, answer questions about services, and hours.` +
+    DEMO_SFX_PROMPT_HINT
   );
 }
 
@@ -129,12 +131,21 @@ export default function BrowserDemoCall({ intro = false }: { intro?: boolean }) 
   useEffect(() => {
     let cancelled = false;
     let connectedAt: number | null = null;
+    let removeGestureListeners = () => {};
 
     async function start() {
       const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
       const ctx = new AudioCtx();
       audioCtxRef.current = ctx;
       playHeadRef.current = ctx.currentTime;
+      // Autoplay policy: a context created without a user gesture (hard load of /demo/talk) starts suspended, and
+      // the intro jingle would then wait silently. Retry resume() on the first click/key/touch; harmless otherwise.
+      const resumeOnGesture = () => {
+        if (ctx.state === 'suspended') void ctx.resume().catch(() => undefined);
+      };
+      const gestureEvents = ['pointerdown', 'keydown', 'touchstart'] as const;
+      gestureEvents.forEach((e) => window.addEventListener(e, resumeOnGesture, { passive: true }));
+      removeGestureListeners = () => gestureEvents.forEach((e) => window.removeEventListener(e, resumeOnGesture));
 
       const ws = new WebSocket(getCallLoopWsUrl());
       ws.binaryType = 'arraybuffer';
@@ -175,12 +186,12 @@ export default function BrowserDemoCall({ intro = false }: { intro?: boolean }) 
                   systemPrompt: buildSystemPrompt(info.businessName, info.businessType, info.voiceStyle),
                   greeting: info.greeting,
                 }),
-            // In-browser demos favor snappy replies: ElevenLabs Turbo answers ~1.2s
+            // In-browser demos favor snappy replies: a Turbo-class ElevenLabs model answers ~1.2s
             // sooner than the server's default multilingual model (measured against
-            // production), with a small quality trade-off that phone calls don't take.
-            ...((ttsBackend ?? 'elevenlabs') === 'elevenlabs'
-              ? { ttsBackend: 'elevenlabs', ttsModel: 'eleven_turbo_v2_5' }
-              : { ttsBackend }),
+            // production). eleven_v4_turbo by default, see src/lib/demoVoice.ts.
+            ...demoTtsFields(ttsBackend),
+            // Intro jingle + confirmation chime, attached server-side by call-loop (anonymous demos only).
+            ...demoAudioFields({ intro, tenantId }),
           })
         );
         // A plain greeting is spoken by the server directly (no assistant_turn),
@@ -244,6 +255,7 @@ export default function BrowserDemoCall({ intro = false }: { intro?: boolean }) 
 
     return () => {
       cancelled = true;
+      removeGestureListeners();
       // send() throws InvalidStateError if the socket is still mid-handshake
       // (readyState CONNECTING) — real in dev, where React Strict Mode
       // double-invokes this effect (mount -> cleanup -> mount again), so the
