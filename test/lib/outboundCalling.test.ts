@@ -45,7 +45,8 @@ describe('TwiML', () => {
     expect(x).toContain('callerId="+12395551212"');
     expect(x).toContain('answerOnBridge="true"');
     expect(x).toContain('action="https://x.test/s?a=1&amp;b=2"');
-    expect(x).toContain('<Number>+14256284887</Number>');
+    expect(x).toContain('>+14256284887</Number>');
+    expect(x).toContain('statusCallbackEvent="answered completed"');
   });
   it('escapes the spoken rejection', () => {
     expect(buildRejectTwiml('a <b> & c')).toContain('a &lt;b&gt; &amp; c');
@@ -86,11 +87,20 @@ describe('decideDial', () => {
 });
 
 describe('mapDialStatus', () => {
-  it('marks only a completed far-end leg as answered', () => {
-    expect(mapDialStatus('completed')).toEqual({ status: 'completed', answered: true });
-    expect(mapDialStatus('no-answer')).toEqual({ status: 'no-answer', answered: false });
-    expect(mapDialStatus('busy')).toEqual({ status: 'busy', answered: false });
-    expect(mapDialStatus(undefined)).toEqual({ status: 'failed', answered: false });
+  it('marks a completed far-end leg as answered and final', () => {
+    expect(mapDialStatus('completed')).toEqual({ status: 'completed', answered: true, final: true });
+  });
+  it('treats unanswered outcomes as final and not answered', () => {
+    expect(mapDialStatus('no-answer')).toEqual({ status: 'no-answer', answered: false, final: true });
+    expect(mapDialStatus('busy')).toEqual({ status: 'busy', answered: false, final: true });
+    expect(mapDialStatus(undefined)).toEqual({ status: 'failed', answered: false, final: true });
+  });
+  it('records an answer as in progress, not final', () => {
+    expect(mapDialStatus('in-progress')).toEqual({ status: 'answered', answered: true, final: false });
+  });
+  it('ignores ringing/queued noise', () => {
+    expect(mapDialStatus('ringing')).toBeNull();
+    expect(mapDialStatus('initiated')).toBeNull();
   });
 });
 

@@ -21,18 +21,20 @@ export async function POST(request: NextRequest) {
     return new NextResponse('Forbidden', { status: 401 });
   }
 
-  const { status, answered } = mapDialStatus(params.DialCallStatus);
-  const duration = Number.parseInt(params.DialCallDuration || '', 10);
-  if (params.CallSid) {
-    const { error } = await getSupabaseAdmin()
-      .from('calldesk_outbound_calls')
-      .update({
-        status,
-        answered,
-        duration_seconds: Number.isFinite(duration) ? duration : null,
-        ended_at: new Date().toISOString(),
-      })
-      .eq('call_sid', params.CallSid);
+  // Two callers reach this route: <Dial action> (parent CallSid + DialCallStatus/DialCallDuration) and the
+  // <Number> status callbacks (child CallSid + ParentCallSid + CallStatus/CallDuration). Both resolve to
+  // the parent call's row.
+  const parentSid = params.ParentCallSid || params.CallSid;
+  const mapped = mapDialStatus(params.DialCallStatus ?? params.CallStatus);
+  const durationRaw = Number.parseInt(params.DialCallDuration ?? params.CallDuration ?? '', 10);
+  if (parentSid && mapped) {
+    const update: Record<string, unknown> = { status: mapped.status, answered: mapped.answered };
+    if (Number.isFinite(durationRaw)) update.duration_seconds = durationRaw;
+    if (mapped.final) update.ended_at = new Date().toISOString();
+    let q = getSupabaseAdmin().from('calldesk_outbound_calls').update(update).eq('call_sid', parentSid);
+    // An "answered" event arriving late must not undo a recorded outcome.
+    if (!mapped.final) q = q.eq('status', 'initiated');
+    const { error } = await q;
     if (error) console.error('[outbound-status] update failed:', error.message);
   }
   return new NextResponse(EMPTY_TWIML, { status: 200, headers: { 'Content-Type': 'text/xml' } });
