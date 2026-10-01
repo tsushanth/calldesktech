@@ -297,3 +297,11 @@ describe('NV download failure modes', () => {
     expect(seen[0]).toContain('ORA_WWV_APP=abc');
   });
 });
+
+describe('AZ public-school programs', () => {
+  it('rejects district and Head Start programs but keeps small operators with a # in the name', () => {
+    const r = (n: string): AzChildcareRow => ({ FACID: 'Z', LICENSE_NUMBER: 'Z', FACILITY_NAME: n, Telephone: '6232493211', TYPE: 'Child Care Center', Capacity: '30.0', CITY: 'Mesa', OPERATION_STATUS: 'Active' });
+    for (const n of ['T.U.S.D.#1 - Dietz', 'A.E.S.D. #68 Global Academy of Phoenix', 'Buckeye Head Start']) expect(evaluateAzChildcareRow(r(n), NOW).keep, n).toBe(false);
+    for (const n of ['Arc Estates LLC dba Divine children preschool & Daycare #2', 'Happy Days Preschool']) expect(evaluateAzChildcareRow(r(n), NOW).keep, n).toBe(true);
+  });
+});

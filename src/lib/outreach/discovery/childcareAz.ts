@@ -38,7 +38,7 @@ export interface AzChildcareRow {
   RUN_DATE?: number | null;
 }
 
-const CHAIN = /\b(kindercare|knowledge (beginnings|universal)|bright horizons|goddard school|primrose school|la petite academy|childtime|tutor time|learning care group|everbrook|right at school|kids ?r ?kids|sunshine house|cr[eè]me de la cr[eè]me|lightbridge academy|celebree|guidepost montessori|new horizon academy|children'?s lighthouse|cadence education|endeavor schools|the learning experience|nobel learning|childcare network|\bymca\b|\bywca\b|boys (and|&) girls club|challenge island|arizona child care association|head start|school district|[a-z]\.?s\.?d\.?\s*#\s*\d+)\b/i;
+const CHAIN = /\b(kindercare|knowledge (beginnings|universal)|bright horizons|goddard school|primrose school|la petite academy|childtime|tutor time|learning care group|everbrook|right at school|kids ?r ?kids|sunshine house|cr[eè]me de la cr[eè]me|lightbridge academy|celebree|guidepost montessori|new horizon academy|children'?s lighthouse|cadence education|endeavor schools|the learning experience|nobel learning|childcare network|\bymca\b|\bywca\b|boys (and|&) girls club|challenge island|arizona child care association|head start|school district|(?:[a-z]\.?){1,4}s\.?d\.?\s*#\s*\d+)\b/i;
 
 export type Evaluation = { keep: true; adjust: number; reasons: string[]; typeLabel: string } | { keep: false; reason: string };
 
