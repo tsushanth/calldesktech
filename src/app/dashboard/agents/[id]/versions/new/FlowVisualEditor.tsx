@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useCallback, useEffect } from 'react';
+import { useMemo, useCallback, useEffect, useRef } from 'react';
 import {
   ReactFlow,
   Background,
@@ -12,6 +12,7 @@ import {
   Position,
   MarkerType,
   type Node as RFNode,
+  type ReactFlowInstance,
   type Edge as RFEdge,
   type NodeProps,
   type NodeTypes,
@@ -34,6 +35,8 @@ interface FlowVisualEditorProps {
   onDeleteEdges?: (edges: { sourceKey: string; index: number }[]) => void;
   /** subflow id -> display info, for subflow_ref cards. */
   subflowInfo?: Record<string, { name: string; nodeCount: number }>;
+  /** Id (not key) of the node a live test call is currently on; highlighted and kept in view. */
+  liveNodeId?: string | null;
   height?: number | string;
 }
 
@@ -126,6 +129,7 @@ function FlowNodeCard({ data }: NodeProps) {
   const node = data.node as DraftNode;
   const isStart = data.isStart as boolean;
   const isSelected = data.isSelected as boolean;
+  const isLive = data.isLive as boolean;
   const subflow = data.subflow as { id: string; name: string; nodeCount: number } | null;
   // Canvas-only sticky note: no handles (can't be wired), stripped at publish.
   if (node.type === 'note') {
@@ -140,8 +144,8 @@ function FlowNodeCard({ data }: NodeProps) {
     );
   }
   const color = TYPE_COLORS[node.type] || DEFAULT_TYPE_COLOR;
-  const edgeColor = isSelected ? '#2563eb' : isStart ? color.accent : '#e5e7eb';
-  const edgeWidth = isSelected || isStart ? 2 : 1;
+  const edgeColor = isLive ? '#16a34a' : isSelected ? '#2563eb' : isStart ? color.accent : '#e5e7eb';
+  const edgeWidth = isLive || isSelected || isStart ? 2 : 1;
   const paramEntries = node.params ? Object.entries(node.params).filter(([, v]) => v) : [];
   return (
     <div
@@ -157,13 +161,14 @@ function FlowNodeCard({ data }: NodeProps) {
         borderRightWidth: edgeWidth,
         borderBottomWidth: edgeWidth,
         borderLeftWidth: 5,
-        boxShadow: isSelected ? '0 0 0 3px rgba(37,99,235,0.15)' : undefined,
+        boxShadow: isLive ? '0 0 0 5px rgba(34,197,94,0.35)' : isSelected ? '0 0 0 3px rgba(37,99,235,0.15)' : undefined,
       }}
     >
       <Handle type="target" position={Position.Left} className="!h-3 !w-3 !border-2 !border-white" style={{ background: color.accent }} />
       <div className="px-4 py-3.5">
         <div className="flex items-center justify-between gap-2">
           <span className="truncate font-mono text-[13.5px] font-semibold text-[#1a1d29]">{node.id || '(unnamed)'}</span>
+          {isLive && <span className="flex-none animate-pulse rounded-full bg-green-100 px-2 py-0.5 text-[10px] font-semibold tracking-wide text-green-700">ON CALL</span>}
           {isStart && <span className="flex-none rounded-full bg-blue-100 px-2 py-0.5 text-[10px] font-semibold tracking-wide text-blue-700">START</span>}
         </div>
         <span
@@ -228,7 +233,8 @@ function FlowNodeCard({ data }: NodeProps) {
 
 const nodeTypes: NodeTypes = { flowNode: FlowNodeCard };
 
-export default function FlowVisualEditor({ nodes, startNodeId, onPositionChange, selectedKey, onSelectNode, onConnectNodes, onDeleteEdges, subflowInfo, height = 720 }: FlowVisualEditorProps) {
+export default function FlowVisualEditor({ nodes, startNodeId, onPositionChange, selectedKey, onSelectNode, onConnectNodes, onDeleteEdges, subflowInfo, liveNodeId, height = 720 }: FlowVisualEditorProps) {
+  const rfRef = useRef<ReactFlowInstance | null>(null);
   const autoLayout = useMemo(() => computeAutoLayout(nodes, startNodeId), [nodes, startNodeId]);
 
   const [rfNodes, setRfNodes, onNodesChange] = useNodesState<RFNode>([]);
@@ -252,6 +258,7 @@ export default function FlowVisualEditor({ nodes, startNodeId, onPositionChange,
           node: n,
           isStart: n.id === startNodeId,
           isSelected: n._key === selectedKey,
+          isLive: !!liveNodeId && n.id === liveNodeId,
           subflow: n.type === 'subflow_ref' && n.params?.subflowId ? { id: n.params.subflowId, ...(subflowInfo?.[n.params.subflowId] || { name: 'Subflow', nodeCount: 0 }) } : null,
         },
       }));
@@ -283,7 +290,19 @@ export default function FlowVisualEditor({ nodes, startNodeId, onPositionChange,
     // avoids re-running this (and clobbering in-progress drags) purely
     // because its object identity changed on every render.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [nodes, startNodeId, selectedKey, subflowInfo, setRfNodes, setRfEdges]);
+  }, [nodes, startNodeId, selectedKey, subflowInfo, liveNodeId, setRfNodes, setRfEdges]);
+
+  // Follow the call: re-center on the live node (keeping the current zoom) whenever it changes.
+  useEffect(() => {
+    const inst = rfRef.current;
+    if (!inst || !liveNodeId) return;
+    const key = nodes.find((n) => n.id === liveNodeId)?._key;
+    const rf = key ? inst.getNode(key) : undefined;
+    if (!rf) return;
+    inst.setCenter(rf.position.x + 170, rf.position.y + 120, { zoom: inst.getZoom(), duration: 400 });
+    // Only the live node changing should move the camera, not an edit elsewhere in `nodes`.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [liveNodeId]);
 
   const handleNodeDragStop = useCallback(
     (_event: unknown, node: RFNode) => {
@@ -334,6 +353,7 @@ export default function FlowVisualEditor({ nodes, startNodeId, onPositionChange,
         deleteKeyCode={['Backspace', 'Delete']}
         connectionRadius={40}
         nodeTypes={nodeTypes}
+        onInit={(inst) => { rfRef.current = inst; }}
         fitView
         minZoom={0.2}
         maxZoom={1.5}

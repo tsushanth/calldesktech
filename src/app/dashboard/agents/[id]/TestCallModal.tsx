@@ -13,10 +13,13 @@ export default function TestCallModal({
   tenantId,
   latestVersion,
   onClose,
+  onCallPlaced,
 }: {
   tenantId: string;
   latestVersion: AgentVersion | null;
   onClose: () => void;
+  /** Fired once the call has been requested, so the page can start following it through the flow. */
+  onCallPlaced?: () => void;
 }) {
   const [numbers, setNumbers] = useState<PhoneNumber[]>([]);
   const [loading, setLoading] = useState(true);
@@ -84,6 +87,11 @@ export default function TestCallModal({
       const body = await res.json();
       if (!res.ok) throw new Error(body.error || 'Call failed');
       setMessage({ ok: true, text: 'Calling you now — pick up your phone.' });
+      // Close so the flow canvas is visible; the page shows a live-call pill from here.
+      if (onCallPlaced) {
+        onCallPlaced();
+        onClose();
+      }
     } catch (err) {
       setMessage({ ok: false, text: err instanceof Error ? err.message : 'Call failed' });
     } finally {
