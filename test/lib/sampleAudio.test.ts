@@ -76,6 +76,8 @@ describe('withAudioPromptHint', () => {
     expect(out).toMatch(/same turn/i);
     expect(out).toMatch(/never .*earlier|only once|once/i);
     expect(out).toMatch(/do not mention/i);
+    expect(out).toMatch(/efficient/i); // keeps the call short enough to reach the moment well inside the time cap
+    expect(out).toMatch(/one (short )?question at a time/i);
   });
   it('leaves a prompt without audio untouched', () => {
     expect(audio.withAudioPromptHint('Base prompt.', undefined)).toBe('Base prompt.');

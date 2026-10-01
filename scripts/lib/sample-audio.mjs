@@ -70,7 +70,9 @@ export function buildSampleCallAudio(sc, shared) {
 export const AUDIO_PROMPT_HINT =
   ' SOUND EFFECT: you have a play_sound_effect tool. At the exact turn where the moment described in the tool' +
   ' occurs, call it in that same turn as your spoken reply (speak as normal as well). Call it only once, never' +
-  ' earlier than that moment, and do not mention the sound or the tool.';
+  ' earlier than that moment, and do not mention the sound or the tool. Keep the conversation efficient: ask one short' +
+  ' question at a time, ask only for what you genuinely need, never re-ask something you already have, and skip optional' +
+  ' extras (for example a member ID) so the call reaches that moment promptly.';
 
 export function withAudioPromptHint(agentPrompt, audio) {
   if (!audio || !(audio.effects?.length > 0)) return agentPrompt;
