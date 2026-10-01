@@ -15,6 +15,7 @@ import { renderMiniMarkdown } from '@/lib/miniMarkdown';
 import FlowVisualEditor from './versions/new/FlowVisualEditor';
 import VersionCompareModal from './VersionCompareModal';
 import TestCallModal from './TestCallModal';
+import { initialLiveCallState, nextLiveCallState, type LiveCallState } from '@/lib/liveCall';
 import CopilotPanel from '@/components/flow-builder/CopilotPanel';
 
 type DraftNode = FlowNode & { _key: string };
@@ -191,8 +192,34 @@ export default function AgentBuilderPage() {
   const [tenantAgents, setTenantAgents] = useState<{ id: string; name: string }[]>([]);
   const [showCompare, setShowCompare] = useState(false);
   const [showTestCall, setShowTestCall] = useState(false);
+  // Following a just-placed test call through the flow: `trackingSince` (when it was placed) turns the
+  // poll on, `liveCall` is what the poll has found (see lib/liveCall).
+  const [trackingSince, setTrackingSince] = useState<number | null>(null);
+  const [liveCall, setLiveCall] = useState<LiveCallState | null>(null);
   const [restoringId, setRestoringId] = useState<string | null>(null);
   const [startNodeId, setStartNodeId] = useState('');
+  const liveTenantId = agent?.tenant_id;
+  useEffect(() => {
+    if (!trackingSince || !liveTenantId) return;
+    let state = initialLiveCallState();
+    setLiveCall(state);
+    let stopped = false;
+    const tick = async () => {
+      try {
+        const res = await fetch(`/api/tenants/${liveTenantId}/active-calls`, { cache: 'no-store' });
+        if (!res.ok || stopped) return;
+        const body = await res.json();
+        state = nextLiveCallState(state, body.calls || [], Date.now() - trackingSince);
+        setLiveCall(state);
+        if (state.status === 'ended' || state.status === 'timeout') clearInterval(timer);
+      } catch {
+        // transient network/engine error: the next tick retries
+      }
+    };
+    const timer = setInterval(tick, 1000);
+    tick();
+    return () => { stopped = true; clearInterval(timer); };
+  }, [trackingSince, liveTenantId]);
   const [voiceEngine, setVoiceEngine] = useState<'retell' | 'poc'>('poc');
   const [voiceId, setVoiceId] = useState('');
   const [ttsBackend, setTtsBackend] = useState<'' | TtsBackend>('');
@@ -1212,6 +1239,7 @@ export default function AgentBuilderPage() {
                     onConnectNodes={connectNodes}
                     onDeleteEdges={deleteEdges}
                     subflowInfo={Object.fromEntries(subflows.map((sf) => [sf.id, { name: sf.name, nodeCount: sf.nodes.length }]))}
+                    liveNodeId={liveCall?.status === 'live' ? liveCall.nodeId : null}
                     height="100%"
                   />
                 )}
@@ -1617,9 +1645,27 @@ export default function AgentBuilderPage() {
         </div>
       </div>
 
+      {trackingSince && liveCall && (
+        <div className="fixed bottom-5 right-5 z-50 flex items-center gap-3 rounded-xl border border-gray-200 bg-white px-4 py-3 text-[13px] shadow-xl">
+          <span className={`h-2.5 w-2.5 flex-none rounded-full ${liveCall.status === 'live' ? 'animate-pulse bg-green-500' : liveCall.status === 'waiting' ? 'animate-pulse bg-amber-400' : 'bg-gray-300'}`} />
+          <span className="text-gray-700">
+            {liveCall.status === 'waiting' && 'Calling you… pick up. The active step lights up once the call connects.'}
+            {liveCall.status === 'live' && <>On step <span className="font-mono font-semibold">{liveCall.nodeId ?? '…'}</span></>}
+            {liveCall.status === 'ended' && 'Call ended'}
+            {liveCall.status === 'timeout' && "Couldn't find the live call — it may not have been answered."}
+          </span>
+          <button onClick={() => { setTrackingSince(null); setLiveCall(null); }} className="text-gray-400 hover:text-gray-600" aria-label="Dismiss">✕</button>
+        </div>
+      )}
       {showCompare && <VersionCompareModal versions={versions} onClose={() => setShowCompare(false)} />}
       {showTestCall && agent && (
-        <TestCallModal tenantId={agent.tenant_id} latestVersion={versions[0] || null} onClose={() => setShowTestCall(false)} />
+        <TestCallModal
+          tenantId={agent.tenant_id}
+          latestVersion={versions[0] || null}
+          onClose={() => setShowTestCall(false)}
+          // Live node tracking comes from the in-house engine's registry; Retell calls don't appear there.
+          onCallPlaced={versions[0]?.voice_engine === 'poc' ? () => setTrackingSince(Date.now()) : undefined}
+        />
       )}
 
       {showGenerateModal && (
