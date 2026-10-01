@@ -25,7 +25,7 @@ import { execFileSync } from 'node:child_process';
 import { resolve, join, dirname } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { buildPlaceCallRequest } from './lib/sample-audio.mjs';
-import { detectBadTake, uploadBlockedReason } from './lib/sample-quality.mjs';
+import { detectBadTake, uploadBlockedReason, tailIsSpeech } from './lib/sample-quality.mjs';
 import {
   validateScenarios, normalizeTranscript, buildSampleRow, estimateCostUsd, parseArgs, isE164,
   MAX_REAL_CALLS, parseCounter, checkCallGate, validatePublishable,
@@ -229,6 +229,18 @@ export async function generate(args, env, sc, outDir, counterFile = COUNTER_FILE
   finishLocal(outDir, sc, raw, { sid, duration, audioEvents, audioFile, recording: recMeta && { status: recMeta.status, channels: recMeta.channels } });
 }
 
+// Length of the recording and whether the AGENT channel (left) is still speaking at the very end. Best-effort: any
+// ffmpeg problem returns {} and the checks that need it are simply skipped.
+function probeRecording(file) {
+  try {
+    const recordingSec = Number(execFileSync('ffprobe', ['-v', 'error', '-show_entries', 'format=duration', '-of', 'csv=p=0', file]).toString().trim());
+    const rate = 8000;
+    const raw = execFileSync('ffmpeg', ['-v', 'error', '-i', file, '-af', 'pan=mono|c0=c0', '-f', 's16le', '-ar', String(rate), '-'], { maxBuffer: 64 * 1024 * 1024 });
+    const pcm = new Int16Array(raw.buffer, raw.byteOffset, Math.floor(raw.length / 2));
+    return { recordingSec: Number.isFinite(recordingSec) ? recordingSec : undefined, endsMidSpeech: tailIsSpeech(pcm, rate) };
+  } catch { return {}; }
+}
+
 function finishLocal(outDir, sc, raw, meta) {
   const transcript = normalizeTranscript(raw, { shopperPerspective: true });
   const row = buildSampleRow({ scenario: sc, transcript, audioPath: null, durationSec: meta.duration });
@@ -237,8 +249,11 @@ function finishLocal(outDir, sc, raw, meta) {
   writeFileSync(join(outDir, 'call-meta.json'), JSON.stringify({ ...meta, vertical: sc.id, estimatedCostUsd: estimateCostUsd(meta.duration), generatedAt: new Date().toISOString() }, null, 2));
   // Objective verdict on the take (character-break, cut off by the cap, jingle/effect missing or too late), so a bad take is
   // flagged here and refused by --upload, not discovered by listening.
+  // The raw Twilio recording keeps both channels separate (the processed mp3 is folded to mono): analyse that one.
+  const rawRec = join(outDir, 'audio.original.mp3');
+  const rec = meta.audioFile ? probeRecording(existsSync(rawRec) ? rawRec : join(outDir, meta.audioFile)) : {};
   const quality = detectBadTake({
-    transcript, durationSec: meta.duration, capSec: 210,
+    transcript, durationSec: meta.duration, capSec: 210, recordingSec: rec.recordingSec, endsMidSpeech: rec.endsMidSpeech,
     expectJingle: !!sc.audio?.jingle, expectEffects: (sc.audio?.effects || []).map((e) => e.name), audioEvents: meta.audioEvents,
   });
   writeFileSync(join(outDir, 'quality.json'), JSON.stringify({ ...quality, audioEvents: meta.audioEvents ?? null }, null, 2));

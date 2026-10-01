@@ -75,6 +75,28 @@ describe('detectBadTake', () => {
     });
   });
 
+  describe('measured against the RECORDING, not the call (the final dental pass: call 181s, recording 145s, chime at 143.5s)', () => {
+    it('flags an effect near the end of the recording even though the call itself ran much longer', () => {
+      const r = q.detectBadTake({ ...base, durationSec: 181, recordingSec: 145, audioEvents: [EVENTS[0], { kind: 'effect', name: 'appointment_booked_chime', atMs: 143_600 }] });
+      expect(r.ok).toBe(false);
+      expect(r.reasons.join(' ')).toMatch(/end of the (call|recording)|too close/i);
+    });
+    it('still passes when the effect is well inside the recording', () => {
+      expect(q.detectBadTake({ ...base, durationSec: 181, recordingSec: 181, audioEvents: [EVENTS[0], { kind: 'effect', name: 'appointment_booked_chime', atMs: 120_000 }] }).ok).toBe(true);
+    });
+    it('falls back to the call duration when the recording length is unknown', () => {
+      expect(q.detectBadTake({ ...base, durationSec: 160 }).ok).toBe(true);
+    });
+  });
+
+  it('flags a recording that ends while the agent is still speaking (a cut-off ending)', () => {
+    const r = q.detectBadTake({ ...base, endsMidSpeech: true });
+    expect(r.ok).toBe(false);
+    expect(r.reasons.join(' ')).toMatch(/still speaking|mid/i);
+    expect(q.detectBadTake({ ...base, endsMidSpeech: false }).ok).toBe(true);
+    expect(q.detectBadTake({ ...base, endsMidSpeech: undefined }).ok).toBe(true); // unknown = not flagged
+  });
+
   it('collects every problem, not just the first', () => {
     const r = q.detectBadTake({ ...base, transcript: GOOD.slice(0, 4), durationSec: 209, capSec: 210, audioEvents: [] });
     expect(r.reasons.length).toBeGreaterThanOrEqual(4);
@@ -98,5 +120,21 @@ describe('--force-upload', () => {
     expect(lib.parseArgs(['--vertical', 'dental', '--upload']).forceUpload).toBe(false);
     expect(lib.parseArgs(['--vertical', 'dental', '--upload', '--force-upload']).forceUpload).toBe(true);
     expect(() => lib.parseArgs(['--vertical', 'dental', '--force-upload'])).toThrow(/--upload/);
+  });
+});
+
+describe('tailIsSpeech (is the agent still talking in the last moments of the recording?)', () => {
+  const tone = (amp: number, n: number) => Int16Array.from({ length: n }, (_, i) => Math.round(amp * Math.sin(i / 3)));
+  it('true when the final 0.5s carries speech-level energy', () => {
+    const pcm = new Int16Array([...new Int16Array(8000), ...tone(2500, 4000)]);
+    expect(q.tailIsSpeech(pcm, 8000)).toBe(true);
+  });
+  it('false when the recording ends in silence (a natural ending)', () => {
+    const pcm = new Int16Array([...tone(2500, 8000), ...new Int16Array(4000)]);
+    expect(q.tailIsSpeech(pcm, 8000)).toBe(false);
+  });
+  it('false for a near-silent noise floor, and for empty input', () => {
+    expect(q.tailIsSpeech(tone(30, 8000), 8000)).toBe(false);
+    expect(q.tailIsSpeech(new Int16Array(0), 8000)).toBe(false);
   });
 });

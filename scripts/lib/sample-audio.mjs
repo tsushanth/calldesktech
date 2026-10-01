@@ -79,6 +79,15 @@ export function withAudioPromptHint(agentPrompt, audio) {
   return agentPrompt + AUDIO_PROMPT_HINT;
 }
 
+// Appended to EVERY sample's caller persona. The demo agent is built to ask "is that the full number including area
+// code?" whenever it is given fewer than 10 digits, and a persona that does not say what number to give makes the
+// caller AI invent a fictional 7-digit one (the 555-01xx style), which trips that rule on every call and costs a
+// back-and-forth turn. No literal number here: the scenario validator forbids phone numbers in prompts.
+export const CALLER_PHONE_RULE =
+  ' If you are asked for a callback phone number, always give a complete ten-digit US number in one go, area code' +
+  ' first, followed by a 555-01xx style number so it is clearly fictional, never a seven-digit number. If it is' +
+  ' read back correctly, just confirm it.';
+
 /**
  * The /place-test-call request for one scenario. Without audio this is exactly the request the generator
  * always sent. With audio, the demo agent gets the inline sounds plus the same-turn prompt hint. Throws if a
@@ -90,7 +99,7 @@ export function buildPlaceCallRequest(sc, { callee, shared }) {
     callAudio,
     body: {
       toNumber: callee, shopper: true, record: true,
-      persona: sc.callerPersona,
+      persona: sc.callerPersona + CALLER_PHONE_RULE,
       sampleCallee: {
         systemPrompt: callAudio ? withAudioPromptHint(sc.agentPrompt, sc.audio) : sc.agentPrompt,
         greeting: sc.greeting, voice: sc.agentVoice, stability: 0.8,

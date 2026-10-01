@@ -113,7 +113,8 @@ describe('buildPlaceCallRequest', () => {
   it('leaves everything else about the call exactly as before (caller persona, voices, recording, allowlisted callee)', () => {
     const { body } = audio.buildPlaceCallRequest(sc('dental'), { callee: '+15550001111', shared: SHARED });
     const s = sc('dental');
-    expect(body).toMatchObject({ toNumber: '+15550001111', shopper: true, record: true, persona: s.callerPersona, shopperVoice: { voice: s.callerVoice, stability: 0.8 } });
+    expect(body).toMatchObject({ toNumber: '+15550001111', shopper: true, record: true, shopperVoice: { voice: s.callerVoice, stability: 0.8 } });
+    expect(body.persona.startsWith(s.callerPersona)).toBe(true); // the scenario's own persona is untouched; a standard rule is appended
     expect(body.sampleCallee).toMatchObject({ greeting: s.greeting, voice: s.agentVoice, stability: 0.8 });
   });
   it('a scenario without audio produces the original request: no callAudio key, prompt untouched', () => {
@@ -171,5 +172,33 @@ describe('generate(): refuses to place a real call that would silently lack its 
     const placed = f.mock.calls.find((c) => String(c[0]).endsWith('/place-test-call'));
     expect(placed).toBeTruthy();
     expect('callAudio' in JSON.parse((placed![1] as RequestInit).body as string).sampleCallee).toBe(false);
+  });
+});
+
+
+describe('caller phone-number rule (no "is that the full number including area code?" back-and-forth)', () => {
+  // The demo agent is built to ask for the area code whenever it is given fewer than 10 digits. A persona that does
+  // not say what number to give makes the caller AI invent a fictional 7-digit one (555-0147), which trips that rule.
+  const all = (doc.scenarios as Sc[]);
+  it('every call\'s caller persona is told to give a complete ten-digit number with the area code', () => {
+    for (const s of all) {
+      const { body } = audio.buildPlaceCallRequest(s as never, { callee: '+15550001111', shared: s.audio ? SHARED : null });
+      expect(body.persona, s.id).toMatch(/ten-digit/i);
+      expect(body.persona, s.id).toMatch(/area code/i);
+      expect(body.persona, s.id).toMatch(/never a seven-digit/i);
+    }
+  });
+  it('applies to scenarios without audio too (it fixes the conversation, not the sounds)', () => {
+    const { body } = audio.buildPlaceCallRequest(byId('funeral') as never, { callee: '+15550001111', shared: null });
+    expect(body.persona).toMatch(/ten-digit/i);
+  });
+  it('the rule itself carries no literal phone number (the scenario validator forbids numbers in prompts)', () => {
+    expect(audio.CALLER_PHONE_RULE).not.toMatch(/\d{3}[\s.-]\d{3,4}/);
+  });
+  it('every persona still fits the poc\'s 2000-char limit with the rule appended', () => {
+    for (const s of all) {
+      const { body } = audio.buildPlaceCallRequest(s as never, { callee: '+15550001111', shared: s.audio ? SHARED : null });
+      expect(body.persona.length, s.id).toBeLessThanOrEqual(2000);
+    }
   });
 });
