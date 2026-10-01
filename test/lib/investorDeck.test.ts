@@ -26,7 +26,14 @@ describe('investor deck', () => {
   it('does not mention immigration status or leave', () => {
     expect(text).not.toMatch(/h-?1b|visa|\bo-?1\b|sponsor|leave of absence|\bFMLA\b|sedgwick/i);
   });
-  it('still has founder-supplied TODO markers until they are filled in', () => {
-    expect(investorDeckTodos(slides).length).toBeGreaterThan(0);
+  it('has no TODO placeholders left, so it can be served publicly', () => {
+    expect(investorDeckTodos(slides)).toEqual([]);
+  });
+  it('states the ask: $500K on a SAFE, the three uses, and the milestone', () => {
+    expect(text).toContain('$500K on a SAFE');
+    expect(text).toContain('Run pilots in three trades');
+    expect(text).toContain('compliance work dental and home care need');
+    expect(text).toContain('Self-host our voice');
+    expect(text).toContain('pilots converting to paid in three trades');
   });
 });

@@ -169,7 +169,7 @@ export function buildInvestorSlides(): string[] {
   s.push(section('team', false, `${h2('Team', false)}
     ${row([
       card('Sushanth Tiruvaipati, co-founder', 'Fifteen years of engineering at Amazon, Microsoft, VMware and Google, on billing and metering systems, conversation AI, large-scale ranking and fraud detection. M.S., Carnegie Mellon. Built the Calldesk platform: the voice engine, call flows, dashboard and the outreach pipeline. Also ships a portfolio of consumer apps independently.', false, 1.3, true),
-      card('Deepikarani Parameswarappa, co-founder', 'Site reliability engineer at Twitter. Earlier built network telemetry and observability software at Ciena, including a containerized gRPC telemetry collector and monitoring dashboards. Studied at Illinois Institute of Technology. TODO(she confirms her roles, dates, degree and anything to add or change)', false, 1, true),
+      card('Deepikarani Parameswarappa, co-founder', 'Site reliability engineer at Twitter. Earlier built network telemetry and observability software at Ciena, including a containerized gRPC telemetry collector and monitoring dashboards. Studied at Illinois Institute of Technology.', false, 1, true),
     ])}
     ${row([
       card('Conversation AI at scale', 'Google Cloud Contact Center AI: topic modeling for customer conversations.', false, 1, true),
@@ -178,10 +178,15 @@ export function buildInvestorSlides(): string[] {
     ])}`));
 
   s.push(section('ask', false, `
-    <div style="margin-top:110px; display:flex; flex-direction:column; gap:36px">
+    <div style="margin-top:100px; display:flex; flex-direction:column; gap:40px">
       <div style="font-size:30px; letter-spacing:4px; font-weight:600">THE ASK</div>
-      <h2 style="${HEAD}; font-size:88px; font-weight:700; line-height:1.05; max-width:1500px">TODO(round size and instrument) to TODO(what it buys: e.g. pilots in three trades, compliance for dental, self-hosted voice at scale).</h2>
-      <p style="font-size:34px; line-height:1.4; max-width:1300px">TODO(one line on milestones this round reaches).</p>
+      <h2 style="${HEAD}; font-size:80px; font-weight:700; line-height:1.07; max-width:1560px">We are raising $500K on a SAFE.</h2>
+      <div style="display:flex; flex-direction:column; gap:20px; font-size:38px; line-height:1.35; max-width:1500px">
+        <div>1. Run pilots in three trades.</div>
+        <div>2. Add the compliance work dental and home care need.</div>
+        <div>3. Self-host our voice at scale for the default tier.</div>
+      </div>
+      <p style="font-size:36px; line-height:1.4; max-width:1400px; font-weight:600">This round reaches pilots converting to paid in three trades.</p>
     </div>`, AMBER));
 
   s.push(section('contact', true, `
