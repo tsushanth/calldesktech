@@ -24,6 +24,8 @@ import { readFileSync, writeFileSync, mkdirSync, existsSync, renameSync } from '
 import { execFileSync } from 'node:child_process';
 import { resolve, join, dirname } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+import { buildPlaceCallRequest } from './lib/sample-audio.mjs';
+import { detectBadTake, uploadBlockedReason } from './lib/sample-quality.mjs';
 import {
   validateScenarios, normalizeTranscript, buildSampleRow, estimateCostUsd, parseArgs, isE164,
   MAX_REAL_CALLS, parseCounter, checkCallGate, validatePublishable,
@@ -40,6 +42,12 @@ function bumpCounter(file = COUNTER_FILE) {
   const n = readCounter(file) + 1;
   writeFileSync(file, String(n));
   return n;
+}
+
+// The shared jingle + effects, generated once by scripts/generate-sample-audio.mjs (git-ignored out/).
+const SHARED_AUDIO_FILE = join(ROOT, 'out/sample-audio/shared.json');
+function loadSharedAudio(file = SHARED_AUDIO_FILE) {
+  try { return JSON.parse(readFileSync(file, 'utf8')); } catch { return null; }
 }
 
 const die = (msg, code = 1) => { console.error(`\nERROR: ${msg}`); process.exit(code); };
@@ -99,7 +107,9 @@ async function ensureBucket(db) {
 }
 
 // ---- generate -------------------------------------------------------------------------------------
-export async function generate(args, env, sc, outDir, counterFile = COUNTER_FILE) {
+// `sharedAudio`: injectable for tests; undefined = load the generated file when the scenario has audio.
+export async function generate(args, env, sc, outDir, counterFile = COUNTER_FILE, sharedAudio = undefined) {
+  const shared = sc.audio ? (sharedAudio !== undefined ? sharedAudio : loadSharedAudio()) : null;
   const base = env.get('CALL_LOOP_POC_BASE_URL').replace(/\/+$/, '');
   const secret = env.get('CALL_LOOP_POC_TEST_CALL_SECRET');
   const callee = args.calleeNumber || env.get('SAMPLE_CALLEE_NUMBER');
@@ -113,16 +123,22 @@ export async function generate(args, env, sc, outDir, counterFile = COUNTER_FILE
   if (!secret) problems.push('CALL_LOOP_POC_TEST_CALL_SECRET is not set');
   if (!env.get('NEXT_PUBLIC_SUPABASE_URL') || !env.get('SUPABASE_SERVICE_ROLE_KEY')) problems.push('NEXT_PUBLIC_SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY not set (transcript is read from the poc call log)');
   problems.push(...gate.reasons);
+  // An audio scenario must never go out without its audio: check the sounds exist BEFORE anything is dialed.
+  let plan = null;
+  if (sc.audio) {
+    try { plan = buildPlaceCallRequest(sc, { callee, shared }); } catch (e) { problems.push(e.message); }
+  }
 
   console.log(`vertical:        ${sc.id} (${sc.product})`);
   console.log(`fictional biz:   ${sc.businessName}`);
   console.log(`scenario:        ${sc.title}`);
-  console.log(`target length:   ${sc.targetSeconds[0]}-${sc.targetSeconds[1]}s (Twilio TimeLimit hard-caps at 150s)`);
+  console.log(`target length:   ${sc.targetSeconds[0]}-${sc.targetSeconds[1]}s (Twilio TimeLimit hard-caps at 210s)`);
   console.log(`callee number:   ${callee || '(unset)'}`);
   console.log(`poc:             ${base || '(unset)'}   env file: ${env.exists ? env.path : '(none)'}`);
   console.log(`output dir:      ${outDir}`);
   console.log(`est. cost:       ~$${estimateCostUsd(sc.targetSeconds[1])} at ${sc.targetSeconds[1]}s (estimate)`);
   console.log(`disclosure:      ${sc.disclosure}`);
+  console.log(`call audio:      ${sc.audio ? `jingle${sc.audio.jingle ? '' : ' (off)'} + effect ${(sc.audio.effects || []).map((e) => `${e.name} [${e.sound}]`).join(', ') || '(none)'}${plan ? '' : '  <- shared sounds NOT generated'}` : 'none (this vertical has no jingle/effects)'}`);
   console.log(`real calls used: ${used}/${MAX_REAL_CALLS}`);
   if (problems.length) {
     console.log(`\nprerequisites missing:\n - ${problems.join('\n - ')}`);
@@ -136,6 +152,10 @@ export async function generate(args, env, sc, outDir, counterFile = COUNTER_FILE
   // Capability probe: refuse to dial a poc that would ignore sampleCallee.
   const cap = await fetch(`${base}/sample-callee-capability`).catch(() => null);
   const capJson = cap && cap.ok ? await cap.json().catch(() => null) : null;
+  // An older poc silently IGNORES the callAudio field and would produce a sample with no sounds in it.
+  if (plan?.callAudio && !(capJson && capJson.callAudio)) {
+    die(`the poc at ${base} does not support callAudio on sample calls. Refusing to dial: it would silently produce a sample WITHOUT the jingle/effects. Deploy the current call-loop-poc first.`);
+  }
   if (!capJson || !capJson.sampleCallee) {
     die(`the poc at ${base} does not support per-call sampleCallee (probe failed${cap ? `, HTTP ${cap.status}` : ', unreachable'}). Refusing to dial: an older poc would answer with the number's real tenant agent. Deploy branch outreach-sample-callee of realtime-tts first (see the task-4 report for steps).`);
   }
@@ -144,27 +164,24 @@ export async function generate(args, env, sc, outDir, counterFile = COUNTER_FILE
   console.log('\nplacing call...');
   const placed = await fetch(`${base}/place-test-call`, {
     method: 'POST', headers: auth,
-    body: JSON.stringify({
-      toNumber: callee, shopper: true, record: true,
-      persona: sc.callerPersona,
-      sampleCallee: { systemPrompt: sc.agentPrompt, greeting: sc.greeting, voice: sc.agentVoice, stability: 0.8 },
-      shopperVoice: { voice: sc.callerVoice, stability: 0.8 },
-    }),
+    body: JSON.stringify(plan ? plan.body : buildPlaceCallRequest(sc, { callee, shared: null }).body),
   });
   const pj = await placed.json().catch(() => ({}));
   if (!placed.ok || !pj.sid) die(`place-test-call failed (HTTP ${placed.status}): ${JSON.stringify(pj).slice(0, 300)}`);
   console.log(`real calls used: ${bumpCounter(counterFile)}/${MAX_REAL_CALLS} (counted at dial, even if the call later fails)`);
-  if (!pj.sampleCallee) die(`call ${pj.sid} was placed but the poc did not confirm sampleCallee; it may have reached a real tenant agent. Check it in Twilio and discard.`);
+  if (!pj.sampleCallee) die(`call ${pj.sid} was placed but the poc did not confirm sampleCallee; it may have reached a real tenant agent. Check it in Twilio and discard.`)
+  if (plan?.callAudio && !pj.callAudio) die(`call ${pj.sid} was placed but the poc did not confirm callAudio; the sample will have no jingle/effects. Check it in Twilio and discard.`);
   const sid = pj.sid;
   console.log(`call sid: ${sid}`);
 
   // Wait for completion.
   const t0 = Date.now();
-  let status = pj.status, duration = 0;
+  let status = pj.status, duration = 0, audioEvents;
   while (Date.now() - t0 < MAX_WAIT_MS) {
     await sleep(5000);
     const s = await fetch(`${base}/call-status/${sid}`, { headers: auth }).then((r) => r.json()).catch(() => ({}));
     status = s.status || status; duration = s.duration || duration;
+    if (Array.isArray(s.audioEvents)) audioEvents = s.audioEvents; // what the poc says actually played
     if (['completed', 'failed', 'busy', 'no-answer', 'canceled'].includes(status)) break;
   }
   if (status !== 'completed') die(`call ended in status "${status}" (sid ${sid}); no sample produced.`);
@@ -209,7 +226,7 @@ export async function generate(args, env, sc, outDir, counterFile = COUNTER_FILE
   }
   if (!raw) die(`no transcript found in calldesk_call_logs for ${sid} (the poc only logs when the dialed number belongs to a tenant). Audio ${audioFile ? 'saved' : 'missing'} in ${outDir}.`);
   writeFileSync(join(outDir, 'transcript.raw.json'), JSON.stringify(raw, null, 2));
-  finishLocal(outDir, sc, raw, { sid, duration, audioFile, recording: recMeta && { status: recMeta.status, channels: recMeta.channels } });
+  finishLocal(outDir, sc, raw, { sid, duration, audioEvents, audioFile, recording: recMeta && { status: recMeta.status, channels: recMeta.channels } });
 }
 
 function finishLocal(outDir, sc, raw, meta) {
@@ -218,7 +235,16 @@ function finishLocal(outDir, sc, raw, meta) {
   writeFileSync(join(outDir, 'transcript.json'), JSON.stringify(transcript, null, 2));
   writeFileSync(join(outDir, 'sample-row.json'), JSON.stringify(row, null, 2));
   writeFileSync(join(outDir, 'call-meta.json'), JSON.stringify({ ...meta, vertical: sc.id, estimatedCostUsd: estimateCostUsd(meta.duration), generatedAt: new Date().toISOString() }, null, 2));
+  // Objective verdict on the take (character-break, cut off by the cap, jingle/effect missing or too late), so a bad take is
+  // flagged here and refused by --upload, not discovered by listening.
+  const quality = detectBadTake({
+    transcript, durationSec: meta.duration, capSec: 210,
+    expectJingle: !!sc.audio?.jingle, expectEffects: (sc.audio?.effects || []).map((e) => e.name), audioEvents: meta.audioEvents,
+  });
+  writeFileSync(join(outDir, 'quality.json'), JSON.stringify({ ...quality, audioEvents: meta.audioEvents ?? null }, null, 2));
   console.log(`\nwrote ${outDir}: ${transcript.length} transcript lines, snippet indexes [${row.snippet.join(', ')}]`);
+  console.log(quality.ok ? 'QUALITY: ok (no automatic problems found; still listen before publishing)' : `QUALITY: BAD TAKE\n - ${quality.reasons.join('\n - ')}\n(--upload will refuse this take unless you pass --force-upload)`);
+  if (meta.audioEvents?.length) console.log(`audio played: ${meta.audioEvents.map((e) => `${e.kind}:${e.name}@${(e.atMs / 1000).toFixed(1)}s`).join(', ')}`);
   console.log('REVIEW audio + transcript (check names, accuracy, tone) before --upload / --publish. Speaker labels assume the shopper-side log: assistant=caller, user=agent.');
 }
 
@@ -227,6 +253,9 @@ async function upload(args, env, sc, outDir) {
   const rowPath = join(outDir, 'sample-row.json');
   if (!existsSync(rowPath)) die(`${rowPath} not found; generate the sample first (no call is placed by --upload).`);
   const row = JSON.parse(readFileSync(rowPath, 'utf8'));
+  const qPath = join(outDir, 'quality.json');
+  const blocked = uploadBlockedReason(existsSync(qPath) ? JSON.parse(readFileSync(qPath, 'utf8')) : null, { force: args.forceUpload });
+  if (blocked) die(blocked);
   if (row.product !== sc.product) die(`local sample is for ${row.product}, not ${sc.product}`);
   const audioPath = join(outDir, 'audio.mp3');
   if (!existsSync(audioPath)) die(`${audioPath} not found; a sample without audio cannot be uploaded.`);

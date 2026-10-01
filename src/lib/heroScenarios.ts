@@ -23,7 +23,7 @@ export const HERO_SCENARIOS: HeroScenario[] = [
     tab: 'Dental clinic',
     headline: 'Booked while the front desk was closed.',
     meta: 'Dental clinic, 6:40 pm',
-    caption: 'The caller',
+    caption: 'The office is closed. The cleaning gets booked anyway.',
     lines: [
       { who: 'caller', text: 'Hi, do you have anything Tuesday morning for a cleaning?' },
       { who: 'agent', text: 'We do. I have 10:30 open. Can I get your name?' },
@@ -37,7 +37,7 @@ export const HERO_SCENARIOS: HeroScenario[] = [
     tab: 'Equipment rental',
     headline: 'Answered on the job site.',
     meta: 'Equipment rental, 7:12 am',
-    caption: 'The caller',
+    caption: 'Mid-site, hands busy. An excavator for Thursday, sorted in one call.',
     lines: [
       { who: 'caller', text: 'Do you have a 20-ton excavator free on Thursday?' },
       { who: 'agent', text: 'We do. Is that for a day or a week?' },
@@ -51,7 +51,7 @@ export const HERO_SCENARIOS: HeroScenario[] = [
     tab: 'Clinic front desk',
     headline: 'The second line, answered.',
     meta: 'Clinic front desk, 4:45 pm',
-    caption: 'Your receptionist, on another call',
+    caption: 'Reception is on the other line. This call still gets answered.',
     lines: [
       { who: 'caller', text: 'Hi, I need to move my appointment.' },
       { who: 'agent', text: "Of course. What's your name and the current date?" },
@@ -65,7 +65,7 @@ export const HERO_SCENARIOS: HeroScenario[] = [
     tab: 'Hair salon',
     headline: 'Answers the questions that interrupt the work.',
     meta: 'Hair salon, 11:15 am',
-    caption: 'On the phone at the salon',
+    caption: 'Mid-balayage and the phone rings. Nobody has to stop.',
     lines: [
       { who: 'caller', text: 'Are you open Sundays? And do you do balayage?' },
       { who: 'agent', text: "We're open Sunday from 10 to 4, and yes, we do balayage. Want me to find you a time?" },
@@ -79,7 +79,7 @@ export const HERO_SCENARIOS: HeroScenario[] = [
     tab: 'Law office',
     headline: 'Takes the message, then gets it to you.',
     meta: 'Law office, 3:30 pm',
-    caption: 'The caller',
+    caption: 'The attorneys are in court. The lease dispute still gets a callback.',
     lines: [
       { who: 'caller', text: 'I need to talk to someone about a lease dispute.' },
       { who: 'agent', text: 'The attorneys are in court this afternoon. May I take your name and number for a callback?' },
@@ -93,7 +93,7 @@ export const HERO_SCENARIOS: HeroScenario[] = [
     tab: 'Small shop',
     headline: 'Orders taken while your hands are full.',
     meta: 'Small shop, 10:05 am',
-    caption: 'The owner, hands full',
+    caption: 'Hands full. The planter is held for pickup at five.',
     lines: [
       { who: 'caller', text: 'Do you still have the large blue planter?' },
       { who: 'agent', text: 'We do, two left. Want me to set one aside?' },

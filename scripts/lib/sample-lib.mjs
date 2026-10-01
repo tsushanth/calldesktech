@@ -4,10 +4,13 @@ export const VERTICALS = [
   'freight', 'homeservices', 'dental', 'insurance', 'towing', 'septic', 'homecare', 'bailbonds',
   // batch 3
   'childcare', 'accounting', 'realestate', 'lodging', 'funeral', 'physio', 'taxi', 'vets',
+  // calldesk's own reseller/agency-partner marketing sample, not a customer vertical
+  'agency',
 ];
 // HARD CAP on real sample calls for this task. Deliberately a constant, not a flag: raising it means
-// editing this line (or the counter file out/.sample-calls-used) on purpose.
-export const MAX_REAL_CALLS = 6;
+// editing this line (or the counter file out/.sample-calls-used) on purpose. Raised 6 -> 20 for the
+// jingle/sound-effect regeneration: 13 verticals plus headroom for retries (approved 2026-09-30).
+export const MAX_REAL_CALLS = 20;
 export const SNIPPET_MIN = 4;
 export const SNIPPET_MAX = 6;
 // Rough cost model (estimate only, see task-4 report): our engine ~$0.044/min per AI session (two sessions:
@@ -135,7 +138,7 @@ export function buildSampleRow({ scenario, transcript, audioPath, durationSec })
 }
 
 export function parseArgs(argv) {
-  const o = { vertical: null, dryRun: false, out: null, upload: false, publish: null, calleeNumber: null, envFile: null, help: false, placeCall: false };
+  const o = { vertical: null, dryRun: false, out: null, upload: false, forceUpload: false, publish: null, calleeNumber: null, envFile: null, help: false, placeCall: false };
   const need = (i, name) => {
     if (i + 1 >= argv.length || argv[i + 1].startsWith('--')) throw new Error(`${name} needs a value`);
     return argv[i + 1];
@@ -149,11 +152,13 @@ export function parseArgs(argv) {
     else if (a === '--env-file') { o.envFile = need(i, a); i++; }
     else if (a === '--dry-run') o.dryRun = true;
     else if (a === '--upload') o.upload = true;
+    else if (a === '--force-upload') o.forceUpload = true;
     else if (a === '--place-call') o.placeCall = true;
     else if (a === '--help' || a === '-h') o.help = true;
     else throw new Error(`unknown argument: ${a}`);
   }
   if (o.publish && !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(o.publish)) throw new Error('--publish needs a sample id (uuid)');
+  if (o.forceUpload && !o.upload) throw new Error('--force-upload only applies together with --upload');
   if (o.publish && (o.upload || o.dryRun)) throw new Error('--publish is a separate step: do not combine with --upload/--dry-run');
   if (!o.help && !o.publish && !o.vertical) throw new Error('--vertical is required');
   if (o.vertical && !VERTICALS.includes(o.vertical)) throw new Error(`unknown vertical "${o.vertical}" (one of ${VERTICALS.join(', ')})`);

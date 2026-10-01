@@ -26,14 +26,12 @@ export async function POST(request: NextRequest) {
   const email = typeof body?.email === 'string' ? body.email.trim().toLowerCase() : '';
   if (!email) return NextResponse.json({ error: 'email is required' }, { status: 400 });
 
+  // Exact, case-insensitive match through an indexed function (migration 060). The previous
+  // .ilike() scanned all ~416k leads on every inbound email (4s idle, timed out under load) and
+  // treated _ and % in the address as wildcards, so it could mark the wrong lead as replied.
   const supabase = getSupabaseAdmin();
-  const { data, error } = await supabase
-    .from('calldesk_outreach_leads')
-    .update({ replied_at: new Date().toISOString() })
-    .ilike('contact_email', email)
-    .is('replied_at', null)
-    .select('id');
+  const { data, error } = await supabase.rpc('calldesk_mark_replied', { p_email: email });
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-  return NextResponse.json({ matched: data?.length ?? 0 });
+  return NextResponse.json({ matched: data ?? 0 });
 }

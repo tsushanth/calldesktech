@@ -13,6 +13,7 @@ import { findTelephonyPlatformCandidates } from './telephonyPlatformsSearch';
 import { findSttTtsSignalCandidates } from './sttTtsSignalSearch';
 import { checkDomainForPlatforms } from '../signals/techFingerprint';
 import { LeadIndex } from './dedupe';
+import { looksLikeIndividual } from './individualName';
 import { researchAgency, type Dossier } from '../research';
 import { findSearchCandidates, queriesForDay } from './searchSource';
 import { findFreightBrokerCandidates, describeBroker, isFreeMail } from './freightFmcsa';
@@ -151,7 +152,7 @@ interface LeadRow {
 // description): the registry phone so a human can call unresolved leads, plus
 // the identity used for website lookup and the score adjustment to re-apply on rescoring.
 interface RegistryMeta {
-  phone: string | null; licenseId: string; registry: string; typeLabel: string; legalName: string | null;
+  phone: string | null; callerPhoneExcluded?: string; licenseId: string; registry: string; typeLabel: string; legalName: string | null;
   city: string | null; state: string | null; contactName: string | null; adjust: number; reasons: string[];
 }
 
@@ -828,14 +829,16 @@ export function registryLeadRow(c: RegistryLead, product: ProductConfig, now: st
   const base = scoreLead({ tier: null, location: c.location, description: `${c.name} ${c.description}` }, undefined, product);
   const score = Math.max(0, Math.min(100, base.score + c.adjust));
   const reasons = [...base.reasons, ...c.reasons];
+  // A personal/home line never reaches callers' lists: no `phone` column and no registry copy.
+  const phone = c.callerPhoneExcluded ? null : c.phone;
   const registry: RegistryMeta = {
-    phone: c.phone, licenseId: c.licenseId, registry: c.registryName, typeLabel: c.typeLabel, legalName: c.legalName,
+    phone, ...(c.callerPhoneExcluded ? { callerPhoneExcluded: c.callerPhoneExcluded } : {}), licenseId: c.licenseId, registry: c.registryName, typeLabel: c.typeLabel, legalName: c.legalName,
     city: c.city, state: c.state, contactName: c.contactName, adjust: c.adjust, reasons: c.reasons,
   };
   const contactFields = email
     ? { contact_email: email, contact_status: 'found', contact_source_url: c.contactSourceUrl ?? null, enriched_at: now }
     : {};
-  const phoneField = c.phone ? { phone: c.phone } : {};
+  const phoneField = phone ? { phone } : {};
   // THE INTERNATIONAL HOLD, applied in exactly one place so no source can skip
   // it: a non-US registry lead is stored region_blocked with signals.intlHold,
   // which makes it invisible to enrichment, drafting and sending until a human
@@ -1082,6 +1085,10 @@ async function stageRegistry(
   return entries;
 }
 
+// Set only by enrichBacklogBatch (below) for the duration of one call; null in normal runs, so the
+// daily pipeline is unaffected. Lets a backlog run restrict stageEnrich to chosen sources/shards.
+let enrichRowFilter: ((r: LeadRow) => boolean) | null = null;
+
 async function stageEnrich(
   db: Db, summary: RunSummary, dryRun: boolean, limit: number, entriesIn: DirectoryEntry[], index: LeadIndex<LeadRow>, stop: () => boolean, product: ProductConfig,
 ) {
@@ -1112,6 +1119,7 @@ async function stageEnrich(
 
   const candidates = entries
     .filter((e) => e.row.status !== 'dead' && !e.row.region_blocked)
+    .filter((e) => enrichRowFilter?.(e.row) ?? true)
     .filter((e) => !e.row.enriched_at || (e.row.contact_status !== 'found' && new Date(e.row.enriched_at).getTime() < recheckBefore))
     .sort((a, b) => (b.row.score ?? 0) - (a.row.score ?? 0))
     .slice(0, limit);
@@ -1205,7 +1213,8 @@ async function stageEnrich(
       const { error } = await db.from(leadsTable(product)).update({
         domain,
         contact_email: contact.email,
-        phone: contact.phone,
+        // Personal/home-line leads (callerPhonePolicy.ts) never get a callable phone, scraped or not.
+        phone: reg?.callerPhoneExcluded ? null : contact.phone,
         contact_status: contact.status,
         contact_source_url: contact.sourceUrl,
         enriched_at: now,
@@ -1218,6 +1227,50 @@ async function stageEnrich(
       summary.errors.push(`enrich ${lead.company_name}: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
+}
+
+export interface EnrichBacklogResult { pending: number; contactsFound: number; searchFailures: number; errors: string[]; statuses: Record<string, number> }
+
+/**
+ * One batch of website-discovery + contact enrichment for registry leads that have never been
+ * enriched, run OUTSIDE the daily run's budget (harness/outreach/enrich-continuous.ts loops this).
+ * It is the same stageEnrich the daily run uses, so the verification of each found website and every
+ * dedupe/suppression rule are unchanged; only the candidate set is narrowed (source prefixes and/or
+ * a stable id shard so several processes can work in parallel without overlapping). The index is
+ * reloaded on every call because stageEnrich marks leads enriched in the database, not in memory.
+ * Each batch is bounded by OUTREACH_WEBSEARCH_MAX_PER_RUN (max 30 website searches).
+ */
+export async function enrichBacklogBatch(
+  db: Db, product: ProductConfig,
+  opts: { limit: number; sourcePrefixes?: string[]; shard?: { index: number; count: number }; skipIndividuals?: boolean },
+): Promise<EnrichBacklogResult> {
+  const existing = await selectAll<LeadRow>(() => scopeToProduct(db.from(leadsTable(product)).select('*'), product));
+  const index = new LeadIndex<LeadRow>(existing);
+  const inScope = (r: LeadRow) => {
+    if (opts.sourcePrefixes?.length && !opts.sourcePrefixes.some((p) => (r.source_key ?? '').startsWith(p))) return false;
+    if (opts.skipIndividuals && looksLikeIndividual(r.company_name)) return false;
+    if (opts.shard && opts.shard.count > 1) {
+      const h = parseInt(r.id.replace(/-/g, '').slice(-6), 16);
+      if (h % opts.shard.count !== opts.shard.index) return false;
+    }
+    return true;
+  };
+  const pending = existing.filter((r) => inScope(r) && r.status === 'new' && !r.domain && !r.enriched_at && !r.region_blocked && r.signals?.registry).length;
+  const summary: RunSummary = {
+    runId: null, dryRun: false, status: 'ok', directoryCount: 0, searchCandidates: 0,
+    jobPostingCandidates: 0, reviewSiteCandidates: 0, githubCandidates: 0, techFingerprintHits: 0,
+    searchDebug: null, stopped: false, leadsSeen: 0, leadsNew: 0,
+    duplicatesSkipped: 0, contactsFound: 0, draftsCreated: 0, followUpsCreated: 0, phoneBackfilled: 0, researched: 0, lowFit: 0, errors: [], sample: { enriched: [], researched: [] },
+  };
+  enrichRowFilter = inScope;
+  try {
+    await stageEnrich(db, summary, false, opts.limit, [], index, () => false, product);
+  } finally {
+    enrichRowFilter = null;
+  }
+  const statuses: Record<string, number> = {};
+  for (const e of summary.sample.enriched) { const k = e.status.startsWith('no-site') ? 'no-site' : e.status.startsWith('duplicate') ? 'duplicate' : e.status; statuses[k] = (statuses[k] || 0) + 1; }
+  return { pending, contactsFound: summary.contactsFound, searchFailures: summary.errors.filter((e) => e.includes('search failed')).length, errors: summary.errors, statuses };
 }
 
 const DEFAULT_PHONE_BACKFILL_MAX = 15;
@@ -1251,6 +1304,7 @@ async function stagePhoneBackfill(db: Db, summary: RunSummary, dryRun: boolean, 
     const batch = leads.slice(i, i + concurrency);
     await Promise.allSettled(batch.map(async (lead) => {
       try {
+        if (lead.signals?.registry?.callerPhoneExcluded) return; // personal/home line policy: never backfill a phone
         const contact = await findContact(lead.domain as string);
         const now = new Date().toISOString();
         const signals = { ...(lead.signals ?? {}), phoneCheckedAt: now };

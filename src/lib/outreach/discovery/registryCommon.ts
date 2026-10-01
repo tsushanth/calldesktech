@@ -16,6 +16,10 @@ export interface RegistryLead {
   city: string | null;
   state: string | null;
   phone: string | null; // formatted, stored on signals.registry for human phone follow-up
+  // Set (to a short reason) when the registry phone is probably a personal/home line (sole proprietor,
+  // home-based provider, person-named business; see callerPhonePolicy.ts). registryLeadRow then keeps the
+  // phone OFF the lead's callable `phone` column and out of signals.registry, recording only the reason.
+  callerPhoneExcluded?: string | null;
   licenseId: string;
   registryName: string; // e.g. "Washington State Department of Licensing"
   typeLabel: string; // e.g. "registered tow truck operator"
