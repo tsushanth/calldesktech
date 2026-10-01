@@ -78,9 +78,8 @@ function FootageTile({ clip, caption, reduced }: { clip: HeroClip | null; captio
             tabIndex={-1}
           />
         ))}
-      <div className="pointer-events-none absolute inset-x-0 bottom-0 flex items-end justify-between gap-3 bg-gradient-to-t from-[#00122e]/75 to-transparent px-3 pb-2.5 pt-8 text-[12px] text-white">
+      <div className="pointer-events-none absolute inset-x-0 bottom-0 flex items-end gap-3 bg-gradient-to-t from-[#00122e]/75 to-transparent px-3 pb-2.5 pt-8 text-[12px] text-white">
         <span>{caption}</span>
-        <span className="text-white/70">Illustrative footage</span>
       </div>
     </div>
   );
@@ -177,7 +176,6 @@ export function HeroCallPanel({
         ) : (
           <>
             <p className="text-[14px] font-medium">{ended ? 'Call ended' : scenario.meta}</p>
-            {!ended && <p className="rounded-full bg-[#00122e]/[0.06] px-2.5 py-1 text-[12px] text-[#00122e]/65">Example call</p>}
           </>
         )}
       </div>

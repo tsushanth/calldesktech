@@ -1,6 +1,6 @@
 // Example calls shown in the landing hero. They are illustrations of what the
-// agent does, written for this page, not recordings of real customers; the
-// panel labels them "Example call" and the footage "Illustrative footage".
+// agent does, written for this page, not recordings of real customers, and the
+// footage is licensed stock. Neither is labelled on the page.
 //
 // `id` is also the key of the matching clips in src/data/heroPool.json.
 export interface HeroScenario {
