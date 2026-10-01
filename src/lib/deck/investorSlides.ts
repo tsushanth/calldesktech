@@ -137,6 +137,27 @@ export function buildInvestorSlides(): string[] {
     ])}
     ${p('Suppliers can also become rivals. The stack is model-agnostic so that no single vendor sets our price or our roadmap.', false)}`));
 
+  s.push(section('roadmap', true, `${h2('The roadmap to owning the stack', true)}
+    ${row([
+      card('Now: vendors, measured', 'The live stack runs on best-in-class vendors. Per-call cost and latency are tracked, and an open voice model is already self-hosted for the default tier. Next we build an evaluation set from real phone audio.', true, 1, true),
+      card('Next: adapt, do not rebuild', 'Trade vocabulary and phone-line adaptation for speech recognition. A small tuned model for routine call steps, with a router that sends hard turns to a frontier model. Licensed custom voices.', true, 1, true),
+    ])}
+    ${row([
+      card('Then: replace where we win', 'Swap a vendor layer for our own only when it matches the vendor on our held-out calls at lower cost and latency. Likely order: voice, then recognition, then the language model.', true, 1, true),
+      card('Later: a model built for phone calls', 'A purpose-built speech-to-speech model for our trades, trained on consented call data, with vendors kept as the fallback.', true, 1, true),
+    ])}
+    ${note('Each step is gated on measured results on our own held-out calls, not on a date.', true)}`));
+
+  s.push(section('data', false, `${h2('How we earn the data, and our rules', false)}
+    ${row([
+      card('Consent first', 'Customers opt in to data use in writing and callers are told the call is recorded. We respect two-party-consent states and build no voice-identification features.', false, 1, true),
+      card('De-identify and limit', 'Names, numbers and addresses are redacted before any training use. Retention is limited and a customer can withdraw.', false, 1, true),
+    ])}
+    ${row([
+      card('Clean provenance', 'We do not train on outputs of services whose terms forbid it. Training data is caller audio, human-checked transcripts and call outcomes.', false, 1, true),
+      card('Sized to the gates', 'GPU time for training and serving, a small ML team, and annotation. We are not claiming a data advantage today; pilots under opt-in terms are how it starts.', false, 1, true),
+    ])}`));
+
   s.push(section('distribution', true, `${h2('A repeatable way to reach small businesses', true)}
     ${row([
       card('Public licensing records', `We have built loaders for state and national registries and keep a database of 558,000+ businesses sourced from them: 41 US states with 100+ records each, 16 trades, and 7 other countries.`, true, 1.2),

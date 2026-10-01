@@ -6,10 +6,10 @@ describe('investor deck', () => {
   const text = slides.join(' ').replace(/<[^>]+>/g, ' ');
 
   it('has the planned slides, each a 1920x1080-style section with a unique id and page number', () => {
-    expect(slides.length).toBe(13);
+    expect(slides.length).toBe(15);
     const ids = slides.map((s) => /id="([^"]+)"/.exec(s)?.[1]);
     expect(new Set(ids).size).toBe(slides.length);
-    expect(ids).toEqual(expect.arrayContaining(['problem', 'price', 'human', 'cost', 'compete', 'behind', 'distribution', 'team', 'ask']));
+    expect(ids).toEqual(expect.arrayContaining(['problem', 'price', 'human', 'cost', 'compete', 'roadmap', 'data', 'behind', 'distribution', 'team', 'ask']));
   });
   it('is dated and attributes its prices', () => {
     expect(PRICING_AS_OF).toMatch(/2026/);
