@@ -4,6 +4,8 @@ export const VERTICALS = [
   'freight', 'homeservices', 'dental', 'insurance', 'towing', 'septic', 'homecare', 'bailbonds',
   // batch 3
   'childcare', 'accounting', 'realestate', 'lodging', 'funeral', 'physio', 'taxi', 'vets',
+  // calldesk's own reseller/agency-partner marketing sample, not a customer vertical
+  'agency',
 ];
 // HARD CAP on real sample calls for this task. Deliberately a constant, not a flag: raising it means
 // editing this line (or the counter file out/.sample-calls-used) on purpose. Raised 6 -> 20 for the
