@@ -18,6 +18,11 @@ describe('callerPhoneExclusion', () => {
       expect(callerPhoneExclusion({ name: 'Sunny Days', typeLabel: t }), t).toBe('home-based provider');
     expect(callerPhoneExclusion({ name: 'Jeffrey Kyle Porter' })).toBe('person-named business');
   });
+  it('does not read "licensed home care/health agency" as a licensed (family) home', () => {
+    for (const t of ['licensed home care agency', 'licensed home health agency', 'licensed home care agency (skilled nursing)'])
+      expect(callerPhoneExclusion({ name: 'Sunny Care LLC', typeLabel: t }), t).toBeNull();
+    expect(callerPhoneExclusion({ name: 'Sunny Days', typeLabel: 'licensed family child care home' })).toBe('home-based provider');
+  });
   it('keeps ordinary businesses and centres', () => {
     expect(callerPhoneExclusion({ name: 'Little Acorns Learning Center', typeLabel: 'Licensed Child Care Center' })).toBeNull();
     expect(callerPhoneExclusion({ name: 'Chantilly Electric LLC' })).toBeNull();

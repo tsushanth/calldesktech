@@ -1,4 +1,7 @@
 import { streamDelimitedRows } from './delimitedStream';
+import { callerPhoneExclusion } from './callerPhonePolicy';
+import { looksLikeIndividual } from './individualName';
+import { splitDba } from './registryCommon';
 import { titleCase, cityState, describeRegistryLead, emptyResult, formatUsPhone, reject, type RegistryLead, type RegistryResult } from './registryCommon';
 
 // Home-services discovery from the Alabama Licensing Board for General
@@ -81,7 +84,7 @@ export function parseAlDate(raw: string | null | undefined): Date | null {
 
 export type Evaluation = { keep: true; adjust: number; reasons: string[]; typeLabel: string } | { keep: false; reason: string };
 
-export function evaluateAlGenConRow(r: AlGenConRow, now = new Date()): Evaluation {
+export function evaluateAlGenConRow(r: AlGenConRow, now = new Date(), opts: { includeOutOfState?: boolean } = {}): Evaluation {
   if (!r.license) return { keep: false, reason: 'no licence id' };
   if (!r.name) return { keep: false, reason: 'no business name' };
   const exp = parseAlDate(r.expiration);
@@ -92,17 +95,27 @@ export function evaluateAlGenConRow(r: AlGenConRow, now = new Date()): Evaluatio
   if (!trade) return { keep: false, reason: 'specialty is not an HVAC/plumbing/electrical/roofing trade' };
   const phone = formatUsPhone(r.phone);
   if (!phone) return { keep: false, reason: 'no usable phone (the roster has no email)' };
+  // The roster covers every contractor licensed to work in Alabama, wherever it is based. A sample of the 804 out-of-state
+  // rows is mostly commercial / industrial subcontractors (Mastec, MEP consultants, facilities groups) in 30+ states, a
+  // poor fit for a local-service AI phone agent and a misleading "based in Atlanta, GA" Alabama-roster lead.
+  if (!opts.includeOutOfState && r.state && r.state.toUpperCase() !== 'AL') return { keep: false, reason: 'based outside Alabama' };
 
   const reasons: string[] = [];
   let adjust = 0;
   const add = (d: number, why: string) => { adjust += d; reasons.push(`${d >= 0 ? '+' : ''}${d}: ${why}`); };
   add(3, 'roster specialty is an HVAC/plumbing/electrical/roofing trade');
   add(-10, 'no published email in the roster (phone only)');
-  if (r.state && r.state.toUpperCase() !== 'AL') add(-3, 'licensed in Alabama but based out of state');
   // A board that licenses general contractors also holds the large commercial
   // firms; a general-building licence next to the trade is a size hint.
   if (/\b(BC|H\/RR|MU|BCU4|HS)\s*:/.test(r.specialty)) add(-2, 'also holds a general building / heavy / municipal licence (larger commercial firm)');
   return { keep: true, adjust, reasons, typeLabel: `licensed ${trade.label}` };
+}
+
+// The roster has only a name (no entity type). A licensee listed as "John Smith DBA Smith Roofing" is a person
+// licensed in their own name (sole proprietor); a plain person-name licensee is flagged by the shared name check.
+export function alCallerPhoneExclusion(name: string): string | null {
+  const { legal, dba } = splitDba(name);
+  return callerPhoneExclusion({ name, soleProprietor: !!dba && looksLikeIndividual(legal), typeLabel: '' });
 }
 
 export function toAlGenConLead(r: AlGenConRow, ev: { adjust: number; reasons: string[]; typeLabel: string }): RegistryLead {
@@ -111,6 +124,7 @@ export function toAlGenConLead(r: AlGenConRow, ev: { adjust: number; reasons: st
   const location = cityState(r.city, state);
   const phone = formatUsPhone(r.phone);
   const licenseId = r.license.toUpperCase();
+  const callerPhoneExcluded = alCallerPhoneExclusion(r.name);
   return {
     sourceKey: `homeservices:al:${licenseId}`,
     name,
@@ -118,13 +132,14 @@ export function toAlGenConLead(r: AlGenConRow, ev: { adjust: number; reasons: st
     city: r.city ? titleCase(r.city) : null,
     state,
     phone,
+    callerPhoneExcluded,
     licenseId,
     registryName: AL_GENCON_REGISTRY,
     typeLabel: ev.typeLabel,
     contactName: null,
     location,
     description: describeRegistryLead({ typeLabel: ev.typeLabel, registryName: AL_GENCON_REGISTRY, location, legalName: null, name, listNoun: LIST_NOUN }),
-    signalDetail: `Alabama Gen. Contractors Board licence ${licenseId} (${r.specialty.slice(0, 80)})${phone ? `; roster phone ${phone}` : ''}`,
+    signalDetail: `Alabama Gen. Contractors Board licence ${licenseId} (${r.specialty.slice(0, 80)})${phone && !callerPhoneExcluded ? `; roster phone ${phone}` : ''}`,
     adjust: ev.adjust,
     reasons: ev.reasons,
     email: null,
@@ -145,7 +160,7 @@ export async function streamAlGenConLeads(
     url: opts.url ?? AL_GENCON_CSV_URL,
     delimiter: 'comma',
     requiredColumns: REQUIRED,
-    minRows: 500,
+    minRows: 3000, // the roster has ~9,900 rows; a truncated download must fail rather than import a prefix
     log: opts.log,
     onRow: (o) => {
       result.scanned++;

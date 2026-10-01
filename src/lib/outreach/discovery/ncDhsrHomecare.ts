@@ -1,6 +1,8 @@
 import { DISCOVERY_UA } from './http';
 import { findEocd, parseCentralDirectory } from './zipStream';
 import { classifyHomecareName } from './homecareRegistry';
+import { callerPhoneExclusion } from './callerPhonePolicy';
+import { looksLikeIndividual } from './individualName';
 import { titleCase, cityState, describeRegistryLead, emptyResult, formatUsPhone, reject, type RegistryLead, type RegistryResult } from './registryCommon';
 
 // Home-care discovery from the North Carolina DHHS Division of Health Service
@@ -36,9 +38,11 @@ function xmlUnescape(s: string): string {
 
 export function parseSharedStrings(xml: string): string[] {
   const out: string[] = [];
-  for (const m of xml.matchAll(/<si\b[^>]*>([\s\S]*?)<\/si>/g)) {
+  for (const m of xml.matchAll(/<si\b(?:[^>]*?\/>|[^>]*>([\s\S]*?)<\/si>)/g)) {
     let s = '';
-    for (const t of m[1].matchAll(/<t\b[^>]*>([\s\S]*?)<\/t>/g)) s += t[1];
+    const inner = m[1] ?? '';
+    // Phonetic runs (<rPh>) are furigana annotations, not part of the cell text.
+    for (const t of inner.replace(/<rPh\b[\s\S]*?<\/rPh>/g, '').matchAll(/<t\b[^>]*>([\s\S]*?)<\/t>/g)) s += t[1];
     out.push(xmlUnescape(s));
   }
   return out;
@@ -54,12 +58,15 @@ export function colIndex(ref: string): number {
 
 export function parseSheetRows(xml: string, shared: string[]): string[][] {
   const rows: string[][] = [];
-  for (const rm of xml.matchAll(/<row\b[^>]*>([\s\S]*?)<\/row>/g)) {
+  // A blank row is often written self-closed (<row r="2"/>); matching it as an open tag would swallow the next row.
+  for (const rm of xml.matchAll(/<row\b(?:[^>]*?\/>|[^>]*>([\s\S]*?)<\/row>)/g)) {
     const row: string[] = [];
-    for (const cm of rm[1].matchAll(/<c\b([^>]*?)(?:\/>|>([\s\S]*?)<\/c>)/g)) {
+    let seq = 0; // cells may omit r=; they then follow the previous cell
+    for (const cm of (rm[1] ?? '').matchAll(/<c\b([^>]*?)(?:\/>|>([\s\S]*?)<\/c>)/g)) {
       const attrs = cm[1];
       const ref = /\br="([A-Z]+\d+)"/.exec(attrs)?.[1];
-      if (!ref) continue;
+      const ci = ref ? colIndex(ref) : seq;
+      seq = ci + 1;
       const type = /\bt="([^"]*)"/.exec(attrs)?.[1] ?? 'n';
       const body = cm[2] ?? '';
       let val = '';
@@ -67,10 +74,10 @@ export function parseSheetRows(xml: string, shared: string[]): string[][] {
         for (const t of body.matchAll(/<t\b[^>]*>([\s\S]*?)<\/t>/g)) val += t[1];
         val = xmlUnescape(val);
       } else {
-        const v = /<v>([\s\S]*?)<\/v>/.exec(body)?.[1] ?? '';
+        const v = /<v\b[^>]*>([\s\S]*?)<\/v>/.exec(body)?.[1] ?? '';
         val = type === 's' ? (shared[Number(v)] ?? '') : xmlUnescape(v);
       }
-      row[colIndex(ref)] = val;
+      row[ci] = val;
     }
     rows.push(Array.from(row, (c) => c ?? ''));
   }
@@ -92,9 +99,28 @@ export async function readZipMember(buf: Buffer, name: string): Promise<Buffer |
   throw new Error(`xlsx member ${name}: unsupported zip method ${e.method}`);
 }
 
+// First sheet's part name via workbook.xml + its rels (falls back to the conventional sheet1.xml).
+async function firstSheetPath(buf: Buffer): Promise<string> {
+  try {
+    const wb = (await readZipMember(buf, 'xl/workbook.xml'))?.toString('utf8') ?? '';
+    const rels = (await readZipMember(buf, 'xl/_rels/workbook.xml.rels'))?.toString('utf8') ?? '';
+    const rid = /<sheet\b[^>]*\br:id="([^"]+)"/.exec(wb)?.[1];
+    if (rid) {
+      for (const m of rels.matchAll(/<Relationship\b[^>]*>/g)) {
+        if (new RegExp(`\\bId="${rid}"`).test(m[0])) {
+          const target = /\bTarget="([^"]+)"/.exec(m[0])?.[1];
+          if (target) return target.startsWith('/') ? target.slice(1) : `xl/${target}`;
+        }
+      }
+    }
+  } catch { /* fall through to the default */ }
+  return 'xl/worksheets/sheet1.xml';
+}
+
 export async function readXlsxFirstSheet(buf: Buffer): Promise<string[][]> {
-  const sheet = await readZipMember(buf, 'xl/worksheets/sheet1.xml');
-  if (!sheet) throw new Error('xlsx has no xl/worksheets/sheet1.xml');
+  const path = await firstSheetPath(buf);
+  const sheet = await readZipMember(buf, path);
+  if (!sheet) throw new Error(`xlsx has no ${path}`);
   const ss = await readZipMember(buf, 'xl/sharedStrings.xml');
   return parseSheetRows(sheet.toString('utf8'), ss ? parseSharedStrings(ss.toString('utf8')) : []);
 }
@@ -105,6 +131,7 @@ export interface NcHomecareRow {
   license: string;
   legalName: string;
   dba: string | null;
+  owner: string | null;
   contactName: string | null;
   phone: string | null;
   siteCity: string | null;
@@ -133,6 +160,7 @@ export function toNcHomecareRow(cols: Record<string, number>, r: string[]): NcHo
     license: g('license #'),
     legalName: legalKey ? g(legalKey) : '',
     dba: g('dba name') || null,
+    owner: g('owner name') || null,
     contactName: g('facility contact name') || null,
     phone: g('facility contact number') || null,
     siteCity: g('site city') || null,
@@ -148,6 +176,8 @@ const MONTHS: Record<string, number> = { jan: 0, feb: 1, mar: 2, apr: 3, may: 4,
 
 // "31-Dec-26"
 export function parseNcDate(raw: string | null | undefined): Date | null {
+  // A date-formatted Excel cell is stored as a serial number of days since 1899-12-30.
+  if (/^\d{5}(\.\d+)?$/.test((raw ?? '').trim())) return new Date(Date.UTC(1899, 11, 30) + Math.floor(Number(raw)) * 86_400_000);
   const m = /^(\d{1,2})-([A-Za-z]{3})-(\d{2}|\d{4})$/.exec((raw ?? '').trim());
   if (!m) return null;
   const mon = MONTHS[m[2].toLowerCase()];
@@ -167,9 +197,15 @@ export function evaluateNcHomecareRow(r: NcHomecareRow, now = new Date()): Evalu
   const exp = parseNcDate(r.expiry);
   if (!exp || exp.getTime() < now.getTime()) return { keep: false, reason: 'licence expired' };
   const svc = r.services.toLowerCase();
-  const aide = /in-home aide|companion/.test(svc);
+  const inHomeAide = /in-home aide/.test(svc);
+  const companion = /companion/.test(svc);
+  const aide = inHomeAide || companion;
   const nursing = /nursing care/.test(svc);
+  const skilled = nursing || /infusion nursing|therapy|medical social|nursing pool/.test(svc);
+  const equipment = /durable medical equipment|clinical respiratory/.test(svc);
   if (!aide && !nursing) return { keep: false, reason: 'service set is not in-home care (e.g. DME, nursing pool or infusion only)' };
+  // "Companion" listed next to DME + respiratory services and no in-home aide is a medical equipment supplier, not a care agency.
+  if (equipment && !inHomeAide && !nursing) return { keep: false, reason: 'medical equipment / respiratory supplier, not a care agency' };
   const phone = formatUsPhone(r.phone);
   if (!phone) return { keep: false, reason: 'no usable phone (the list has no email)' };
 
@@ -179,9 +215,30 @@ export function evaluateNcHomecareRow(r: NcHomecareRow, now = new Date()): Evalu
   const reasons = [...cls.reasons];
   const add = (d: number, why: string) => { adjust += d; reasons.push(`${d >= 0 ? '+' : ''}${d}: ${why}`); };
   if (NC_HEALTH_SYSTEM.test(`${display} ${r.legalName}`)) add(-20, 'part of a large health system or national home-care / home-health chain');
-  if (aide && !nursing) add(4, 'licensed for in-home aide / companion care only (non-medical fit)');
+  if (aide && !skilled && !equipment) add(4, 'licensed for in-home aide / companion care only (non-medical fit)');
+  else if (aide && (skilled || equipment)) add(-4, 'also licensed for skilled nursing, therapy or medical equipment services (mixed medical agency)');
+  else add(-8, 'licensed for skilled / medical home health services only (registry has no non-medical flag)');
   add(-10, 'no published email in the list (phone only)');
-  return { keep: true, adjust, reasons, typeLabel: aide ? 'licensed home care agency' : 'licensed home care agency (nursing)' };
+  return { keep: true, adjust, reasons, typeLabel: aide ? 'licensed home care agency' : 'licensed home care agency (skilled nursing)' };
+}
+
+// "Pamela S DeVore" / "Pamela Spence Devore" / "Harvey L Clark" -> comparable tokens.
+function nameTokens(n: string): string[] {
+  return n.toLowerCase().replace(/[^a-z' ]+/g, ' ').split(/\s+/).filter(Boolean);
+}
+
+// The licensee is a plain person name AND the listed owner is the same person: an individually owned (sole
+// proprietor) agency. A person-like licensee whose owner is a company is NOT flagged, and the trade (DBA)
+// name is never tested on its own: "Visiting Angels", "Grace Ridge" and "Making Visions" are real businesses.
+export function ncSoleProprietor(r: Pick<NcHomecareRow, 'legalName' | 'owner' | 'dba'>): boolean {
+  if (!looksLikeIndividual(r.legalName) || !r.owner || !looksLikeIndividual(r.owner)) return false;
+  const legal = nameTokens(r.legalName);
+  // A two-word licensee whose trade name is the same two words ("Grace Ridge", "Making Visions") cannot be told from a
+  // person's name by shape alone, so it is only treated as a person with a third name part or an initial ("Jane M Doe").
+  const sameAsTrade = !r.dba || r.dba.trim().toLowerCase() === r.legalName.trim().toLowerCase();
+  if (sameAsTrade && legal.length < 3 && !legal.some((t) => t.length === 1)) return false;
+  const o = nameTokens(r.owner);
+  return legal.includes(o[0]) && legal.includes(o[o.length - 1]);
 }
 
 export function toNcHomecareLead(r: NcHomecareRow, ev: { adjust: number; reasons: string[]; typeLabel: string }): RegistryLead {
@@ -192,6 +249,7 @@ export function toNcHomecareLead(r: NcHomecareRow, ev: { adjust: number; reasons
   const location = cityState(city, (r.state ?? 'NC').toUpperCase());
   const phone = formatUsPhone(r.phone);
   const licenseId = r.license.toUpperCase();
+  const callerPhoneExcluded = callerPhoneExclusion({ name: '', soleProprietor: ncSoleProprietor(r), typeLabel: ev.typeLabel });
   return {
     sourceKey: `homecare:nc:${licenseId}`,
     name,
@@ -199,6 +257,7 @@ export function toNcHomecareLead(r: NcHomecareRow, ev: { adjust: number; reasons
     city: city ? titleCase(city) : null,
     state: (r.state ?? 'NC').toUpperCase(),
     phone,
+    callerPhoneExcluded,
     licenseId,
     registryName: NC_DHSR_REGISTRY,
     typeLabel: ev.typeLabel,
@@ -206,7 +265,7 @@ export function toNcHomecareLead(r: NcHomecareRow, ev: { adjust: number; reasons
     contactName: r.contactName,
     location,
     description: describeRegistryLead({ typeLabel: ev.typeLabel, registryName: NC_DHSR_REGISTRY, location, legalName, name, listNoun: LIST_NOUN }),
-    signalDetail: `NC DHSR home care licence ${licenseId}${r.county ? `, ${titleCase(r.county)} County` : ''}${phone ? `; facility phone ${phone}` : ''}`,
+    signalDetail: `NC DHSR home care licence ${licenseId}${r.county ? `, ${titleCase(r.county)} County` : ''}${phone && !callerPhoneExcluded ? `; facility phone ${phone}` : ''}`,
     adjust: ev.adjust,
     reasons: ev.reasons,
     email: null,
@@ -256,6 +315,9 @@ export async function allNcHomecareLeads(
     }
     const rows = parseNcHomecareSheet(await readXlsxFirstSheet(buf));
     if (rows.length < 500) throw new Error(`only ${rows.length} rows; file layout may have changed`);
+    // A changed date format would otherwise turn every row into "licence expired" and return an empty success.
+    const badDates = rows.filter((x) => !parseNcDate(x.expiry)).length;
+    if (badDates > rows.length * 0.1) throw new Error(`${badDates} of ${rows.length} rows have an unreadable expiry date; file layout may have changed`);
     for (const r of rows) {
       result.scanned++;
       const ev = evaluateNcHomecareRow(r, now);

@@ -54,19 +54,39 @@ describe('Alabama general contractors roster', () => {
     expect(evaluateAlGenConRow(row({ [AL_COL.phone]: '(   )    -' }), NOW)).toMatchObject({ keep: false, reason: expect.stringContaining('no usable phone') });
   });
 
-  it('marks out-of-state licensees down rather than dropping them', () => {
-    const ev = evaluateAlGenConRow(row({ [AL_COL.state]: 'GA', [AL_COL.city]: 'ROCKMART' }), NOW);
-    expect(ev.keep && ev.reasons.some((x) => x.includes('out of state'))).toBe(true);
+  it('drops out-of-state licensees by default and keeps them with includeOutOfState', () => {
+    const r = row({ [AL_COL.state]: 'GA', [AL_COL.city]: 'ROCKMART' });
+    expect(evaluateAlGenConRow(r, NOW)).toEqual({ keep: false, reason: 'based outside Alabama' });
+    expect(evaluateAlGenConRow(r, NOW, { includeOutOfState: true }).keep).toBe(true);
+  });
+
+  it('excludes person-named and DBA-of-a-person licensees from callers phone lists, never real businesses', () => {
+    const lead = (name: string) => { const r = row({ [AL_COL.name]: name }); const ev = evaluateAlGenConRow(r, NOW); if (!ev.keep) throw new Error('keep'); return toAlGenConLead(r, ev); };
+    const p = lead('STEPHEN KELLON POPE');
+    expect(p.callerPhoneExcluded).toBe('person-named business');
+    expect(p.signalDetail).not.toMatch(/\(\d{3}\) \d{3}-\d{4}/);
+    expect(p.description).toContain('Listed in the Alabama Licensing Board');
+    expect(lead('JOHN W SMITH DBA SMITH ROOFING').callerPhoneExcluded).toBe('sole proprietor');
+    for (const n of ["BILLY DON'S AIR", 'CHARLES FIX IT ALL', 'COOL TEMP', 'HI TECH', 'PRIME CONTROLS LP', 'WEEKS SHEETMETAL', 'FLANAGAN PLUMBING LLC', 'ALPHA ACME ELECTRIC INC'])
+      expect(lead(n).callerPhoneExcluded, n).toBeNull();
+    expect(lead('FLANAGAN PLUMBING LLC').signalDetail).toContain('(334) 237-9279');
+  });
+
+  it('fails (does not import a prefix) on a truncated roster', async () => {
+    const lines = ['Name,License_Number,Address,City,State,Zip,Phone_Number,fax,Bid_Limit,Specialty,Expiration_Date,Extension_Date'];
+    for (let i = 0; i < 600; i++) lines.push(`ACME ROOFING ${i} LLC,S-${i},1 MAIN,MOBILE,AL,36601,(251) 555-1000,(   )    -,,"SUBCONTRACTOR:  ROOFING",5/31/2027,`);
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(lines.join('\n'), { status: 200 })));
+    await expect(streamAlGenConLeads({ now: NOW, url: 'https://example.test/roster.csv' })).rejects.toThrow(/only 600 rows/);
   });
 
   it('streams a BOM-prefixed CSV end to end', async () => {
     const lines = ['﻿Name,License_Number,Address,City,State,Zip,Phone_Number,fax,Bid_Limit,Specialty,Expiration_Date,Extension_Date'];
-    for (let i = 0; i < 600; i++) lines.push(`ACME ROOFING ${i} LLC,S-${i},1 MAIN,MOBILE,AL,36601,(251) 555-${String(1000 + i).slice(-4)},(   )    -,,"SUBCONTRACTOR:  ROOFING",5/31/2027,`);
+    for (let i = 0; i < 3000; i++) lines.push(`ACME ROOFING ${i} LLC,S-${i},1 MAIN,MOBILE,AL,36601,(251) 555-${String(1000 + i).slice(-4)},(   )    -,,"SUBCONTRACTOR:  ROOFING",5/31/2027,`);
     lines.push('DUPE CONCRETE LLC,S-9999,1 MAIN,MOBILE,AL,36601,(251) 555-0000,(   )    -,,SUBCONTRACTOR:  CONCRETE,5/31/2027,');
     vi.stubGlobal('fetch', vi.fn(async () => new Response(lines.join('\n'), { status: 200 })));
     const res = await streamAlGenConLeads({ now: NOW, url: 'https://example.test/roster.csv' });
-    expect(res.scanned).toBe(601);
-    expect(res.candidates).toHaveLength(600);
+    expect(res.scanned).toBe(3001);
+    expect(res.candidates).toHaveLength(3000);
     expect(res.rejected['specialty is not an HVAC/plumbing/electrical/roofing trade']).toBe(1);
   });
 });
@@ -109,16 +129,50 @@ describe('Kentucky child care providers', () => {
     expect(evaluateKyChildcareRow({ ...base, USER_Phone: '' }, NOW)).toMatchObject({ keep: false });
   });
 
-  it('pages the ArcGIS query past one page', async () => {
-    const mk = (i: number) => ({ attributes: { ...base, USER_CLR_: `L${i}`, USER_Name: `Tiny Tots ${i}` } });
-    const pages = [Array.from({ length: 1000 }, (_, i) => mk(i)), Array.from({ length: 5 }, (_, i) => mk(1000 + i))];
-    let call = 0;
-    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({ features: pages[call++] ?? [] }), { status: 200 })));
+  // ArcGIS mock keyed on the query: honours resultOffset/resultRecordCount and returnCountOnly, with a hard server cap.
+  const arcgis = (total: number, cap = 2000, countOverride?: number) => vi.fn(async (url: string) => {
+    const q = new URL(url).searchParams;
+    if (q.get('returnCountOnly')) return new Response(JSON.stringify({ count: countOverride ?? total }), { status: 200 });
+    const off = Number(q.get('resultOffset') ?? 0);
+    const n = Math.min(Number(q.get('resultRecordCount') ?? cap), cap, Math.max(0, total - off));
+    const features = Array.from({ length: n }, (_, i) => ({ attributes: { ...base, USER_CLR_: `L${off + i}`, USER_Name: `Tiny Tots ${off + i}`, USER_Capacity: 40 } }));
+    return new Response(JSON.stringify({ features, exceededTransferLimit: off + n < total && n === cap }), { status: 200 });
+  });
+
+  it('pages past maxRecordCount: 2,001 rows come back as 2,001 with no off-by-one', async () => {
+    vi.stubGlobal('fetch', arcgis(2001));
     const res = await allKyChildcareLeads({ now: NOW });
-    expect(call).toBe(2);
-    expect(res.scanned).toBe(1005);
-    expect(res.candidates).toHaveLength(1005);
     expect(res.errors).toEqual([]);
+    expect(res.scanned).toBe(2001);
+    expect(res.candidates).toHaveLength(2001);
+    expect(new Set(res.candidates.map((c) => c.sourceKey)).size).toBe(2001);
+  });
+
+  it('handles a layer that is an exact multiple of the page size', async () => {
+    vi.stubGlobal('fetch', arcgis(2000));
+    const res = await allKyChildcareLeads({ now: NOW });
+    expect(res.scanned).toBe(2000);
+  });
+
+  it('throws rather than return a partial layer when the paged rows fall short of the layer count', async () => {
+    vi.stubGlobal('fetch', arcgis(1200, 2000, 2001));
+    const res = await allKyChildcareLeads({ now: NOW });
+    expect(res.candidates).toHaveLength(0);
+    expect(res.errors[0]).toContain('refusing a partial import');
+  });
+
+  it('excludes certified family homes and home-sized licensed providers from callers lists, keeps centres', () => {
+    const lead = (o: Partial<KyChildcareRow>) => { const r = { ...base, ...o }; const ev = evaluateKyChildcareRow(r, NOW); if (!ev.keep) throw new Error('keep'); return toKyChildcareLead(r, ev); };
+    const cert = lead({ USER_Provider_Type: 'Certified', USER_Capacity: 6, USER_Name: 'Tammys Daycare' });
+    expect(cert.callerPhoneExcluded).toBe('home-based provider');
+    expect(cert.signalDetail).not.toMatch(/\(\d{3}\) \d{3}-\d{4}/);
+    expect(cert.location).toBe('Lexington, KY'); // registry facts kept
+    expect(lead({ USER_Capacity: 12, USER_Name: "Pat's Day Care" }).callerPhoneExcluded).toBe('home-based provider');
+    expect(lead({ USER_Capacity: 40, USER_Name: 'Little Lea In-Home Montessori Daycare' }).callerPhoneExcluded).toBe('home-based provider');
+    expect(lead({ USER_Provider_Type: 'Certified', USER_Capacity: 6, USER_Name: 'Rosshell Masden' }).callerPhoneExcluded).toBe('home-based provider');
+    for (const n of ['Bobcat Mountain', 'Liberty Head Start', 'Happy Bears', 'Busy Bees Educare', 'Child Development Center Of The Bluegrass'])
+      expect(lead({ USER_Name: n, USER_Capacity: 60 }).callerPhoneExcluded, n).toBeNull();
+    expect(lead({ USER_Name: 'Liberty Head Start', USER_Capacity: 60 }).signalDetail).toContain('(859) 218-2322');
   });
 });
 
@@ -236,5 +290,78 @@ describe('North Carolina DHSR home care list (xlsx)', () => {
     const res = await allNcHomecareLeads({ now: NOW, buf: xlsx });
     expect(res.errors[0]).toContain('only 7 rows');
     expect(res.candidates).toHaveLength(0);
+  });
+});
+
+describe('North Carolina DHSR: reader robustness, medical scoring, caller-phone policy', () => {
+  const zipOf = (rows: string[][], extra: { name: string; data: string; deflate: boolean }[] = [], sheetXml?: string) => {
+    const { shared, sheet } = buildSheet(rows);
+    return makeZip([{ name: 'xl/sharedStrings.xml', data: shared, deflate: true }, { name: 'xl/worksheets/sheet1.xml', data: sheetXml ?? sheet, deflate: true }, ...extra]);
+  };
+
+  it('does not let a self-closed blank row swallow the next row', () => {
+    const got = parseSheetRows('<sheetData><row r="1"><c r="A1" t="inlineStr"><is><t>a</t></is></c></row><row r="2"/><row r="3"><c r="A3" t="inlineStr"><is><t>b</t></is></c></row></sheetData>', []);
+    expect(got).toEqual([['a'], [], ['b']]);
+  });
+
+  it('reads cells with no r= attribute, <v> attributes, rich text and ignores phonetic runs', () => {
+    expect(parseSheetRows('<sheetData><row><c t="inlineStr"><is><t>x</t></is></c><c><v xml:space="preserve">5</v></c></row></sheetData>', [])).toEqual([['x', '5']]);
+    expect(parseSharedStrings('<sst><si><t>ab</t><rPh sb="0" eb="1"><t>FURI</t></rPh></si><si/><si><t>c</t></si></sst>')).toEqual(['ab', '', 'c']);
+  });
+
+  it('finds the first sheet through workbook.xml and its rels, not a hard-coded sheet1', async () => {
+    const rows = [HEADER, ...Array.from({ length: 600 }, (_, i) => dataRow(i + 1, `HC${i}`, `Agency ${i} LLC`, `Agency ${i} LLC`, '(336) 270-8052', 'Burlington', 'In-Home Aide'))];
+    const { shared, sheet } = buildSheet(rows);
+    const buf = makeZip([
+      { name: 'xl/workbook.xml', data: '<workbook><sheets><sheet name="s" sheetId="1" r:id="rId9"/></sheets></workbook>', deflate: true },
+      { name: 'xl/_rels/workbook.xml.rels', data: '<Relationships><Relationship Id="rId9" Type="x" Target="worksheets/data.xml"/></Relationships>', deflate: true },
+      { name: 'xl/sharedStrings.xml', data: shared, deflate: true },
+      { name: 'xl/worksheets/data.xml', data: sheet, deflate: true },
+    ]);
+    expect(parseNcHomecareSheet(await readXlsxFirstSheet(buf))).toHaveLength(600);
+  });
+
+  it('parses an Excel serial date, and refuses a file whose dates are unreadable instead of returning an empty success', async () => {
+    expect(parseNcDate('46387')?.toISOString()).toBe('2026-12-31T00:00:00.000Z');
+    const rows = [HEADER, ...Array.from({ length: 600 }, (_, i) => dataRow(i + 1, `HC${i}`, `Agency ${i} LLC`, `Agency ${i} LLC`, '(336) 270-8052', 'Burlington', 'In-Home Aide', 'garbage'))];
+    const res = await allNcHomecareLeads({ now: NOW, buf: zipOf(rows) });
+    expect(res.errors[0]).toContain('unreadable expiry');
+    expect(res.candidates).toHaveLength(0);
+  });
+
+  it('scores medical agencies down and rejects DME / respiratory suppliers', () => {
+    const ev = (services: string, legal = 'Sunny Care LLC') => evaluateNcHomecareRow({ license: 'HC1', legalName: legal, dba: null, owner: null, contactName: null, phone: '(919) 555-0101', siteCity: 'Cary', facilityCity: null, state: 'NC', county: null, services, expiry: '31-Dec-26' }, NOW);
+    const aideOnly = ev('Companion, Sitter and Respite,In-Home Aide');
+    const mixed = ev('Companion, Sitter and Respite,In-Home Aide,Nursing Care,Physical Therapy');
+    const skilledOnly = ev('Nursing Care');
+    if (!aideOnly.keep || !mixed.keep || !skilledOnly.keep) throw new Error('keep');
+    expect(mixed.adjust).toBe(aideOnly.adjust - 8);
+    expect(skilledOnly.adjust).toBeLessThan(mixed.adjust);
+    expect(skilledOnly.typeLabel).toContain('skilled nursing');
+    expect(ev('Companion, Sitter and Respite,Durable Medical Equipment,Clinical Respiratory Services (including Pulmonary)')).toMatchObject({ keep: false, reason: expect.stringContaining('equipment') });
+    expect(ev('Nursing Pool Service')).toMatchObject({ keep: false });
+  });
+
+  it('excludes an individually owned agency from callers lists but not branded or company businesses', () => {
+    const lead = (legal: string, dba: string, owner: string) => {
+      const r = { license: 'HC9', legalName: legal, dba, owner, contactName: 'Pat', phone: '(919) 555-0101', siteCity: 'Cary', facilityCity: null, state: 'NC', county: 'Wake', services: 'In-Home Aide', expiry: '31-Dec-26' };
+      const ev = evaluateNcHomecareRow(r, NOW); if (!ev.keep) throw new Error('keep'); return toNcHomecareLead(r, ev);
+    };
+    const sole = lead('Pamela Spence Devore', 'Personal Touch Assisted Living', 'Pamela S DeVore');
+    expect(sole.callerPhoneExcluded).toBe('sole proprietor');
+    expect(sole.signalDetail).not.toMatch(/\(\d{3}\) \d{3}-\d{4}/);
+    expect(sole.contactName).toBe('Pat'); // registry facts kept
+    expect(sole.location).toBe('Cary, NC');
+    for (const [l, d, o] of [
+      ['Visiting Angels Of Catawba Valley LLC', 'Visiting Angels', 'Visiting Angels Of Catawba Valley LLC'],
+      ['AuthoraCare Collective', 'AuthoraCare Collective', 'AuthoraCare Collective'],
+      ['Carolina SeniorCare', 'Carolina SeniorCare', 'Carolina SeniorCare'],
+      ['Senior Helpers', 'Senior Helpers', 'Pickus Ventures LLC'],
+      ['Highland Investors Limited Partnership', 'Lake Pointe Landing Home Care', 'Highland Investors Limited Partnership'],
+      ['Grace Ridge', 'Grace Ridge', 'Grace Ridge'],
+      ['Making Visions', 'Making Visions', 'Making Visions'],
+      ['Patience Chile Ndikom', 'Ideal Home Health Services, Inc.', 'Ideal Home Health Services, Inc.'], // person licensee, company owner: not corroborated
+    ]) expect(lead(l, d, o).callerPhoneExcluded, l).toBeNull();
+    expect(lead('Happier Days Private Duty Services, LLC', 'Happier Days Private Duty Services, LLC', 'Happier Days Private Duty Services, LLC').signalDetail).toContain('(919) 555-0101');
   });
 });

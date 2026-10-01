@@ -1,5 +1,6 @@
 import { DISCOVERY_UA } from './http';
 import { scoreChildcareRow, toCapacity } from './childcareUs';
+import { callerPhoneExclusion, HOME_BASED_RE } from './callerPhonePolicy';
 import { titleCase, cityState, describeRegistryLead, emptyResult, formatUsPhone, reject, type RegistryLead, type RegistryResult } from './registryCommon';
 
 // Kentucky child care discovery for the `childcare` vertical, from the
@@ -65,6 +66,21 @@ export function evaluateKyChildcareRow(r: KyChildcareRow, now = new Date()): Eva
   return { keep: true, typeLabel, ...scoreChildcareRow({ name, email: null, phone, capacity: toCapacity(String(r.USER_Capacity ?? '')) }) };
 }
 
+// Kentucky licenses a "Type II" centre for up to 12 children, which is the size class that is run from a
+// residence (the dataset has only Licensed / Certified, no centre-vs-home flag). Certified providers are
+// certified family child care homes by definition. Both are treated as home-based.
+export const KY_HOME_SIZED_MAX = 12;
+
+export function kyCallerPhoneExclusion(r: KyChildcareRow, typeLabel: string): string | null {
+  const name = (r.USER_Name ?? '').replace(/\s+/g, ' ').trim();
+  const cap = toCapacity(String(r.USER_Capacity ?? ''));
+  const homeSized = (r.USER_Provider_Type ?? '').trim().toLowerCase() === 'licensed' && typeof cap === 'number' && cap > 0 && cap <= KY_HOME_SIZED_MAX;
+  // A plain person-name check is only meaningful for home-sized / certified providers: bigger licensed centres have
+  // names like "Bobcat Mountain" or "Happy Bears" that no name heuristic can tell from a person.
+  const smallOrCertified = homeSized || typeLabel === TYPE_LABEL.certified;
+  return callerPhoneExclusion({ name: smallOrCertified ? name : '', homeBased: homeSized || HOME_BASED_RE.test(name), typeLabel });
+}
+
 export function toKyChildcareLead(r: KyChildcareRow, ev: { adjust: number; reasons: string[]; typeLabel: string }): RegistryLead {
   const name = titleCase((r.USER_Name ?? '').replace(/\s+/g, ' ').trim());
   const city = kyCityFromAddress(r.USER_Location_Address);
@@ -73,6 +89,7 @@ export function toKyChildcareLead(r: KyChildcareRow, ev: { adjust: number; reaso
   const phone = formatUsPhone(r.USER_Phone);
   const capacity = toCapacity(String(r.USER_Capacity ?? ''));
   const stars = (r.USER_Stars_Rating ?? '').trim();
+  const callerPhoneExcluded = kyCallerPhoneExclusion(r, ev.typeLabel);
   return {
     sourceKey: `childcare:ky:${licenseId}`,
     name,
@@ -80,13 +97,14 @@ export function toKyChildcareLead(r: KyChildcareRow, ev: { adjust: number; reaso
     city: city ? titleCase(city) : null,
     state: 'KY',
     phone,
+    callerPhoneExcluded,
     licenseId,
     registryName: KY_CHILDCARE_REGISTRY,
     typeLabel: ev.typeLabel,
     contactName: null,
     location,
     description: describeRegistryLead({ typeLabel: ev.typeLabel, registryName: KY_CHILDCARE_REGISTRY, location, legalName: null, name, listNoun: LIST_NOUN }),
-    signalDetail: `KY CHFS ${(r.USER_Provider_Type ?? '').trim()} child care ${licenseId}${r.USER_County ? `, ${titleCase(r.USER_County)} County` : ''}${capacity ? `; capacity ${capacity}` : ''}${/^\d$/.test(stars) ? `; ${stars} star` : ''}${phone ? `; phone ${phone}` : ''}`,
+    signalDetail: `KY CHFS ${(r.USER_Provider_Type ?? '').trim()} child care ${licenseId}${r.USER_County ? `, ${titleCase(r.USER_County)} County` : ''}${capacity ? `; capacity ${capacity}` : ''}${/^\d$/.test(stars) ? `; ${stars} star` : ''}${phone && !callerPhoneExcluded ? `; phone ${phone}` : ''}`,
     adjust: ev.adjust,
     reasons: ev.reasons,
     email: null,
@@ -98,26 +116,37 @@ export function toKyChildcareLead(r: KyChildcareRow, ev: { adjust: number; reaso
 
 const PAGE = 1000; // under the service's 2,000 maxRecordCount
 
+async function getJson<T>(url: string): Promise<T> {
+  const res = await fetch(url, { headers: { 'User-Agent': DISCOVERY_UA, Accept: 'application/json' } });
+  if (!res.ok) throw new Error(`${url.split('?')[0]} unavailable (HTTP ${res.status})`);
+  const body = (await res.json()) as T & { error?: { message?: string } };
+  if (body.error) throw new Error(`arcgis error: ${body.error.message ?? 'unknown'}`);
+  return body;
+}
+
 export async function fetchKyChildcareRows(
   opts: { url?: string; log?: (m: string) => void } = {},
 ): Promise<KyChildcareRow[]> {
   const base = opts.url ?? KY_CHILDCARE_URL;
+  // The layer's own row count is the truth the paged result is checked against: a short page (server cap, timeout
+  // dressed as an empty page) must not come back as a successful partial import.
+  const { count } = await getJson<{ count?: number }>(`${base}/query?${new URLSearchParams({ where: '1=1', returnCountOnly: 'true', f: 'json' })}`);
+  if (typeof count !== 'number') throw new Error(`${base}: no row count returned`);
   const rows: KyChildcareRow[] = [];
-  for (let offset = 0; offset < 20_000; offset += PAGE) {
+  for (let offset = 0; offset < 50_000; offset += PAGE) {
     const qs = new URLSearchParams({
       where: '1=1', outFields: '*', returnGeometry: 'false', orderByFields: 'OBJECTID',
       resultOffset: String(offset), resultRecordCount: String(PAGE), f: 'json',
     });
-    const res = await fetch(`${base}/query?${qs}`, { headers: { 'User-Agent': DISCOVERY_UA, Accept: 'application/json' } });
-    if (!res.ok) throw new Error(`${base} unavailable (HTTP ${res.status})`);
-    const body = (await res.json()) as { features?: { attributes: KyChildcareRow }[]; error?: { message?: string } };
-    if (body.error) throw new Error(`arcgis error: ${body.error.message ?? 'unknown'}`);
+    const body = await getJson<{ features?: { attributes: KyChildcareRow }[]; exceededTransferLimit?: boolean }>(`${base}/query?${qs}`);
     const feats = body.features ?? [];
     for (const f of feats) rows.push(f.attributes);
-    opts.log?.(`ky childcare: ${rows.length} rows`);
-    if (feats.length < PAGE) break;
+    opts.log?.(`ky childcare: ${rows.length}/${count} rows`);
+    // Stop only on an empty page (or once the layer's count is reached); a short page with exceededTransferLimit continues.
+    if (!feats.length || (rows.length >= count && !body.exceededTransferLimit)) break;
   }
   if (rows.length < 500) throw new Error(`${base}: only ${rows.length} rows; layer may have changed`);
+  if (rows.length < count) throw new Error(`${base}: paged ${rows.length} of ${count} rows; refusing a partial import`);
   return rows;
 }
 
