@@ -1,5 +1,6 @@
 import { cleanEmail } from './freightFmcsa';
 import { DISCOVERY_UA, sleep } from './http';
+import { callerPhoneExclusion } from './callerPhonePolicy';
 import { scoreChildcareRow, toCapacity } from './childcareUs';
 import { titleCase, cityState, describeRegistryLead, emptyResult, formatUsPhone, reject, type RegistryLead, type RegistryResult } from './registryCommon';
 
@@ -102,7 +103,9 @@ export function neTypeLabel(licenseType: string | null | undefined): string | nu
   return NE_TYPE_LABEL[t] ?? null;
 }
 
-export function evaluateNeRow(r: NeChildcareRow, now = new Date(), maxRosterAgeDays = 550): Evaluation {
+export const NE_MAX_ROSTER_AGE_DAYS = 550;
+
+export function evaluateNeRow(r: NeChildcareRow, now = new Date(), maxRosterAgeDays = NE_MAX_ROSTER_AGE_DAYS): Evaluation {
   const typeLabel = neTypeLabel(r.License_Type);
   if (!typeLabel) return { keep: false, reason: 'licence type not in scope' };
   if ((r.GIS_Status ?? '').trim().toLowerCase() !== 'on current roster') return { keep: false, reason: 'not on the current roster' };
@@ -144,6 +147,9 @@ export function toNeLead(r: NeChildcareRow, ev: { adjust: number; reasons: strin
     city: city ? titleCase(city) : null,
     state: 'NE',
     phone,
+    // Caller-phone policy (2026-10-01): a provider licensed in her own name ("LAST, FIRST") and any family
+    // child care home are run from a residence, so the registry phone is a personal line.
+    callerPhoneExcluded: callerPhoneExclusion({ name, soleProprietor: flip.flipped, typeLabel }),
     licenseId,
     registryName: NE_REGISTRY,
     typeLabel,
@@ -239,6 +245,7 @@ export function toOkLead(r: OkListRow, d: OkDetail, ev: { adjust: number; reason
     city: city ? titleCase(city) : null,
     state,
     phone,
+    callerPhoneExcluded: callerPhoneExclusion({ name, soleProprietor: flip.flipped || legalFlip.flipped, homeBased: (r.facilityType ?? '').trim() === 'childcare-home', typeLabel }),
     licenseId,
     registryName: OK_REGISTRY,
     typeLabel,
@@ -276,6 +283,13 @@ export async function allNeChildcareLeads(opts: { now?: Date; isKnown?: (k: stri
     }
     if (rows.length < 500) throw new Error(`only ${rows.length} rows returned; refusing a truncated response`);
     opts.log?.(`ne childcare: ${rows.length} rows`);
+    // Every row carries the same Roster_Date, so the per-row age cutoff is a cliff: the day the roster passes
+    // the limit EVERY row would be rejected as 'roster too old' and the run would look like a clean zero.
+    // Fail loudly instead, naming the newest date, so someone checks whether DHHS has republished.
+    const newest = rows.map((x) => (x.Roster_Date ?? '').trim()).filter((d) => /^\d{4}-\d{2}-\d{2}$/.test(d)).sort().pop();
+    if (!newest) throw new Error('NE roster has no Roster_Date on any row (layout changed?)');
+    const newestAge = (now.getTime() - Date.parse(`${newest}T00:00:00Z`)) / 86_400_000;
+    if (newestAge > NE_MAX_ROSTER_AGE_DAYS) throw new Error(`NE roster is stale: newest Roster_Date ${newest} is ${Math.floor(newestAge)} days old (limit ${NE_MAX_ROSTER_AGE_DAYS}); refusing to ingest closed providers`);
     for (const r of rows) {
       result.scanned++;
       const ev = evaluateNeRow(r, now);
@@ -300,12 +314,32 @@ export function parseOkListPage(html: string): { buildId: string; providers: OkL
   return { buildId: d.buildId, providers };
 }
 
-async function fetchOkDetail(buildId: string, vendorId: string): Promise<OkDetail | null> {
-  const url = `https://ccl.dhs.ok.gov/_next/data/${buildId}/providers/${encodeURIComponent(vendorId)}.json`;
-  // The data route answers an occasional spurious 404 under load; retry with a backoff before giving up.
+// The Next.js buildId changes on every site deploy; a pull that spans a deploy would otherwise see a 404 on
+// every detail request. `session` carries the current id and is updated when a refresh finds a new one.
+export interface OkSession { buildId: string; refreshes: number }
+
+async function refreshOkBuildId(session: OkSession): Promise<boolean> {
+  if (session.refreshes >= 5) return false;
+  session.refreshes++;
+  try {
+    const res = await fetch(OK_LIST_URL, { headers: { 'User-Agent': DISCOVERY_UA, Accept: 'text/html' } });
+    if (!res.ok) return false;
+    const { buildId } = parseOkListPage(await res.text());
+    if (buildId === session.buildId) return false;
+    session.buildId = buildId;
+    return true;
+  } catch { return false; }
+}
+
+export async function fetchOkDetail(session: OkSession, vendorId: string, retryMs = 1500): Promise<OkDetail | null> {
+  // The data route answers an occasional spurious 404 under load; retry with a backoff before giving up. A 404
+  // that persists may mean the site was redeployed, so re-read the list page once for a fresh buildId.
   for (let attempt = 0; attempt < 3; attempt++) {
+    let status = 0;
     try {
+      const url = `https://ccl.dhs.ok.gov/_next/data/${session.buildId}/providers/${encodeURIComponent(vendorId)}.json`;
       const res = await fetch(url, { headers: { 'User-Agent': DISCOVERY_UA, Accept: 'application/json', 'x-nextjs-data': '1' } });
+      status = res.status;
       if (res.ok) {
         const j = (await res.json()) as { pageProps?: Record<string, unknown> };
         const p = j.pageProps ?? {};
@@ -321,16 +355,23 @@ async function fetchOkDetail(buildId: string, vendorId: string): Promise<OkDetai
         };
       }
     } catch { /* retry */ }
-    await sleep(1500 * (attempt + 1));
+    if (status === 404 && attempt >= 1 && (await refreshOkBuildId(session))) continue;
+    if (attempt < 2) await sleep(retryMs * (attempt + 1));
   }
   return null;
 }
+
+// Give up on the whole pull when this many detail requests in a row fail: that is a dead endpoint or a changed
+// route, not a handful of closed providers, and carrying on would take hours to produce nothing.
+export const OK_MAX_CONSECUTIVE_FAILURES = 15;
+// If more than this share of detail requests ends unusable, the result is flagged as partial.
+export const OK_MAX_UNUSABLE_SHARE = 0.25;
 
 // `max` bounds how many detail records are fetched (one request each, spaced by
 // `delayMs`); the bulk dry run passes Infinity. Rows already known are skipped
 // BEFORE any detail request.
 export async function allOkChildcareLeads(
-  opts: { max?: number; delayMs?: number; startOffset?: number; isKnown?: (k: string) => boolean; log?: (m: string) => void } = {},
+  opts: { max?: number; delayMs?: number; retryMs?: number; startOffset?: number; isKnown?: (k: string) => boolean; log?: (m: string) => void } = {},
 ): Promise<RegistryResult> {
   const result = emptyResult();
   const max = opts.max ?? Infinity;
@@ -339,11 +380,14 @@ export async function allOkChildcareLeads(
     const res = await fetch(OK_LIST_URL, { headers: { 'User-Agent': DISCOVERY_UA, Accept: 'text/html' } });
     if (!res.ok) throw new Error(`OK child care locator HTTP ${res.status}`);
     const { buildId, providers } = parseOkListPage(await res.text());
+    const session: OkSession = { buildId, refreshes: 0 };
     if (providers.length < 500) throw new Error(`only ${providers.length} providers listed; refusing a truncated page`);
     opts.log?.(`ok childcare: ${providers.length} providers listed`);
     const n = providers.length;
     const start = n ? (opts.startOffset ?? 0) % n : 0;
     let fetched = 0;
+    let unusable = 0;
+    let consecutive = 0;
     for (let i = 0; i < n; i++) {
       const r = providers[(start + i) % n];
       result.scanned++;
@@ -352,13 +396,25 @@ export async function allOkChildcareLeads(
       if (opts.isKnown?.(`childcare:ok:${(r.vendorId ?? '').trim().toUpperCase()}`)) { reject(result, 'already known'); continue; }
       if (fetched >= max) continue;
       fetched++;
-      const d = await fetchOkDetail(buildId, (r.vendorId ?? '').trim());
+      const d = await fetchOkDetail(session, (r.vendorId ?? '').trim(), opts.retryMs);
       if (fetched % 200 === 0) opts.log?.(`ok childcare: ${fetched} details fetched`);
       await sleep(delayMs);
+      // A detail with neither phone nor email is as unusable as a failed request (an empty pageProps is what a
+      // changed route returns with HTTP 200).
+      if (!d || (!cleanEmail(d.emailAddress) && !formatUsPhone(d.phoneNumber))) {
+        unusable++;
+        consecutive++;
+        if (consecutive >= OK_MAX_CONSECUTIVE_FAILURES) throw new Error(`${consecutive} detail requests in a row returned nothing usable (buildId ${session.buildId}); endpoint changed or down, stopping`);
+      } else {
+        consecutive = 0;
+      }
       if (!d) { reject(result, 'detail record unavailable'); continue; }
       const ev = evaluateOkRow(r, d);
       if (!ev.keep) { reject(result, ev.reason); continue; }
       result.candidates.push(toOkLead(r, d, ev));
+    }
+    if (fetched >= 20 && unusable / fetched > OK_MAX_UNUSABLE_SHARE) {
+      result.errors.push(`childcare ok: ${unusable} of ${fetched} detail records unusable; result is PARTIAL`);
     }
   } catch (e) {
     result.errors.push(`childcare ok: ${e instanceof Error ? e.message : String(e)}`);

@@ -1,14 +1,15 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import {
   toIaInsuranceRow, evaluateIaInsuranceRow, toIaInsuranceLead, iaInsuranceId, parseIaDate,
-  parseIaInsuranceCsv, readFirstCsvFromZip, allIaInsuranceLeads, IA_INS_COL,
+  parseIaInsuranceCsv, readFirstCsvFromZip, allIaInsuranceLeads, selectIaLeads, iaMailboxIsRole, IA_INS_COL,
 } from '@/lib/outreach/discovery/insuranceIowa';
 import {
   evaluateNeRow, toNeLead, neTypeLabel, splitOwnedBy, flipLastFirst,
-  parseOkListPage, parseOkCityLine, evaluateOkListRow, evaluateOkRow, toOkLead,
+  parseOkListPage, parseOkCityLine, evaluateOkListRow, evaluateOkRow, toOkLead, fetchOkDetail, allOkChildcareLeads, allNeChildcareLeads,
   type NeChildcareRow, type OkListRow, type OkDetail,
 } from '@/lib/outreach/discovery/childcarePlains';
-import { evaluateMoLodgingRow, toMoLodgingLead, moLodgingId, type MoLodgingRow } from '@/lib/outreach/discovery/lodgingMissouri';
+import { emptyResult } from '@/lib/outreach/discovery/registryCommon';
+import { allMoLodgingLeads, evaluateMoLodgingRow, toMoLodgingLead, moLodgingId, type MoLodgingRow } from '@/lib/outreach/discovery/lodgingMissouri';
 
 const NOW = new Date('2026-09-30T12:00:00Z');
 const keep = <T>(ev: { keep: boolean } | T) => {
@@ -113,17 +114,17 @@ describe('Iowa insurance producer entities', () => {
     lines.push('FL AGENCY LLC,f@flagency.com,1 MAIN,,MIAMI,FL,33101,3055551212,2028-01-31 00:00:00 UTC,0,0,P');
     const zip = storedZip('x.csv', lines.join('\n'));
     vi.stubGlobal('fetch', vi.fn(async () => new Response(new Uint8Array(zip), { status: 200 })));
-    const all = await allIaInsuranceLeads({ now: NOW });
+    const all = await allIaInsuranceLeads({ now: NOW, minRows: 500 });
     expect(all.errors).toEqual([]);
     expect(all.scanned).toBe(602);
     expect(all.candidates).toHaveLength(600);
     expect(all.rejected['duplicate name and zip in the file']).toBe(1);
     expect(all.rejected['Florida agency (covered by the FL DFS source)']).toBe(1);
-    const ne = await allIaInsuranceLeads({ now: NOW, states: ['ne'] });
+    const ne = await allIaInsuranceLeads({ now: NOW, minRows: 500, states: ['ne'] });
     expect(ne.candidates.every((l) => l.state === 'NE')).toBe(true);
 
     vi.stubGlobal('fetch', vi.fn(async () => new Response(new Uint8Array(storedZip('x.csv', `${HEADER}\nA,a@a.com,1,,T,NE,68000,4025551212,2028-01-31 00:00:00 UTC,0,0,P\n`)), { status: 200 })));
-    const short = await allIaInsuranceLeads({ now: NOW });
+    const short = await allIaInsuranceLeads({ now: NOW, minRows: 500 });
     expect(short.candidates).toHaveLength(0);
     expect(short.errors[0]).toMatch(/refusing a truncated/);
   });
@@ -260,5 +261,192 @@ describe('Missouri lodging list', () => {
     expect(reject(evaluateMoLodgingRow(lod({ facility_status: 'Closed' })))).toMatch(/not Active/);
     expect(reject(evaluateMoLodgingRow(lod({ facility_status: 'Pending' })))).toMatch(/not Active/);
     expect(reject(evaluateMoLodgingRow(lod({ telephone: '' })))).toMatch(/no usable phone/);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Review additions: caller-phone policy, Iowa back-office/roll-up filtering and determinism, partial-data guards.
+describe('Iowa insurance review fixes', () => {
+  const base = (o: Partial<Record<string, string>>) => toIaInsuranceRow({
+    [IA_INS_COL.name]: 'PIERCE INSURANCE AGENCY LLC', [IA_INS_COL.email]: 'jp@pierceagency.com', [IA_INS_COL.city]: 'AINSWORTH',
+    [IA_INS_COL.state]: 'NE', [IA_INS_COL.zip]: '69210', [IA_INS_COL.phone]: '4023872883', [IA_INS_COL.expiry]: '2027-11-30 00:00:00 UTC', ...o,
+  });
+  const run = (rows: ReturnType<typeof base>[]) => { const res = emptyResult(); selectIaLeads(rows, { now: NOW }, res); return res; };
+
+  it('pads New England zips so the key carries a real 5-digit zip', () => {
+    expect(iaInsuranceId({ name: 'RISCO INSURANCE BROKERAGE, INC.', zip: '2914' })).toBe('risco-insurance-brokerage-inc-02914');
+    expect(iaInsuranceId({ name: 'X', zip: '50613-1234' })).toBe('x-50613');
+  });
+
+  it('rejects licensing/compliance mailboxes but not an agent who merely has "license" in a longer name', () => {
+    for (const e of ['licensing@crcgroup.com', 'LICENSING@USI.COM', 'agencylicense@alliant.com', 'idi_licensing@protective.com', 'compliance@x.com', 'cert@libertyunitedinsurance.com', 'tfglicensing@tfggroup.com']) {
+      expect(iaMailboxIsRole(e), e).toBe(true);
+      reject(evaluateIaInsuranceRow(base({ [IA_INS_COL.email]: e }), NOW));
+    }
+    for (const e of ['jp@pierceagency.com', 'info@mcgillbrokerage.com', 'david.laubins@gmail.com']) expect(iaMailboxIsRole(e), e).toBe(false);
+  });
+
+  it('catches farmersagency.com captives and keeps similarly named independents', () => {
+    expect(reject(evaluateIaInsuranceRow(base({ [IA_INS_COL.email]: 'thomas.lmason@farmersagency.com' }), NOW))).toMatch(/captive|roll-up/);
+    keep(evaluateIaInsuranceRow(base({ [IA_INS_COL.name]: 'FARMERS UNION AGCY INC', [IA_INS_COL.email]: 'robin@fuainsurance.com' }), NOW));
+    keep(evaluateIaInsuranceRow(base({ [IA_INS_COL.name]: 'USHER INSURANCE AGENCY', [IA_INS_COL.email]: 'u@usherins.com' }), NOW));
+  });
+
+  it('drops a business domain shared by 3+ entities (roll-up) but keeps shared regional ISP and free-mail addresses', () => {
+    const roll = ['A', 'B', 'C'].map((n, i) => base({ [IA_INS_COL.name]: `ENTITY ${n} LLC`, [IA_INS_COL.email]: `p${i}@bigbroker.com`, [IA_INS_COL.zip]: `6000${i}` }));
+    const isp = ['A', 'B', 'C'].map((n, i) => base({ [IA_INS_COL.name]: `ISP ${n} AGENCY`, [IA_INS_COL.email]: `q${i}@netins.net`, [IA_INS_COL.zip]: `6100${i}` }));
+    const res = run([...roll, ...isp]);
+    expect(res.candidates.map((c) => c.name).sort()).toEqual(['Isp A Agency', 'Isp B Agency', 'Isp C Agency']);
+    expect(Object.keys(res.rejected).join()).toMatch(/shared by 3\+/);
+  });
+
+  it('collapses the same email on two entities to one lead', () => {
+    const res = run([base({ [IA_INS_COL.name]: 'ALPHA AGENCY LLC', [IA_INS_COL.zip]: '69211' }), base({ [IA_INS_COL.name]: 'ZULU AGENCY LLC', [IA_INS_COL.zip]: '69212' })]);
+    expect(res.candidates).toHaveLength(1);
+    expect(res.candidates[0].name).toBe('Alpha Agency LLC');
+  });
+
+  it('picks the same row for a repeated name+zip whatever the file order (key and email stable across weekly refreshes)', () => {
+    const a = base({ [IA_INS_COL.email]: 'zed@gmail.com' });
+    const b = base({ [IA_INS_COL.email]: 'jp@pierceagency.com' });
+    const c = base({ [IA_INS_COL.email]: 'JP@PIERCEAGENCY.COM' });
+    const r1 = run([a, b, c]);
+    const r2 = run([c, a, b]);
+    expect(r1.candidates).toHaveLength(1);
+    expect(r1.candidates[0].email).toBe('jp@pierceagency.com');
+    expect(r2.candidates[0].email).toBe(r1.candidates[0].email);
+  });
+
+  it('excludes a person-named entity (or a person behind a DBA) from callers, not a business or a person-named agency LLC', () => {
+    const lead = (name: string) => toIaInsuranceLead(base({ [IA_INS_COL.name]: name }), { adjust: 0, reasons: [] });
+    expect(lead('BRENT LEAVITT').callerPhoneExcluded).toBe('person-named business');
+    expect(lead('JOHN Q SMITH DBA SMITH INSURANCE').callerPhoneExcluded).toBe('person-named business');
+    for (const n of ['MERRITT FINANCIAL', 'HIP POCKET HAESSLER INS LLC', 'BENEFIT ADVOCATES', 'PIERCE INSURANCE AGENCY LLC', 'MEDICARE MENTORS', 'MIDWEST INDEPENDENT BANKERSBANK']) {
+      expect(lead(n).callerPhoneExcluded, n).toBeFalsy();
+    }
+    expect(lead('BRENT LEAVITT').email).toBe('jp@pierceagency.com'); // facts and email are kept
+  });
+
+  it('refuses a download cut short by its own Content-Length', async () => {
+    const lines = ['entity_name,email,city,state,zip_code,business_phone,expiry_date'];
+    for (let i = 0; i < 600; i++) lines.push(`AGENCY ${i} INS LLC,a${i}@agency${i}.com,TOWN,NE,${60000 + i},4025551000,2028-01-31 00:00:00 UTC`);
+    const csv = Buffer.from(lines.join('\n'));
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(new Uint8Array(csv.subarray(0, 1000)), { status: 200, headers: { 'content-length': String(csv.length) } })));
+    const r = await allIaInsuranceLeads({ now: NOW, minRows: 5 });
+    expect(r.candidates).toHaveLength(0);
+    expect(r.errors[0]).toMatch(/cut short/);
+  });
+});
+
+describe('Nebraska / Oklahoma caller-phone policy and partial-data guards', () => {
+  const ne = (o: Partial<NeChildcareRow>): NeChildcareRow => ({
+    Full_Name: 'HUG-A-BUNCH CHILD CARE CENTER, LLC', License_Type: 'Child Care Center', License_Number: 'CC100', City: 'OMAHA', State: 'NE', County: 'Douglas',
+    Capacity: 'Capacity: 60', Phone: '(402) 328-0040', Owner_Manager: 'SMITH, JANE', Roster_Date: '2025-10-15', GIS_Status: 'on current roster', ...o,
+  });
+  const exc = (o: Partial<NeChildcareRow>) => toNeLead(ne(o), { adjust: 0, reasons: [] }).callerPhoneExcluded;
+
+  it('NE: home types and "LAST, FIRST" licensees are excluded; centres are not; facts and phone data stay on the lead', () => {
+    expect(exc({})).toBeFalsy();
+    expect(exc({ Full_Name: 'LITTLE LEARNERS ACADEMY owned by LL LLC', License_Type: 'Preschool' })).toBeFalsy();
+    expect(exc({ License_Type: 'Family Child Care Home I', Full_Name: "CONNIE'S DAYCARE II" })).toBe('home-based provider');
+    expect(exc({ License_Type: 'Provisional Family Child Care Home II', Full_Name: 'BABY LEO DAYCARE LLC' })).toBe('home-based provider');
+    expect(exc({ Full_Name: 'MEISINGER, AMANDA' })).toBe('sole proprietor');
+    const lead = toNeLead(ne({ Full_Name: 'MEISINGER, AMANDA', License_Type: 'Family Child Care Home I' }), { adjust: 0, reasons: [] });
+    expect(lead.licenseId).toBe('CC100');
+    expect(lead.name).toBe('Amanda Meisinger');
+  });
+
+  it('NE: a roster past the age limit is an error, not a silent zero', async () => {
+    const feats = Array.from({ length: 600 }, (_, i) => ({ attributes: ne({ License_Number: `CC${i}` }) }));
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({ features: feats }), { status: 200 })));
+    const fresh = await allNeChildcareLeads({ now: NOW });
+    expect(fresh.errors).toEqual([]);
+    expect(fresh.candidates.length).toBe(600);
+    const stale = await allNeChildcareLeads({ now: new Date('2027-06-01T00:00:00Z') });
+    expect(stale.candidates).toHaveLength(0);
+    expect(stale.errors[0]).toMatch(/stale/);
+  });
+
+  const okList = (o: Partial<OkListRow> = {}): OkListRow => ({ vendorId: 'K1', name: 'ADAMS, AMANDA', officialDoingBusinessAs: '', facilityType: 'childcare-home', addressLines: ['1 MAIN', 'GLENCOE, OK 74032'], ...o });
+  const okDet: OkDetail = { phoneNumber: '(580) 383-8492', emailAddress: 'a@yahoo.com', directorFullName: 'A', licenseCapacity: 8 };
+
+  it('OK: homes, person-named providers and DBA-over-person are excluded; centres with a business name are not', () => {
+    const x = (r: OkListRow) => toOkLead(r, okDet, { adjust: 0, reasons: [] }).callerPhoneExcluded;
+    expect(x(okList())).toBe('sole proprietor');
+    expect(x(okList({ name: 'KIDS CORNER LLC', facilityType: 'childcare-home' }))).toBe('home-based provider');
+    expect(x(okList({ name: 'HAPPY HANDS LEARNING CENTER LLC', facilityType: 'childcare-center' }))).toBeFalsy();
+    expect(x(okList({ name: 'BIG FIVE GUYMON HEAD START', facilityType: 'childcare-center' }))).toBeFalsy();
+    expect(x(okList({ name: 'ROMAN, ALEXANDRA', officialDoingBusinessAs: 'Dulce Comienzo Child Care', facilityType: 'childcare-center' }))).toBe('sole proprietor');
+    expect(toOkLead(okList(), okDet, { adjust: 0, reasons: [] }).email).toBe('a@yahoo.com');
+  });
+
+  it('OK: a persistent 404 triggers a buildId refresh and then succeeds on the new id', async () => {
+    const seen: string[] = [];
+    vi.stubGlobal('fetch', vi.fn(async (url: string) => {
+      if (url.endsWith('/providers')) return new Response(`<script id="__NEXT_DATA__" type="application/json">${JSON.stringify({ buildId: 'NEW', props: { pageProps: { childcareProviders: [okList()] } } })}</script>`, { status: 200 });
+      seen.push(url);
+      return url.includes('/OLD/') ? new Response('nf', { status: 404 }) : new Response(JSON.stringify({ pageProps: okDet }), { status: 200 });
+    }));
+    const session = { buildId: 'OLD', refreshes: 0 };
+    const d = await fetchOkDetail(session, 'K1', 1);
+    expect(d?.phoneNumber).toBe('(580) 383-8492');
+    expect(session.buildId).toBe('NEW');
+    expect(seen.filter((u) => u.includes('/OLD/')).length).toBe(2);
+  });
+
+  it('OK: a dead detail endpoint stops the pull with an error instead of grinding through every provider', async () => {
+    const providers = Array.from({ length: 600 }, (_, i) => okList({ vendorId: `K${i}` }));
+    const calls = { detail: 0 };
+    vi.stubGlobal('fetch', vi.fn(async (url: string) => {
+      if (url.endsWith('/providers')) return new Response(`<script id="__NEXT_DATA__" type="application/json">${JSON.stringify({ buildId: 'B', props: { pageProps: { childcareProviders: providers } } })}</script>`, { status: 200 });
+      calls.detail++;
+      return new Response('nf', { status: 404 });
+    }));
+    const r = await allOkChildcareLeads({ delayMs: 0, retryMs: 0 });
+    expect(r.candidates).toHaveLength(0);
+    expect(r.errors[0]).toMatch(/in a row returned nothing usable/);
+    expect(calls.detail).toBeLessThan(15 * 3 + 5);
+  });
+
+  it('OK: a high share of empty details flags the result as partial', async () => {
+    const providers = Array.from({ length: 600 }, (_, i) => okList({ vendorId: `K${i}` }));
+    let n = 0;
+    vi.stubGlobal('fetch', vi.fn(async (url: string) => {
+      if (url.endsWith('/providers')) return new Response(`<script id="__NEXT_DATA__" type="application/json">${JSON.stringify({ buildId: 'B', props: { pageProps: { childcareProviders: providers } } })}</script>`, { status: 200 });
+      n++;
+      return new Response(JSON.stringify({ pageProps: n % 3 === 0 ? {} : okDet }), { status: 200 }); // every 3rd empty
+    }));
+    const r = await allOkChildcareLeads({ max: 60, delayMs: 0, retryMs: 0 });
+    expect(r.candidates.length).toBe(40);
+    expect(r.errors.join()).toMatch(/PARTIAL/);
+  });
+});
+
+describe('Missouri lodging review fixes', () => {
+  const lod = (o: Partial<MoLodgingRow> = {}): MoLodgingRow => ({
+    establishment_name: 'SUNSET MOTEL', establishment_city: 'BRANSON', establishment_state: 'MO', establishment_zip: '65616', county: 'TANEY', telephone: '(417)338-2524', facility_status: 'Active', ...o,
+  });
+  const exc = (name: string) => toMoLodgingLead(lod({ establishment_name: name }), { adjust: 0, reasons: [] }).callerPhoneExcluded;
+
+  it('does not read two-word motel/inn/resort names as a person', () => {
+    for (const n of ['SUNSET MOTEL', 'LAKESIDE RESORT', 'BUDGET INN', 'CABINS AT TABLE ROCK', 'THE LANDING', "FISHERMAN'S HAVEN", 'KOZY KAMP', 'CAMDEN ON THE LAKE', 'WAGON WHEEL MOTEL', 'BRANSON EXPRESS INN']) {
+      expect(exc(n), n).toBeFalsy();
+    }
+    expect(exc('JOHN SMITH')).toBe('person-named business');
+  });
+
+  it('rejects franchise brands the first cut missed', () => {
+    for (const n of ['SPRING HILL SUITES', 'TOWNPLACE SUITES ST LOUIS WEST-WENTZVILLE', 'TRU SPRINGFIELD', 'VIB SPRINGFIELD', 'PEAR TREE INN CAPE GIRARDEAU WEST', 'ELEMENT HOTEL BRANSON', 'ISLE OF CAPRI CASINO', 'RED LION INN AND SUITES', 'AMERICAS VALUE INN']) {
+      expect(reject(evaluateMoLodgingRow(lod({ establishment_name: n }))), n).toMatch(/chain/);
+    }
+    keep(evaluateMoLodgingRow(lod({ establishment_name: 'BRANSON EXPRESS INN' })));
+  });
+
+  it('refuses a response that hit the row limit', async () => {
+    const rows = Array.from({ length: 5000 }, (_, i) => lod({ establishment_name: `MOTEL ${i}`, establishment_zip: String(60000 + (i % 9999)) }));
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(rows), { status: 200 })));
+    const r = await allMoLodgingLeads({});
+    expect(r.candidates).toHaveLength(0);
+    expect(r.errors[0]).toMatch(/5000-row/);
   });
 });

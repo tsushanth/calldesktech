@@ -1,3 +1,4 @@
+import { callerPhoneExclusion } from './callerPhonePolicy';
 import { socrataGet } from './socrata';
 import { titleCase, cityState, describeRegistryLead, emptyResult, formatUsPhone, reject, type RegistryLead, type RegistryResult } from './registryCommon';
 
@@ -40,7 +41,7 @@ export interface MoLodgingRow {
 }
 
 // Hotel chains, franchise brands, timeshare / RV chains and travel platforms.
-const BIG_LODGING = /\b(marriott|courtyard|fairfield inn|residence inn|springhill suites|towneplace|sheraton|westin|renaissance|ritz|hilton|hampton inn|hampton by|doubletree|embassy suites|homewood suites|home2|tru by|garden inn|canopy|hyatt|\bac hotel|aloft|moxy|double ?tree|four points|hawthorn|element (north|st|kansas|saint)|\bihg\b|holiday inn|candlewood|staybridge|crowne plaza|hotel indigo|avid hotel|wyndham|days inn|super ?8|ramada|howard johnson|travelodge|knights inn|baymont|microtel|wingate|la quinta|choice hotels|comfort (inn|suites)|quality (inn|suites)|clarion|sleep inn|econo ?lodge|rodeway|cambria|mainstay|suburban (extended|studios)|woodspring|extended stay|sonesta|red roof|motel 6|studio 6|\bgreen tree\b|america'?s best value|americas best value|budget host|best western|surestay|sure ?stay|drury|radisson|country inn|park inn|\bkoa\b|kampgrounds|jellystone|great wolf|margaritaville|\bvrbo\b|airbnb|booking\.com|expedia|vacasa|state park|conservation area|corps of engineers|city of)\b/i;
+const BIG_LODGING = /\b(marriott|courtyard|fairfield inn|residence inn|springhill suites|towneplace|sheraton|westin|renaissance|ritz|hilton|hampton inn|hampton by|doubletree|embassy suites|homewood suites|home2|tru by|garden inn|canopy|hyatt|\bac hotel|aloft|moxy|double ?tree|four points|hawthorn|element (hotel|north|st|kansas|saint)|\bihg\b|holiday inn|candlewood|staybridge|crowne plaza|hotel indigo|avid hotel|wyndham|days inn|super ?8|ramada|howard johnson|travelodge|knights inn|baymont|microtel|wingate|la quinta|choice hotels|comfort (inn|suites)|quality (inn|suites)|clarion|sleep inn|econo ?lodge|rodeway|cambria|mainstay|suburban (extended|studios)|woodspring|extended stay|sonesta|red roof|motel 6|studio 6|\bgreen tree\b|america'?s best value|americas best value|budget host|best western|surestay|sure ?stay|drury|radisson|country inn|park inn|spring ?hill suites|town?e? ?place suites|\btru springfield|\bvib springfield|pear tree inn|le meridien|four seasons hotel|intercontinental|loews|casino|red lion|americinn|amerihost|ameristar|cobblestone inn|americas? value inn|america'?s value inn|\bymca\b|\bkoa\b|kampgrounds|jellystone|great wolf|margaritaville|\bvrbo\b|airbnb|booking\.com|expedia|vacasa|state park|conservation area|corps of engineers|city of)\b/i;
 
 export type Evaluation = { keep: true; adjust: number; reasons: string[] } | { keep: false; reason: string };
 
@@ -79,6 +80,8 @@ export function toMoLodgingLead(r: MoLodgingRow, ev: { adjust: number; reasons: 
     city: city ? titleCase(city) : null,
     state,
     phone,
+    // Caller-phone policy (2026-10-01): a lodging licensed under a person's name is a sole proprietor's line.
+    callerPhoneExcluded: callerPhoneExclusion({ name }),
     licenseId: id,
     registryName: MO_LODGING_REGISTRY,
     typeLabel: TYPE_LABEL,
@@ -103,6 +106,7 @@ export async function allMoLodgingLeads(opts: { isKnown?: (sourceKey: string) =>
       $limit: '5000',
       $order: ':id',
     }, opts.log);
+    if (rows.length >= 5000) throw new Error('hit the 5000-row $limit; the list needs paging, refusing a possibly truncated pull');
     if (rows.length < 200) throw new Error(`only ${rows.length} rows returned; refusing a truncated response`);
     const seen = new Set<string>();
     for (const r of rows) {
