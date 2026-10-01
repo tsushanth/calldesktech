@@ -25,6 +25,9 @@ import { execFileSync } from 'node:child_process';
 import { resolve, join, dirname } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { buildPlaceCallRequest } from './lib/sample-audio.mjs';
+// ElevenLabs model for BOTH call legs. v4 Turbo is the default (more expressive; $0.011/1k chars promo until 2026-10-12, then $0.04 like Flash).
+// SAMPLE_TTS_MODEL=default leaves the process-wide model (multilingual_v2) in force.
+const SAMPLE_TTS_MODEL = process.env.SAMPLE_TTS_MODEL === 'default' ? null : (process.env.SAMPLE_TTS_MODEL || 'eleven_v4_turbo');
 import { detectBadTake, uploadBlockedReason, tailIsSpeech } from './lib/sample-quality.mjs';
 import {
   validateScenarios, normalizeTranscript, buildSampleRow, estimateCostUsd, parseArgs, isE164,
@@ -126,7 +129,7 @@ export async function generate(args, env, sc, outDir, counterFile = COUNTER_FILE
   // An audio scenario must never go out without its audio: check the sounds exist BEFORE anything is dialed.
   let plan = null;
   if (sc.audio) {
-    try { plan = buildPlaceCallRequest(sc, { callee, shared }); } catch (e) { problems.push(e.message); }
+    try { plan = buildPlaceCallRequest(sc, { callee, shared, ttsModel: SAMPLE_TTS_MODEL }); } catch (e) { problems.push(e.message); }
   }
 
   console.log(`vertical:        ${sc.id} (${sc.product})`);
@@ -164,7 +167,7 @@ export async function generate(args, env, sc, outDir, counterFile = COUNTER_FILE
   console.log('\nplacing call...');
   const placed = await fetch(`${base}/place-test-call`, {
     method: 'POST', headers: auth,
-    body: JSON.stringify(plan ? plan.body : buildPlaceCallRequest(sc, { callee, shared: null }).body),
+    body: JSON.stringify(plan ? plan.body : buildPlaceCallRequest(sc, { callee, shared: null, ttsModel: SAMPLE_TTS_MODEL }).body),
   });
   const pj = await placed.json().catch(() => ({}));
   if (!placed.ok || !pj.sid) die(`place-test-call failed (HTTP ${placed.status}): ${JSON.stringify(pj).slice(0, 300)}`);

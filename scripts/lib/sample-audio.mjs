@@ -103,16 +103,19 @@ export const AGENT_PHONE_RULE =
  * always sent. With audio, the demo agent gets the inline sounds plus the same-turn prompt hint. Throws if a
  * needed shared sound is missing (see buildSampleCallAudio), so nothing is dialed.
  */
-export function buildPlaceCallRequest(sc, { callee, shared }) {
+export function buildPlaceCallRequest(sc, { callee, shared, ttsModel = null }) {
   const callAudio = buildSampleCallAudio(sc, shared);
   return {
     callAudio,
     body: {
       toNumber: callee, shopper: true, record: true,
+      // Same ElevenLabs model on both legs (the shopper's own voice is set via ttsBackend/ttsModel; the demo agent's via sampleCallee.ttsModel).
+      ...(ttsModel ? { ttsBackend: 'elevenlabs', ttsModel } : {}),
       persona: sc.callerPersona + CALLER_PHONE_RULE,
       sampleCallee: {
         systemPrompt: (callAudio ? withAudioPromptHint(sc.agentPrompt, sc.audio) : sc.agentPrompt) + AGENT_PHONE_RULE,
         greeting: sc.greeting, voice: sc.agentVoice, stability: 0.8,
+        ...(ttsModel ? { ttsModel } : {}),
         ...(callAudio ? { callAudio } : {}),
       },
       shopperVoice: { voice: sc.callerVoice, stability: 0.8 },

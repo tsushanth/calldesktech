@@ -70,7 +70,7 @@ export default async function SamplePage({
     (l) => l && (l.speaker === 'caller' || l.speaker === 'agent') && typeof l.text === 'string' && l.text.trim() !== '',
   );
   const business = sample.business_name || 'a demo business';
-  const disclosure = `This is a recording of an AI test caller talking to a Calldesk demo agent for a fictional ${business}. It is a sample, not a real customer call.`;
+  const disclosure = `Demo call: a simulated caller speaking with a Calldesk AI voice agent, for a fictional ${business}. It is a recording, not a real customer call.`;
 
   return (
     <main className="min-h-screen bg-[#f7f8fa] text-[#1a1d29]">

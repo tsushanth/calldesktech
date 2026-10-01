@@ -105,17 +105,21 @@ describe('row + args', () => {
   });
 });
 
-describe('spoken disclosure in greeting', () => {
-  it('every shipped greeting discloses an AI demo / fictional business', () => {
-    for (const s of doc.scenarios) expect(s.greeting).toMatch(/\bAI\b/);
+describe('demo disclosure (written on the page, not spoken in the call)', () => {
+  it('no shipped greeting carries the spoken demo line any more', () => {
+    for (const s of doc.scenarios) expect(s.greeting).not.toMatch(/AI demo|fictional business/i);
   });
-  it('validator fails when the greeting lacks the wording', () => {
+  it('every shipped scenario has a written disclosure naming the simulated caller, the AI agent and the fictional business', () => {
+    for (const s of doc.scenarios) {
+      expect(s.disclosure).toMatch(/\bAI\b/);
+      expect(s.disclosure).toMatch(/simulated/i);
+      expect(s.disclosure).toMatch(/fictional/i);
+    }
+  });
+  it('validator fails when the written disclosure is incomplete', () => {
     const bad = structuredClone(doc);
-    bad.scenarios[3].greeting = 'Cedar Line Insurance Agency, how can I help?';
-    const errs: string[] = lib.validateScenarios(bad);
-    expect(errs.some((e) => /cedar|insurance/i.test(e) || /greeting must state spoken disclosure/.test(e))).toBe(true);
-    bad.scenarios[3].greeting = 'Hi, this is an AI helper.'; // AI but no demo/fictional
-    expect(lib.validateScenarios(bad).some((e: string) => /spoken disclosure/.test(e))).toBe(true);
+    bad.scenarios[3].disclosure = 'A demo call.';
+    expect(lib.validateScenarios(bad).some((e: string) => /disclosure must say/.test(e))).toBe(true);
   });
 });
 

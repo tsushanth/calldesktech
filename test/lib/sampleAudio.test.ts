@@ -117,6 +117,15 @@ describe('buildPlaceCallRequest', () => {
     expect(body.persona.startsWith(s.callerPersona)).toBe(true); // the scenario's own persona is untouched; a standard rule is appended
     expect(body.sampleCallee).toMatchObject({ greeting: s.greeting, voice: s.agentVoice, stability: 0.8 });
   });
+  it('a ttsModel is sent for BOTH legs (shopper via ttsBackend/ttsModel, demo agent via sampleCallee.ttsModel); without one neither field appears', () => {
+    const withModel = audio.buildPlaceCallRequest(sc('dental'), { callee: '+15550001111', shared: SHARED, ttsModel: 'eleven_v4_turbo' }).body;
+    expect(withModel).toMatchObject({ ttsBackend: 'elevenlabs', ttsModel: 'eleven_v4_turbo' });
+    expect(withModel.sampleCallee.ttsModel).toBe('eleven_v4_turbo');
+    const without = audio.buildPlaceCallRequest(sc('dental'), { callee: '+15550001111', shared: SHARED }).body;
+    expect('ttsModel' in without).toBe(false);
+    expect('ttsBackend' in without).toBe(false);
+    expect('ttsModel' in without.sampleCallee).toBe(false);
+  });
   it('a scenario without audio sends no callAudio and keeps its own prompt (plus only the standard phone rule)', () => {
     const { body, callAudio } = audio.buildPlaceCallRequest(sc('funeral'), { callee: '+15550001111', shared: null });
     expect(callAudio).toBeNull();

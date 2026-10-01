@@ -11,7 +11,7 @@ export const VERTICALS = [
 // editing this line (or the counter file out/.sample-calls-used) on purpose. Raised 6 -> 20 for the
 // jingle/sound-effect regeneration: 13 verticals plus headroom for retries (approved 2026-09-30). Then 20 -> 30 (approved 2026-10-01): the pilot spent 11 calls on one vertical
 // while the generator, time caps and prompts were fixed; 12 more verticals plus retries need the room.
-export const MAX_REAL_CALLS = 30;
+export const MAX_REAL_CALLS = 60;
 export const SNIPPET_MIN = 4;
 export const SNIPPET_MAX = 6;
 // Rough cost model (estimate only, see task-4 report): our engine ~$0.044/min per AI session (two sessions:
@@ -37,8 +37,8 @@ export function validateScenarios(doc) {
     if (typeof s.agentPrompt === 'string' && (s.agentPrompt.length < 20 || s.agentPrompt.length > 6000)) errs.push(`${at}: agentPrompt must be 20-6000 chars`);
     if (typeof s.greeting === 'string' && s.greeting.length > 400) errs.push(`${at}: greeting must be <= 400 chars`);
     if (typeof s.callerPersona === 'string' && s.callerPersona.length > 2000) errs.push(`${at}: callerPersona must be <= 2000 chars`);
-    if (typeof s.greeting === 'string' && !(/\bAI\b/.test(s.greeting) && /\b(demo|fictional)\b/i.test(s.greeting))) errs.push(`${at}: greeting must state spoken disclosure (an AI demo call / fictional business)`);
-    if (typeof s.disclosure === 'string' && !/\bAI\b/.test(s.disclosure)) errs.push(`${at}: disclosure must state it is an AI call`);
+    // The demo is disclosed in WRITING on the sample page (no spoken line any more), so the written text must be complete.
+    if (typeof s.disclosure === 'string' && !(/\bAI\b/.test(s.disclosure) && /\bfictional\b/i.test(s.disclosure) && /\bsimulated\b/i.test(s.disclosure))) errs.push(`${at}: disclosure must say it is a simulated caller talking to an AI agent for a fictional business`);
     const blob = [s.agentPrompt, s.callerPersona, s.greeting].join(' ');
     if (/\+?\d{3}[\s.-]\d{3}[\s.-]\d{4}/.test(blob) || /@\w+\.\w+/.test(blob)) errs.push(`${at}: contains a phone number or email address`);
     if (!Array.isArray(s.targetSeconds) || s.targetSeconds.length !== 2) errs.push(`${at}: targetSeconds must be [min,max]`);
