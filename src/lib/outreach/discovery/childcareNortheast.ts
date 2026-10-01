@@ -2,6 +2,8 @@ import { socrataGet } from './socrata';
 import { sleep } from './http';
 import { cleanEmail } from './freightFmcsa';
 import { scoreChildcareRow, toCapacity as toCapacityInt } from './childcareUs';
+import { callerPhoneExclusion } from './callerPhonePolicy';
+import { looksLikeIndividual } from './individualName';
 import { titleCase, cityState, describeRegistryLead, emptyResult, formatUsPhone, reject, type RegistryLead, type RegistryResult } from './registryCommon';
 
 // Northeast US child care for the `childcare` vertical: five state licensing
@@ -34,6 +36,32 @@ export function toCapacity(raw: string | null | undefined): number | null {
   return Number.isFinite(n) && n > 0 ? n : toCapacityInt(raw);
 }
 
+
+const norm = (x: string) => x.toLowerCase().replace(/[^a-z0-9 ]+/g, ' ').replace(/\s+/g, ' ').trim();
+
+// The registry's owner field names an individual (and is not just the programme's own name repeated).
+// Only meaningful where the owner field is a genuine legal-owner column (NJ owner, MA umbrella).
+export function ownerIsPerson(name: string, legal: string | null | undefined): boolean {
+  const l = norm(legal ?? '');
+  if (!l || !looksLikeIndividual(legal)) return false;
+  const n = norm(name);
+  // A programme that trades as an incorporated entity is not a sole proprietorship on the registry's own facts.
+  if (/\b(inc|incorporated|llc|l l c|corp|corporation|ltd|lp|llp|pc|pllc)\b/.test(n)) return false;
+  if (n.includes(l) || l.includes(n)) return false;
+  return l.split(' ').length <= 4;
+}
+
+// A programme name is treated as a person's name only when the registry corroborates it: the
+// legal-owner field is that same person, or (NY) the licensee name contains the programme name.
+export function personNamed(name: string, legal: string | null | undefined, legalIsOwnerColumn: boolean): boolean {
+  if (!looksLikeIndividual(name)) return false;
+  const l = norm(legal ?? '');
+  if (!l) return false;
+  const toks = norm(name).split(' ');
+  if (legalIsOwnerColumn) return norm(name) === l;
+  return toks.every((t) => l.split(' ').includes(t));
+}
+
 function finish(name: string, legal: string | null, email: string | null, phone: string | null, capacity: number | null): Evaluation {
   if (!name) return { keep: false, reason: 'no program name' };
   if (CHAIN.test(`${name} ${legal ?? ''}`)) return { keep: false, reason: 'national chain, franchise, or large multi-site operator' };
@@ -43,11 +71,23 @@ function finish(name: string, legal: string | null, email: string | null, phone:
 
 function lead(a: {
   state: string; id: string; rawName: string; legal?: string | null; city: string | null; phone: string | null; email: string | null;
-  registry: string; listNoun: string; typeLabel: string; contactName?: string | null; detail: string; sourceUrl: string; ev: { adjust: number; reasons: string[] };
+  registry: string; listNoun: string; typeLabel: string; ownerIsLegalEntityField?: boolean; contactName?: string | null; detail: string; sourceUrl: string; ev: { adjust: number; reasons: string[] };
 }): RegistryLead {
   const name = titleCase(a.rawName.trim());
   const legalName = a.legal && a.legal.trim().toUpperCase() !== a.rawName.trim().toUpperCase() ? titleCase(a.legal.trim()) : null;
   const location = cityState(a.city, a.state);
+  // Caller-phone policy (2026-10-01): sole proprietors, home-based providers and person-named
+  // businesses never get a callable registry phone. Child care programme names are overwhelmingly
+  // not people ("Cradles To Crayons", "Little Sprouts"), so a bare name-looks-like-a-person guess
+  // was >90% false positives on real centres (measured). The name is therefore only handed to the
+  // policy when the registry corroborates it (see personNamed()); home types are caught by typeLabel.
+  const callerPhoneExcluded = a.phone
+    ? callerPhoneExclusion({
+        name: personNamed(name, a.legal, a.ownerIsLegalEntityField === true) ? name : '',
+        soleProprietor: a.ownerIsLegalEntityField === true && ownerIsPerson(name, a.legal),
+        typeLabel: a.typeLabel,
+      })
+    : null;
   return {
     sourceKey: `childcare:${a.state.toLowerCase()}:${a.id}`,
     name,
@@ -66,6 +106,7 @@ function lead(a: {
     reasons: a.ev.reasons,
     email: a.email,
     contactSourceUrl: a.email ? a.sourceUrl : null,
+    callerPhoneExcluded,
   };
 }
 
@@ -99,7 +140,7 @@ export function toNjLead(r: NjRow, ev: { adjust: number; reasons: string[] }): R
   return lead({
     state: 'NJ', id, rawName: (r.center_name ?? ''), legal: r.owner ?? null, city: (r.city ?? '').trim() || null,
     phone: formatUsPhone(r.center_phone), email, registry: NJ_REGISTRY, listNoun: 'licensed child care centre list',
-    typeLabel: 'licensed child care center', contactName: r.director, sourceUrl: NJ_URL, ev,
+    typeLabel: 'licensed child care center', contactName: r.director, sourceUrl: NJ_URL, ev, ownerIsLegalEntityField: true,
     detail: `NJ DCF licensed child care centre ${id}${r.county ? `, ${titleCase(r.county)} County` : ''}${cap ? `; capacity ${cap}` : ''}`,
   });
 }
@@ -142,9 +183,9 @@ export function toMaLead(r: MaRow, ev: { adjust: number; reasons: string[] }): R
   const id = (r.provider_number ?? '').trim().toUpperCase();
   const cap = toCapacity(r.licensed_capacity);
   return lead({
-    state: 'MA', id, rawName: r.program_name ?? '', legal: null, city: (r.program_city ?? '').trim() || null,
+    state: 'MA', id, rawName: r.program_name ?? '', city: (r.program_city ?? '').trim() || null,
     phone: formatUsPhone(r.program_phone), email: null, registry: MA_REGISTRY, listNoun: 'licensed programs data',
-    typeLabel: MA_TYPE[(r.program_type ?? '').trim()], sourceUrl: MA_URL, ev,
+    typeLabel: MA_TYPE[(r.program_type ?? '').trim()], sourceUrl: MA_URL, ev, legal: r.program_umbrella ?? null, ownerIsLegalEntityField: true,
     detail: `MA EEC ${(r.program_type ?? '').trim()} provider ${id}${cap ? `; capacity ${cap}` : ''}`,
   });
 }
@@ -345,9 +386,26 @@ export async function fetchNjRows(log: (m: string) => void = () => {}): Promise<
     }
     if (!page) throw new Error('nj arcgis failed after retries');
     out.push(...page);
-    if (page.length < 2000) break;
+    if (page.length === 0) break;
+    if (offset + 2000 >= 20000) throw new Error('nj arcgis: more than 20000 rows, refusing a truncated list');
   }
   return out;
+}
+
+
+// $limit alone silently truncates when a dataset outgrows it, so page with $offset (stable :id order)
+// until a short page, and refuse to return a list that hit the safety ceiling.
+export async function fetchSocrataAll(
+  def: { host: string; dataset: string; select: string; where: string; limit: string }, log: (m: string) => void = () => {},
+): Promise<Record<string, unknown>[]> {
+  const pageSize = Math.min(Number(def.limit) || 10000, 10000);
+  const out: Record<string, unknown>[] = [];
+  for (let offset = 0; offset < 200000; offset += pageSize) {
+    const page = await socrataGet<Record<string, unknown>>(def.host, def.dataset, { $select: def.select, $where: def.where, $limit: String(pageSize), $offset: String(offset), $order: ':id' }, log);
+    out.push(...page);
+    if (page.length < pageSize) return out;
+  }
+  throw new Error(`${def.host}/${def.dataset}: more than 200000 rows, refusing a truncated list`);
 }
 
 // Every candidate a source has, same signature as childcareUs.allChildcareLeads so
@@ -366,7 +424,7 @@ export async function allNeChildcareLeads(
       evaluate = evaluateNjRow as (r: never) => Evaluation; toLead = toNjLead as typeof toLead;
     } else {
       const def = SOCRATA[source];
-      rows = await socrataGet<Record<string, unknown>>(def.host, def.dataset, { $select: def.select, $where: def.where, $limit: def.limit, $order: ':id' }, log);
+      rows = await fetchSocrataAll(def, log);
       evaluate = def.evaluate; toLead = def.toLead;
     }
     if (!rows.length) throw new Error('no rows returned');

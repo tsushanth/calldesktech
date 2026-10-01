@@ -12,3 +12,10 @@ describe('looksLikeIndividual', () => {
   });
   it('handles empty input', () => { expect(looksLikeIndividual('')).toBe(false); expect(looksLikeIndividual(null)).toBe(false); });
 });
+
+describe('child care programme and institution names are not individuals', () => {
+  it('does not flag real centres or organisations', () => {
+    for (const n of ['Cradles To Crayons', 'Little Sprouts', 'The Nest', 'Salvation Army', 'Wheaton College', 'Head Start', 'City Of Garfield', 'Njdcf Ooe']) expect(looksLikeIndividual(n), n).toBe(false);
+    expect(looksLikeIndividual('Jeffrey Kyle Porter')).toBe(true);
+  });
+});
