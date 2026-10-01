@@ -23,6 +23,9 @@ const CHARACTER_BREAK = [
  *   recordingSec?:number, endsMidSpeech?:boolean, expectJingle:boolean, expectEffects:string[], audioEvents?: Array<{kind:string,name:string,atMs:number}>}} t
  * @returns {{ok:boolean, reasons:string[]}}
  */
+const GOODBYE = /\b(good ?bye|bye|take care|have a (good|great|nice|wonderful) (day|one|evening))\b/i;
+const REGREET = /\b(how (can|may) i help|can i help you|what can i do for you)\b/i;
+
 export function detectBadTake(t) {
   const reasons = [];
   const transcript = t.transcript || [];
@@ -36,6 +39,13 @@ export function detectBadTake(t) {
       reasons.push(`the caller AI broke character: "${String(l.text).trim().slice(0, 90)}"`);
       break;
     }
+  }
+  // A goodbye loop: the closing exchange is mis-heard ("Bye!" -> "Hi.") and the agent greets again, so the sample keeps going
+  // after its natural ending. Seen on the first v4 Turbo take; the cut-off check does not catch it.
+  const byeAt = transcript.findIndex((l, i) => i >= 3 && l.speaker === 'agent' && GOODBYE.test(l.text || ''));
+  if (byeAt >= 0) {
+    const again = transcript.slice(byeAt + 1).find((l) => l.speaker === 'agent' && REGREET.test(l.text || ''));
+    if (again) reasons.push(`the agent greets again after saying goodbye ("${String(again.text).trim().slice(0, 60)}"): the call looped past its ending`);
   }
   if (transcript.length < MIN_LINES) reasons.push(`transcript is too short (${transcript.length} lines)`);
   if (t.durationSec >= cap - 3) reasons.push(`the call ran into the ${cap}s time cap, so it was cut off mid-conversation`);

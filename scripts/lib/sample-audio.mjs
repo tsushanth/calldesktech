@@ -103,7 +103,14 @@ export const AGENT_PHONE_RULE =
  * always sent. With audio, the demo agent gets the inline sounds plus the same-turn prompt hint. Throws if a
  * needed shared sound is missing (see buildSampleCallAudio), so nothing is dialed.
  */
-export function buildPlaceCallRequest(sc, { callee, shared, ttsModel = null }) {
+// The flow-less demo agent has no clock, and a model asked to offer "Thursday" invents a date ("Thursday, September 19th" on a take
+// recorded on Oct 1). Anchor it to today, in the business's US time zone, so any date it states is a real upcoming one.
+export function todayAnchor(now = new Date()) {
+  const d = now.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', timeZone: 'America/Los_Angeles' });
+  return ` Today is ${d}. Whenever you offer or confirm a day, use a real upcoming date relative to today and never a past or made-up date.`;
+}
+
+export function buildPlaceCallRequest(sc, { callee, shared, ttsModel = null, now = new Date() }) {
   const callAudio = buildSampleCallAudio(sc, shared);
   return {
     callAudio,
@@ -113,7 +120,7 @@ export function buildPlaceCallRequest(sc, { callee, shared, ttsModel = null }) {
       ...(ttsModel ? { ttsBackend: 'elevenlabs', ttsModel } : {}),
       persona: sc.callerPersona + CALLER_PHONE_RULE,
       sampleCallee: {
-        systemPrompt: (callAudio ? withAudioPromptHint(sc.agentPrompt, sc.audio) : sc.agentPrompt) + AGENT_PHONE_RULE,
+        systemPrompt: (callAudio ? withAudioPromptHint(sc.agentPrompt, sc.audio) : sc.agentPrompt) + AGENT_PHONE_RULE + todayAnchor(now),
         greeting: sc.greeting, voice: sc.agentVoice, stability: 0.8,
         ...(ttsModel ? { ttsModel } : {}),
         ...(callAudio ? { callAudio } : {}),

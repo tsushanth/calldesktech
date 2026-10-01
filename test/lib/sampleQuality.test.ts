@@ -106,6 +106,16 @@ describe('detectBadTake', () => {
     expect(q.detectBadTake({ ...base, endsMidSpeech: undefined }).ok).toBe(true); // unknown = not flagged
   });
 
+  it('flags a goodbye loop: the agent greets again after saying goodbye', () => {
+    const looped = [...GOOD.slice(0, 10), line('agent', 'You are all set. Goodbye.'), line('caller', 'Bye!'), line('agent', 'Hi there. How can I help you today?'), line('caller', 'I am all set, thanks.')];
+    const r = q.detectBadTake({ ...base, transcript: looped });
+    expect(r.ok).toBe(false);
+    expect(r.reasons.join(' ')).toMatch(/greets again after saying goodbye/);
+  });
+  it('does not flag the opening greeting, or a clean ending', () => {
+    const clean = [...GOOD.slice(0, 10), line('agent', 'You are all set. Goodbye.'), line('caller', 'Bye!')];
+    expect(q.detectBadTake({ ...base, transcript: clean }).reasons.join(' ')).not.toMatch(/greets again/);
+  });
   it('collects every problem, not just the first', () => {
     const r = q.detectBadTake({ ...base, transcript: GOOD.slice(0, 4), durationSec: 209, capSec: 210, audioEvents: [] });
     expect(r.reasons.length).toBeGreaterThanOrEqual(4);
