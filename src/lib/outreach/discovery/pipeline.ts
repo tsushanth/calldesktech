@@ -152,7 +152,7 @@ interface LeadRow {
 // description): the registry phone so a human can call unresolved leads, plus
 // the identity used for website lookup and the score adjustment to re-apply on rescoring.
 interface RegistryMeta {
-  phone: string | null; licenseId: string; registry: string; typeLabel: string; legalName: string | null;
+  phone: string | null; callerPhoneExcluded?: string; licenseId: string; registry: string; typeLabel: string; legalName: string | null;
   city: string | null; state: string | null; contactName: string | null; adjust: number; reasons: string[];
 }
 
@@ -829,14 +829,16 @@ export function registryLeadRow(c: RegistryLead, product: ProductConfig, now: st
   const base = scoreLead({ tier: null, location: c.location, description: `${c.name} ${c.description}` }, undefined, product);
   const score = Math.max(0, Math.min(100, base.score + c.adjust));
   const reasons = [...base.reasons, ...c.reasons];
+  // A personal/home line never reaches callers' lists: no `phone` column and no registry copy.
+  const phone = c.callerPhoneExcluded ? null : c.phone;
   const registry: RegistryMeta = {
-    phone: c.phone, licenseId: c.licenseId, registry: c.registryName, typeLabel: c.typeLabel, legalName: c.legalName,
+    phone, ...(c.callerPhoneExcluded ? { callerPhoneExcluded: c.callerPhoneExcluded } : {}), licenseId: c.licenseId, registry: c.registryName, typeLabel: c.typeLabel, legalName: c.legalName,
     city: c.city, state: c.state, contactName: c.contactName, adjust: c.adjust, reasons: c.reasons,
   };
   const contactFields = email
     ? { contact_email: email, contact_status: 'found', contact_source_url: c.contactSourceUrl ?? null, enriched_at: now }
     : {};
-  const phoneField = c.phone ? { phone: c.phone } : {};
+  const phoneField = phone ? { phone } : {};
   // THE INTERNATIONAL HOLD, applied in exactly one place so no source can skip
   // it: a non-US registry lead is stored region_blocked with signals.intlHold,
   // which makes it invisible to enrichment, drafting and sending until a human
@@ -1211,7 +1213,8 @@ async function stageEnrich(
       const { error } = await db.from(leadsTable(product)).update({
         domain,
         contact_email: contact.email,
-        phone: contact.phone,
+        // Personal/home-line leads (callerPhonePolicy.ts) never get a callable phone, scraped or not.
+        phone: reg?.callerPhoneExcluded ? null : contact.phone,
         contact_status: contact.status,
         contact_source_url: contact.sourceUrl,
         enriched_at: now,
@@ -1301,6 +1304,7 @@ async function stagePhoneBackfill(db: Db, summary: RunSummary, dryRun: boolean, 
     const batch = leads.slice(i, i + concurrency);
     await Promise.allSettled(batch.map(async (lead) => {
       try {
+        if (lead.signals?.registry?.callerPhoneExcluded) return; // personal/home line policy: never backfill a phone
         const contact = await findContact(lead.domain as string);
         const now = new Date().toISOString();
         const signals = { ...(lead.signals ?? {}), phoneCheckedAt: now };
