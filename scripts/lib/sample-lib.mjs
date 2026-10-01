@@ -9,8 +9,9 @@ export const VERTICALS = [
 ];
 // HARD CAP on real sample calls for this task. Deliberately a constant, not a flag: raising it means
 // editing this line (or the counter file out/.sample-calls-used) on purpose. Raised 6 -> 20 for the
-// jingle/sound-effect regeneration: 13 verticals plus headroom for retries (approved 2026-09-30).
-export const MAX_REAL_CALLS = 20;
+// jingle/sound-effect regeneration: 13 verticals plus headroom for retries (approved 2026-09-30). Then 20 -> 30 (approved 2026-10-01): the pilot spent 11 calls on one vertical
+// while the generator, time caps and prompts were fixed; 12 more verticals plus retries need the room.
+export const MAX_REAL_CALLS = 30;
 export const SNIPPET_MIN = 4;
 export const SNIPPET_MAX = 6;
 // Rough cost model (estimate only, see task-4 report): our engine ~$0.044/min per AI session (two sessions:

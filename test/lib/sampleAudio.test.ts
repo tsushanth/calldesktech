@@ -4,7 +4,7 @@ import * as audio from '../../scripts/lib/sample-audio.mjs';
 import * as lib from '../../scripts/lib/sample-lib.mjs';
 
 const doc = JSON.parse(readFileSync('scripts/sample-scenarios.json', 'utf8'));
-type Sc = { id: string; agentPrompt: string; audio?: { jingle?: boolean; effects?: Array<{ sound: string; name: string; description: string }> } };
+type Sc = { id: string; agentPrompt: string; audio?: { jingle?: boolean; orderHint?: string; effects?: Array<{ sound: string; name: string; description: string }> } };
 const byId = (id: string) => (doc.scenarios as Sc[]).find((s) => s.id === id)!;
 const b64 = (n: number) => Buffer.alloc(n, 7).toString('base64');
 const SHARED = { intro_jingle: { audio: b64(32000) }, confirmation_chime: { audio: b64(16000) }, received_chime: { audio: b64(16000) } };
@@ -219,5 +219,40 @@ describe('agent phone-number rule (the demo agent asks about the area code even 
     expect(audio.AGENT_PHONE_RULE).toMatch(/accept/i);
     expect(audio.AGENT_PHONE_RULE).toMatch(/area code/i);
     expect(audio.AGENT_PHONE_RULE).not.toMatch(/\d{3}[\s.-]\d{3,4}/);
+  });
+});
+
+
+describe('orderHint: get to the moment early (every take so far hit the time cap before the booking)', () => {
+  const withAudio = (doc.scenarios as Sc[]).filter((s) => s.audio);
+  it('every audio scenario has an order hint that starts "Order for this call:" and has no digits', () => {
+    for (const s of withAudio) {
+      expect(typeof s.audio!.orderHint, s.id).toBe('string');
+      expect(s.audio!.orderHint, s.id).toMatch(/^Order for this call:/);
+      expect(s.audio!.orderHint, s.id).not.toMatch(/\d/);
+      expect(s.audio!.orderHint!.length, s.id).toBeLessThanOrEqual(600);
+    }
+  });
+  it('the "just take a message" verticals never imply a confirmation (their agents are told never to confirm)', () => {
+    for (const id of ['freight', 'childcare', 'accounting', 'realestate', 'lodging', 'physio', 'taxi', 'vets']) {
+      const h = byId(id).audio!.orderHint!;
+      expect(h, id).toMatch(/call (them|you) (back|straight back)|will call/i);
+      expect(h, id).not.toMatch(/\b(is|are) booked\b|confirm the booking|booking is confirmed/i);
+    }
+  });
+  it('validateAudioConfig rejects an order hint that is not a string or is too long', () => {
+    const a = structuredClone(byId('dental')); (a.audio as { orderHint: unknown }).orderHint = 5;
+    expect(audio.validateAudioConfig(a).join(' ')).toMatch(/orderHint/);
+    const b = structuredClone(byId('dental')); b.audio!.orderHint = 'x'.repeat(601);
+    expect(audio.validateAudioConfig(b).join(' ')).toMatch(/orderHint/);
+  });
+  it('withAudioPromptHint appends the order hint after the standard hint', () => {
+    const out = audio.withAudioPromptHint('Base.', { effects: [{ sound: 'confirmation_chime', name: 'n', description: 'd' }], orderHint: 'Order for this call: do X.' });
+    expect(out.endsWith('Order for this call: do X.')).toBe(true);
+    expect(out).toContain(audio.AUDIO_PROMPT_HINT);
+  });
+  it('the request builder sends it to the demo agent', () => {
+    const { body } = audio.buildPlaceCallRequest(byId('dental') as never, { callee: '+15550001111', shared: SHARED });
+    expect(body.sampleCallee.systemPrompt).toContain(byId('dental').audio!.orderHint);
   });
 });

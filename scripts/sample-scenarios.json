@@ -6,6 +6,7 @@
       "product": "calldesk:freight",
       "audio": {
         "jingle": true,
+        "orderHint": "Order for this call: collect only the carrier's name, company and MC number, answer the load question, take any rate counter-offer, then say a broker will call them back. Skip other questions.",
         "effects": [
           {
             "sound": "received_chime",
@@ -32,6 +33,7 @@
       "product": "calldesk:homeservices",
       "audio": {
         "jingle": true,
+        "orderHint": "Order for this call: collect only the caller's name, address and callback number, plus any safety concern, then book the emergency visit window and tell them it is booked. Skip other questions.",
         "effects": [
           {
             "sound": "confirmation_chime",
@@ -58,6 +60,7 @@
       "product": "calldesk:dental",
       "audio": {
         "jingle": true,
+        "orderHint": "Order for this call: after the caller says what they need, offer the three openings straight away. Once they choose one, collect only their first name and a callback number, then tell them they are booked. Do not ask for a date of birth, preferred days or a member ID, and answer any insurance question briefly (the office verifies benefits before the visit).",
         "effects": [
           {
             "sound": "confirmation_chime",
@@ -84,6 +87,7 @@
       "product": "calldesk:insurance",
       "audio": {
         "jingle": true,
+        "orderHint": "Order for this call: collect only the caller's name, callback number and what they need (a quote or a change), then tell them the callback with an agent is booked. Skip other questions.",
         "effects": [
           {
             "sound": "confirmation_chime",
@@ -110,6 +114,7 @@
       "product": "calldesk:towing",
       "audio": {
         "jingle": true,
+        "orderHint": "Order for this call: after confirming the caller is safe, collect only their location, the vehicle and where it should go, plus a callback number, then give the estimated arrival and say a driver is being dispatched. Skip other questions.",
         "effects": [
           {
             "sound": "confirmation_chime",
@@ -136,6 +141,7 @@
       "product": "calldesk:septic",
       "audio": {
         "jingle": true,
+        "orderHint": "Order for this call: collect only the caller's name, address, callback number and main symptom, then book the next pumping window, or flag an overflow for same-day dispatch, and say so. Skip other questions.",
         "effects": [
           {
             "sound": "confirmation_chime",
@@ -194,6 +200,7 @@
       "product": "calldesk:childcare",
       "audio": {
         "jingle": true,
+        "orderHint": "Order for this call: collect only the child's age, the days wanted, and the parent's name and callback number, then say the director will call them back. Skip other questions.",
         "effects": [
           {
             "sound": "received_chime",
@@ -220,6 +227,7 @@
       "product": "calldesk:accounting",
       "audio": {
         "jingle": true,
+        "orderHint": "Order for this call: collect only what the caller needs and whether they are an existing client, plus their name and callback number, then say an accountant will call them back. Skip other questions.",
         "effects": [
           {
             "sound": "received_chime",
@@ -246,6 +254,7 @@
       "product": "calldesk:realestate",
       "audio": {
         "jingle": true,
+        "orderHint": "Order for this call: collect only whether they are buying or renting and which area, plus their name and callback number, then say an agent will call them back. Skip other questions.",
         "effects": [
           {
             "sound": "received_chime",
@@ -272,6 +281,7 @@
       "product": "calldesk:lodging",
       "audio": {
         "jingle": true,
+        "orderHint": "Order for this call: collect only the dates, the number of guests, and the caller's name and callback number, then say the owner will call them back to confirm. Skip other questions.",
         "effects": [
           {
             "sound": "received_chime",
@@ -314,6 +324,7 @@
       "product": "calldesk:physio",
       "audio": {
         "jingle": true,
+        "orderHint": "Order for this call: collect only what they want (a new appointment, a reschedule or a cancellation) and the times that suit them, plus their name and callback number, then say the front desk will call back to confirm. Skip other questions.",
         "effects": [
           {
             "sound": "received_chime",
@@ -340,6 +351,7 @@
       "product": "calldesk:taxi",
       "audio": {
         "jingle": true,
+        "orderHint": "Order for this call: collect only the pickup address, destination, time and number of passengers, plus the caller's name and callback number, then say the dispatcher will call straight back to confirm. Skip other questions.",
         "effects": [
           {
             "sound": "received_chime",
@@ -366,6 +378,7 @@
       "product": "calldesk:vets",
       "audio": {
         "jingle": true,
+        "orderHint": "Order for this call: collect only the animal's name and species, what they need, and the caller's name and callback number, then say a nurse will call them straight back. Skip other questions.",
         "effects": [
           {
             "sound": "received_chime",

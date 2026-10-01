@@ -34,6 +34,7 @@ export function validateAudioConfig(sc) {
   const a = sc.audio;
   if (!a || typeof a !== 'object') return [`${at}: audio must be an object`];
   if (a.jingle !== undefined && typeof a.jingle !== 'boolean') errs.push(`${at}: audio.jingle must be true/false`);
+  if (a.orderHint !== undefined && (typeof a.orderHint !== 'string' || !a.orderHint.trim() || a.orderHint.length > 600)) errs.push(`${at}: audio.orderHint must be a non-empty string of at most 600 characters`);
   const effects = a.effects ?? [];
   if (!Array.isArray(effects)) return [...errs, `${at}: audio.effects must be an array`];
   if (effects.length > MAX_EFFECTS) errs.push(`${at}: audio.effects can have at most ${MAX_EFFECTS} entries`);
@@ -76,7 +77,9 @@ export const AUDIO_PROMPT_HINT =
 
 export function withAudioPromptHint(agentPrompt, audio) {
   if (!audio || !(audio.effects?.length > 0)) return agentPrompt;
-  return agentPrompt + AUDIO_PROMPT_HINT;
+  // orderHint: scenario-specific "order for this call" so the moment the effect marks arrives early: every take so far
+  // hit the time cap before the booking because the agent asked every optional question first.
+  return agentPrompt + AUDIO_PROMPT_HINT + (audio.orderHint ? ' ' + audio.orderHint : '');
 }
 
 // Appended to EVERY sample's caller persona. The demo agent is built to ask "is that the full number including area
