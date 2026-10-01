@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import type { AgentVersion, PhoneNumber } from '@/types';
+import { formatPhoneE164 } from '@/lib/utils';
 
 // Places a real call to the user's own phone via the existing
 // POST /api/phone-numbers/[id]/call route (which places the call FROM a
@@ -34,6 +35,15 @@ export default function TestCallModal({
     }
   };
   useEffect(() => { loadNumbers(); }, [tenantId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Accept "(425) 628-4887", "425-628-4887", "+1 425 628 4887" etc. — the old
+  // strict E.164 check left the Call button disabled with no explanation.
+  const toE164 = !toNumber.trim()
+    ? ''
+    : toNumber.trim().startsWith('+')
+      ? `+${toNumber.replace(/\D/g, '')}`
+      : formatPhoneE164(toNumber);
+  const toValid = /^\+\d{7,15}$/.test(toE164);
 
   const eligible = numbers.filter((n) => latestVersion && n.outbound_agent_version_id === latestVersion.id);
   useEffect(() => {
@@ -69,7 +79,7 @@ export default function TestCallModal({
       const res = await fetch(`/api/phone-numbers/${fromId}/call`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ toNumber: toNumber.trim() }),
+        body: JSON.stringify({ toNumber: toE164 }),
       });
       const body = await res.json();
       if (!res.ok) throw new Error(body.error || 'Call failed');
@@ -98,6 +108,12 @@ export default function TestCallModal({
             <div>
               <label className="mb-1 block text-[12.5px] font-medium text-gray-500">Your phone number (E.164)</label>
               <input value={toNumber} onChange={(e) => setToNumber(e.target.value)} placeholder="+15551234567" className="w-full rounded-lg border border-gray-200 px-3.5 py-2.5 font-mono text-[13.5px]" />
+              {toNumber.trim() && !toValid && (
+                <p className="mt-1 text-[12px] text-red-600">Enter the full number with area code, e.g. +15551234567.</p>
+              )}
+              {toValid && toE164 !== toNumber.trim() && (
+                <p className="mt-1 text-[12px] text-gray-500">Will call {toE164}</p>
+              )}
             </div>
             {loading ? (
               <p className="text-[12.5px] text-gray-400">Loading numbers…</p>
@@ -124,10 +140,13 @@ export default function TestCallModal({
                 )}
               </div>
             )}
+            {!loading && eligible.length === 0 && toValid && (
+              <p className="text-[12.5px] text-amber-700">The Call button stays off until a phone number uses V{latestVersion.version_number} as its Outbound Call Agent — use the link above.</p>
+            )}
             {message && <p className={`text-[13px] ${message.ok ? 'text-green-700' : 'text-red-600'}`}>{message.text}</p>}
             <div className="flex justify-end gap-2">
               <button onClick={onClose} className="rounded-lg px-4 py-2 text-[13.5px] font-medium text-gray-600 hover:bg-gray-50">Close</button>
-              <button onClick={call} disabled={busy || !fromId || !/^\+\d{7,15}$/.test(toNumber.trim())} className="rounded-lg bg-blue-600 px-4 py-2 text-[13.5px] font-medium text-white disabled:opacity-40">
+              <button onClick={call} disabled={busy || !fromId || !toValid} className="rounded-lg bg-blue-600 px-4 py-2 text-[13.5px] font-medium text-white disabled:opacity-40">
                 {busy ? 'Calling…' : 'Call me'}
               </button>
             </div>
