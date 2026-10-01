@@ -8,7 +8,7 @@ import { looksLikeIndividual } from './individualName';
 // Policy decided 2026-10-01: exclude them from callers' phone lists.
 
 // Program/type wording that marks a residence-based provider across the state child care files.
-export const HOME_BASED_RE = /\b(family child ?care|group family|family day ?care|family child-care home|in[- ]?home|home[- ]?based|home day ?care|day ?care home|child[- ]?care home|registered (?:family )?(?:child ?care )?home|licensed (?:family |group )?(?:child ?care )?home(?!\s+(?:care|health|nursing|medical))|residential)\b/i;
+export const HOME_BASED_RE = /\b(family child ?care|group family|family day ?care|family child-care home|in[- ]?home(?:\s+\w+){0,2}\s+(?:day ?care|child ?care|childcare|preschool|nursery)|home[- ]?based|home day ?care|day ?care home|child[- ]?care home|registered (?:family )?(?:child ?care )?home|licensed (?:family |group )?(?:child ?care )?home(?!\s+(?:care|health|nursing|medical)))\b/i;
 
 export interface CallerPhoneFacts {
   name: string;

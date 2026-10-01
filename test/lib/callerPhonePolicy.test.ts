@@ -14,7 +14,7 @@ describe('callerPhoneExclusion', () => {
   it('excludes sole proprietors, home-based providers and person-named businesses', () => {
     expect(callerPhoneExclusion({ name: 'Acme Plumbing LLC', soleProprietor: true })).toBe('sole proprietor');
     expect(callerPhoneExclusion({ name: 'Sunny Days', homeBased: true })).toBe('home-based provider');
-    for (const t of ['Family Child Care Home', 'Group Family Child Care', 'licensed family child care', 'In-Home Day Care', 'Registered Family Home', 'Home Day Care', 'Child Care Home'])
+    for (const t of ['Family Child Care Home', 'Group Family Child Care', 'licensed family child care', 'In-Home Day Care', 'In-Home Montessori Daycare', 'In Home Child Care', 'Registered Family Home', 'Home Day Care', 'Child Care Home'])
       expect(callerPhoneExclusion({ name: 'Sunny Days', typeLabel: t }), t).toBe('home-based provider');
     expect(callerPhoneExclusion({ name: 'Jeffrey Kyle Porter' })).toBe('person-named business');
   });
@@ -42,5 +42,12 @@ describe('registryLeadRow caller-phone exclusion', () => {
     expect(reg.phone).toBeNull();
     expect(reg.callerPhoneExcluded).toBe('home-based provider');
     expect(email).toBe('owner@littleacorns.org');
+  });
+});
+
+describe('HOME_BASED_RE does not misfire on home care or contractor labels', () => {
+  it('keeps licensed home care agencies, in-home care, and residential contractors', () => {
+    for (const t of ['licensed home care agency', 'Licensed Home Health Agency', 'In-Home Care Services', 'Residential Roofing Contractor', 'residential plumbing', 'licensed home nursing agency'])
+      expect(callerPhoneExclusion({ name: 'Acme Care Group', typeLabel: t }), t).toBeNull();
   });
 });

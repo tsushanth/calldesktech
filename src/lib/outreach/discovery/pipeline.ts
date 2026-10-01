@@ -40,6 +40,21 @@ import { allBrCnpjLeads, BR_PRODUCT_IDS } from './brCnpjRegistry';
 import { allDenueLeads, MX_PRODUCT_IDS } from './mxDenueRegistry';
 import { findDentalNppesCandidates } from './dentalNppes';
 import { allChildcareLeads, findChildcareCandidates } from './childcareUs';
+import { allCslbLeads } from './homeservicesCaCslb';
+import { allCaCclLeads } from './childcareCaCdss';
+import { allNeChildcareLeads } from './childcareNortheast';
+import { allNcHomecareLeads } from './ncDhsrHomecare';
+import { allKyChildcareLeads } from './kyChildcare';
+import { streamAlGenConLeads } from './alGenContractors';
+import { streamNvDoiLeads } from './nvDoiFirms';
+import { streamOrEmployerLeads } from './orWorkersComp';
+import { streamAzChildcareLeads } from './childcareAz';
+import { allIaInsuranceLeads } from './insuranceIowa';
+import { allNebraskaChildcareLeads, allOkChildcareLeads } from './childcarePlains';
+import { allMoLodgingLeads } from './lodgingMissouri';
+import { streamMnDliLeads } from './mnDliContractors';
+import { streamOhOcilbLeads, streamOhRealEstateLeads } from './ohElicenseRegistry';
+import { streamWiChildcareLeads, streamInChildcareLeads } from './childcareMidwest';
 import { discoverWebsite } from './websiteDiscovery';
 import { INTL_HOLD_REASON, intlCountry, type IntlHold, type RegistryLead, type RegistryResult } from './registryCommon';
 import { calldesk, leadsTable, runsTable, messagesTable, suppressionsTable, scopeToProduct, productInsertFields, type ProductConfig } from '../products';
@@ -871,6 +886,37 @@ const BULK_REGISTRY_SOURCES: Record<string, { products: string[]; load: (product
   'tx-childcare': { products: ['childcare'], load: (_p, isKnown, log) => allChildcareLeads('tx', { isKnown, log }) },
   'wa-childcare': { products: ['childcare'], load: (_p, isKnown, log) => allChildcareLeads('wa', { isKnown, log }) },
   'pa-childcare': { products: ['childcare'], load: (_p, isKnown, log) => allChildcareLeads('pa', { isKnown, log }) },
+
+  // US sources added in the 2026-10 state-expansion pass. Every one has been through an independent live
+  // re-run and review. Leads whose registry phone is probably a personal/home line (sole proprietors,
+  // home-based providers, person-named businesses) carry callerPhoneExcluded and get NO callable phone.
+  // Several publish phone only (no email): those leads need website discovery before they can be emailed.
+  'ca-cslb': { products: ['homeservices'], load: (_p, isKnown, log) => allCslbLeads({ isKnown, log }) }, // needs a host that can pull ~78 MB in <150 s, or CSLB_MASTER_CSV_PATH
+  'ca-ccl': { products: ['childcare'], load: (_p, isKnown, log) => allCaCclLeads({ isKnown, log }) },
+  'nj-childcare': { products: ['childcare'], load: (_p, isKnown, log) => allNeChildcareLeads('nj', { isKnown, log }) },
+  'vt-childcare': { products: ['childcare'], load: (_p, isKnown, log) => allNeChildcareLeads('vt', { isKnown, log }) },
+  'ma-childcare': { products: ['childcare'], load: (_p, isKnown, log) => allNeChildcareLeads('ma', { isKnown, log }) },
+  'ct-childcare': { products: ['childcare'], load: (_p, isKnown, log) => allNeChildcareLeads('ct', { isKnown, log }) },
+  'ny-childcare': { products: ['childcare'], load: (_p, isKnown, log) => allNeChildcareLeads('ny', { isKnown, log }) },
+  'nc-dhsr': { products: ['homecare'], load: (_p, isKnown, log) => allNcHomecareLeads({ isKnown, log }) },
+  'ky-childcare': { products: ['childcare'], load: (_p, isKnown, log) => allKyChildcareLeads({ isKnown, log }) },
+  'al-gencon': { products: ['homeservices'], load: (_p, isKnown, log) => streamAlGenConLeads({ isKnown, log }) },
+  // Nevada: the law on emailing these addresses has NOT been reviewed; review before sending.
+  'nv-doi': { products: ['insurance', 'bailbonds', 'funeral'], load: (p, isKnown, log) => streamNvDoiLeads(p.id as 'insurance' | 'bailbonds' | 'funeral', { isKnown, log }) },
+  'or-wc': {
+    products: ['homeservices', 'insurance', 'dental', 'childcare', 'accounting', 'realestate', 'vets', 'physio', 'funeral', 'towing', 'septic', 'taxi', 'lodging', 'homecare'],
+    load: (p, isKnown, log) => streamOrEmployerLeads(p.id, { isKnown, log }),
+  },
+  'az-childcare': { products: ['childcare'], load: (_p, isKnown, log) => streamAzChildcareLeads({ isKnown, log }) },
+  'ia-insurance': { products: ['insurance'], load: (_p, isKnown, log) => allIaInsuranceLeads({ isKnown, log }) },
+  'nebraska-childcare': { products: ['childcare'], load: (_p, isKnown, log) => allNebraskaChildcareLeads({ isKnown, log }) },
+  'ok-childcare': { products: ['childcare'], load: (_p, isKnown, log) => allOkChildcareLeads({ isKnown, log }) }, // ~95 min: one request per provider
+  'mo-lodging': { products: ['lodging'], load: (_p, isKnown, log) => allMoLodgingLeads({ isKnown, log }) },
+  'mn-dli': { products: ['homeservices'], load: (_p, isKnown, log) => streamMnDliLeads({ isKnown, log }) },
+  'oh-ocilb': { products: ['homeservices'], load: (_p, isKnown, log) => streamOhOcilbLeads({ isKnown, log }) },
+  'oh-realestate': { products: ['realestate'], load: (_p, isKnown, log) => streamOhRealEstateLeads({ isKnown, log }) },
+  'wi-childcare': { products: ['childcare'], load: (_p, isKnown, log) => streamWiChildcareLeads({ isKnown, log }) },
+  'in-childcare': { products: ['childcare'], load: (_p, isKnown, log) => streamInChildcareLeads({ isKnown, log }) },
 
   // INTERNATIONAL sources. These are deliberately bulk-import-only and are NOT in
   // the per-run rotation (registryRotation.ts): every lead they produce is stored

@@ -264,7 +264,7 @@ export function toOkLead(r: OkListRow, d: OkDetail, ev: { adjust: number; reason
 
 const NE_FIELDS = 'Full_Name,License_Type,License_Number,City,State,County,Capacity,Phone,Owner_Manager,Roster_Date,GIS_Status';
 
-export async function allNeChildcareLeads(opts: { now?: Date; isKnown?: (k: string) => boolean; log?: (m: string) => void } = {}): Promise<RegistryResult> {
+export async function allNebraskaChildcareLeads(opts: { now?: Date; isKnown?: (k: string) => boolean; log?: (m: string) => void } = {}): Promise<RegistryResult> {
   const result = emptyResult();
   const now = opts.now ?? new Date();
   try {
@@ -436,7 +436,7 @@ export async function findPlainsChildcareCandidates(
   const day = Math.floor(now.getTime() / DAY_MS);
   const source = opts.source ?? (day % 2 === 0 ? 'ne' : 'ok');
   if (source === 'ok') return allOkChildcareLeads({ max, startOffset: opts.startOverride ?? day * max, isKnown: opts.isKnown, log: opts.log });
-  const all = await allNeChildcareLeads({ now, isKnown: opts.isKnown, log: opts.log });
+  const all = await allNebraskaChildcareLeads({ now, isKnown: opts.isKnown, log: opts.log });
   const result = emptyResult();
   result.scanned = all.scanned;
   result.rejected = all.rejected;

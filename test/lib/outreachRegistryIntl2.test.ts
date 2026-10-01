@@ -842,8 +842,8 @@ describe('the international hold, for every new source', () => {
     for (const id of ['fr-funeral', 'qc-cpe', 'qc-lodging', 'sg-ecda', 'ee-agencies']) {
       expect(BULK_REGISTRY_SOURCE_IDS, id).toContain(id);
     }
-    expect(bulkRegistrySourcesFor(funeral)).toEqual(['fr-funeral']);
-    expect(bulkRegistrySourcesFor(lodging)).toEqual(['qc-lodging']);
+    expect(bulkRegistrySourcesFor(funeral)).toEqual(expect.arrayContaining(['fr-funeral'])); // US funeral sources (nv-doi, or-wc) were added later
+    expect(bulkRegistrySourcesFor(lodging)).toEqual(expect.arrayContaining(['qc-lodging'])); // US lodging sources (or-wc, mo-lodging) were added later
     // The RBQ contractor licences were investigated and deliberately not built.
     expect(BULK_REGISTRY_SOURCE_IDS).not.toContain('qc-rbq');
     expect(bulkRegistrySourcesFor(childcare)).toEqual(expect.arrayContaining(['tx-childcare', 'qc-cpe', 'sg-ecda']));

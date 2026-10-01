@@ -5,7 +5,7 @@ import {
 } from '@/lib/outreach/discovery/insuranceIowa';
 import {
   evaluateNeRow, toNeLead, neTypeLabel, splitOwnedBy, flipLastFirst,
-  parseOkListPage, parseOkCityLine, evaluateOkListRow, evaluateOkRow, toOkLead, fetchOkDetail, allOkChildcareLeads, allNeChildcareLeads,
+  parseOkListPage, parseOkCityLine, evaluateOkListRow, evaluateOkRow, toOkLead, fetchOkDetail, allOkChildcareLeads, allNebraskaChildcareLeads,
   type NeChildcareRow, type OkListRow, type OkDetail,
 } from '@/lib/outreach/discovery/childcarePlains';
 import { emptyResult } from '@/lib/outreach/discovery/registryCommon';
@@ -359,10 +359,10 @@ describe('Nebraska / Oklahoma caller-phone policy and partial-data guards', () =
   it('NE: a roster past the age limit is an error, not a silent zero', async () => {
     const feats = Array.from({ length: 600 }, (_, i) => ({ attributes: ne({ License_Number: `CC${i}` }) }));
     vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({ features: feats }), { status: 200 })));
-    const fresh = await allNeChildcareLeads({ now: NOW });
+    const fresh = await allNebraskaChildcareLeads({ now: NOW });
     expect(fresh.errors).toEqual([]);
     expect(fresh.candidates.length).toBe(600);
-    const stale = await allNeChildcareLeads({ now: new Date('2027-06-01T00:00:00Z') });
+    const stale = await allNebraskaChildcareLeads({ now: new Date('2027-06-01T00:00:00Z') });
     expect(stale.candidates).toHaveLength(0);
     expect(stale.errors[0]).toMatch(/stale/);
   });
