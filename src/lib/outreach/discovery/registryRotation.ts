@@ -17,8 +17,19 @@ import { findTxEmployerCandidates, txSupportsVertical } from './txWorkersComp';
 
 const SLOT_MS = 60 * 60_000;
 
+const DAY_MS = 24 * SLOT_MS;
+// Day skew. A bare hour counter aliases with a once-a-day launchd run: 24 is a
+// multiple of 6, so a run at the same wall-clock time always has the same
+// slot % 6 (the daily 17:37Z run was ALWAYS the Texas slot, so WA was never
+// fetched), and slot % 5 only cycles every 5 days. Adding 7 per day keeps
+// hourly runs advancing one slot per hour while a fixed-time daily run now
+// steps 31 slots a day; 31 is coprime to both 5 and 6, so every source and the
+// Texas slot are visited in turn.
+const DAY_SKEW = 7;
+
 export function slotFor(now: Date): number {
-  return Math.floor(now.getTime() / SLOT_MS);
+  const t = now.getTime();
+  return Math.floor(t / SLOT_MS) + DAY_SKEW * Math.floor(t / DAY_MS);
 }
 
 // ---- homeservices ----------------------------------------------------------

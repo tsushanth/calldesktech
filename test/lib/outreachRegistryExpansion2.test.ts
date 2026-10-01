@@ -468,3 +468,23 @@ describe('registry source rotation', () => {
     }
   });
 });
+
+describe('rotation vs a once-a-day run (WA was never fetched)', () => {
+  it('a fixed-time daily run reaches every homeservices source and the Texas slot', async () => {
+    const { slotFor } = await import('@/lib/outreach/discovery/registryRotation');
+    const sources = new Set<string>();
+    let tx = 0;
+    for (let d = 0; d < 30; d++) {
+      const slot = slotFor(new Date(Date.UTC(2026, 8, 1 + d, 17, 37)));
+      sources.add(homeservicesSourceForSlot(slot));
+      if (useTxForSlot(slot)) tx++;
+    }
+    expect([...sources].sort()).toEqual(['ar', 'nyc', 'va', 'wa']);
+    expect(tx).toBe(5);
+  });
+  it('hourly runs still advance one slot per hour within a day', async () => {
+    const { slotFor } = await import('@/lib/outreach/discovery/registryRotation');
+    const a = slotFor(new Date(Date.UTC(2026, 8, 3, 5, 10)));
+    expect(slotFor(new Date(Date.UTC(2026, 8, 3, 6, 10)))).toBe(a + 1);
+  });
+});
