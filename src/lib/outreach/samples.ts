@@ -83,6 +83,33 @@ function warnOnce(err: unknown): void {
   console.warn('[outreach/samples] sample lookup failed; falling back to no sample:', err instanceof Error ? err.message : err);
 }
 
+export interface SampleListItem { slug: string; title: string; business: string | null; durationSec: number | null }
+
+/** Published samples for the public /demo page. Never throws: a lookup failure just means an empty list. */
+export async function listPublishedSamples(supabase: SupabaseClient): Promise<SampleListItem[]> {
+  try {
+    const { data, error } = await supabase
+      .from('calldesk_outreach_samples')
+      .select('product, title, business_name, audio_duration_sec')
+      .eq('published', true)
+      .order('title', { ascending: true });
+    if (error) {
+      warnOnce(error);
+      return [];
+    }
+    const out: SampleListItem[] = [];
+    for (const r of (data ?? []) as Pick<OutreachSample, 'product' | 'title' | 'business_name' | 'audio_duration_sec'>[]) {
+      const slug = productSlug(r.product);
+      if (!slug) continue;
+      out.push({ slug, title: r.title || slug.charAt(0).toUpperCase() + slug.slice(1), business: r.business_name, durationSec: r.audio_duration_sec });
+    }
+    return out;
+  } catch (err) {
+    warnOnce(err);
+    return [];
+  }
+}
+
 export async function getPublishedSample(
   supabase: SupabaseClient,
   product: string,

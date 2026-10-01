@@ -6,6 +6,7 @@ import {
   productSlug,
   productFromSlug,
   getPublishedSample,
+  listPublishedSamples,
   pickVariant,
   sampleUrl,
   snippetLines,
@@ -179,5 +180,30 @@ describe('getPublishedSample', () => {
     expect(await getPublishedSample(mk({ data: null, error: { message: 'missing' } }), 'calldesk:x')).toBeNull();
     const row = { id: 'r' };
     expect(await getPublishedSample(mk({ data: row, error: null }), 'calldesk:x')).toEqual(row);
+  });
+});
+
+describe('listPublishedSamples', () => {
+  const mk = (res: unknown) => {
+    const q: Record<string, unknown> = {};
+    for (const m of ['select', 'eq', 'order']) q[m] = () => q;
+    q.then = (ok: (v: unknown) => unknown) => Promise.resolve(res).then(ok);
+    return { from: () => q } as unknown as SupabaseClient;
+  };
+  it('returns [] on error or a throwing client (the /demo page must still render)', async () => {
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+    expect(await listPublishedSamples(mk({ data: null, error: { message: 'x' } }))).toEqual([]);
+    expect(await listPublishedSamples({ from: () => { throw new Error('boom'); } } as unknown as SupabaseClient)).toEqual([]);
+  });
+  it('maps rows to slug/title/business/duration and drops rows whose product is not slug-shaped', async () => {
+    const rows = [
+      { product: 'calldesk:dental', title: 'Dental office', business_name: 'Maple Court Dental', audio_duration_sec: 95 },
+      { product: 'junk', title: 'x', business_name: 'y', audio_duration_sec: 1 },
+      { product: 'calldesk:towing', title: null, business_name: null, audio_duration_sec: null },
+    ];
+    expect(await listPublishedSamples(mk({ data: rows, error: null }))).toEqual([
+      { slug: 'dental', title: 'Dental office', business: 'Maple Court Dental', durationSec: 95 },
+      { slug: 'towing', title: 'Towing', business: null, durationSec: null },
+    ]);
   });
 });
