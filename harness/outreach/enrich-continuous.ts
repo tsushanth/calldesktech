@@ -10,6 +10,9 @@
 //     OUTREACH_WEBSEARCH_MAX_PER_RUN=30 tsx harness/outreach/enrich-continuous.ts
 //   MAX_BATCHES=1 ...   # pilot: a single batch of BATCH leads, then exit
 //
+// GUESS_MODE=only   website guessing only, no Claude (unresolved leads are marked and left for later)
+//   GUESS_MODE=first  guess first, then the Claude search for what the guess cannot resolve
+//   (unset)           Claude search only (original behaviour)
 // Leads named after a person (sole proprietors) are skipped by default (SKIP_INDIVIDUALS=0 to include them).
 // Stops when nothing is left, when ~/.calldesk-enrich/STOP exists, or after MAX_BATCHES.
 import fs from 'node:fs';
@@ -19,7 +22,9 @@ import { resolveProduct } from '@/lib/outreach/products';
 import { enrichBacklogBatch } from '@/lib/outreach/discovery/pipeline';
 
 const STOP = `${os.homedir()}/.calldesk-enrich/STOP`;
-const BATCH = Math.min(30, Math.max(1, Number(process.env.BATCH) || 30));
+const GUESS = process.env.GUESS_MODE === 'only' ? 'only' : process.env.GUESS_MODE === 'first' ? 'first' : undefined;
+// The paid search caps a batch at 30 website searches; a guess-only batch has no such cap.
+const BATCH = Math.min(GUESS === 'only' ? 300 : 30, Math.max(1, Number(process.env.BATCH) || 30));
 const MAX_BATCHES = Number(process.env.MAX_BATCHES) || Infinity;
 const [si, sc] = (process.env.SHARD || '0/1').split('/').map(Number);
 const prefixes = (process.env.SOURCES || '').split(',').map((s) => s.trim()).filter(Boolean);
@@ -28,7 +33,7 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 const log = (...a: unknown[]) => console.log(new Date().toISOString().slice(11, 19), `[shard ${si}/${sc}]`, ...a);
 
 async function main() {
-  process.env.OUTREACH_WEBSEARCH_MAX_PER_RUN = String(BATCH);
+  process.env.OUTREACH_WEBSEARCH_MAX_PER_RUN = String(Math.min(30, BATCH));
   const db = getSupabaseAdmin();
   let batches = 0; let found = 0; let done = 0;
   for (const id of products) {
@@ -36,7 +41,7 @@ async function main() {
     for (;;) {
       if (fs.existsSync(STOP)) { log('STOP file present, exiting'); return; }
       if (batches >= MAX_BATCHES) { log('MAX_BATCHES reached'); return; }
-      const r = await enrichBacklogBatch(db, product, { limit: BATCH, sourcePrefixes: prefixes, shard: { index: si, count: sc }, skipIndividuals: process.env.SKIP_INDIVIDUALS !== '0' });
+      const r = await enrichBacklogBatch(db, product, { limit: BATCH, sourcePrefixes: prefixes, shard: { index: si, count: sc }, skipIndividuals: process.env.SKIP_INDIVIDUALS !== '0', guess: GUESS });
       batches++; found += r.contactsFound;
       const attempted = Object.values(r.statuses).reduce((a, b) => a + b, 0);
       done += attempted;

@@ -13,6 +13,7 @@ import { findTelephonyPlatformCandidates } from './telephonyPlatformsSearch';
 import { findSttTtsSignalCandidates } from './sttTtsSignalSearch';
 import { checkDomainForPlatforms } from '../signals/techFingerprint';
 import { LeadIndex } from './dedupe';
+import { guessWebsite, type GuessResult } from './domainGuess';
 import { looksLikeIndividual } from './individualName';
 import { researchAgency, type Dossier } from '../research';
 import { findSearchCandidates, queriesForDay } from './searchSource';
@@ -160,7 +161,7 @@ interface LeadRow {
   score: number | null;
   enriched_at: string | null;
   research?: Dossier | null;
-  signals: { reasons: string[]; techPlatforms: string[]; registry?: RegistryMeta; intlHold?: IntlHold; contactForm?: ContactForm; formOutreach?: FormOutreach; readaloud?: { sources?: Record<string, RaSourceFacts> } } | null;
+  signals: { reasons: string[]; techPlatforms: string[]; registry?: RegistryMeta; intlHold?: IntlHold; contactForm?: ContactForm; formOutreach?: FormOutreach; readaloud?: { sources?: Record<string, RaSourceFacts> }; domainGuess?: { at: string; tried: number }; websiteSource?: string } | null;
 }
 
 // Registry facts kept on the lead's `signals` (never put in the draft-visible
@@ -1134,6 +1135,11 @@ async function stageRegistry(
 // Set only by enrichBacklogBatch (below) for the duration of one call; null in normal runs, so the
 // daily pipeline is unaffected. Lets a backlog run restrict stageEnrich to chosen sources/shards.
 let enrichRowFilter: ((r: LeadRow) => boolean) | null = null;
+// Website guessing (domainGuess.ts): derive likely domains from the registry name, keep those that resolve, and
+// accept one only if its page shows the business's name and city/state (the same check applied to Claude's
+// answer). 'first' tries the guess before the paid Claude search; 'only' never calls Claude and leaves
+// unresolved leads marked (signals.domainGuess) so they can be searched later. 'off' (default) is the daily run.
+let enrichGuessMode: 'off' | 'first' | 'only' = 'off';
 
 async function stageEnrich(
   db: Db, summary: RunSummary, dryRun: boolean, limit: number, entriesIn: DirectoryEntry[], index: LeadIndex<LeadRow>, stop: () => boolean, product: ProductConfig,
@@ -1166,15 +1172,50 @@ async function stageEnrich(
   const candidates = entries
     .filter((e) => e.row.status !== 'dead' && !e.row.region_blocked)
     .filter((e) => enrichRowFilter?.(e.row) ?? true)
+    .filter((e) => !(enrichGuessMode === 'only' && e.row.signals?.domainGuess))
     .filter((e) => !e.row.enriched_at || (e.row.contact_status !== 'found' && new Date(e.row.enriched_at).getTime() < recheckBefore))
     .sort((a, b) => (b.row.score ?? 0) - (a.row.score ?? 0))
     .slice(0, limit);
+
+  // Guesses are DNS + page fetches (no LLM), so run them for the whole batch concurrently up front.
+  const guessCache = new Map<string, GuessResult>();
+  if (enrichGuessMode !== 'off') {
+    const need = candidates.filter(({ row }) => !row.domain && row.signals?.registry && !row.signals.domainGuess);
+    const conc = Math.max(1, Math.min(12, Number(process.env.OUTREACH_GUESS_CONCURRENCY) || 6));
+    let gi = 0;
+    await Promise.all(Array.from({ length: Math.min(conc, need.length) }, async () => {
+      for (;;) {
+        const k = gi++;
+        if (k >= need.length || stop()) return;
+        const r = need[k].row; const reg = r.signals!.registry!;
+        try { guessCache.set(r.id, await guessWebsite({ name: r.company_name, legalName: reg.legalName, city: reg.city, state: reg.state, phone: reg.phone })); } catch { /* not cached: handled below */ }
+      }
+    }));
+  }
 
   for (const { row: lead, slug } of candidates) {
     if (stop()) break;
     try {
       let domain = lead.domain ?? (slug ? await findAgencyDomain(slug) : null);
       const now = new Date().toISOString();
+      let guessedSite = false;
+
+      if (!domain && lead.signals?.registry && enrichGuessMode !== 'off' && !lead.signals.domainGuess) {
+        const g = guessCache.get(lead.id);
+        if (g?.domain) {
+          domain = g.domain; guessedSite = true;
+        } else if (g) {
+          // Remember the miss so the guesser never repeats this lead; the paid search (if on) still runs below.
+          lead.signals = { ...lead.signals, domainGuess: { at: now, tried: g.tried } };
+          if (!dryRun) await db.from(leadsTable(product)).update({ signals: lead.signals }).eq('id', lead.id);
+          if (enrichGuessMode === 'only') {
+            summary.sample.enriched.push({ name: lead.company_name, domain: null, email: null, status: 'no guessed site (left for the search pass)' });
+            continue;
+          }
+        } else if (enrichGuessMode === 'only') {
+          continue; // the guess itself failed to run; retried in a later batch
+        }
+      }
 
       // Registry leads have no website: find it by name + city/state and VERIFY it is
       // that business (websiteDiscovery.ts). The LLM search is the cost, so it is capped
@@ -1265,7 +1306,7 @@ async function stageEnrich(
         contact_source_url: contact.sourceUrl,
         enriched_at: now,
         score: rescored,
-        signals: { reasons, techPlatforms, ...(reg ? { registry: reg } : {}), ...(lead.signals?.readaloud ? { readaloud: lead.signals.readaloud } : {}), ...(contact.form ? { contactForm: contact.form } : {}), ...(lead.signals?.formOutreach ? { formOutreach: lead.signals.formOutreach } : {}) },
+        signals: { reasons, techPlatforms, ...(reg ? { registry: reg } : {}), ...(guessedSite ? { websiteSource: 'name-guess' } : {}), ...(lead.signals?.readaloud ? { readaloud: lead.signals.readaloud } : {}), ...(contact.form ? { contactForm: contact.form } : {}), ...(lead.signals?.formOutreach ? { formOutreach: lead.signals.formOutreach } : {}) },
         ...(suppressed ? { status: 'dead' } : {}),
       }).eq('id', lead.id);
       if (error) summary.errors.push(`enrich ${lead.company_name}: ${error.message}`);
@@ -1288,7 +1329,7 @@ export interface EnrichBacklogResult { pending: number; contactsFound: number; s
  */
 export async function enrichBacklogBatch(
   db: Db, product: ProductConfig,
-  opts: { limit: number; sourcePrefixes?: string[]; shard?: { index: number; count: number }; skipIndividuals?: boolean },
+  opts: { limit: number; sourcePrefixes?: string[]; shard?: { index: number; count: number }; skipIndividuals?: boolean; guess?: 'first' | 'only' },
 ): Promise<EnrichBacklogResult> {
   const existing = await selectAll<LeadRow>(() => scopeToProduct(db.from(leadsTable(product)).select('*'), product));
   const index = new LeadIndex<LeadRow>(existing);
@@ -1301,7 +1342,7 @@ export async function enrichBacklogBatch(
     }
     return true;
   };
-  const pending = existing.filter((r) => inScope(r) && r.status === 'new' && !r.domain && !r.enriched_at && !r.region_blocked && r.signals?.registry).length;
+  const pending = existing.filter((r) => inScope(r) && r.status === 'new' && !r.domain && !r.enriched_at && !r.region_blocked && r.signals?.registry && !(opts.guess === 'only' && r.signals?.domainGuess)).length;
   const summary: RunSummary = {
     runId: null, dryRun: false, status: 'ok', directoryCount: 0, searchCandidates: 0,
     jobPostingCandidates: 0, reviewSiteCandidates: 0, githubCandidates: 0, techFingerprintHits: 0,
@@ -1309,10 +1350,12 @@ export async function enrichBacklogBatch(
     duplicatesSkipped: 0, contactsFound: 0, draftsCreated: 0, followUpsCreated: 0, phoneBackfilled: 0, researched: 0, lowFit: 0, errors: [], sample: { enriched: [], researched: [] },
   };
   enrichRowFilter = inScope;
+  enrichGuessMode = opts.guess ?? 'off';
   try {
     await stageEnrich(db, summary, false, opts.limit, [], index, () => false, product);
   } finally {
     enrichRowFilter = null;
+    enrichGuessMode = 'off';
   }
   const statuses: Record<string, number> = {};
   for (const e of summary.sample.enriched) { const k = e.status.startsWith('no-site') ? 'no-site' : e.status.startsWith('duplicate') ? 'duplicate' : e.status; statuses[k] = (statuses[k] || 0) + 1; }
