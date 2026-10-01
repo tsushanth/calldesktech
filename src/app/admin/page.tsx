@@ -99,8 +99,8 @@ export default async function AdminHome() {
 
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <Stat label="Accounts (excluding ours)" value={o.totals.users} />
-          <Stat label="Workspaces" value={o.totals.workspaces} hint={`${o.totals.agents} agents`} />
-          <Stat label="Calls, last 24 h" value={o.calls.h24} hint={`${o.calls.d7} in 7 days · ${o.calls.d30} in 30`} />
+          <Stat label="Customer workspaces" value={o.totals.workspaces} hint={`${o.totals.agents} agents · ${o.ours.workspaces} of ours excluded`} />
+          <Stat label="Customer calls, last 24 h" value={o.calls.h24} hint={`${o.calls.d7} in 7 days · ${o.calls.d30} in 30 · ours excluded`} />
           <Stat label="Minutes, 7 days" value={o.calls.minutes7} hint={`last call ${ago(o.calls.lastCallAt)}`} />
         </div>
 
@@ -108,7 +108,8 @@ export default async function AdminHome() {
           <section className="rounded-lg border border-gray-200 bg-white p-5">
             <h2 className="text-[15px] font-medium">New accounts, 14 days</h2>
             <div className="mt-4"><Bars data={o.signupsByDay} /></div>
-            <p className="mt-3 text-[13px] text-gray-500">Calls this week: {Object.entries(o.calls.byOutcome).map(([k, v]) => `${v} ${k}`).join(', ') || 'none'}</p>
+            <p className="mt-3 text-[13px] text-gray-500">Our own demo and test calls, 30 days: {o.ours.calls30} (not counted above)</p>
+            <p className="mt-1 text-[13px] text-gray-500">Customer calls this week: {Object.entries(o.calls.byOutcome).map(([k, v]) => `${v} ${k}`).join(', ') || 'none'}</p>
           </section>
           <section className="rounded-lg border border-gray-200 bg-white p-5">
             <h2 className="text-[15px] font-medium">Outreach pipeline</h2>

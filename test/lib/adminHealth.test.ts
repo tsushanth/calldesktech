@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { overall, integrationStatus, type Check } from '@/lib/admin/health';
+import { internalTenantIds } from '@/lib/admin/internal';
 import { attentionItems, lastDays, ago, type Overview } from '@/lib/admin/overview';
 
 const c = (level: Check['level']): Check => ({ name: 'x', level, detail: '' });
@@ -22,6 +23,7 @@ describe('integrationStatus', () => {
 });
 
 const base: Overview = {
+  ours: { calls30: 0, workspaces: 0 },
   totals: { users: 0, workspaces: 0, agents: 0, callsAllTime: 0 },
   calls: { h24: 0, d7: 0, d30: 0, minutes7: 0, lastCallAt: null, byOutcome: {} },
   signupsByDay: [], sms: { h24: 0, failed24: 0 },
@@ -52,5 +54,15 @@ describe('helpers', () => {
   it('ago handles null and ranges', () => {
     expect(ago(null)).toBe('never');
     expect(ago(new Date(Date.now() - 3 * 3600_000).toISOString())).toBe('3 h ago');
+  });
+});
+
+describe('internalTenantIds', () => {
+  it('treats admin-owned and demo workspaces as ours, customer workspaces as theirs', () => {
+    const users = [{ id: 'u1', email: 'T.Sushanth@gmail.com' }, { id: 'u2', email: 'owner@customer.com' }];
+    const tenants = [
+      { id: 'a', user_id: 'u1' }, { id: 'b', user_id: 'u2' }, { id: 'c', user_id: 'demo_xyz' }, { id: 'd', user_id: null },
+    ];
+    expect([...internalTenantIds(tenants, users, ['t.sushanth@gmail.com'])].sort()).toEqual(['a', 'c', 'd']);
   });
 });

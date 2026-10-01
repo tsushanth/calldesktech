@@ -1,4 +1,6 @@
 import { getSupabaseAdmin } from '@/lib/supabase';
+import { adminEmails } from '@/lib/outreach/config';
+import { internalTenantIds } from '@/lib/admin/internal';
 
 export const dynamic = 'force-dynamic';
 export const metadata = { title: 'Product usage | CallDeskTech' };
@@ -34,16 +36,19 @@ export default async function UsagePage() {
   // Async Server Component computing a per-request report snapshot, not a memoized client render.
   // eslint-disable-next-line react-hooks/purity
   const since = new Date(Date.now() - DAYS * 86400_000).toISOString();
-  const [tenants, agents, calls, billing, clients, keys] = await Promise.all([
+  const [tenants, agents, calls, billing, clients, keys, users] = await Promise.all([
     db.from('calldesk_tenants').select('id, user_id, created_at').not('user_id', 'like', 'demo_%').limit(10000),
     db.from('calldesk_agents').select('tenant_id').limit(20000),
     db.from('calldesk_call_logs').select('tenant_id, duration_seconds, created_at, direction').neq('is_internal_test', true).limit(50000),
     db.from('calldesk_businesses').select('tenant_id, subscription_status').limit(10000),
     db.from('calldesk_oauth_clients').select('client_name, created_at').limit(1000),
     db.from('calldesk_api_keys').select('name, last_used_at, revoked_at').like('name', 'MCP:%').limit(1000),
+    db.from('calldesk_users').select('id, email').limit(10000),
   ]);
 
-  const T = tenants.data || [];
+  // Leave out workspaces owned by an admin account: they produce our own demo and test calls.
+  const ours = internalTenantIds(tenants.data || [], users.data || [], adminEmails());
+  const T = (tenants.data || []).filter((t) => !ours.has(t.id));
   const realTenantIds = new Set(T.map((t) => t.id));
   const A = (agents.data || []).filter((a) => realTenantIds.has(a.tenant_id));
   const C = (calls.data || []).filter((c) => realTenantIds.has(c.tenant_id));
@@ -107,7 +112,7 @@ export default async function UsagePage() {
             </li>
           ))}
         </ul>
-        <p className="mt-4 text-[12px] text-gray-400">Workspaces include ones created by the demo wizard and our own test accounts, so early numbers are noisy.</p>
+        <p className="mt-4 text-[12px] text-gray-400">Workspaces owned by our own admin accounts are excluded.</p>
       </div>
 
       <div className="rounded-lg border border-gray-200 bg-white p-5">

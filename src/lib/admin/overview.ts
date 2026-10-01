@@ -1,12 +1,14 @@
 import { getSupabaseAdmin } from '@/lib/supabase';
 import { adminEmails } from '@/lib/outreach/config';
 import type { Check } from './health';
+import { internalTenantIds } from './internal';
 
 const HOUR = 3600_000;
 const DAY = 24 * HOUR;
 
 export interface Overview {
   totals: { users: number; workspaces: number; agents: number; callsAllTime: number };
+  ours: { calls30: number; workspaces: number };
   calls: { h24: number; d7: number; d30: number; minutes7: number; lastCallAt: string | null; byOutcome: Record<string, number> };
   signupsByDay: { d: string; v: number }[];
   sms: { h24: number; failed24: number };
@@ -31,10 +33,10 @@ export async function loadOverview(): Promise<Overview> {
   const owner = new Set(adminEmails());
 
   const [users, tenants, agents, calls, sms, sent, queue, events, runs] = await Promise.all([
-    db.from('calldesk_users').select('email, created_at').limit(10000),
-    db.from('calldesk_tenants').select('id', { count: 'exact', head: true }).not('user_id', 'like', 'demo_%'),
-    db.from('calldesk_agents').select('id', { count: 'exact', head: true }),
-    db.from('calldesk_call_logs').select('outcome, duration_seconds, created_at').neq('is_internal_test', true).gte('created_at', iso(30 * DAY)).order('created_at', { ascending: false }).limit(20000),
+    db.from('calldesk_users').select('id, email, created_at').limit(10000),
+    db.from('calldesk_tenants').select('id, user_id').limit(20000),
+    db.from('calldesk_agents').select('tenant_id').limit(50000),
+    db.from('calldesk_call_logs').select('tenant_id, outcome, duration_seconds, created_at').neq('is_internal_test', true).gte('created_at', iso(30 * DAY)).order('created_at', { ascending: false }).limit(20000),
     db.from('calldesk_sms_messages').select('status, created_at').gte('created_at', iso(DAY)).limit(5000),
     db.from('calldesk_outreach_messages').select('sent_at').eq('status', 'sent').gte('sent_at', iso(7 * DAY)).order('sent_at', { ascending: false }).limit(5000),
     db.from('calldesk_outreach_messages').select('id', { count: 'exact', head: true }).eq('status', 'approved'),
@@ -42,8 +44,13 @@ export async function loadOverview(): Promise<Overview> {
     db.from('calldesk_outreach_runs').select('started_at, status, errors').order('started_at', { ascending: false }).limit(20),
   ]);
 
-  const U = ((users.data || []) as { email: string; created_at: string }[]).filter((u) => !owner.has((u.email || '').toLowerCase()));
-  const C = (calls.data || []) as { outcome: string | null; duration_seconds: number | null; created_at: string }[];
+  const allUsers = (users.data || []) as { id: string; email: string; created_at: string }[];
+  const U = allUsers.filter((u) => !owner.has((u.email || '').toLowerCase()));
+  const T = (tenants.data || []) as { id: string; user_id: string | null }[];
+  const internal = internalTenantIds(T, allUsers, [...owner]);
+  const allCalls = (calls.data || []) as { tenant_id: string; outcome: string | null; duration_seconds: number | null; created_at: string }[];
+  const C = allCalls.filter((c) => !internal.has(c.tenant_id));
+  const customerAgents = ((agents.data || []) as { tenant_id: string }[]).filter((a) => !internal.has(a.tenant_id)).length;
   const inWin = (t: string, ms: number) => t >= iso(ms);
 
   const byOutcome: Record<string, number> = {};
@@ -60,7 +67,8 @@ export async function loadOverview(): Promise<Overview> {
   const sentRows = (sent.data || []) as { sent_at: string }[];
 
   return {
-    totals: { users: U.length, workspaces: tenants.count ?? 0, agents: agents.count ?? 0, callsAllTime: C.length },
+    totals: { users: U.length, workspaces: T.length - internal.size, agents: customerAgents, callsAllTime: C.length },
+    ours: { calls30: allCalls.length - C.length, workspaces: internal.size },
     calls: {
       h24: C.filter((c) => inWin(c.created_at, DAY)).length,
       d7: C.filter((c) => inWin(c.created_at, 7 * DAY)).length,
