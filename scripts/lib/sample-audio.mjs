@@ -87,9 +87,10 @@ export function withAudioPromptHint(agentPrompt, audio) {
 // caller AI invent a fictional 7-digit one (the 555-01xx style), which trips that rule on every call and costs a
 // back-and-forth turn. No literal number here: the scenario validator forbids phone numbers in prompts.
 export const CALLER_PHONE_RULE =
-  ' If you are asked for a callback phone number, always give a complete ten-digit US number in one go, area code' +
-  ' first, followed by a 555-01xx style number so it is clearly fictional, never a seven-digit number. If it is' +
-  ' read back correctly, just confirm it.';
+  ' If you are asked for a callback phone number, give a complete ten-digit US number in one go, area code first, and' +
+  ' say every digit as a WORD in groups of three, three and four with a short pause between groups (for example "six one' +
+  ' five, five five five, zero one four seven"), never as numerals. The number must be fictional (a five five five, zero one' +
+  ' xx style number), never a seven-digit number. If it is read back correctly, just confirm it.';
 
 // Appended to every sample's DEMO AGENT prompt. The agent asks "is that the full number including area code?" as a
 // built-in accuracy step, and was observed doing it even when the caller had just given a full ten-digit number, which

@@ -40,6 +40,20 @@ export function detectBadTake(t) {
       break;
     }
   }
+  // Defects seen in the first v4 Turbo batch that the other checks cannot see (all spoken aloud in the recording):
+  for (const l of transcript) {
+    const txt = String(l.text || '');
+    if (l.speaker === 'agent' && /\btool name\b|play_sound_effect|function call/i.test(txt)) { reasons.push(`the agent spoke tool/system text aloud: "${txt.trim().slice(0, 60)}"`); break; }
+  }
+  for (const l of transcript) {
+    const txt = String(l.text || '');
+    if (/\*[^*\n]{2,30}\*/.test(txt)) { reasons.push(`a stage direction was spoken or written into the call: "${txt.trim().slice(0, 60)}"`); break; }
+  }
+  for (const l of transcript) {
+    if (l.speaker !== 'agent') continue;
+    const runs = String(l.text || '').match(/(?:\b\d\b[ ,.-]*){4,}/g) || [];
+    if (runs.some((r) => (r.match(/\d/g) || []).length === 7)) { reasons.push('the agent read back a 7-digit number (the area code was dropped)'); break; }
+  }
   // A goodbye loop: the closing exchange is mis-heard ("Bye!" -> "Hi.") and the agent greets again, so the sample keeps going
   // after its natural ending. Seen on the first v4 Turbo take; the cut-off check does not catch it.
   const byeAt = transcript.findIndex((l, i) => i >= 3 && l.speaker === 'agent' && GOODBYE.test(l.text || ''));

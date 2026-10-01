@@ -106,6 +106,13 @@ describe('detectBadTake', () => {
     expect(q.detectBadTake({ ...base, endsMidSpeech: undefined }).ok).toBe(true); // unknown = not flagged
   });
 
+  it('flags tool text spoken aloud, a spoken stage direction, and a 7-digit readback (first v4 Turbo batch)', () => {
+    const mk = (extra: ReturnType<typeof line>) => q.detectBadTake({ ...base, transcript: [...GOOD, extra] }).reasons.join(' ');
+    expect(mk(line('agent', 'Tool name.'))).toMatch(/tool\/system text aloud/);
+    expect(mk(line('caller', '*click*'))).toMatch(/stage direction/);
+    expect(mk(line('agent', 'I have you down for a callback at 5 5 5 0 1 4 7.'))).toMatch(/7-digit number/);
+    expect(mk(line('agent', 'I have you down for 6 1 5, 5 5 5, 0 1 4 7.'))).not.toMatch(/7-digit/);
+  });
   it('flags a goodbye loop: the agent greets again after saying goodbye', () => {
     const looped = [...GOOD.slice(0, 10), line('agent', 'You are all set. Goodbye.'), line('caller', 'Bye!'), line('agent', 'Hi there. How can I help you today?'), line('caller', 'I am all set, thanks.')];
     const r = q.detectBadTake({ ...base, transcript: looped });
