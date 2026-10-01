@@ -219,8 +219,10 @@ export async function generate(args, env, sc, outDir, counterFile = COUNTER_FILE
   const db = supa(env);
   let raw = null;
   for (let i = 0; i < 12 && !raw; i++) {
-    const r = await db.rest(`calldesk_call_logs?retell_call_id=eq.${sid}&select=transcript,duration_seconds&limit=1`);
-    const rows = r.ok ? await r.json() : [];
+    // A transient network error here must not throw away a paid call: treat it like "not there yet" and retry.
+    let r;
+    try { r = await db.rest(`calldesk_call_logs?retell_call_id=eq.${sid}&select=transcript,duration_seconds&limit=1`); } catch { r = { ok: false }; }
+    const rows = r.ok ? await r.json().catch(() => []) : [];
     raw = rows[0]?.transcript && rows[0].transcript.length ? rows[0].transcript : null;
     if (!raw) await sleep(5000);
   }
