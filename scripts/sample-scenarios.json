@@ -4,6 +4,16 @@
     {
       "id": "freight",
       "product": "calldesk:freight",
+      "audio": {
+        "jingle": true,
+        "effects": [
+          {
+            "sound": "received_chime",
+            "name": "request_received_chime",
+            "description": "Play at the exact moment you tell the caller you have noted their details or rate counter-offer and a broker will call them back."
+          }
+        ]
+      },
       "title": "A carrier calls a small brokerage about a load and a rate",
       "businessName": "Halden Ridge Freight Brokerage",
       "disclosure": "AI-to-AI demo call: an AI-simulated caller phoning a Calldesk AI voice agent that answers for a fictional business. No real customer, business, or data is involved.",
@@ -20,6 +30,16 @@
     {
       "id": "homeservices",
       "product": "calldesk:homeservices",
+      "audio": {
+        "jingle": true,
+        "effects": [
+          {
+            "sound": "confirmation_chime",
+            "name": "visit_booked_chime",
+            "description": "Play at the exact moment you tell the caller their emergency visit window is booked."
+          }
+        ]
+      },
       "title": "No-heat emergency booking",
       "businessName": "Northbank Heating and Air",
       "disclosure": "AI-to-AI demo call: an AI-simulated caller phoning a Calldesk AI voice agent that answers for a fictional business. No real customer, business, or data is involved.",
@@ -36,6 +56,16 @@
     {
       "id": "dental",
       "product": "calldesk:dental",
+      "audio": {
+        "jingle": true,
+        "effects": [
+          {
+            "sound": "confirmation_chime",
+            "name": "appointment_booked_chime",
+            "description": "Play at the exact moment you tell the caller their appointment is booked."
+          }
+        ]
+      },
       "title": "New patient appointment and an insurance question",
       "businessName": "Maple Court Dental",
       "disclosure": "AI-to-AI demo call: an AI-simulated caller phoning a Calldesk AI voice agent that answers for a fictional business. No real customer, business, or data is involved.",
@@ -52,6 +82,16 @@
     {
       "id": "insurance",
       "product": "calldesk:insurance",
+      "audio": {
+        "jingle": true,
+        "effects": [
+          {
+            "sound": "confirmation_chime",
+            "name": "callback_booked_chime",
+            "description": "Play at the exact moment you tell the caller their callback with an agent is booked."
+          }
+        ]
+      },
       "title": "A quote request and a policy change",
       "businessName": "Cedar Line Insurance Agency",
       "disclosure": "AI-to-AI demo call: an AI-simulated caller phoning a Calldesk AI voice agent that answers for a fictional business. No real customer, business, or data is involved.",
@@ -68,6 +108,16 @@
     {
       "id": "towing",
       "product": "calldesk:towing",
+      "audio": {
+        "jingle": true,
+        "effects": [
+          {
+            "sound": "confirmation_chime",
+            "name": "dispatch_confirmed_chime",
+            "description": "Play at the exact moment you tell the caller a driver is being dispatched and give the estimated arrival."
+          }
+        ]
+      },
       "title": "After-hours tow request with location",
       "businessName": "Lakeshore Towing and Recovery",
       "disclosure": "AI-to-AI demo call: an AI-simulated caller phoning a Calldesk AI voice agent that answers for a fictional business. No real customer, business, or data is involved.",
@@ -84,6 +134,16 @@
     {
       "id": "septic",
       "product": "calldesk:septic",
+      "audio": {
+        "jingle": true,
+        "effects": [
+          {
+            "sound": "confirmation_chime",
+            "name": "service_booked_chime",
+            "description": "Play at the exact moment you tell the caller their pumping window is booked, or that an overflow is flagged for same-day dispatch."
+          }
+        ]
+      },
       "title": "Overflow and pumping scheduling",
       "businessName": "Clearwater Septic Services",
       "disclosure": "AI-to-AI demo call: an AI-simulated caller phoning a Calldesk AI voice agent that answers for a fictional business. No real customer, business, or data is involved.",
@@ -132,6 +192,16 @@
     {
       "id": "childcare",
       "product": "calldesk:childcare",
+      "audio": {
+        "jingle": true,
+        "effects": [
+          {
+            "sound": "received_chime",
+            "name": "request_received_chime",
+            "description": "Play at the exact moment you tell the caller you have their details and the director will call them back."
+          }
+        ]
+      },
       "title": "A parent asks about a place for a two-year-old",
       "businessName": "Little Acorns Preschool",
       "disclosure": "AI-to-AI demo call: an AI-simulated caller phoning a Calldesk AI voice agent that answers for a fictional business. No real customer, business, or data is involved.",
@@ -148,6 +218,16 @@
     {
       "id": "accounting",
       "product": "calldesk:accounting",
+      "audio": {
+        "jingle": true,
+        "effects": [
+          {
+            "sound": "received_chime",
+            "name": "request_received_chime",
+            "description": "Play at the exact moment you tell the caller you have their details and an accountant will call them back."
+          }
+        ]
+      },
       "title": "An existing client calls in busy season about a deadline",
       "businessName": "Ridgeline Tax & Bookkeeping",
       "disclosure": "AI-to-AI demo call: an AI-simulated caller phoning a Calldesk AI voice agent that answers for a fictional business. No real customer, business, or data is involved.",
@@ -164,6 +244,16 @@
     {
       "id": "realestate",
       "product": "calldesk:realestate",
+      "audio": {
+        "jingle": true,
+        "effects": [
+          {
+            "sound": "received_chime",
+            "name": "request_received_chime",
+            "description": "Play at the exact moment you tell the caller you have their details and an agent will call them back."
+          }
+        ]
+      },
       "title": "A renter calls about a listing while agents are out",
       "businessName": "Harbour Lane Realty",
       "disclosure": "AI-to-AI demo call: an AI-simulated caller phoning a Calldesk AI voice agent that answers for a fictional business. No real customer, business, or data is involved.",
@@ -180,6 +270,16 @@
     {
       "id": "lodging",
       "product": "calldesk:lodging",
+      "audio": {
+        "jingle": true,
+        "effects": [
+          {
+            "sound": "received_chime",
+            "name": "request_received_chime",
+            "description": "Play at the exact moment you tell the caller you have their details and the owner will call them back."
+          }
+        ]
+      },
       "title": "A booking enquiry while the owner is turning over rooms",
       "businessName": "Thornwood Guest House",
       "disclosure": "AI-to-AI demo call: an AI-simulated caller phoning a Calldesk AI voice agent that answers for a fictional business. No real customer, business, or data is involved.",
@@ -212,6 +312,16 @@
     {
       "id": "physio",
       "product": "calldesk:physio",
+      "audio": {
+        "jingle": true,
+        "effects": [
+          {
+            "sound": "received_chime",
+            "name": "request_received_chime",
+            "description": "Play at the exact moment you tell the caller you have their details and the front desk will call back to confirm."
+          }
+        ]
+      },
       "title": "A patient calls to rebook while therapists are with patients",
       "businessName": "Bridgeway Physiotherapy",
       "disclosure": "AI-to-AI demo call: an AI-simulated caller phoning a Calldesk AI voice agent that answers for a fictional business. No real customer, business, or data is involved.",
@@ -228,6 +338,16 @@
     {
       "id": "taxi",
       "product": "calldesk:taxi",
+      "audio": {
+        "jingle": true,
+        "effects": [
+          {
+            "sound": "received_chime",
+            "name": "request_received_chime",
+            "description": "Play at the exact moment you tell the caller you have their booking details and the dispatcher will call straight back to confirm."
+          }
+        ]
+      },
       "title": "A booking call while the dispatcher is on another line",
       "businessName": "Kestrel Cars",
       "disclosure": "AI-to-AI demo call: an AI-simulated caller phoning a Calldesk AI voice agent that answers for a fictional business. No real customer, business, or data is involved.",
@@ -244,6 +364,16 @@
     {
       "id": "vets",
       "product": "calldesk:vets",
+      "audio": {
+        "jingle": true,
+        "effects": [
+          {
+            "sound": "received_chime",
+            "name": "request_received_chime",
+            "description": "Play at the exact moment you tell the caller you have their details and a nurse will call straight back."
+          }
+        ]
+      },
       "title": "A pet owner calls while the team is in consults",
       "businessName": "Millbrook Veterinary Practice",
       "disclosure": "AI-to-AI demo call: an AI-simulated caller phoning a Calldesk AI voice agent that answers for a fictional business. No real customer, business, or data is involved.",

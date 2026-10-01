@@ -24,6 +24,7 @@ import { readFileSync, writeFileSync, mkdirSync, existsSync, renameSync } from '
 import { execFileSync } from 'node:child_process';
 import { resolve, join, dirname } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+import { buildPlaceCallRequest } from './lib/sample-audio.mjs';
 import {
   validateScenarios, normalizeTranscript, buildSampleRow, estimateCostUsd, parseArgs, isE164,
   MAX_REAL_CALLS, parseCounter, checkCallGate, validatePublishable,
@@ -40,6 +41,12 @@ function bumpCounter(file = COUNTER_FILE) {
   const n = readCounter(file) + 1;
   writeFileSync(file, String(n));
   return n;
+}
+
+// The shared jingle + effects, generated once by scripts/generate-sample-audio.mjs (git-ignored out/).
+const SHARED_AUDIO_FILE = join(ROOT, 'out/sample-audio/shared.json');
+function loadSharedAudio(file = SHARED_AUDIO_FILE) {
+  try { return JSON.parse(readFileSync(file, 'utf8')); } catch { return null; }
 }
 
 const die = (msg, code = 1) => { console.error(`\nERROR: ${msg}`); process.exit(code); };
@@ -99,7 +106,9 @@ async function ensureBucket(db) {
 }
 
 // ---- generate -------------------------------------------------------------------------------------
-export async function generate(args, env, sc, outDir, counterFile = COUNTER_FILE) {
+// `sharedAudio`: injectable for tests; undefined = load the generated file when the scenario has audio.
+export async function generate(args, env, sc, outDir, counterFile = COUNTER_FILE, sharedAudio = undefined) {
+  const shared = sc.audio ? (sharedAudio !== undefined ? sharedAudio : loadSharedAudio()) : null;
   const base = env.get('CALL_LOOP_POC_BASE_URL').replace(/\/+$/, '');
   const secret = env.get('CALL_LOOP_POC_TEST_CALL_SECRET');
   const callee = args.calleeNumber || env.get('SAMPLE_CALLEE_NUMBER');
@@ -113,6 +122,11 @@ export async function generate(args, env, sc, outDir, counterFile = COUNTER_FILE
   if (!secret) problems.push('CALL_LOOP_POC_TEST_CALL_SECRET is not set');
   if (!env.get('NEXT_PUBLIC_SUPABASE_URL') || !env.get('SUPABASE_SERVICE_ROLE_KEY')) problems.push('NEXT_PUBLIC_SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY not set (transcript is read from the poc call log)');
   problems.push(...gate.reasons);
+  // An audio scenario must never go out without its audio: check the sounds exist BEFORE anything is dialed.
+  let plan = null;
+  if (sc.audio) {
+    try { plan = buildPlaceCallRequest(sc, { callee, shared }); } catch (e) { problems.push(e.message); }
+  }
 
   console.log(`vertical:        ${sc.id} (${sc.product})`);
   console.log(`fictional biz:   ${sc.businessName}`);
@@ -123,6 +137,7 @@ export async function generate(args, env, sc, outDir, counterFile = COUNTER_FILE
   console.log(`output dir:      ${outDir}`);
   console.log(`est. cost:       ~$${estimateCostUsd(sc.targetSeconds[1])} at ${sc.targetSeconds[1]}s (estimate)`);
   console.log(`disclosure:      ${sc.disclosure}`);
+  console.log(`call audio:      ${sc.audio ? `jingle${sc.audio.jingle ? '' : ' (off)'} + effect ${(sc.audio.effects || []).map((e) => `${e.name} [${e.sound}]`).join(', ') || '(none)'}${plan ? '' : '  <- shared sounds NOT generated'}` : 'none (this vertical has no jingle/effects)'}`);
   console.log(`real calls used: ${used}/${MAX_REAL_CALLS}`);
   if (problems.length) {
     console.log(`\nprerequisites missing:\n - ${problems.join('\n - ')}`);
@@ -136,6 +151,10 @@ export async function generate(args, env, sc, outDir, counterFile = COUNTER_FILE
   // Capability probe: refuse to dial a poc that would ignore sampleCallee.
   const cap = await fetch(`${base}/sample-callee-capability`).catch(() => null);
   const capJson = cap && cap.ok ? await cap.json().catch(() => null) : null;
+  // An older poc silently IGNORES the callAudio field and would produce a sample with no sounds in it.
+  if (plan?.callAudio && !(capJson && capJson.callAudio)) {
+    die(`the poc at ${base} does not support callAudio on sample calls. Refusing to dial: it would silently produce a sample WITHOUT the jingle/effects. Deploy the current call-loop-poc first.`);
+  }
   if (!capJson || !capJson.sampleCallee) {
     die(`the poc at ${base} does not support per-call sampleCallee (probe failed${cap ? `, HTTP ${cap.status}` : ', unreachable'}). Refusing to dial: an older poc would answer with the number's real tenant agent. Deploy branch outreach-sample-callee of realtime-tts first (see the task-4 report for steps).`);
   }
@@ -144,17 +163,13 @@ export async function generate(args, env, sc, outDir, counterFile = COUNTER_FILE
   console.log('\nplacing call...');
   const placed = await fetch(`${base}/place-test-call`, {
     method: 'POST', headers: auth,
-    body: JSON.stringify({
-      toNumber: callee, shopper: true, record: true,
-      persona: sc.callerPersona,
-      sampleCallee: { systemPrompt: sc.agentPrompt, greeting: sc.greeting, voice: sc.agentVoice, stability: 0.8 },
-      shopperVoice: { voice: sc.callerVoice, stability: 0.8 },
-    }),
+    body: JSON.stringify(plan ? plan.body : buildPlaceCallRequest(sc, { callee, shared: null }).body),
   });
   const pj = await placed.json().catch(() => ({}));
   if (!placed.ok || !pj.sid) die(`place-test-call failed (HTTP ${placed.status}): ${JSON.stringify(pj).slice(0, 300)}`);
   console.log(`real calls used: ${bumpCounter(counterFile)}/${MAX_REAL_CALLS} (counted at dial, even if the call later fails)`);
-  if (!pj.sampleCallee) die(`call ${pj.sid} was placed but the poc did not confirm sampleCallee; it may have reached a real tenant agent. Check it in Twilio and discard.`);
+  if (!pj.sampleCallee) die(`call ${pj.sid} was placed but the poc did not confirm sampleCallee; it may have reached a real tenant agent. Check it in Twilio and discard.`)
+  if (plan?.callAudio && !pj.callAudio) die(`call ${pj.sid} was placed but the poc did not confirm callAudio; the sample will have no jingle/effects. Check it in Twilio and discard.`);
   const sid = pj.sid;
   console.log(`call sid: ${sid}`);
 
