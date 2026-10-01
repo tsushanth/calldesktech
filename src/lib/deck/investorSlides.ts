@@ -169,7 +169,7 @@ export function buildInvestorSlides(): string[] {
   s.push(section('team', false, `${h2('Team', false)}
     ${row([
       card('Sushanth Tiruvaipati, co-founder', 'Fifteen years of engineering at Amazon, Microsoft, VMware and Google, on billing and metering systems, conversation AI, large-scale ranking and fraud detection. M.S., Carnegie Mellon. Built the Calldesk platform: the voice engine, call flows, dashboard and the outreach pipeline. Also ships a portfolio of consumer apps independently.', false, 1.3, true),
-      card('Deepikarani Parameswarappa, co-founder', 'Software engineer who built network telemetry and observability software at Ciena, including a containerized gRPC telemetry collector and monitoring dashboards. Studied at Illinois Institute of Technology. TODO(she confirms her current role, degree and anything to add or change)', false, 1, true),
+      card('Deepikarani Parameswarappa, co-founder', 'Site reliability engineer at Twitter. Earlier built network telemetry and observability software at Ciena, including a containerized gRPC telemetry collector and monitoring dashboards. Studied at Illinois Institute of Technology. TODO(she confirms her roles, dates, degree and anything to add or change)', false, 1, true),
     ])}
     ${row([
       card('Conversation AI at scale', 'Google Cloud Contact Center AI: topic modeling for customer conversations.', false, 1, true),
