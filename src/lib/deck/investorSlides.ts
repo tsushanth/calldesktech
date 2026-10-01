@@ -167,7 +167,10 @@ export function buildInvestorSlides(): string[] {
     ${note('Counts are from our own lead database as of October 1, 2026. These are businesses we can reach, not customers.', true)}`));
 
   s.push(section('team', false, `${h2('Team', false)}
-    ${card('Sushanth Tiruvaipati, founder', 'Fifteen years of engineering at Amazon, Microsoft, VMware and Google, on billing and metering systems, conversation AI, large-scale ranking and fraud detection. M.S., Carnegie Mellon. Built the whole Calldesk platform himself: the voice engine, call flows, dashboard and the outreach pipeline. Also ships a portfolio of consumer apps independently.', false, 1, true)}
+    ${row([
+      card('Sushanth Tiruvaipati, co-founder', 'Fifteen years of engineering at Amazon, Microsoft, VMware and Google, on billing and metering systems, conversation AI, large-scale ranking and fraud detection. M.S., Carnegie Mellon. Built the Calldesk platform: the voice engine, call flows, dashboard and the outreach pipeline. Also ships a portfolio of consumer apps independently.', false, 1.3, true),
+      card('TODO(co-founder name and title as she wants them shown)', 'TODO(co-founder bio: 2 to 3 plain facts supplied or approved by her)', false, 1, true),
+    ])}
     ${row([
       card('Conversation AI at scale', 'Worked on Google Cloud Contact Center AI: topic modeling for customer conversations.', false, 1, true),
       card('Billing and metering', 'AWS billing and marketplace systems at Amazon, and payments latency work on Google Pay: the plumbing behind usage-based pricing.', false, 1, true),
