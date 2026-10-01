@@ -48,6 +48,7 @@ async function main() {
       const batch = leads.slice(i, i + CONCURRENCY);
       await Promise.allSettled(batch.map(async (lead) => {
         try {
+          if ((lead.signals as { registry?: { callerPhoneExcluded?: string } } | null)?.registry?.callerPhoneExcluded) return; // personal/home line policy
           const contact = await findContact(lead.domain);
           const now = new Date().toISOString();
           const signals = { ...(lead.signals ?? {}), phoneCheckedAt: now };
