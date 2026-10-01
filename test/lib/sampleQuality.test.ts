@@ -89,6 +89,15 @@ describe('detectBadTake', () => {
     });
   });
 
+  it('flags an effect that played more than once (a sample demonstrates one moment), judging the tail on the FIRST play', () => {
+    const twice = [EVENTS[0], { kind: 'effect', name: 'appointment_booked_chime', atMs: 129_600 }, { kind: 'effect', name: 'appointment_booked_chime', atMs: 159_300 }];
+    const r = q.detectBadTake({ ...base, durationSec: 181, recordingSec: 160.7, audioEvents: twice });
+    expect(r.ok).toBe(false);
+    expect(r.reasons.join(' ')).toMatch(/appointment_booked_chime.*(2 times|twice|more than once)/i);
+    // the first play (129.6s) is comfortably inside the recording, so the tail rule is not what trips here
+    expect(r.reasons.join(' ')).not.toMatch(/too close/i);
+  });
+
   it('flags a recording that ends while the agent is still speaking (a cut-off ending)', () => {
     const r = q.detectBadTake({ ...base, endsMidSpeech: true });
     expect(r.ok).toBe(false);

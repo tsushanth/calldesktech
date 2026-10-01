@@ -117,11 +117,11 @@ describe('buildPlaceCallRequest', () => {
     expect(body.persona.startsWith(s.callerPersona)).toBe(true); // the scenario's own persona is untouched; a standard rule is appended
     expect(body.sampleCallee).toMatchObject({ greeting: s.greeting, voice: s.agentVoice, stability: 0.8 });
   });
-  it('a scenario without audio produces the original request: no callAudio key, prompt untouched', () => {
+  it('a scenario without audio sends no callAudio and keeps its own prompt (plus only the standard phone rule)', () => {
     const { body, callAudio } = audio.buildPlaceCallRequest(sc('funeral'), { callee: '+15550001111', shared: null });
     expect(callAudio).toBeNull();
     expect('callAudio' in body.sampleCallee).toBe(false);
-    expect(body.sampleCallee.systemPrompt).toBe(byId('funeral').agentPrompt);
+    expect(body.sampleCallee.systemPrompt).toBe(byId('funeral').agentPrompt + audio.AGENT_PHONE_RULE);
   });
   it('throws (never dials) for an audio scenario when the shared sounds are missing', () => {
     expect(() => audio.buildPlaceCallRequest(sc('dental'), { callee: '+15550001111', shared: null })).toThrow(/generate-sample-audio/);
@@ -200,5 +200,24 @@ describe('caller phone-number rule (no "is that the full number including area c
       const { body } = audio.buildPlaceCallRequest(s as never, { callee: '+15550001111', shared: s.audio ? SHARED : null });
       expect(body.persona.length, s.id).toBeLessThanOrEqual(2000);
     }
+  });
+});
+
+
+describe('agent phone-number rule (the demo agent asks about the area code even when it was given)', () => {
+  // Observed on a real call: with the caller now giving "415-555-0147" the agent STILL asked "is that the full number
+  // including area code?", so the caller-side rule alone does not remove the extra turn.
+  it('every sample agent is told to accept a callback number as given, with or without audio', () => {
+    for (const s of doc.scenarios as Sc[]) {
+      const { body } = audio.buildPlaceCallRequest(s as never, { callee: '+15550001111', shared: s.audio ? SHARED : null });
+      expect(body.sampleCallee.systemPrompt, s.id).toContain(audio.AGENT_PHONE_RULE);
+      expect(body.sampleCallee.systemPrompt.startsWith(s.agentPrompt), s.id).toBe(true);
+      expect(body.sampleCallee.systemPrompt.length, s.id).toBeLessThanOrEqual(6000);
+    }
+  });
+  it('the rule says to accept the number and not to ask about the area code or a repeat', () => {
+    expect(audio.AGENT_PHONE_RULE).toMatch(/accept/i);
+    expect(audio.AGENT_PHONE_RULE).toMatch(/area code/i);
+    expect(audio.AGENT_PHONE_RULE).not.toMatch(/\d{3}[\s.-]\d{3,4}/);
   });
 });

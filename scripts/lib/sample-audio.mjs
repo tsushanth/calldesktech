@@ -88,6 +88,13 @@ export const CALLER_PHONE_RULE =
   ' first, followed by a 555-01xx style number so it is clearly fictional, never a seven-digit number. If it is' +
   ' read back correctly, just confirm it.';
 
+// Appended to every sample's DEMO AGENT prompt. The agent asks "is that the full number including area code?" as a
+// built-in accuracy step, and was observed doing it even when the caller had just given a full ten-digit number, which
+// costs a pointless back-and-forth turn in a short demo. (Caller side: see CALLER_PHONE_RULE.)
+export const AGENT_PHONE_RULE =
+  ' When the caller gives a callback phone number, accept it as given and move on: do not ask whether it includes an' +
+  ' area code and do not ask them to repeat it.';
+
 /**
  * The /place-test-call request for one scenario. Without audio this is exactly the request the generator
  * always sent. With audio, the demo agent gets the inline sounds plus the same-turn prompt hint. Throws if a
@@ -101,7 +108,7 @@ export function buildPlaceCallRequest(sc, { callee, shared }) {
       toNumber: callee, shopper: true, record: true,
       persona: sc.callerPersona + CALLER_PHONE_RULE,
       sampleCallee: {
-        systemPrompt: callAudio ? withAudioPromptHint(sc.agentPrompt, sc.audio) : sc.agentPrompt,
+        systemPrompt: (callAudio ? withAudioPromptHint(sc.agentPrompt, sc.audio) : sc.agentPrompt) + AGENT_PHONE_RULE,
         greeting: sc.greeting, voice: sc.agentVoice, stability: 0.8,
         ...(callAudio ? { callAudio } : {}),
       },

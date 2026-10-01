@@ -50,9 +50,12 @@ export function detectBadTake(t) {
       for (const name of t.expectEffects || []) {
         const ev = t.audioEvents.filter((e) => e.kind === 'effect' && e.name === name);
         if (ev.length === 0) { reasons.push(`the sound effect ${name} never played`); continue; }
-        const lastMs = Math.max(...ev.map((e) => e.atMs));
-        if (lastMs > audibleSec * 1000 - EFFECT_TAIL_MARGIN_MS) {
-          reasons.push(`the sound effect ${name} fired too close to the end of the recording (${Math.max(0, (audibleSec * 1000 - lastMs) / 1000).toFixed(1)}s before it ended) to be heard`);
+        // A sample demonstrates ONE moment: more than one play is a bad take. The tail rule is judged on the FIRST play,
+        // which is the moment the scenario is about.
+        if (ev.length > 1) reasons.push(`the sound effect ${name} played ${ev.length} times (expected once)`);
+        const firstMs = Math.min(...ev.map((e) => e.atMs));
+        if (firstMs > audibleSec * 1000 - EFFECT_TAIL_MARGIN_MS) {
+          reasons.push(`the sound effect ${name} fired too close to the end of the recording (${Math.max(0, (audibleSec * 1000 - firstMs) / 1000).toFixed(1)}s before it ended) to be heard`);
         }
       }
     }
