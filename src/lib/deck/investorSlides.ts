@@ -148,14 +148,14 @@ export function buildInvestorSlides(): string[] {
     ])}
     ${note('Each step is gated on measured results on our own held-out calls, not on a date.', true)}`));
 
-  s.push(section('data', false, `${h2('How we earn the data, and our rules', false)}
+  s.push(section('data', false, `${h2('How the data flywheel starts', false)}
     ${row([
-      card('Consent first', 'Customers opt in to data use in writing and callers are told the call is recorded. We respect two-party-consent states and build no voice-identification features.', false, 1, true),
-      card('De-identify and limit', 'Names, numbers and addresses are redacted before any training use. Retention is limited and a customer can withdraw.', false, 1, true),
+      card('Pilots earn the data', 'Every pilot runs on opt-in terms, so the calls it produces can be used to improve the product.', false, 1, true),
+      card('Consented and de-identified', 'Callers are told the call is recorded. Names, numbers and addresses are redacted before any training use.', false, 1, true),
     ])}
     ${row([
-      card('Clean provenance', 'We do not train on outputs of services whose terms forbid it. Training data is caller audio, human-checked transcripts and call outcomes.', false, 1, true),
-      card('Sized to the gates', 'GPU time for training and serving, a small ML team, and annotation. We are not claiming a data advantage today; pilots under opt-in terms are how it starts.', false, 1, true),
+      card('From data to models', 'Consented calls become evaluation sets first, then training sets for speech recognition, a tuned language model and custom voices.', false, 1, true),
+      card('The flywheel', 'Better models cut cost per minute and raise accuracy on each trade\'s vocabulary, which wins more pilots, which brings more consented data.', false, 1, true),
     ])}`));
 
   s.push(section('distribution', true, `${h2('A repeatable way to reach small businesses', true)}
