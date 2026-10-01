@@ -34,12 +34,15 @@ export function xmlEscape(s: string): string {
 }
 
 export function buildDialTwiml(opts: { callerId: string; to: string; actionUrl: string; timeoutSec?: number }): string {
+  // The <Dial action> only fires when the dial finishes with the caller still on the line. The <Number>
+  // status callbacks fire for the far-end leg regardless (answered / any final state), so a call that
+  // the caller hangs up first, or that fails on the SIP side, still gets its outcome recorded.
   // answerOnBridge: the caller hears real ringing until the far end answers, and Twilio does not bill the
   // caller's leg as answered while it is still ringing.
   return (
     '<?xml version="1.0" encoding="UTF-8"?><Response>' +
     `<Dial callerId="${xmlEscape(opts.callerId)}" answerOnBridge="true" timeout="${opts.timeoutSec ?? 30}" action="${xmlEscape(opts.actionUrl)}" method="POST">` +
-    `<Number>${xmlEscape(opts.to)}</Number></Dial></Response>`
+    `<Number statusCallback="${xmlEscape(opts.actionUrl)}" statusCallbackEvent="answered completed" statusCallbackMethod="POST">${xmlEscape(opts.to)}</Number></Dial></Response>`
   );
 }
 
@@ -85,19 +88,25 @@ export function decideDial(i: DialDecisionInput): DialDecision {
   return { ok: true, to, callerId: i.caller.caller_id };
 }
 
-// <Dial action> reports the outcome of the far-end leg.
-export function mapDialStatus(dialCallStatus: string | null | undefined): { status: string; answered: boolean } {
-  switch (dialCallStatus) {
-    case 'completed':
-      return { status: 'completed', answered: true };
+// Far-end leg status, from either <Dial action> (DialCallStatus) or the <Number> status callback
+// (CallStatus). `final` false means "still in progress": it must not overwrite a final outcome.
+export function mapDialStatus(status: string | null | undefined): { status: string; answered: boolean; final: boolean } | null {
+  switch (status) {
+    case 'in-progress':
     case 'answered':
-      return { status: 'completed', answered: true };
+      return { status: 'answered', answered: true, final: false };
+    case 'completed':
+      return { status: 'completed', answered: true, final: true };
     case 'busy':
     case 'no-answer':
     case 'failed':
     case 'canceled':
-      return { status: dialCallStatus, answered: false };
+      return { status, answered: false, final: true };
+    case 'initiated':
+    case 'queued':
+    case 'ringing':
+      return null; // progress noise: nothing to record
     default:
-      return { status: 'failed', answered: false };
+      return { status: 'failed', answered: false, final: true };
   }
 }
