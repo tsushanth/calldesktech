@@ -1,8 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import {
-  toCslbRow, evaluateCslbRow, toCslbLead, cslbDisplayName, parseCslbDate, aspField, streamCslbLeads, cslbSourceKey,
+  toCslbRow, evaluateCslbRow, toCslbLead, cslbDisplayName, parseCslbDate, aspField, streamCslbLeads, cslbSourceKey, findCslbCandidates,
 } from '@/lib/outreach/discovery/homeservicesCaCslb';
-import { evaluateCaCclRow, toCaCclLead, allCaCclLeads, caCclSourceKey, type CaCclRow } from '@/lib/outreach/discovery/childcareCaCdss';
+import { evaluateCaCclRow, toCaCclLead, allCaCclLeads, caCclSourceKey, findCaCclCandidates, type CaCclRow } from '@/lib/outreach/discovery/childcareCaCdss';
 import { looksLikeIndividual } from '@/lib/outreach/discovery/individualName';
 
 const NOW = new Date('2026-09-30T12:00:00Z');
@@ -97,7 +97,7 @@ describe('CSLB contractor master list loader', () => {
     const stream = new ReadableStream<Uint8Array>({
       start(c) { for (let i = 0; i < enc.length; i += 37) c.enqueue(enc.slice(i, i + 37)); c.close(); },
     });
-    const res = await streamCslbLeads({ now: NOW, response: new Response(stream, { headers: { 'content-type': 'text/csv' } }) });
+    const res = await streamCslbLeads({ now: NOW, minRows: 1000, response: new Response(stream, { headers: { 'content-type': 'text/csv' } }) });
     expect(res.errors).toEqual([]);
     expect(res.scanned).toBe(1001);
     expect(res.freshest).toBe('2026-09-29');
@@ -106,10 +106,67 @@ describe('CSLB contractor master list loader', () => {
     expect(res.rejected['classification is not an HVAC/plumbing/electrical/roofing trade']).toBe(1000);
   });
 
-  it('reports an error instead of empty output when the header is missing', async () => {
-    const res = await streamCslbLeads({ now: NOW, response: new Response('<html>error</html>\n<p>x</p>\n') });
-    expect(res.errors[0]).toMatch(/header/);
-    expect(res.candidates).toEqual([]);
+  it('throws instead of returning empty output when the header is missing', async () => {
+    await expect(streamCslbLeads({ now: NOW, response: new Response('<html>error</html>\n<p>x</p>\n') })).rejects.toThrow(/header/);
+  });
+
+  it('throws on a download cut off mid-row (the portal silently ends the response after ~150 s)', async () => {
+    const body = [HEADER, ...Array.from({ length: 1500 }, (_, i) => line({ LicenseNo: String(200000 + i) }))].join('\r\n') + '\r\n';
+    const cut = body.slice(0, body.length - 40); // inside the last row
+    await expect(streamCslbLeads({ now: NOW, minRows: 1000, response: new Response(cut) })).rejects.toThrow(/truncated mid-row/);
+  });
+
+  it('throws when the file is clean but far shorter than the register', async () => {
+    const body = [HEADER, ...Array.from({ length: 1500 }, (_, i) => line({ LicenseNo: String(200000 + i) }))].join('\r\n') + '\r\n';
+    await expect(streamCslbLeads({ now: NOW, response: new Response(body) })).rejects.toThrow(/expected at least 200000/);
+  });
+
+  it('findCslbCandidates turns a failed download into an error and no candidates', async () => {
+    const orig = globalThis.fetch;
+    globalThis.fetch = (async () => new Response('down', { status: 503 })) as typeof fetch;
+    try {
+      const res = await findCslbCandidates(5, { now: NOW });
+      expect(res.candidates).toEqual([]);
+      expect(res.errors[0]).toMatch(/unavailable|503/);
+    } finally { globalThis.fetch = orig; }
+  });
+
+  it('drops a repeated licence number inside the file', async () => {
+    const body = [HEADER, line({ LicenseNo: '5' }), line({ LicenseNo: '5' }), ...Array.from({ length: 1000 }, (_, i) => line({ LicenseNo: String(300000 + i), 'Classifications(s)': 'C27' })), ''].join('\r\n');
+    const res = await streamCslbLeads({ now: NOW, minRows: 1000, response: new Response(body) });
+    expect(res.candidates).toHaveLength(1);
+    expect(res.rejected['duplicate licence number in file']).toBe(1);
+  });
+
+  it('does not reject independents whose names contain brand words as ordinary words or surnames', () => {
+    const why = (n: string) => { const ev = evaluateCslbRow(row({ BusinessName: n }), NOW); return ev.keep ? 'KEPT' : ev.reason; };
+    for (const n of ['INTEGRITY COMFORT SYSTEMS', 'TESLA ELECTRIC INC', 'JACOBS ELECTRIC', 'HOMETOWN SERVICE EXPERTS', 'CLARK ANDREW PLUMBING']) expect(why(n)).toBe('KEPT');
+    for (const n of ['MR ROOTER PLUMBING OF MONTEREY', 'SERVICE EXPERTS HEATING & AIR CONDITIONING', 'ONE HOUR HEATING AND AIR CONDITIONING', 'FLUOR ENTERPRISES INC']) expect(why(n)).toMatch(/national brand/);
+  });
+
+  describe('caller-phone policy', () => {
+    const lead = (o: Partial<Record<string, string>>) => { const r = row(o); const ev = evaluateCslbRow(r, NOW); if (!ev.keep) throw new Error('rejected'); return toCslbLead(r, ev); };
+
+    it('excludes a sole owner, including one trading under a business name or DBA, but keeps the registry facts', () => {
+      const a = lead({ BusinessName: 'GENESIS ELECTRIC', BusinessType: 'Sole Owner', 'Classifications(s)': 'C10' });
+      expect(a.callerPhoneExcluded).toBe('sole proprietor');
+      expect(a.phone).toBe('(559) 555-0100');
+      expect(a.licenseId).toBe('900001');
+      const b = lead({ BusinessName: 'RANCHO VALLEY HEATING', 'BUS-NAME-2': 'SMITH JOHN', FullBusinessName: 'JOHN SMITH DBA RANCHO VALLEY HEATING', BusinessType: 'Sole Owner', 'Classifications(s)': 'C20' });
+      expect(b.callerPhoneExcluded).toBe('sole proprietor');
+    });
+
+    it('keeps corporations and LLCs callable, even when the trade name looks like a person', () => {
+      expect(lead({ BusinessType: 'Corporation' }).callerPhoneExcluded).toBeNull();
+      expect(lead({ BusinessType: 'Limited Liability' }).callerPhoneExcluded).toBeNull();
+      expect(lead({ BusinessName: 'JIMENEZ HYDRONICS', BusinessType: 'Corporation' }).callerPhoneExcluded).toBeNull();
+      expect(lead({ BusinessName: 'JIMENEZ HYDRONICS', BusinessType: 'Limited Liability' }).callerPhoneExcluded).toBeNull();
+    });
+
+    it('excludes a person-named partnership but not a trade-named one', () => {
+      expect(lead({ BusinessName: 'JOHN SMITH', BusinessType: 'Partnership', 'Classifications(s)': 'C36' }).callerPhoneExcluded).toBe('person-named business');
+      expect(lead({ BusinessName: 'SMITH PLUMBING', BusinessType: 'Partnership' }).callerPhoneExcluded).toBeNull();
+    });
   });
 });
 
@@ -162,8 +219,53 @@ describe('California CDSS child care center loader', () => {
     expect(res.rejected['already known']).toBe(1);
   });
 
-  it('errors rather than returning nothing when the layer shrinks', async () => {
-    const res = await allCaCclLeads({ fetchRows: async () => [ccl()] });
-    expect(res.errors[0]).toMatch(/layer may have changed/);
+  it('throws rather than returning nothing when the layer shrinks', async () => {
+    await expect(allCaCclLeads({ fetchRows: async () => [ccl()] })).rejects.toThrow(/layer may have changed/);
+  });
+
+  it('throws when the fetch fails and findCaCclCandidates reports it as an error', async () => {
+    await expect(allCaCclLeads({ fetchRows: async () => { throw new Error('HTTP 500'); } })).rejects.toThrow(/childcare ca ccl: HTTP 500/);
+    const orig = globalThis.fetch;
+    globalThis.fetch = (async () => new Response('x', { status: 400 })) as typeof fetch;
+    try {
+      const res = await findCaCclCandidates(5);
+      expect(res.candidates).toEqual([]);
+      expect(res.errors[0]).toMatch(/childcare ca ccl/);
+    } finally { globalThis.fetch = orig; }
+  });
+
+  it('drops a repeated facility number', async () => {
+    const rows = Array.from({ length: 1200 }, (_, i) => ccl({ FAC_NBR: 700000 + i, NAME: `CENTER ${i}` }));
+    rows.push(ccl({ FAC_NBR: 700000, NAME: 'CENTER 0 AGAIN' }));
+    const res = await allCaCclLeads({ fetchRows: async () => rows });
+    expect(res.candidates).toHaveLength(1200);
+    expect(res.rejected['duplicate facility number']).toBe(1);
+  });
+
+  it('chain filter keeps independents named with chain-like words', () => {
+    const why = (n: string) => { const ev = evaluateCaCclRow(ccl({ NAME: n })); return ev.keep ? 'KEPT' : ev.reason; };
+    expect(why('4CS APPLES AND BANANAS PRESCHOOL')).toBe('KEPT');
+    expect(why('LITTLE SUNSHINE HOUSE')).toBe('KEPT');
+    expect(why('SUNSHINE HOUSE BENICIA')).toMatch(/chain/);
+    expect(why('BANANAS CHILD CARE')).toMatch(/chain/);
+  });
+
+  describe('caller-phone policy', () => {
+    const lead = (o: Partial<CaCclRow>) => { const r = ccl(o); const ev = evaluateCaCclRow(r); if (!ev.keep) throw new Error('rejected'); return toCaCclLead(r, ev); };
+
+    it('leaves a centre callable', () => {
+      expect(lead({}).callerPhoneExcluded).toBeNull();
+      expect(lead({ FAC_TYPE_DESC: 'INFANT CENTER' }).callerPhoneExcluded).toBeNull();
+    });
+
+    it('excludes a home-based type', () => {
+      expect(lead({ FAC_TYPE_DESC: 'FAMILY CHILD CARE HOME' }).callerPhoneExcluded).toBe('home-based provider');
+    });
+
+    it('does not mark business or school names as person-named (they read like names to individualName)', () => {
+      for (const n of ['SUNSHINE DAY CAMP-OAK HILLS', 'WHIMSY WILLOW', 'BUILDING KIDZ OF PALO ALTO', 'ANSEL ADAMS', 'CASA DEI BAMBINI', 'ARISE FAMILY CHILDCARE CENTER LLC']) {
+        expect(lead({ NAME: n }).callerPhoneExcluded).toBeNull();
+      }
+    });
   });
 });

@@ -1,5 +1,8 @@
 import { findHeader, mapRow, makeRowParser } from './delimitedStream';
-import { DISCOVERY_UA } from './http';
+import { createReadStream } from 'node:fs';
+import { Readable } from 'node:stream';
+import { DISCOVERY_UA, sleep } from './http';
+import { callerPhoneExclusion } from './callerPhonePolicy';
 import { titleCase, cityState, describeRegistryLead, emptyResult, formatUsPhone, reject, type RegistryLead, type RegistryResult } from './registryCommon';
 
 // Home-services discovery from the California Contractors State License Board
@@ -114,11 +117,28 @@ const NAME_TRADES: { re: RegExp; code: string }[] = [
 const GENERIC_LABEL = 'licensed contractor';
 
 // National brands, franchises and the very large California electrical /
-// mechanical / solar firms that hold CSLB licences but are not a small service
-// business with a front desk of their own.
-const BIG_HOMESERVICES = /\b(roto[- ]?rooter|mr\.? rooter|mr\.? electric|one hour (heating|air)|benjamin franklin plumbing|aire serv|ars\/?rescue rooter|service experts|home depot|lowe'?s|sears|comfort systems|emcor|limbach|\bapi group\b|rosendin|cupertino electric|helix electric|sunrun|sunpower|tesla|solarcity|vivint solar|sunnova|bergelectric|southland industries|abm industries|johnson controls|siemens|honeywell|trane|schneider electric|ameresco|bechtel|fluor|kiewit|jacobs|aecom|skanska|turner construction|webcor|swinerton|\bdpr construction\b|mcCarthy building|clark construction|hensel phelps|sundt|granite construction|pacific gas|southern california edison|mccarthy)\b/i;
+// mechanical / solar firms. Brand words that are also surnames or ordinary words (Tesla, Jacobs, Sears,
+// Comfort Systems, Service Experts) are matched only in their brand form, because the first version
+// rejected independents such as "Integrity Comfort Systems", "Tesla Electric Inc", "Jacobs Electric",
+// "Hometown Service Experts" and "Mccarthy James R".
+// These hold CSLB licences but are not a small service business with a front desk of their own.
+const BIG_HOMESERVICES = /(?:\b(?:roto[- ]?rooter|mr\.? rooter|mr\.? electric|one hour (?:heating|air)|benjamin franklin plumbing|aire serv|ars\/?rescue rooter|home depot|lowe'?s home|transform sears|sears home|comfort systems usa|emcor|limbach|api group inc|rosendin|cupertino electric|sunrun|sunpower (?:corp|energy systems)|solarcity|vivint solar|sunnova|bergelectric|southland industries|abm industries|johnson controls|siemens (?:mobility|industry|building|inc)|honeywell|trane (?:u s|us|technologies|inc)|schneider electric|ameresco|bechtel|kiewit|aecom|skanska|turner construction (?:co|corp|services?)|webcor|swinerton|dpr construction|mccarthy building|hensel phelps|sundt|granite construction|pacific gas|southern california edison|helix electric|fluor (?:enterprises|corp|flatiron|daniel)|jacobs engineering|tesla,? (?:inc|energy|motors))\b|(?:^|\| )(?:service experts|clark construction|fluor)\b)/i;
 
 export type Evaluation = { keep: true; adjust: number; reasons: string[]; typeLabel: string } | { keep: false; reason: string };
+
+// Legal forms that are an entity, not a person (a partnership is people, so it is not listed). A person-looking name on one of these is a trade name
+// ("Jimenez Hydronics" as a corporation), so the person-named test is not applied to them.
+const ENTITY_TYPE = /^(corporation|limited liability|llc|jointventure|joint venture)/i;
+
+// Caller-phone policy (decided 2026-10-01): a sole owner is licensed in their own name and the file's
+// phone is probably a personal line, so the registry phone stays off callers' lists. Applies to every
+// sole owner, including one trading under a DBA, because the licensee is still the person.
+export function cslbCallerPhoneExclusion(r: CslbRow): string | null {
+  const sole = (r.businessType ?? '').trim().toLowerCase() === 'sole owner';
+  const entity = ENTITY_TYPE.test((r.businessType ?? '').trim());
+  const { name } = cslbDisplayName(r);
+  return callerPhoneExclusion({ name: entity && !sole ? 'Business' : name, soleProprietor: sole, typeLabel: null });
+}
 
 // "09/25/2026" -> Date (CSLB writes MM/DD/YYYY).
 export function parseCslbDate(raw: string | null | undefined): Date | null {
@@ -151,7 +171,7 @@ export function evaluateCslbRow(r: CslbRow, now = new Date()): Evaluation {
   if (/wc susp/i.test(r.secondary ?? '')) return { keep: false, reason: "workers' compensation suspension pending" };
   const exp = parseCslbDate(r.expiration);
   if (!exp || exp.getTime() < now.getTime()) return { keep: false, reason: 'licence expired' };
-  const allNames = `${r.businessName} ${r.name2 ?? ''} ${r.fullName ?? ''}`;
+  const allNames = [r.businessName, r.name2, r.fullName].filter(Boolean).join(' | ');
   if (BIG_HOMESERVICES.test(allNames)) return { keep: false, reason: 'national brand, franchise or large firm name' };
   const phone = formatUsPhone(r.phone);
   if (!phone) return { keep: false, reason: 'no usable phone (the file never carries an email)' };
@@ -205,6 +225,7 @@ export function toCslbLead(r: CslbRow, ev: { adjust: number; reasons: string[]; 
     location,
     description: describeRegistryLead({ typeLabel: ev.typeLabel, registryName: CSLB_REGISTRY, location, legalName, name, listNoun: LIST_NOUN }),
     signalDetail: `CSLB contractor licence ${r.licenseNo} (${r.classes.join(' ')})${phone ? `; registry phone ${phone}` : ''}`,
+    callerPhoneExcluded: cslbCallerPhoneExclusion(r),
     adjust: ev.adjust,
     reasons: ev.reasons,
     email: null,
@@ -267,53 +288,90 @@ export async function fetchCslbMasterCsv(signal?: AbortSignal): Promise<Response
 
 const REQUIRED = [CSLB_COL.licenseNo, CSLB_COL.businessName, CSLB_COL.phone, CSLB_COL.classes, CSLB_COL.status];
 
-// Streams the master list and keeps rows that pass evaluateCslbRow. `response`
-// is injectable for tests and for a local copy of the file.
+// The portal's CSV response has no Content-Length and its front end silently ENDS the response after
+// about 150 s (measured 2026-10-01: 34 MB, 61 MB and 32 MB of a ~78 MB file, each a clean 200 that stops
+// mid-row). A truncated file must never be treated as the whole register, so the stream is only trusted
+// when the last row is complete and at least MIN_ROWS rows
+// were read (the file holds ~245k and only grows). Anything else throws.
+export const CSLB_MIN_ROWS = 200_000;
+
+class CslbTruncated extends Error {}
+
+// One pass over a CSV response. Throws on any failure: no partial result is ever returned.
+async function readCslbResponse(res: Response, now: Date, opts: { maxRows?: number; isKnown?: (k: string) => boolean; minRows: number }) {
+  const result: RegistryResult & { freshest: string | null } = { ...emptyResult(), freshest: null };
+  const decoder = new TextDecoder('utf-8');
+  const parser = makeRowParser('comma');
+  const seen = new Set<string>();
+  let header: string[] | null = null;
+  let freshestTs = 0;
+  const take = (raw: string[]) => {
+    if (!header) { if (raw.length > 1) header = findHeader(raw, REQUIRED); return; }
+    const o = mapRow(header, raw);
+    if (Object.values(o).every((x) => x === '')) return;
+    result.scanned++;
+    const r = toCslbRow(o);
+    const lu = parseCslbDate(r.lastUpdate)?.getTime() ?? 0;
+    if (lu > freshestTs) { freshestTs = lu; result.freshest = new Date(lu).toISOString().slice(0, 10); }
+    if (opts.maxRows && result.candidates.length >= opts.maxRows) return;
+    const ev = evaluateCslbRow(r, now);
+    if (!ev.keep) { reject(result, ev.reason); return; }
+    const lead = toCslbLead(r, ev);
+    if (seen.has(lead.sourceKey)) { reject(result, 'duplicate licence number in file'); return; }
+    seen.add(lead.sourceKey);
+    if (opts.isKnown?.(lead.sourceKey)) { reject(result, 'already known'); return; }
+    result.candidates.push(lead);
+  };
+  const reader = res.body!.getReader();
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    if (value) {
+      const text = decoder.decode(value, { stream: true });
+      for (const raw of parser.feed(text)) take(raw);
+    }
+  }
+  const last = parser.end();
+  if (!header) throw new Error(`CSLB master CSV: header with ${REQUIRED.join(', ')} not found; file layout may have changed`);
+  if (last) {
+    // A row that is not newline-terminated: complete only if it has every column.
+    if (last.length !== (header as string[]).length) throw new CslbTruncated(`CSLB master CSV truncated mid-row after ${result.scanned} rows`);
+    take(last);
+  }
+  if (result.scanned < opts.minRows) throw new CslbTruncated(`CSLB master CSV: only ${result.scanned} rows (expected at least ${opts.minRows}); download cut short or file layout changed`);
+  return result;
+}
+
+// Streams the master list and keeps rows that pass evaluateCslbRow. `response` is injectable for tests
+// and for a local copy of the file. THROWS if the download fails or is incomplete; a truncated download
+// is retried once from scratch (the portal has no Range support), after a pause, and then thrown.
 export async function streamCslbLeads(
-  opts: { now?: Date; maxRows?: number; isKnown?: (sourceKey: string) => boolean; response?: Response; timeoutMs?: number; log?: (m: string) => void } = {},
+  opts: { now?: Date; maxRows?: number; isKnown?: (sourceKey: string) => boolean; response?: Response; timeoutMs?: number; minRows?: number; attempts?: number; retryDelayMs?: number; log?: (m: string) => void } = {},
 ): Promise<RegistryResult & { freshest: string | null }> {
   const now = opts.now ?? new Date();
-  const result: RegistryResult & { freshest: string | null } = { ...emptyResult(), freshest: null };
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), opts.timeoutMs ?? 300_000);
-  try {
-    const res = opts.response ?? (await fetchCslbMasterCsv(controller.signal));
-    const decoder = new TextDecoder('utf-8');
-    const parser = makeRowParser('comma');
-    let header: string[] | null = null;
-    let freshestTs = 0;
-    const take = (raw: string[]) => {
-      if (!header) { if (raw.length > 1) header = findHeader(raw, REQUIRED); return; }
-      const o = mapRow(header, raw);
-      if (Object.values(o).every((x) => x === '')) return;
-      result.scanned++;
-      const r = toCslbRow(o);
-      const lu = parseCslbDate(r.lastUpdate)?.getTime() ?? 0;
-      if (lu > freshestTs) { freshestTs = lu; result.freshest = new Date(lu).toISOString().slice(0, 10); }
-      if (opts.maxRows && result.candidates.length >= opts.maxRows) return;
-      const ev = evaluateCslbRow(r, now);
-      if (!ev.keep) { reject(result, ev.reason); return; }
-      const lead = toCslbLead(r, ev);
-      if (opts.isKnown?.(lead.sourceKey)) { reject(result, 'already known'); return; }
-      result.candidates.push(lead);
-    };
-    const reader = res.body!.getReader();
-    for (;;) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      if (value) for (const raw of parser.feed(decoder.decode(value, { stream: true }))) take(raw);
+  const attempts = opts.response ? 1 : Math.max(1, opts.attempts ?? 2);
+  let lastErr: unknown;
+  for (let attempt = 1; attempt <= attempts; attempt++) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), opts.timeoutMs ?? 300_000);
+    try {
+      // CSLB_MASTER_CSV_PATH: a copy of MasterLicenseData.csv saved from the portal in a browser, for hosts whose
+      // link to the portal is too slow to finish inside the portal's ~150 s response cut-off.
+      const localPath = process.env.CSLB_MASTER_CSV_PATH;
+      const res = opts.response ?? (localPath ? new Response(Readable.toWeb(createReadStream(localPath)) as unknown as ReadableStream) : await fetchCslbMasterCsv(controller.signal));
+      const result = await readCslbResponse(res, now, { maxRows: opts.maxRows, isKnown: opts.isKnown, minRows: opts.minRows ?? CSLB_MIN_ROWS });
+      opts.log?.(`streamed ${result.scanned} rows from the CSLB master list`);
+      return result;
+    } catch (e) {
+      lastErr = e;
+      if (!(e instanceof CslbTruncated) && !(e instanceof Error && e.name === 'AbortError')) break;
+      opts.log?.(`CSLB attempt ${attempt}/${attempts} failed: ${e instanceof Error ? e.message : String(e)}`);
+      if (attempt < attempts) await sleep(opts.retryDelayMs ?? 60_000);
+    } finally {
+      clearTimeout(timer);
     }
-    const last = parser.end();
-    if (last) take(last);
-    if (!header) throw new Error(`CSLB master CSV: header with ${REQUIRED.join(', ')} not found; file layout may have changed`);
-    if (result.scanned < 1000) throw new Error(`CSLB master CSV: only ${result.scanned} rows; file layout may have changed`);
-    opts.log?.(`streamed ${result.scanned} rows from the CSLB master list`);
-  } catch (e) {
-    result.errors.push(`homeservices ca cslb: ${e instanceof Error ? e.message : String(e)}`);
-  } finally {
-    clearTimeout(timer);
   }
-  return result;
+  throw new Error(`homeservices ca cslb: ${lastErr instanceof Error ? lastErr.message : String(lastErr)}`);
 }
 
 const DAY_MS = 86_400_000;
@@ -326,10 +384,15 @@ export async function findCslbCandidates(
 ): Promise<RegistryResult> {
   const now = opts.now ?? new Date();
   const result = emptyResult();
-  const all = await streamCslbLeads({ now, isKnown: opts.isKnown, log: opts.log });
+  let all: Awaited<ReturnType<typeof streamCslbLeads>>;
+  try {
+    all = await streamCslbLeads({ now, isKnown: opts.isKnown, log: opts.log });
+  } catch (e) {
+    result.errors.push(e instanceof Error ? e.message : String(e));
+    return result;
+  }
   result.scanned = all.scanned;
   result.rejected = all.rejected;
-  result.errors.push(...all.errors);
   if (!all.candidates.length) return result;
   const day = Math.floor(now.getTime() / DAY_MS);
   const start = opts.startOverride ?? (day * max) % all.candidates.length;

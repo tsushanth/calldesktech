@@ -1,5 +1,6 @@
 import { DISCOVERY_UA, sleep } from './http';
 import { scoreChildcareRow, toCapacity } from './childcareUs';
+import { callerPhoneExclusion } from './callerPhonePolicy';
 import { titleCase, cityState, describeRegistryLead, emptyResult, formatUsPhone, reject, type RegistryLead, type RegistryResult } from './registryCommon';
 
 // California child care CENTERS from the California Department of Social
@@ -32,6 +33,7 @@ export const CA_CCL_REGISTRY = 'California Department of Social Services Communi
 const LIST_NOUN = 'facility licensing data';
 const TYPE_LABEL = 'licensed child care center';
 const PAGE = 1000;
+const WHERE = "PROGRAM_TYPE='CHILD CARE' AND STATUS=3";
 
 export interface CaCclRow {
   FAC_NBR?: number | string | null;
@@ -48,7 +50,7 @@ export interface CaCclRow {
 
 // Same intent as childcareUs.CHAIN (which is not exported), extended with the
 // California-heavy operators and the large non-profit after-school providers.
-const CHAIN = /\b(kindercare|knowledge (beginnings|universal)|bright horizons|goddard school|primrose school|la petite academy|childtime|tutor time|learning care group|everbrook|right at school|kids ?r ?kids|sunshine house|cr[eè]me de la cr[eè]me|lightbridge academy|celebree|guidepost montessori|new horizon academy|children'?s lighthouse|cadence education|endeavor schools|the learning experience|nobel learning|childcare network|\bkla schools\b|young scholars academy of|\bymca\b|\bywca\b|boys (and|&) girls club|kidango|bananas|learning without tears|jcc|jewish community center|city of|county of|ucla|uc davis|uc berkeley|ucsf|stanford|head start|\bymca\b|bay area community services|ccrc|first 5)\b/i;
+const CHAIN = /\b(kindercare|knowledge (beginnings|universal)|bright horizons|goddard school|primrose school|la petite academy|childtime|tutor time|learning care group|everbrook|right at school|kids ?r ?kids|(?<!little )sunshine house|cr[eè]me de la cr[eè]me|lightbridge academy|celebree|guidepost montessori|new horizon academy|children'?s lighthouse|cadence education|endeavor schools|the learning experience|nobel learning|childcare network|\bkla schools\b|young scholars academy of|\bymca\b|\bywca\b|boys (and|&) girls club|kidango|^bananas\b|learning without tears|jcc|jewish community center|city of|county of|ucla|uc davis|uc berkeley|ucsf|stanford|head start|\bymca\b|bay area community services|ccrc|first 5)\b/i;
 
 export type Evaluation = { keep: true; adjust: number; reasons: string[] } | { keep: false; reason: string };
 
@@ -67,6 +69,18 @@ export function evaluateCaCclRow(r: CaCclRow): Evaluation {
   // is the normal state, so the penalty is halved rather than counted in full.
   const reasons = [...s.reasons, '+5: registry phone published for phone-first follow-up (offsets half of the no-email penalty)'];
   return { keep: true, adjust: s.adjust + 5, reasons };
+}
+
+// Caller-phone policy (decided 2026-10-01). The layer only carries CHILD CARE centres (day care, infant,
+// school-age and ill-child centres by FAC_TYPE_DESC); family child care homes are not in it, so the
+// home-based test runs on FAC_TYPE_DESC. The layer has no licensee/operator name, only the facility
+// NAME, and the person-named test is deliberately NOT applied to it: on the 10,951 kept centres it
+// flagged 705 (6.4%) and every one inspected was a business or a school ("Sunshine Day Camp", "Whimsy
+// Willow", "Building Kidz of Palo Alto", "Ansel Adams", "Casa Dei Bambini"), none a sole proprietor.
+export function caCclCallerPhoneExclusion(r: CaCclRow): string | null {
+  const name = (r.NAME ?? '').replace(/\s+/g, ' ').trim();
+  const why = callerPhoneExclusion({ name, typeLabel: (r.FAC_TYPE_DESC ?? '').trim() || null });
+  return why === 'person-named business' ? null : why;
 }
 
 export function caCclSourceKey(r: CaCclRow): string {
@@ -94,6 +108,7 @@ export function toCaCclLead(r: CaCclRow, ev: { adjust: number; reasons: string[]
     location,
     description: describeRegistryLead({ typeLabel: TYPE_LABEL, registryName: CA_CCL_REGISTRY, location, legalName: null, name, listNoun: LIST_NOUN }),
     signalDetail: `CA CDSS CCL facility ${licenseId}${r.COUNTY ? `, ${r.COUNTY.replace(/\s*county$/i, '').trim()} County` : ''}${capacity ? `; capacity ${capacity}` : ''}${phone ? `; phone ${phone}` : ''}`,
+    callerPhoneExcluded: caCclCallerPhoneExclusion(r),
     adjust: ev.adjust,
     reasons: ev.reasons,
     email: null,
@@ -107,7 +122,7 @@ interface ArcPage { features?: { attributes: CaCclRow & { ObjectId?: number } }[
 
 async function fetchPage(offset: number, log: (m: string) => void): Promise<ArcPage> {
   const qs = new URLSearchParams({
-    where: "PROGRAM_TYPE='CHILD CARE' AND STATUS=3",
+    where: WHERE,
     outFields: 'FAC_NBR,NAME,PROGRAM_TYPE,FAC_TYPE_DESC,STATUS,CAPACITY,RES_CITY,RES_STATE,FAC_PHONE_NBR,COUNTY',
     returnGeometry: 'false', orderByFields: 'ObjectId', resultOffset: String(offset), resultRecordCount: String(PAGE), f: 'json',
   });
@@ -120,9 +135,10 @@ async function fetchPage(offset: number, log: (m: string) => void): Promise<ArcP
         if (!j.error && Array.isArray(j.features)) return j;
         throw new Error(j.error?.message ?? 'unexpected response shape');
       }
-      if (res.status < 500 && res.status !== 429) throw new Error(`HTTP ${res.status}`);
+      if (res.status < 500 && res.status !== 429) throw new Error(`HTTP ${res.status}`, { cause: 'fatal' });
     } catch (e) {
-      if (attempt === 3) throw e;
+      // A 4xx (other than 429) will not get better by waiting: fail at once instead of sleeping through the retries.
+      if (attempt === 3 || (e instanceof Error && e.cause === 'fatal')) throw e;
       log(`CA CCL layer retry in ${delay}ms (${e instanceof Error ? e.message : String(e)})`);
     }
     await sleep(delay);
@@ -131,13 +147,23 @@ async function fetchPage(offset: number, log: (m: string) => void): Promise<ArcP
   throw new Error('CA CCL layer unavailable');
 }
 
+async function fetchCount(): Promise<number | null> {
+  const qs = new URLSearchParams({ where: WHERE, returnCountOnly: 'true', f: 'json' });
+  const res = await fetch(`${CA_CCL_LAYER_URL}/query?${qs}`, { headers: { 'User-Agent': DISCOVERY_UA, Accept: 'application/json' } });
+  if (!res.ok) return null;
+  const j = (await res.json()) as { count?: number };
+  return typeof j.count === 'number' ? j.count : null;
+}
+
+// THROWS on any failure or incomplete read: a layer that pages short must not look like the whole register.
 export async function allCaCclLeads(
-  opts: { isKnown?: (sourceKey: string) => boolean; log?: (m: string) => void; fetchRows?: () => Promise<CaCclRow[]> } = {},
+  opts: { isKnown?: (sourceKey: string) => boolean; log?: (m: string) => void; fetchRows?: () => Promise<CaCclRow[]>; minRows?: number } = {},
 ): Promise<RegistryResult> {
   const result = emptyResult();
   const log = opts.log ?? (() => {});
+  const minRows = opts.minRows ?? 1000;
+  let rows: CaCclRow[] = [];
   try {
-    let rows: CaCclRow[] = [];
     if (opts.fetchRows) rows = await opts.fetchRows();
     else {
       for (let offset = 0; ; offset += PAGE) {
@@ -147,18 +173,24 @@ export async function allCaCclLeads(
         if (!feats.length || !page.exceededTransferLimit) break;
         await sleep(300);
       }
-    }
-    if (rows.length < 1000) throw new Error(`CA CCL layer returned only ${rows.length} child care rows; layer may have changed`);
-    for (const r of rows) {
-      result.scanned++;
-      const ev = evaluateCaCclRow(r);
-      if (!ev.keep) { reject(result, ev.reason); continue; }
-      const lead = toCaCclLead(r, ev);
-      if (opts.isKnown?.(lead.sourceKey)) { reject(result, 'already known'); continue; }
-      result.candidates.push(lead);
+      // The layer is edited daily; allow a small drift but not a short read.
+      const expected = await fetchCount().catch(() => null);
+      if (expected != null && rows.length < expected * 0.99) throw new Error(`read ${rows.length} rows but the layer reports ${expected}`);
     }
   } catch (e) {
-    result.errors.push(`childcare ca ccl: ${e instanceof Error ? e.message : String(e)}`);
+    throw new Error(`childcare ca ccl: ${e instanceof Error ? e.message : String(e)}`);
+  }
+  if (rows.length < minRows) throw new Error(`childcare ca ccl: layer returned only ${rows.length} child care rows; layer may have changed`);
+  const seen = new Set<string>();
+  for (const r of rows) {
+    result.scanned++;
+    const ev = evaluateCaCclRow(r);
+    if (!ev.keep) { reject(result, ev.reason); continue; }
+    const lead = toCaCclLead(r, ev);
+    if (seen.has(lead.sourceKey)) { reject(result, 'duplicate facility number'); continue; }
+    seen.add(lead.sourceKey);
+    if (opts.isKnown?.(lead.sourceKey)) { reject(result, 'already known'); continue; }
+    result.candidates.push(lead);
   }
   return result;
 }
@@ -171,10 +203,15 @@ export async function findCaCclCandidates(
 ): Promise<RegistryResult> {
   const now = opts.now ?? new Date();
   const result = emptyResult();
-  const all = await allCaCclLeads({ isKnown: opts.isKnown, log: opts.log });
+  let all: RegistryResult;
+  try {
+    all = await allCaCclLeads({ isKnown: opts.isKnown, log: opts.log });
+  } catch (e) {
+    result.errors.push(e instanceof Error ? e.message : String(e));
+    return result;
+  }
   result.scanned = all.scanned;
   result.rejected = all.rejected;
-  result.errors.push(...all.errors);
   if (!all.candidates.length) return result;
   const day = Math.floor(now.getTime() / DAY_MS);
   const start = opts.startOverride ?? (day * max) % all.candidates.length;
