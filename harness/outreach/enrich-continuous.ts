@@ -10,6 +10,7 @@
 //     OUTREACH_WEBSEARCH_MAX_PER_RUN=30 tsx harness/outreach/enrich-continuous.ts
 //   MAX_BATCHES=1 ...   # pilot: a single batch of BATCH leads, then exit
 //
+// Leads named after a person (sole proprietors) are skipped by default (SKIP_INDIVIDUALS=0 to include them).
 // Stops when nothing is left, when ~/.calldesk-enrich/STOP exists, or after MAX_BATCHES.
 import fs from 'node:fs';
 import os from 'node:os';
@@ -35,7 +36,7 @@ async function main() {
     for (;;) {
       if (fs.existsSync(STOP)) { log('STOP file present, exiting'); return; }
       if (batches >= MAX_BATCHES) { log('MAX_BATCHES reached'); return; }
-      const r = await enrichBacklogBatch(db, product, { limit: BATCH, sourcePrefixes: prefixes, shard: { index: si, count: sc } });
+      const r = await enrichBacklogBatch(db, product, { limit: BATCH, sourcePrefixes: prefixes, shard: { index: si, count: sc }, skipIndividuals: process.env.SKIP_INDIVIDUALS !== '0' });
       batches++; found += r.contactsFound;
       const attempted = Object.values(r.statuses).reduce((a, b) => a + b, 0);
       done += attempted;

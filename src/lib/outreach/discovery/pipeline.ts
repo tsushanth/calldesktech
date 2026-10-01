@@ -13,6 +13,7 @@ import { findTelephonyPlatformCandidates } from './telephonyPlatformsSearch';
 import { findSttTtsSignalCandidates } from './sttTtsSignalSearch';
 import { checkDomainForPlatforms } from '../signals/techFingerprint';
 import { LeadIndex } from './dedupe';
+import { looksLikeIndividual } from './individualName';
 import { researchAgency, type Dossier } from '../research';
 import { findSearchCandidates, queriesForDay } from './searchSource';
 import { findFreightBrokerCandidates, describeBroker, isFreeMail } from './freightFmcsa';
@@ -1238,12 +1239,13 @@ export interface EnrichBacklogResult { pending: number; contactsFound: number; s
  */
 export async function enrichBacklogBatch(
   db: Db, product: ProductConfig,
-  opts: { limit: number; sourcePrefixes?: string[]; shard?: { index: number; count: number } },
+  opts: { limit: number; sourcePrefixes?: string[]; shard?: { index: number; count: number }; skipIndividuals?: boolean },
 ): Promise<EnrichBacklogResult> {
   const existing = await selectAll<LeadRow>(() => scopeToProduct(db.from(leadsTable(product)).select('*'), product));
   const index = new LeadIndex<LeadRow>(existing);
   const inScope = (r: LeadRow) => {
     if (opts.sourcePrefixes?.length && !opts.sourcePrefixes.some((p) => (r.source_key ?? '').startsWith(p))) return false;
+    if (opts.skipIndividuals && looksLikeIndividual(r.company_name)) return false;
     if (opts.shard && opts.shard.count > 1) {
       const h = parseInt(r.id.replace(/-/g, '').slice(-6), 16);
       if (h % opts.shard.count !== opts.shard.index) return false;
