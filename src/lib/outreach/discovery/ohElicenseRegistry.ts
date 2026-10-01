@@ -1,6 +1,7 @@
 import { fetchTylerRoster } from './tylerRoster';
 import { cleanEmail, isFreeMail } from './freightFmcsa';
 import { looksLikeIndividual } from './individualName';
+import { callerPhoneExclusion } from './callerPhonePolicy';
 import { titleCase, cityState, describeRegistryLead, emptyResult, formatUsPhone, reject, splitDba, type RegistryLead, type RegistryResult } from './registryCommon';
 
 // Two Ohio licensee rosters from the state's own eLicense Online "Generate
@@ -51,6 +52,8 @@ export type Evaluation = { keep: true; adjust: number; reasons: string[]; typeLa
 export interface OhOcilbRow {
   credential: string; // FormattedCredential, e.g. "EL.10597"
   person: string; // qualifying individual
+  lastName: string; // qualifying individual's surname
+  expires: string | null; // MM/DD/YYYY
   type: string; // EL | HV | HY | PL | RE | TA
   status: string;
   company: string;
@@ -74,6 +77,8 @@ export function toOhOcilbRow(o: Record<string, string>): OhOcilbRow {
   return {
     credential: (o['FormattedCredential'] ?? '').trim(),
     person: (o['Name'] ?? '').trim(),
+    lastName: (o['LastName'] ?? '').trim(),
+    expires: v('Expiration Date'),
     type: (o['Type'] ?? '').trim().toUpperCase(),
     status: (o['Status'] ?? '').trim().toUpperCase(),
     company: (o['Company'] ?? '').replace(/\s+/g, ' ').trim(),
@@ -85,9 +90,31 @@ export function toOhOcilbRow(o: Record<string, string>): OhOcilbRow {
   };
 }
 
-export function evaluateOhOcilbRow(r: OhOcilbRow): Evaluation {
+const ENTITY_SUFFIX = /\b(inc|incorporated|llc|l\.?l\.?c|llp|lllp|lp|ltd|limited|corp|corporation|co|company|pllc|pc|p\.c|association|assoc|partnership|cooperative|trust)\b\.?/i;
+
+function mdy(raw: string | null | undefined): Date | null {
+  const m = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/.exec((raw ?? '').trim());
+  return m ? new Date(Date.UTC(Number(m[3]), Number(m[1]) - 1, Number(m[2]))) : null;
+}
+
+// The OCILB roster has no entity-type column. A company with no corporate suffix that carries the qualifying
+// individual's own surname ("Thomas Cornwell Electric" qualified by Thomas J Cornwell) is a sole proprietorship
+// run in that person's name; so is a company whose name is just a person.
+export function ocilbSoleProprietor(r: OhOcilbRow): boolean {
+  if (ENTITY_SUFFIX.test(r.company)) return false;
+  if (looksLikeIndividual(r.company)) return true;
+  const last = (r.lastName || r.person.split(/\s+/).filter((t) => !/^(jr|sr|ii|iii|iv)\.?$/i.test(t)).pop() || '').toLowerCase();
+  if (last.length < 3) return false;
+  return r.company.toLowerCase().split(/[^a-z']+/).includes(last);
+}
+
+// A row still marked ACTIVE whose expiry is more than 60 days past is a stale record, not a live licence
+// ('ACTIVE IN RENEWAL' rows are expected to be past expiry and are kept).
+export function evaluateOhOcilbRow(r: OhOcilbRow, now = new Date()): Evaluation {
   if (!r.credential) return { keep: false, reason: 'no licence id' };
   if (!r.status.startsWith('ACTIVE')) return { keep: false, reason: 'licence not active' };
+  const exp = mdy(r.expires);
+  if (r.status === 'ACTIVE' && exp && now.getTime() - exp.getTime() > 60 * 86_400_000) return { keep: false, reason: 'licence marked active but expired more than 60 days ago' };
   const typeLabel = OH_OCILB_TYPES[r.type];
   if (!typeLabel) return { keep: false, reason: 'licence type is not an HVAC/plumbing/electrical/refrigeration contractor' };
   if (!r.company) return { keep: false, reason: 'no business name' };
@@ -122,6 +149,7 @@ export function toOhOcilbLead(r: OhOcilbRow, ev: { adjust: number; reasons: stri
   return {
     sourceKey: `homeservices:oh:${id}`,
     name, legalName, city: r.city ? titleCase(r.city) : null, state, phone, licenseId: id,
+    callerPhoneExcluded: phone ? callerPhoneExclusion({ name, soleProprietor: ocilbSoleProprietor(r) }) : null,
     registryName: OH_OCILB_REGISTRY,
     typeLabel: ev.typeLabel,
     // The qualifying individual is a named person in a public record: kept for a
@@ -218,6 +246,9 @@ export function toOhRealEstateLead(r: OhRealEstateRow, ev: { adjust: number; rea
     sourceKey: `realestate:oh:${id}`,
     name, legalName, city: r.city ? titleCase(r.city) : null, state,
     phone: null,
+    // The roster has no phone, so nothing callable is exposed either way; the reason is recorded so a phone
+    // added later by website discovery of a sole proprietor is not treated as a business line.
+    callerPhoneExcluded: callerPhoneExclusion({ name: r.type === 'Sole Proprietor' ? name : '', soleProprietor: r.type === 'Sole Proprietor' }),
     licenseId: id,
     registryName: OH_RE_REGISTRY,
     typeLabel: ev.typeLabel,
@@ -238,26 +269,37 @@ export function toOhRealEstateLead(r: OhRealEstateRow, ev: { adjust: number; rea
 const normCompany = (s: string) => s.toUpperCase().replace(/[^A-Z0-9]+/g, ' ').trim();
 
 export async function streamOhOcilbLeads(
-  opts: { isKnown?: (sourceKey: string) => boolean; log?: (m: string) => void; rows?: Record<string, string>[] } = {},
+  opts: { isKnown?: (sourceKey: string) => boolean; log?: (m: string) => void; rows?: Record<string, string>[]; now?: Date } = {},
 ): Promise<RegistryResult> {
   const result = emptyResult();
   try {
     const rows = opts.rows ?? (await fetchTylerRoster({ host: OH_OCILB_HOST, log: opts.log }));
-    // One company can hold EL + PL + HV licences (and several qualifiers): keep the
-    // first row per company+zip so the same phone is not queued twice.
-    const companies = new Set<string>();
+    // One company can hold EL + PL + HV licences (and several qualifiers): keep ONE row per company+zip, the
+    // lowest licence id among the rows that passed, so the lead's sourceKey does not depend on roster row order.
+    const best = new Map<string, { lead: RegistryLead; row: OhOcilbRow }>();
     for (const o of rows) {
       result.scanned++;
       const r = toOhOcilbRow(o);
-      const ev = evaluateOhOcilbRow(r);
+      const ev = evaluateOhOcilbRow(r, opts.now);
       if (!ev.keep) { reject(result, ev.reason); continue; }
       const ck = `${normCompany(r.company)}|${(r.zip ?? '').slice(0, 5)}`;
-      if (companies.has(ck)) { reject(result, 'same company already listed under another licence'); continue; }
-      companies.add(ck);
       const lead = toOhOcilbLead(r, ev);
+      const prev = best.get(ck);
+      if (prev) {
+        reject(result, 'same company already listed under another licence');
+        if (lead.licenseId < prev.lead.licenseId) best.set(ck, { lead, row: r });
+        continue;
+      }
+      best.set(ck, { lead, row: r });
+    }
+    const keys = new Set<string>();
+    for (const { lead } of best.values()) {
+      if (keys.has(lead.sourceKey)) { reject(result, 'duplicate licence id'); continue; }
+      keys.add(lead.sourceKey);
       if (opts.isKnown?.(lead.sourceKey)) { reject(result, 'already known'); continue; }
       result.candidates.push(lead);
     }
+    result.candidates.sort((a, b) => (a.sourceKey < b.sourceKey ? -1 : 1));
   } catch (e) {
     result.errors.push(`homeservices oh: ${e instanceof Error ? e.message : String(e)}`);
   }

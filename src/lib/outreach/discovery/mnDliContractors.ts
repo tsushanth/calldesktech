@@ -1,4 +1,5 @@
 import { streamDelimitedRows } from './delimitedStream';
+import { callerPhoneExclusion } from './callerPhonePolicy';
 import { looksLikeIndividual } from './individualName';
 import { cleanEmail, isFreeMail } from './freightFmcsa';
 import { titleCase, cityState, describeRegistryLead, emptyResult, formatUsPhone, reject, type RegistryLead, type RegistryResult } from './registryCommon';
@@ -150,6 +151,10 @@ export function toMnDliLead(r: MnDliRow, ev: { adjust: number; reasons: string[]
   const usable = email && !isFreeMail(email) ? email : null;
   const phone = formatUsPhone(r.phone);
   const id = r.lic.toUpperCase();
+  // A DBA over a legal name that is just a person ("Udovich Electric" / "Udovich Anthony F") is a sole proprietor;
+  // so is a trade-named business whose displayed name is a person. The DLI file has no entity-type column.
+  // (typeLabel is deliberately NOT passed: the shared home-based wording matches 'residential' roofer.)
+  const soleProprietor = !!(r.dba && r.name && looksLikeIndividual(r.name));
   return {
     sourceKey: `homeservices:mn:${id}`,
     name,
@@ -157,6 +162,7 @@ export function toMnDliLead(r: MnDliRow, ev: { adjust: number; reasons: string[]
     city: r.city ? titleCase(r.city) : null,
     state,
     phone,
+    callerPhoneExcluded: phone ? callerPhoneExclusion({ name, soleProprietor }) : null,
     licenseId: id,
     registryName: MN_DLI_REGISTRY,
     typeLabel: ev.typeLabel,
@@ -175,12 +181,18 @@ export function toMnDliLead(r: MnDliRow, ev: { adjust: number; reasons: string[]
 
 const REQUIRED = [MN_COL.busPers, MN_COL.subtype, MN_COL.name, MN_COL.phone, MN_COL.lic, MN_COL.status, MN_COL.exp];
 
+const normBiz = (s: string) => s.toUpperCase().replace(/[^A-Z0-9]+/g, ' ').trim();
+
 export async function streamMnDliLeads(
   opts: { now?: Date; files?: readonly MnFile[]; isKnown?: (sourceKey: string) => boolean; baseUrl?: string; log?: (m: string) => void } = {},
 ): Promise<RegistryResult> {
   const now = opts.now ?? new Date();
   const result = emptyResult();
   const seen = new Set<string>();
+  // One business routinely holds an electrical AND a plumbing AND a mechanical licence (different Lic_Number,
+  // same name and phone): keep one lead per name+phone, the lowest licence id, so the choice does not depend on
+  // file order and the sourceKey stays stable across runs.
+  const byBiz = new Map<string, RegistryLead>();
   for (const file of opts.files ?? MN_FILES) {
     try {
       await streamDelimitedRows({
@@ -198,14 +210,26 @@ export async function streamMnDliLeads(
           const lead = toMnDliLead(r, ev);
           if (seen.has(lead.sourceKey)) { reject(result, 'duplicate licence id'); return; }
           seen.add(lead.sourceKey);
-          if (opts.isKnown?.(lead.sourceKey)) { reject(result, 'already known'); return; }
-          result.candidates.push(lead);
+          const bk = `${normBiz(lead.name)}|${(lead.phone ?? '').replace(/\D/g, '')}|${lead.email ?? ''}`;
+          const prev = byBiz.get(bk);
+          if (prev) {
+            reject(result, 'same business already listed under another licence');
+            if (lead.licenseId < prev.licenseId) byBiz.set(bk, lead);
+            return;
+          }
+          byBiz.set(bk, lead);
         },
       });
     } catch (e) {
       result.errors.push(`homeservices mn ${file}: ${e instanceof Error ? e.message : String(e)}`);
     }
   }
+  for (const lead of byBiz.values()) {
+    if (opts.isKnown?.(lead.sourceKey)) { reject(result, 'already known'); continue; }
+    result.candidates.push(lead);
+  }
+  // Stable order regardless of file order (the day-rotation window below indexes into it).
+  result.candidates.sort((a, b) => (a.sourceKey < b.sourceKey ? -1 : a.sourceKey > b.sourceKey ? 1 : 0));
   return result;
 }
 

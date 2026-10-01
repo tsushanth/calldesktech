@@ -102,6 +102,8 @@ export async function fetchTylerRoster(opts: TylerRosterOptions): Promise<Record
   form[`${P}btnRosterContinue`] = 'Continue';
   const body = new URLSearchParams(form);
   const sel = credentialSelectName(html);
+  // A type filter that silently does not apply would download (and bill the agency for) every credential type.
+  if ((opts.credentialTypeIds?.length ?? 0) > 0 && !sel) throw new Error(`${opts.host}: credential-type select not found; layout may have changed`);
   if (sel) for (const id of opts.credentialTypeIds ?? []) body.append(sel, id);
 
   const gen = await call(`${base}/GenerateRoster.aspx`, { method: 'POST', body, headers: { 'Content-Type': 'application/x-www-form-urlencoded' } });
@@ -118,5 +120,10 @@ export async function fetchTylerRoster(opts: TylerRosterOptions): Promise<Record
   const rows = parseCsv(text);
   if (rows.length < 2) throw new Error(`${opts.host}: roster is empty`);
   const header = rows[0].map((h) => h.trim());
-  return rows.slice(1).filter((r) => r.some((c) => c.trim())).map((r) => rowToObject(header, r.map((c) => c)));
+  const out = rows.slice(1).filter((r) => r.some((c) => c.trim())).map((r) => rowToObject(header, r.map((c) => c)));
+  // The download page states how many records the roster holds: a truncated or mis-quoted file must not pass.
+  const expected = recordsFound(genHtml);
+  if (expected == null) throw new Error(`${opts.host}: roster record count not found; layout may have changed`);
+  if (Math.abs(out.length - expected) > Math.max(2, expected * 0.005)) throw new Error(`${opts.host}: roster has ${out.length} rows but the site reports ${expected} records`);
+  return out;
 }

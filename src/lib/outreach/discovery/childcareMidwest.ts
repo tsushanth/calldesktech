@@ -1,4 +1,5 @@
 import { DISCOVERY_UA } from './http';
+import { callerPhoneExclusion } from './callerPhonePolicy';
 import { scoreChildcareRow, toCapacity } from './childcareUs';
 import { titleCase, describeRegistryLead, emptyResult, formatUsPhone, reject, type RegistryLead, type RegistryResult } from './registryCommon';
 
@@ -98,6 +99,10 @@ export function toWiLead(r: WiChildcareRow, ev: { adjust: number; reasons: strin
   return {
     sourceKey: `childcare:wi:${licenseId}`,
     name, legalName: null, city: city ? titleCase(city) : null, state, phone, licenseId,
+    // The person-name check applies to homes only (already excluded by type); a licensed centre named "Little Toes"
+    // or "Camp Shalom" is a business and must not be read as a person.
+    // LICENSED FAMILY = a licensed family child care home (run from the provider's residence).
+    callerPhoneExcluded: phone ? callerPhoneExclusion({ name: type === 'LICENSED FAMILY' ? name : '', homeBased: type === 'LICENSED FAMILY', typeLabel }) : null,
     registryName: WI_CC_REGISTRY, typeLabel,
     contactName: contactFromLastFirst(s(r.LocationContactFullName)),
     location,
@@ -131,15 +136,18 @@ const clean = (h: string) => h.replace(/<[^>]+>/g, '').replace(/&nbsp;/g, ' ').r
 // change surfaces as zero rows rather than as wrong columns.
 export function parseInListings(html: string): InChildcareRow[] {
   const out: InChildcareRow[] = [];
+  let tables = 0;
+  let skipped = 0;
   for (const t of html.matchAll(/<table[\s\S]*?<\/table>/gi)) {
     const rows = [...t[0].matchAll(/<tr[\s\S]*?<\/tr>/gi)].map((m) => m[0]);
     const head = [...(rows[0] ?? '').matchAll(/<t[hd][\s\S]*?<\/t[hd]>/gi)].map((m) => clean(m[0]).toLowerCase());
     const ix = (label: string) => head.indexOf(label);
     const iNum = ix('facility number'), iName = ix('facility name'), iContact = ix('contact information'), iCounty = ix('county'), iType = ix('provider type'), iCap = ix('capacity');
     if ([iNum, iName, iContact, iCounty, iType].some((i) => i < 0)) continue;
+    tables++;
     for (const r of rows.slice(1)) {
       const cells = [...r.matchAll(/<td[\s\S]*?<\/td>/gi)].map((m) => m[0]);
-      if (cells.length <= iType) continue;
+      if (cells.length <= Math.max(iNum, iName, iContact, iCounty, iType, iCap)) { skipped++; continue; }
       // The contact cell keeps its <br>-less "Address: ...Phone: ..." text after tag removal.
       out.push({
         facilityNumber: clean(cells[iNum]), name: clean(cells[iName]), contact: clean(cells[iContact]),
@@ -147,6 +155,12 @@ export function parseInListings(html: string): InChildcareRow[] {
       });
     }
   }
+  // Never return a partial register as if it were whole: all three tables must be present and every data row
+  // must have parsed (a changed column layout otherwise drops rows silently).
+  if (tables < 3) throw new Error(`IN child care listings: found ${tables} of 3 provider tables; layout may have changed`);
+  if (skipped > 0) throw new Error(`IN child care listings: ${skipped} data rows could not be parsed; layout may have changed`);
+  const types = new Set(out.map((r) => r.type));
+  for (const t of Object.keys(IN_TYPE_LABEL)) if (!types.has(t)) throw new Error(`IN child care listings: no "${t}" rows; layout may have changed`);
   return out;
 }
 
@@ -185,6 +199,8 @@ export function toInLead(r: InChildcareRow, ev: { adjust: number; reasons: strin
   return {
     sourceKey: `childcare:in:${r.facilityNumber.toUpperCase()}`,
     name, legalName: null, city: city ? titleCase(city) : null, state: 'IN', phone,
+    // "Licensed Home" = in-home provider (the register hides the address by statute for that reason).
+    callerPhoneExcluded: phone ? callerPhoneExclusion({ name: r.type === 'Licensed Home' ? name : '', homeBased: r.type === 'Licensed Home', typeLabel }) : null,
     licenseId: r.facilityNumber, registryName: IN_CC_REGISTRY, typeLabel, contactName: null, location,
     description: describeRegistryLead({ typeLabel, registryName: IN_CC_REGISTRY, location, legalName: null, name, listNoun: LIST_NOUN }),
     signalDetail: `IN FSSA ${r.type.toLowerCase()} ${r.facilityNumber}${r.county ? `, ${titleCase(r.county)} County` : ''}${capacity ? `; capacity ${capacity}` : ''}${phone ? `; phone ${phone}` : ''}`,
@@ -197,26 +213,55 @@ export function toInLead(r: InChildcareRow, ev: { adjust: number; reasons: strin
 
 const WI_FIELDS = 'FacilityNumber,FacilityName,LocationContactFullName,LocationPrimaryPhoneNumber,City,State,CategoryType,Capacity';
 
+// Timeout + one retry on a network error or 5xx. A 4xx is returned as-is for the caller to throw on.
+async function getWithRetry(url: string, accept: string, timeoutMs = 90_000, retries = 1): Promise<Response> {
+  let last: unknown;
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+      const res = await fetch(url, { headers: { 'User-Agent': DISCOVERY_UA, Accept: accept }, signal: controller.signal, redirect: 'follow' });
+      if (res.status < 500) return res;
+      last = new Error(`HTTP ${res.status}`);
+    } catch (e) {
+      last = e;
+    } finally {
+      clearTimeout(timer);
+    }
+    if (attempt < retries) await new Promise((r) => setTimeout(r, 2000));
+  }
+  throw last instanceof Error ? last : new Error(String(last));
+}
+
 export async function fetchWiRows(log: (m: string) => void = () => {}): Promise<WiChildcareRow[]> {
   const out: WiChildcareRow[] = [];
   const page = 1000; // layer maxRecordCount is 2000; stay well under it
-  for (let offset = 0; ; offset += page) {
+  // The server's own row count: paging stops on exceededTransferLimit/empty page, and the total must match it,
+  // so a server that silently caps a page below `page` cannot truncate the result.
+  const cres = await getWithRetry(`${WI_CC_URL}/query?${new URLSearchParams({ where: '1=1', returnCountOnly: 'true', f: 'json' })}`, 'application/json');
+  if (!cres.ok) throw new Error(`WI child care layer count HTTP ${cres.status}`);
+  const cj = (await cres.json()) as { count?: number; error?: { message?: string } };
+  if (cj.error || typeof cj.count !== 'number') throw new Error(`WI child care layer count: ${cj.error?.message ?? 'missing'}`);
+  const total = cj.count;
+  for (let offset = 0; ; ) {
     const qs = new URLSearchParams({ where: '1=1', outFields: WI_FIELDS, returnGeometry: 'false', orderByFields: 'OBJECTID', resultOffset: String(offset), resultRecordCount: String(page), f: 'json' });
-    const res = await fetch(`${WI_CC_URL}/query?${qs}`, { headers: { 'User-Agent': DISCOVERY_UA, Accept: 'application/json' } });
+    const res = await getWithRetry(`${WI_CC_URL}/query?${qs}`, 'application/json');
     if (!res.ok) throw new Error(`WI child care layer HTTP ${res.status}`);
     const j = (await res.json()) as { features?: { attributes: WiChildcareRow }[]; error?: { message?: string } };
     if (j.error) throw new Error(`WI child care layer: ${j.error.message ?? 'error'}`);
     const feats = j.features ?? [];
     for (const f of feats) out.push(f.attributes);
+    offset += feats.length;
     log(`wi-childcare: ${out.length} rows`);
-    if (feats.length < page) break;
+    if (feats.length === 0 || out.length >= total) break;
   }
+  if (out.length !== total) throw new Error(`WI child care layer returned ${out.length} of ${total} rows`);
   if (out.length < 500) throw new Error(`WI child care layer returned only ${out.length} rows; layout may have changed`);
   return out;
 }
 
 export async function fetchInRows(log: (m: string) => void = () => {}): Promise<InChildcareRow[]> {
-  const res = await fetch(IN_CC_URL, { headers: { 'User-Agent': DISCOVERY_UA, Accept: 'text/html' }, redirect: 'follow' });
+  const res = await getWithRetry(IN_CC_URL, 'text/html', 120_000);
   if (!res.ok) throw new Error(`IN child care listings HTTP ${res.status}`);
   const rows = parseInListings(await res.text());
   log(`in-childcare: ${rows.length} rows`);
