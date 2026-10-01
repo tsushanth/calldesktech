@@ -23,16 +23,37 @@ Not optional. Say it before the real conversation starts.
 > "Does your business ever miss calls when you're busy or after hours?"
 
 Let them answer. Don't move on until they've actually said something —
-their answer decides what you say next.
+their answer decides what you say next. How they respond here puts you into
+one of two cases below.
 
-## 4. Offer (only after they've engaged with the discovery question)
+## 4. Case 1 — receptive / neutral owner
+
+Most calls land here: a little busy or distracted, not hostile, willing to
+engage if the question is honest and short. They answer the discovery
+question with something like "yeah, sometimes" or "not really, but..." —
+anything that isn't a flat refusal to talk.
+
+Offer, once they've engaged:
 
 > "We built an AI phone service that picks up those calls for you so you
 > don't lose the job. It's free to try for two weeks, capped at 50 minutes
 > of calls, no credit card. All you'd do is forward your overflow calls to
 > a number we give you."
 
-## 5. Handle pushback
+If they ask a follow-up question and you know the answer, answer it
+honestly. If they ask something you don't know — including "what number do
+I forward to" if you don't have one ready — say you'll have someone follow
+up by email. Don't guess.
+
+If they hesitate ("let me think about it," "send me an email"): that's not
+a no — say you'll send a follow-up email with the details and thank them.
+Don't push for a decision on the call.
+
+## 5. Case 2 — hostile / skeptical owner
+
+Some calls open cold and stay cold, or push back hard on the discovery
+question itself: "Is this a sales call?", visible impatience, or an
+immediate "not interested."
 
 - **"Is this a sales call?"** → "It's a real question about missed calls,
   not trying to sell you anything today." If they still say no, thank them
@@ -41,9 +62,18 @@ their answer decides what you say next.
   that's exactly why it's free to try. If it doesn't pick up a single call
   worth answering, you've lost nothing."
 - **Any clear "not interested" or "take me off your list"** → "Understood,
-  thanks for your time" — and hang up. Never push past a real no.
+  thanks for your time" — and hang up immediately. Never push past a real
+  no, never add "just to clarify" or any other attempt to keep them on the
+  line.
+
+If they soften mid-call after a clean, polite close attempt ("actually
+wait, what is this about") — pick back up at the discovery question, same
+tone as Case 1. Don't switch into a pitch or oversell now that they've
+shown interest; same offer, same pricing line, same ask.
 
 ## 6. Close (the only thing that counts as a win)
+
+Applies to either case, once they've said yes to the offer.
 
 > "Want me to text you the forwarding number so you can try it on your next
 > busy day?"
