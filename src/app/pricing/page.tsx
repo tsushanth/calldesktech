@@ -103,34 +103,9 @@ function PricingPageContent() {
           <PricingCard onSubscribe={handleSubscribe} loading={loading} />
         </div>
 
-        {/* vs. Retell — the default-voice number is our own priced rate
-            (USAGE_PRICES/PRICING in src/lib/constants.ts); the Retell figure
-            is real observed blended cost-per-minute from an actual Retell
-            account's own billing dashboard (voice infra + LLM + phone +
-            telephony + TTS combined), not a published Retell price sheet —
-            worded that way deliberately so this stays honest if Retell's
-            own pricing changes. */}
-        <div className="max-w-2xl mx-auto mb-12 rounded-2xl bg-[#f4f4fa] p-6 md:p-8">
-          <h3 className="text-center text-[15px] font-semibold text-[#1a1d29] mb-1">How this compares</h3>
-          <p className="text-center text-[12.5px] text-gray-400 mb-5">
-            Retell figure is real observed blended cost-per-minute from an actual account&apos;s own billing dashboard, not a published price sheet.
-          </p>
-          <div className="grid grid-cols-2 gap-4">
-            <div className="rounded-xl bg-[#00122e] p-4 text-center">
-              <p className="text-[12px] font-medium text-white/70 mb-1">This platform (default voice)</p>
-              <p className="text-[28px] font-semibold tracking-[-0.03em] text-white">${PRICING.usage.voicePerMinute.kokoro.toFixed(2)}</p>
-              <p className="text-[12px] text-white/70">per minute</p>
-            </div>
-            <div className="rounded-xl bg-white p-4 text-center">
-              <p className="text-[12px] font-medium text-gray-500 mb-1">Retell (observed blended avg)</p>
-              <p className="text-[28px] font-semibold tracking-[-0.03em] text-gray-700">~$0.16</p>
-              <p className="text-[12px] text-gray-500">per minute</p>
-            </div>
-          </div>
-          <p className="mt-4 text-center text-[12px] text-gray-400">
-            Premium voices (ElevenLabs, Cartesia, MiniMax) run ${PRICING.usage.voicePerMinute.elevenlabs.toFixed(2)}–${PRICING.usage.voicePerMinute.minimax.toFixed(2)}/min here — still no monthly minimum either way.
-          </p>
-        </div>
+        <p className="max-w-2xl mx-auto mb-12 text-center text-[13px] text-gray-400">
+          Default voice: ${PRICING.usage.voicePerMinute.kokoro.toFixed(2)}/min. Premium voices (ElevenLabs, Cartesia, MiniMax) run ${PRICING.usage.voicePerMinute.elevenlabs.toFixed(2)}&ndash;${PRICING.usage.voicePerMinute.minimax.toFixed(2)}/min. No monthly minimum.
+        </p>
 
         {/* Try Demo Link */}
         <div className="text-center mt-12">
