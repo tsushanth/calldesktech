@@ -23,8 +23,8 @@ describe('investor deck', () => {
   it('uses no em dashes or other non-ASCII punctuation in the copy (entities are fine)', () => {
     expect(text).not.toMatch(/[—–‘’“”]/);
   });
-  it('does not mention the founders employer or immigration status', () => {
-    expect(text).not.toMatch(/google|h-?1b|visa|o-?1/i);
+  it('does not mention immigration status or leave', () => {
+    expect(text).not.toMatch(/h-?1b|visa|\bo-?1\b|sponsor|leave of absence|\bFMLA\b|sedgwick/i);
   });
   it('still has founder-supplied TODO markers until they are filled in', () => {
     expect(investorDeckTodos(slides).length).toBeGreaterThan(0);

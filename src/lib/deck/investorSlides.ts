@@ -167,9 +167,11 @@ export function buildInvestorSlides(): string[] {
     ${note('Counts are from our own lead database as of October 1, 2026. These are businesses we can reach, not customers.', true)}`));
 
   s.push(section('team', false, `${h2('Team', false)}
+    ${card('Sushanth Tiruvaipati, founder', 'Fifteen years of engineering at Amazon, Microsoft, VMware and Google, on billing and metering systems, conversation AI, large-scale ranking and fraud detection. M.S., Carnegie Mellon. Built the whole Calldesk platform himself: the voice engine, call flows, dashboard and the outreach pipeline. Also ships a portfolio of consumer apps independently.', false, 1, true)}
     ${row([
-      card('Sushanth', 'TODO(founder bio: role, background, why this problem; plain facts only)', false),
-      card('Deepika', 'TODO(co-founder bio: role, background; plain facts only)', false),
+      card('Conversation AI at scale', 'Worked on Google Cloud Contact Center AI: topic modeling for customer conversations.', false, 1, true),
+      card('Billing and metering', 'AWS billing and marketplace systems at Amazon, and payments latency work on Google Pay: the plumbing behind usage-based pricing.', false, 1, true),
+      card('Abuse and fraud', 'Built enforcement against fraudulent advertisers at Google, the same problem as abuse of outbound calling.', false, 1, true),
     ])}`));
 
   s.push(section('ask', false, `
@@ -182,7 +184,7 @@ export function buildInvestorSlides(): string[] {
   s.push(section('contact', true, `
     <div style="margin-top:170px; display:flex; flex-direction:column; gap:30px">
       <h2 style="${HEAD}; font-size:92px; font-weight:700; line-height:1.05">Talk to us.</h2>
-      <p style="font-size:38px; line-height:1.4; color:${MUTED_DARK}">TODO(founder email) &middot; calldesk.tech</p>
+      <p style="font-size:38px; line-height:1.4; color:${MUTED_DARK}">t.sushanth@gmail.com &middot; calldesk.tech</p>
       <p style="font-size:30px; line-height:1.4; color:${MUTED_DARK}">Try the live demo on the site, or ask us to run a pilot on your phone line.</p>
     </div>`));
 
