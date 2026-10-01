@@ -172,9 +172,9 @@ export function buildInvestorSlides(): string[] {
       card('Deepikarani Parameswarappa, co-founder', 'Software engineer who built network telemetry and observability software at Ciena, including a containerized gRPC telemetry collector and monitoring dashboards. Studied at Illinois Institute of Technology. TODO(she confirms her current role, degree and anything to add or change)', false, 1, true),
     ])}
     ${row([
-      card('Conversation AI at scale', 'Worked on Google Cloud Contact Center AI: topic modeling for customer conversations.', false, 1, true),
-      card('Billing and metering', 'AWS billing and marketplace systems at Amazon, and payments latency work on Google Pay: the plumbing behind usage-based pricing.', false, 1, true),
-      card('Abuse and fraud', 'Built enforcement against fraudulent advertisers at Google, the same problem as abuse of outbound calling.', false, 1, true),
+      card('Conversation AI at scale', 'Google Cloud Contact Center AI: topic modeling for customer conversations.', false, 1, true),
+      card('Billing and metering', 'AWS billing and marketplace systems at Amazon; payments latency at Google Pay.', false, 1, true),
+      card('Abuse and fraud', 'Enforcement against fraudulent advertisers at Google, like abuse of outbound calling.', false, 1, true),
     ])}`));
 
   s.push(section('ask', false, `
