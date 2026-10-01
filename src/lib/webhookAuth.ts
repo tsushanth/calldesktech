@@ -105,9 +105,14 @@ export function verifyTwilioSignature(
   url: string,
   params: Record<string, string>,
   signatureHeader: string | null,
+  // Defaults keep the original behavior (main-account token, fail-open when unset). A route that
+  // places calls passes its own account's token and failClosed so a missing secret rejects instead
+  // of letting anyone on the internet trigger a call.
+  opts: { authToken?: string; failClosed?: boolean } = {},
 ): VerifyResult {
-  const authToken = process.env.TWILIO_AUTH_TOKEN;
+  const authToken = opts.authToken ?? process.env.TWILIO_AUTH_TOKEN;
   if (!authToken) {
+    if (opts.failClosed) return { ok: false, reason: 'Twilio auth token not configured' };
     console.warn('[webhookAuth] TWILIO_AUTH_TOKEN not configured — skipping Twilio signature verification (fail-open)');
     return { ok: true };
   }
