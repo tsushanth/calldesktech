@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/supabase';
 import { dispatchWebhookEvent } from '@/lib/webhooks';
 import { verifyTelnyxSignature, verifyTwilioSignature, internalForwardHeaders } from '@/lib/webhookAuth';
-import { isStopKeyword, isHelpKeyword, recordOptOut, HELP_TEXT, STOP_CONFIRMATION_TEXT } from '@/lib/smsOptOut';
+import { isStopKeyword, isHelpKeyword, isStartKeyword, recordOptOut, clearOptOut, HELP_TEXT, STOP_CONFIRMATION_TEXT, OPT_IN_CONFIRMATION_TEXT } from '@/lib/smsOptOut';
 import { getSmsProvider } from '@/lib/smsProvider';
 
 // POST /api/webhooks/telnyx-sms — receives inbound SMS from Telnyx (or,
@@ -174,6 +174,27 @@ export async function POST(request: NextRequest) {
       error: sendResult.error,
     });
     return NextResponse.json({ received: true, id: sms.id, autoReplied: true }, { status: 200 });
+  }
+
+  // START / UNSTOP: lift any earlier opt-out and send the consent confirmation the 10DLC campaign registers. Unlike
+  // STOP/HELP this does not short-circuit: on the trial number the message still flows on to the setup conversation.
+  // Twilio-format requests are answered by their own TwiML path, so only the Telnyx path sends here.
+  if (isStartKeyword(text) && providerName === 'telnyx') {
+    await clearOptOut(fromNumber);
+    const sendResult = await getSmsProvider().send({ from: toNumber, to: fromNumber, body: OPT_IN_CONFIRMATION_TEXT });
+    if (sendResult.error) {
+      console.error('[telnyx-sms] opt-in confirmation failed:', sendResult.error);
+    }
+    await supabase.from('calldesk_sms_messages').insert({
+      tenant_id: tenantId,
+      phone_number_id: phoneNumber.id,
+      from_number: toNumber,
+      to_number: fromNumber,
+      body: OPT_IN_CONFIRMATION_TEXT,
+      direction: 'outbound',
+      status: sendResult.status,
+      error: sendResult.error,
+    });
   }
 
   // Fire tenant webhooks for sms.received
