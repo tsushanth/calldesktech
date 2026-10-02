@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useOnboarding } from '@/context/OnboardingContext';
 import { track } from '@/components/Analytics';
+import { trackBuilder, errorProps } from '@/lib/builderTelemetry';
 import { formatPhoneDisplay } from '@/lib/utils';
 import type { Agent } from '@/types';
 
@@ -90,6 +91,7 @@ export default function AgentsPage() {
       track('agent_created', { channel });
       router.push(`/dashboard/agents/${body.agent.id}${channel === 'text' ? '?channel=text' : ''}`);
     } catch (err) {
+      trackBuilder('agent_create_failed', errorProps(err));
       setError(err instanceof Error ? err.message : 'Failed to create agent');
       setIsCreating(false);
     }

@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import type { AgentVersion, PhoneNumber } from '@/types';
 import { formatPhoneE164 } from '@/lib/utils';
+import { trackBuilder, errorProps } from '@/lib/builderTelemetry';
 
 // Places a real call to the user's own phone via the existing
 // POST /api/phone-numbers/[id]/call route (which places the call FROM a
@@ -86,6 +87,7 @@ export default function TestCallModal({
       });
       const body = await res.json();
       if (!res.ok) throw new Error(body.error || 'Call failed');
+      trackBuilder('test_call_started', { version_number: latestVersion?.version_number });
       setMessage({ ok: true, text: 'Calling you now — pick up your phone.' });
       // Close so the flow canvas is visible; the page shows a live-call pill from here.
       if (onCallPlaced) {
@@ -93,6 +95,7 @@ export default function TestCallModal({
         onClose();
       }
     } catch (err) {
+      trackBuilder('test_call_failed', errorProps(err));
       setMessage({ ok: false, text: err instanceof Error ? err.message : 'Call failed' });
     } finally {
       setBusy(false);

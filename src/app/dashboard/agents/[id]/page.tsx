@@ -6,6 +6,8 @@ import Link from 'next/link';
 import { AGENT_LANGUAGES, languageForcesPremiumVoice } from '@/lib/languages';
 import { api } from '@/lib/api';
 import { track } from '@/components/Analytics';
+import { trackBuilder, errorProps } from '@/lib/builderTelemetry';
+import BuilderFeedback from '@/components/BuilderFeedback';
 import type { RetellVoice } from '@/lib/retell';
 import type { TenantVoice } from '@/lib/api';
 import type { Agent, AgentVersion, AgentEnvironment, FlowNode, FlowEdge, StructuredCondition, TtsBackend, Subflow } from '@/types';
@@ -230,6 +232,10 @@ export default function AgentBuilderPage() {
   const [rightTab, setRightTab] = useState<'global' | 'node'>('global');
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showFeedback, setShowFeedback] = useState(false);
+  // Builder funnel telemetry: opened, and every error the builder shows (validation, save, restore, promote).
+  useEffect(() => { trackBuilder('builder_opened', { agent_id: agentId }); }, [agentId]);
+  useEffect(() => { if (error) trackBuilder('builder_error', errorProps(error)); }, [error]);
   const [showEditor, setShowEditor] = useState(false);
   const [appliedTemplateId, setAppliedTemplateId] = useState<string | null>(null);
   const [templateCategory, setTemplateCategory] = useState('All');
@@ -887,6 +893,8 @@ export default function AgentBuilderPage() {
       const body = await res.json();
       if (!res.ok) throw new Error(body.error);
       track('agent_version_created', { voice_engine: voiceEngine });
+      trackBuilder('version_published', { voice_engine: voiceEngine, node_count: cleanNodes.length, version_number: body.version.version_number });
+      setShowFeedback(true);
       setBasedOnVersionNumber(body.version.version_number);
       setFlowName(`v${body.version.version_number + 1}`);
       loadAgent();
@@ -911,6 +919,9 @@ export default function AgentBuilderPage() {
 
   return (
     <div className="-m-6 flex h-[calc(100vh-1px)] overflow-hidden">
+      {showFeedback && (
+        <div className="fixed bottom-4 right-4 z-40 w-[320px]"><BuilderFeedback trigger="publish" /></div>
+      )}
       {/* Left icon rail */}
       <div className="flex w-16 flex-none flex-col items-center gap-1 border-r border-gray-100 bg-white py-4">
         <Link href="/dashboard/agents" className="mb-3 text-gray-300 hover:text-gray-500" title="All agents">

@@ -7,6 +7,8 @@ declare module 'next-auth' {
       name?: string | null;
       email?: string | null;
       image?: string | null;
+      /** True for our own admin accounts, so analytics can separate staff from customers. */
+      isInternal?: boolean;
     };
   }
 

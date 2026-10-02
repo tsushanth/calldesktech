@@ -2,6 +2,7 @@ import { type NextAuthOptions } from 'next-auth';
 import { type OAuthConfig } from 'next-auth/providers/oauth';
 import GoogleProvider from 'next-auth/providers/google';
 import { getSupabaseAdmin } from './supabase';
+import { adminEmails } from './outreach/config';
 
 /**
  * Enterprise SSO (generic OIDC).
@@ -113,6 +114,7 @@ export const authOptions: NextAuthOptions = {
       // Add user ID to session
       if (session.user) {
         session.user.id = token.sub!;
+        session.user.isInternal = adminEmails().includes((session.user.email || '').toLowerCase());
       }
       return session;
     },
