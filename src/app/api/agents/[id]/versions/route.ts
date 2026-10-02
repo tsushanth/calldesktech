@@ -4,6 +4,7 @@ import { syncVoicePriceForTenant } from '@/lib/stripe';
 import type { FlowNode, TtsBackend } from '@/types';
 import { authorizeResource } from '@/lib/authz';
 import { normalizeLanguage, LANGUAGE_VALUES } from '@/lib/languages';
+import { validateModelChoice } from '@/lib/modelCatalog';
 
 // For every 'subflow_ref' node, snapshot the referenced subflow's current
 // nodes straight into that node's own params — server.js executes purely
@@ -110,6 +111,8 @@ export async function POST(
     retellLlmId,
     voiceId,
     ttsBackend,
+    llmModel,
+    ttsModel,
     wizardConfig,
   } = body as {
     flowName: string;
@@ -121,6 +124,8 @@ export async function POST(
     retellLlmId?: string;
     voiceId?: string;
     ttsBackend?: TtsBackend;
+    llmModel?: string;
+    ttsModel?: string;
     wizardConfig?: Record<string, unknown>;
   };
 
@@ -160,6 +165,10 @@ export async function POST(
       if (voiceEngine === 'poc' && (!effectiveTtsBackend || effectiveTtsBackend === 'kokoro')) effectiveTtsBackend = 'elevenlabs';
     }
   }
+
+  // Optional model choice (src/lib/modelCatalog.ts): the language model, and the voice model within the (possibly language-pinned) backend.
+  const modelError = validateModelChoice({ voiceEngine, llmModel, ttsModel, ttsBackend: effectiveTtsBackend });
+  if (modelError) return NextResponse.json({ error: modelError }, { status: 400 });
 
   const { data: agent, error: agentError } = await supabase
     .from('calldesk_agents')
@@ -207,6 +216,8 @@ export async function POST(
       retell_llm_id: retellLlmId || null,
       voice_id: voiceId || null,
       tts_backend: effectiveTtsBackend || null,
+      llm_model: llmModel || null,
+      tts_model: ttsModel || null,
       wizard_config: wizardConfig || null,
     })
     .select()

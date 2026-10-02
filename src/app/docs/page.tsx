@@ -1,4 +1,6 @@
 import { buildOpenApi } from '@/lib/openapi';
+import { MCP_TOOL_GROUPS } from '@/lib/mcp/toolDocs';
+import { getModelCatalog } from '@/lib/modelCatalog';
 import { SiteHeader } from '@/components/landing/SiteHeader';
 import { SiteFooter } from '@/components/landing/Closing';
 import { Container, Eyebrow, PrimaryButton, SecondaryButton } from '@/components/landing/primitives';
@@ -54,6 +56,7 @@ export default function DocsPage() {
     }
   }
   const tags = [...groups.keys()];
+  const catalog = getModelCatalog();
 
   return (
     <div className="min-h-screen bg-white text-[#00122e]">
@@ -75,6 +78,8 @@ export default function DocsPage() {
               <ul className="flex flex-wrap gap-2 lg:block lg:space-y-1">
                 <li><a href="#quickstart" className="block rounded-md px-3 py-1.5 text-[14px] text-gray-600 transition-colors hover:bg-white hover:text-[#1a1d29]">Quick start</a></li>
                 <li><a href="#mcp" className="block rounded-md px-3 py-1.5 text-[14px] text-gray-600 transition-colors hover:bg-white hover:text-[#1a1d29]">MCP server</a></li>
+                <li><a href="#mcp-tools" className="block rounded-md px-3 py-1.5 text-[14px] text-gray-600 transition-colors hover:bg-white hover:text-[#1a1d29]">MCP tools</a></li>
+                <li><a href="#models" className="block rounded-md px-3 py-1.5 text-[14px] text-gray-600 transition-colors hover:bg-white hover:text-[#1a1d29]">Choosing models</a></li>
                 <li><a href="#sdks" className="block rounded-md px-3 py-1.5 text-[14px] text-gray-600 transition-colors hover:bg-white hover:text-[#1a1d29]">Official SDKs</a></li>
                 {tags.map((t) => (
                   <li key={t}><a href={`#${slug(t)}`} className="block rounded-md px-3 py-1.5 text-[14px] text-gray-600 transition-colors hover:bg-white hover:text-[#1a1d29]">{t}</a></li>
@@ -110,6 +115,64 @@ export default function DocsPage() {
                   <Code label="Claude, Cursor and other clients: add a remote MCP server with this URL">{`https://calldesk.tech/mcp`}</Code>
                 </div>
                 <p className="mt-4 text-[14px] text-gray-500">Each connection is a workspace API key named after the app. Revoke it under Settings, API Keys. Clients that only support keys can send one as <code className="rounded bg-white px-1.5 py-0.5 text-[13px]">Authorization: Bearer cdk_live_...</code>.</p>
+              </section>
+
+              <section id="mcp-tools" className="mt-14 scroll-mt-[96px]">
+                <h2 className="text-[24px] font-semibold tracking-[-0.02em]">MCP tools</h2>
+                <p className="mt-2 max-w-[600px] text-[15px] leading-[1.55] text-gray-500">
+                  Everything the MCP server exposes. Tools that cost money or delete data say so in their description, and assistants ask before calling them.
+                </p>
+                <div className="mt-5 grid gap-4 md:grid-cols-2">
+                  {MCP_TOOL_GROUPS.map((g) => (
+                    <div key={g.group} className="rounded-xl border border-gray-200 bg-white p-5">
+                      <h3 className="text-[15px] font-semibold tracking-[-0.01em]">{g.group}</h3>
+                      <ul className="mt-2 space-y-2">
+                        {g.tools.map((t) => (
+                          <li key={t.name} className="text-[13px] leading-[1.45] text-gray-500"><code className="rounded bg-gray-100 px-1.5 py-0.5 text-[12px] text-[#1a1d29]">{t.name}</code> {t.summary}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  ))}
+                </div>
+              </section>
+
+              <section id="models" className="mt-14 scroll-mt-[96px]">
+                <h2 className="text-[24px] font-semibold tracking-[-0.02em]">Choosing models</h2>
+                <p className="mt-2 max-w-[640px] text-[15px] leading-[1.55] text-gray-500">
+                  Each agent version can choose the language model that runs the conversation and the voice model that speaks it. Pass <code className="rounded bg-white px-1.5 py-0.5 text-[13px]">llmModel</code> and <code className="rounded bg-white px-1.5 py-0.5 text-[13px]">ttsModel</code> when you publish a version, or read the same list from <code className="rounded bg-white px-1.5 py-0.5 text-[13px]">GET /models</code> or the <code className="rounded bg-white px-1.5 py-0.5 text-[13px]">list_model_options</code> tool. Leave them out for the defaults.
+                </p>
+                <ul className="mt-3 max-w-[640px] list-disc space-y-1 pl-5 text-[14px] leading-[1.5] text-gray-500">
+                  {catalog.notes.map((n) => <li key={n}>{n}</li>)}
+                </ul>
+                <h3 className="mt-6 text-[15px] font-semibold tracking-[-0.01em]">Language models (<code className="text-[13px]">llmModel</code>)</h3>
+                <div className="mt-2 overflow-x-auto rounded-xl border border-gray-200 bg-white">
+                  <table className="w-full min-w-[640px] text-left text-[13px]">
+                    <thead className="border-b border-gray-200 bg-gray-50 text-[12px] uppercase tracking-[0.04em] text-gray-500"><tr><th className="px-3 py-2">Id</th><th className="px-3 py-2">Provider cost per million tokens</th><th className="px-3 py-2">Status</th><th className="px-3 py-2">Notes</th></tr></thead>
+                    <tbody className="divide-y divide-gray-100">
+                      {catalog.llmModels.map((m) => (
+                        <tr key={m.id}><td className="px-3 py-2 align-top"><code>{m.id}</code>{m.default && <span className="ml-1 rounded bg-emerald-50 px-1.5 py-0.5 text-[11px] text-emerald-700">default</span>}</td><td className="px-3 py-2 align-top text-gray-500">${m.price.in} in, ${m.price.out} out</td><td className="px-3 py-2 align-top text-gray-500">{m.status}</td><td className="px-3 py-2 align-top text-gray-500">{m.notes}</td></tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                <h3 className="mt-6 text-[15px] font-semibold tracking-[-0.01em]">Voice models (<code className="text-[13px]">ttsModel</code>, with <code className="text-[13px]">ttsBackend</code>)</h3>
+                <div className="mt-2 overflow-x-auto rounded-xl border border-gray-200 bg-white">
+                  <table className="w-full min-w-[640px] text-left text-[13px]">
+                    <thead className="border-b border-gray-200 bg-gray-50 text-[12px] uppercase tracking-[0.04em] text-gray-500"><tr><th className="px-3 py-2">Id</th><th className="px-3 py-2">Backend</th><th className="px-3 py-2">Provider cost per 1,000 characters</th><th className="px-3 py-2">Notes</th></tr></thead>
+                    <tbody className="divide-y divide-gray-100">
+                      {catalog.ttsModels.map((m) => (
+                        <tr key={m.id}><td className="px-3 py-2 align-top"><code>{m.id}</code>{m.default && <span className="ml-1 rounded bg-emerald-50 px-1.5 py-0.5 text-[11px] text-emerald-700">default</span>}</td><td className="px-3 py-2 align-top text-gray-500">{m.backend}</td><td className="px-3 py-2 align-top text-gray-500">{m.pricePer1kChars === null ? 'see provider' : `$${m.pricePer1kChars}`}</td><td className="px-3 py-2 align-top text-gray-500">{m.notes}</td></tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                <div className="mt-4"><Code label="Publish a version with a cheaper voice and language model">{`curl -X POST ${base}/agents/$AGENT/versions \\
+  -H "Authorization: Bearer cdk_live_..." \\
+  -H "Content-Type: application/json" \\
+  -d '{"flowName":"Front desk","startNodeId":"greet","nodes":[...],
+       "voiceEngine":"poc","ttsBackend":"elevenlabs",
+       "ttsModel":"eleven_flash_v2_5","llmModel":"gpt-6-luna"}'`}</Code></div>
+                <p className="mt-3 max-w-[640px] text-[13px] leading-[1.5] text-gray-500">Provider prices are what the provider charges us, shown so you can compare options. What you pay per minute is set by your voice backend, see pricing.</p>
               </section>
 
               <section id="sdks" className="mt-14 scroll-mt-[96px]">
