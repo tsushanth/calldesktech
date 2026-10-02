@@ -25,7 +25,6 @@ export default function OutreachLeadsPage() {
   const [leads, setLeads] = useState<Lead[]>([]);
   const [benchmark, setBenchmark] = useState<BenchmarkAggregate | null>(null);
   const [loading, setLoading] = useState(true);
-  const [scanning, setScanning] = useState(false);
   const [manualForm, setManualForm] = useState({ companyName: '', domain: '', signalDetail: '' });
 
   const refresh = useCallback(async () => {
@@ -40,6 +39,8 @@ export default function OutreachLeadsPage() {
   }, []);
 
   useEffect(() => {
+    // Initial fetch on mount; refresh() sets loading state before the request starts.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     refresh();
   }, [refresh]);
 
@@ -52,22 +53,6 @@ export default function OutreachLeadsPage() {
     });
     setManualForm({ companyName: '', domain: '', signalDetail: '' });
     refresh();
-  };
-
-  const scanJobPostings = async () => {
-    setScanning(true);
-    try {
-      const res = await fetch('/api/admin/outreach/leads', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ mode: 'scan_job_postings' }),
-      });
-      const body = await res.json();
-      if (res.ok) refresh();
-      else alert(body.error || 'Scan failed');
-    } finally {
-      setScanning(false);
-    }
   };
 
   return (
@@ -130,13 +115,6 @@ export default function OutreachLeadsPage() {
           className="rounded-lg bg-blue-600 px-3 py-1.5 text-[13px] font-medium text-white hover:bg-blue-700"
         >
           Add lead
-        </button>
-        <button
-          onClick={scanJobPostings}
-          disabled={scanning}
-          className="rounded-lg border border-gray-300 px-3 py-1.5 text-[13px] font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
-        >
-          {scanning ? 'Scanning…' : 'Scan job postings'}
         </button>
       </div>
 
