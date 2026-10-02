@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/supabase';
 import { verifyTwilioSignature } from '@/lib/webhookAuth';
 import { buildDialTwiml, buildRejectTwiml, decideDial, normalizeNanp, parseTestNumbers, sipUser } from '@/lib/outboundCalling';
-import { batchDateEastern, checkCallingHours } from '@/lib/callingHours';
+import { batchDateEastern, checkCallingHours, startOfEasternDay } from '@/lib/callingHours';
+import { pickPoolNumber, type PoolNumber } from '@/lib/outboundNumbers';
 
 // POST /api/twilio/outbound-voice — the Voice URL of the outbound-sales SIP domain. A human caller dials
 // a number from a softphone, Twilio asks us what to do with the call, and we answer with a <Dial> from
@@ -110,12 +111,37 @@ export async function POST(request: NextRequest) {
     return xml(buildRejectTwiml(decision.spoken));
   }
 
+  // Pick the number to dial out from: the pool's least-used number under its daily cap, preferring one whose
+  // area code matches the person called. An empty pool falls back to the caller's own caller ID.
+  let callerId = decision.callerId;
+  const pool = ((await supabase.from('calldesk_outbound_numbers').select('phone, area_codes, daily_cap, enabled')).data ?? []) as PoolNumber[];
+  if (pool.length > 0) {
+    const used = (
+      await supabase
+        .from('calldesk_outbound_calls')
+        .select('caller_id')
+        .neq('status', 'rejected')
+        .gte('started_at', startOfEasternDay().toISOString())
+    ).data ?? [];
+    const usage: Record<string, number> = {};
+    for (const r of used as { caller_id: string }[]) usage[r.caller_id] = (usage[r.caller_id] ?? 0) + 1;
+    const picked = pickPoolNumber(pool, usage, decision.to);
+    if (!picked) {
+      await supabase.from('calldesk_outbound_calls').insert({
+        call_sid: callSid, sip_username: username, lead_id: leadId, to_number: decision.to, caller_id: 'none',
+        status: 'rejected', reject_reason: 'numbers_at_daily_limit', ended_at: new Date().toISOString(),
+      });
+      return xml(buildRejectTwiml('All calling numbers have reached today\'s limit.'));
+    }
+    callerId = picked.phone;
+  }
+
   await supabase.from('calldesk_outbound_calls').insert({
     call_sid: callSid,
     sip_username: username,
     lead_id: leadId,
     to_number: decision.to,
-    caller_id: decision.callerId,
+    caller_id: callerId,
     status: 'initiated',
     // Test calls are marked so they never count as pilot data.
     ...(decision.isTest ? { outcome: 'test' } : {}),
@@ -129,5 +155,5 @@ export async function POST(request: NextRequest) {
           noticeUrl: process.env.OUTBOUND_RECORDING_NOTICE === '0' ? undefined : publicUrl('/api/twilio/outbound-whisper'),
         }
       : undefined;
-  return xml(buildDialTwiml({ callerId: decision.callerId, to: decision.to, actionUrl: publicUrl('/api/twilio/outbound-status'), recording }));
+  return xml(buildDialTwiml({ callerId, to: decision.to, actionUrl: publicUrl('/api/twilio/outbound-status'), recording }));
 }

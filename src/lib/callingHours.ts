@@ -73,3 +73,16 @@ export function batchDateEastern(now: Date = new Date()): string {
   );
   return `${p.year}-${p.month}-${p.day}`;
 }
+
+// The instant a US Eastern calendar day began (00:00 Eastern), as a Date, for "dials today" counts. Eastern
+// switches between UTC-5 and UTC-4, so the offset is read from Intl for that exact day, not hard-coded.
+export function startOfEasternDay(now: Date = new Date()): Date {
+  const [y, m, d] = batchDateEastern(now).split('-').map(Number);
+  // Midnight Eastern is 04:00 or 05:00 UTC: try both and keep the one that is midnight in New York.
+  for (const hour of [4, 5]) {
+    const t = new Date(Date.UTC(y, m - 1, d, hour, 0, 0));
+    const hh = new Intl.DateTimeFormat('en-US', { timeZone: 'America/New_York', hour: '2-digit', hourCycle: 'h23' }).format(t);
+    if (Number(hh) === 0 && batchDateEastern(t) === batchDateEastern(now)) return t;
+  }
+  return new Date(Date.UTC(y, m - 1, d, 5, 0, 0));
+}
