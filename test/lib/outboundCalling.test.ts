@@ -4,6 +4,7 @@ import {
   sipUser,
   buildDialTwiml,
   buildRejectTwiml,
+  RECORDING_NOTICE_TWIML,
   decideDial,
   parseTestNumbers,
   mapDialStatus,
@@ -37,6 +38,30 @@ describe('sipUser', () => {
   it('returns null for something that is not a SIP URI', () => {
     expect(sipUser('+14256284887')).toBeNull();
     expect(sipUser('')).toBeNull();
+  });
+});
+
+describe('recording TwiML', () => {
+  const base = { callerId: '+12395551212', to: '+14256284887', actionUrl: 'https://x.test/s' };
+  it('adds nothing about recording when it is off', () => {
+    const x = buildDialTwiml(base);
+    expect(x).not.toContain('record=');
+    expect(x).not.toContain('recordingStatusCallback');
+    expect(x).not.toContain(' url=');
+  });
+  it('records both sides on separate channels from answer, with a status callback', () => {
+    const x = buildDialTwiml({ ...base, recording: { statusCallbackUrl: 'https://x.test/rec?a=1&b=2' } });
+    expect(x).toContain('record="record-from-answer-dual"');
+    expect(x).toContain('recordingStatusCallback="https://x.test/rec?a=1&amp;b=2"');
+    expect(x).toContain('recordingStatusCallbackEvent="completed"');
+    expect(x).not.toContain(' url=');
+  });
+  it('puts the notice on the called party\'s leg only when a notice url is given', () => {
+    const x = buildDialTwiml({ ...base, recording: { statusCallbackUrl: 'https://x.test/rec', noticeUrl: 'https://x.test/whisper' } });
+    expect(x).toMatch(/<Number url="https:\/\/x\.test\/whisper" method="POST" /);
+  });
+  it('the notice itself is a short spoken line', () => {
+    expect(RECORDING_NOTICE_TWIML).toContain('<Say>This call may be recorded for quality.</Say>');
   });
 });
 

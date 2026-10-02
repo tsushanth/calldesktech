@@ -47,18 +47,36 @@ export function xmlEscape(s: string): string {
   return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&apos;');
 }
 
-export function buildDialTwiml(opts: { callerId: string; to: string; actionUrl: string; timeoutSec?: number }): string {
+export interface RecordingOptions {
+  // Twilio posts here when the recording is ready (RecordingSid, RecordingUrl, RecordingDuration).
+  statusCallbackUrl: string;
+  // If set, the person called hears a short notice (TwiML from this URL) before they are connected.
+  noticeUrl?: string;
+}
+
+export function buildDialTwiml(opts: { callerId: string; to: string; actionUrl: string; timeoutSec?: number; recording?: RecordingOptions }): string {
   // The <Dial action> only fires when the dial finishes with the caller still on the line. The <Number>
   // status callbacks fire for the far-end leg regardless (answered / any final state), so a call that
   // the caller hangs up first, or that fails on the SIP side, still gets its outcome recorded.
   // answerOnBridge: the caller hears real ringing until the far end answers, and Twilio does not bill the
   // caller's leg as answered while it is still ringing.
+  // Recording (only when enabled): both sides on separate channels from the moment the callee answers, kept
+  // by Twilio until deleted. The optional notice is a whisper on the callee's leg, played before they are bridged.
+  const rec = opts.recording;
+  const recAttrs = rec
+    ? ` record="record-from-answer-dual" recordingStatusCallback="${xmlEscape(rec.statusCallbackUrl)}" recordingStatusCallbackEvent="completed" recordingStatusCallbackMethod="POST"`
+    : '';
+  const whisper = rec?.noticeUrl ? ` url="${xmlEscape(rec.noticeUrl)}" method="POST"` : '';
   return (
     '<?xml version="1.0" encoding="UTF-8"?><Response>' +
-    `<Dial callerId="${xmlEscape(opts.callerId)}" answerOnBridge="true" timeout="${opts.timeoutSec ?? 30}" action="${xmlEscape(opts.actionUrl)}" method="POST">` +
-    `<Number statusCallback="${xmlEscape(opts.actionUrl)}" statusCallbackEvent="answered completed" statusCallbackMethod="POST">${xmlEscape(opts.to)}</Number></Dial></Response>`
+    `<Dial callerId="${xmlEscape(opts.callerId)}" answerOnBridge="true" timeout="${opts.timeoutSec ?? 30}" action="${xmlEscape(opts.actionUrl)}" method="POST"${recAttrs}>` +
+    `<Number${whisper} statusCallback="${xmlEscape(opts.actionUrl)}" statusCallbackEvent="answered completed" statusCallbackMethod="POST">${xmlEscape(opts.to)}</Number></Dial></Response>`
   );
 }
+
+// The short notice the person called hears before being connected, when recording is on.
+export const RECORDING_NOTICE_TWIML =
+  '<?xml version="1.0" encoding="UTF-8"?><Response><Say>This call may be recorded for quality.</Say></Response>';
 
 export function buildRejectTwiml(spokenMessage: string): string {
   return `<?xml version="1.0" encoding="UTF-8"?><Response><Say>${xmlEscape(spokenMessage)}</Say><Hangup/></Response>`;

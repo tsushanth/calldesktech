@@ -120,5 +120,14 @@ export async function POST(request: NextRequest) {
     // Test calls are marked so they never count as pilot data.
     ...(decision.isTest ? { outcome: 'test' } : {}),
   });
-  return xml(buildDialTwiml({ callerId: decision.callerId, to: decision.to, actionUrl: publicUrl('/api/twilio/outbound-status') }));
+  // Recording is off unless OUTBOUND_RECORDING=1. When on, the callee hears a short notice before being
+  // connected unless OUTBOUND_RECORDING_NOTICE=0 (not recommended: some states need everyone's consent).
+  const recording =
+    process.env.OUTBOUND_RECORDING === '1'
+      ? {
+          statusCallbackUrl: publicUrl('/api/twilio/outbound-recording'),
+          noticeUrl: process.env.OUTBOUND_RECORDING_NOTICE === '0' ? undefined : publicUrl('/api/twilio/outbound-whisper'),
+        }
+      : undefined;
+  return xml(buildDialTwiml({ callerId: decision.callerId, to: decision.to, actionUrl: publicUrl('/api/twilio/outbound-status'), recording }));
 }
