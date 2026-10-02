@@ -7,7 +7,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { buildIntroFlow, INTRO_MAX_SECONDS } from '@/lib/introFlow';
 import { getCallLoopWsUrl } from '@/lib/voiceEngine';
-import { demoTtsFields } from '@/lib/demoVoice';
+import { demoTtsFields, demoAudioFields } from '@/lib/demoVoice';
 import { track } from '@/components/Analytics';
 
 export type DemoMessage = { id: number; role: 'caller' | 'agent'; text: string };
@@ -228,6 +228,8 @@ export function useLiveDemo() {
             type: 'context',
             flow: INTRO_FLOW,
             ...demoTtsFields(),
+            // Intro jingle + confirmation chime, attached server-side by call-loop (anonymous demos only).
+            ...demoAudioFields({ intro: true }),
           })
         );
         updateStatus('live');
