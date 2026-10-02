@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useEffect, useState } from 'react';
 
 const NAV_LINKS = [
+  { href: '/demo', label: 'Demos' },
   { href: '/#templates', label: 'Templates' },
   { href: '/#platform', label: 'Platform' },
   { href: '/#capabilities', label: 'Capabilities' },
@@ -46,7 +47,7 @@ export function SiteHeader() {
           CallDeskTech
         </Link>
 
-        <div className="hidden lg:flex items-center gap-7 text-[13px] font-medium text-[#00122e]">
+        <div className="hidden lg:flex items-center gap-5 xl:gap-7 text-[13px] font-medium text-[#00122e]">
           {NAV_LINKS.map((link) => (
             <a
               key={link.href}
