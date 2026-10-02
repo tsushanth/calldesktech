@@ -51,6 +51,8 @@ function shuffle<T>(arr: T[], rand: () => number): T[] {
 }
 
 type Lead = { id: string; company_name: string; phone: string; location: string | null; product: string; signals: Record<string, unknown> | null };
+// lead_id is nullable in the table (a retry's lead may since have been deleted), so fresh and retry rows share this shape.
+type BatchEntry = { lead_id: string | null; phone: string; company_name: string; state: string | null; attempt: number; hourET: number | null | undefined };
 type Candidate = { lead_id: string; phone: string; company_name: string; state: string; product: string };
 
 async function main() {
@@ -139,10 +141,10 @@ async function main() {
   const sorted = picked.slice().sort((a, b) => keyOf(a).localeCompare(keyOf(b)));
   const dealt = dealWithQuotas(sorted, CALLERS, quota);
   const rows = CALLERS.flatMap((u) => {
-    const fresh = shuffle(dealt[u], rng(`${DATE}:order:${u}`)).map((c) => ({
+    const fresh: BatchEntry[] = shuffle(dealt[u], rng(`${DATE}:order:${u}`)).map((c) => ({
       lead_id: c.lead_id, phone: c.phone, company_name: c.company_name, state: c.state as string | null, attempt: 1, hourET: null as number | null | undefined,
     }));
-    const back = retries.filter((r) => r.sip_username === u).map((r) => ({
+    const back: BatchEntry[] = retries.filter((r) => r.sip_username === u).map((r) => ({
       lead_id: r.lead_id, phone: r.phone, company_name: r.company_name, state: r.state, attempt: 2, hourET: r.hourET,
     }));
     return orderWithRetries(fresh, back).map((x, idx) => ({
