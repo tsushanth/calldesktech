@@ -30,5 +30,5 @@ export async function POST(request: NextRequest) {
       .eq('call_sid', params.CallSid);
     if (error) console.error('[outbound-recording] update failed:', error.message);
   }
-  return new NextResponse('', { status: 204 });
+  return new NextResponse(null, { status: 204 });
 }
