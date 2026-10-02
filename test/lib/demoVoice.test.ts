@@ -41,6 +41,10 @@ describe('sound-effect prompt hint', () => {
   it('is conditional on the tool existing, names the one moment, and is part of the intro business persona only', () => {
     expect(DEMO_SFX_PROMPT_HINT).toMatch(/If you have a play_sound_effect tool/);
     expect(DEMO_SFX_PROMPT_HINT).toMatch(/confirm a specific appointment or booking/);
+    // the tool call ends the model's message, so it must come LAST or the agent cuts itself off before reading details back
+    expect(DEMO_SFX_PROMPT_HINT).toMatch(/COMPLETE reply out loud/);
+    expect(DEMO_SFX_PROMPT_HINT).toMatch(/very last thing/);
+    expect(DEMO_SFX_PROMPT_HINT).toMatch(/Never call it before you have finished speaking/);
     const nodes = buildIntroFlow().nodes;
     expect(nodes.find((n) => n.id === 'business')!.prompt).toContain(DEMO_SFX_PROMPT_HINT);
     expect(nodes.find((n) => n.id === 'intro')!.prompt).not.toContain('play_sound_effect');

@@ -29,7 +29,12 @@ export function demoAudioFields(opts: { intro: boolean; tenantId?: string | null
 
 // Appended to a demo agent's prompt. Conditional wording ("if you have the tool") because the tool only exists
 // when call-loop attached the audio; with the feature off the sentence is inert.
+// The chime is a model TOOL CALL, and a tool call ends the model's message: anything the model meant to say AFTER it
+// (e.g. reading the caller's number back) is never generated and the agent seems to cut itself off. Measured against the
+// live engine (4 runs each, same conversation): the old wording ("call it in that same turn") finished the read-back in
+// 1 of 3 runs; "call it first" 2 of 3; "say everything, then call it as the very last thing" 4 of 4. So the hint says that.
 export const DEMO_SFX_PROMPT_HINT =
-  ' If you have a play_sound_effect tool: at the exact turn where you, as the business receptionist, confirm a specific' +
-  ' appointment or booking with a day and time, call it in that same turn as your spoken reply (speak as normal as well).' +
-  ' Call it only once, never earlier, and never mention the sound or the tool.';
+  ' If you have a play_sound_effect tool: when you, as the business receptionist, confirm a specific appointment or booking' +
+  ' with a day and time, first say your COMPLETE reply out loud (the confirmation and anything else you want to say,' +
+  ' including reading back the details), and only then, as the very last thing in that turn after your final word, call' +
+  ' play_sound_effect. Never call it before you have finished speaking, call it only once, and never mention the sound or the tool.';
