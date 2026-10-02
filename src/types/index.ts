@@ -143,6 +143,11 @@ export interface AgentVersion {
   retell_llm_id: string | null;
   voice_id: string | null;
   tts_backend: TtsBackend | null;
+  llm_model?: string | null;
+  tts_model?: string | null;
+  /** Pricing tier chosen at publish time (src/lib/pricingTiers.ts); null/absent = legacy flat per-minute price. */
+  tier?: 'lite' | 'standard' | 'pro' | null;
+  tier_overrides?: string[] | null;
   wizard_config: Record<string, unknown> | null;
   created_at: string;
 }

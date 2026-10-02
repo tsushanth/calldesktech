@@ -1,6 +1,7 @@
 import { buildOpenApi } from '@/lib/openapi';
 import { MCP_TOOL_GROUPS } from '@/lib/mcp/toolDocs';
 import { getModelCatalog } from '@/lib/modelCatalog';
+import { PRICING_TIERS, ADD_ONS, CARRIER_NOTE } from '@/lib/pricingTiers';
 import { SiteHeader } from '@/components/landing/SiteHeader';
 import { SiteFooter } from '@/components/landing/Closing';
 import { Container, Eyebrow, PrimaryButton, SecondaryButton } from '@/components/landing/primitives';
@@ -79,7 +80,8 @@ export default function DocsPage() {
                 <li><a href="#quickstart" className="block rounded-md px-3 py-1.5 text-[14px] text-gray-600 transition-colors hover:bg-white hover:text-[#1a1d29]">Quick start</a></li>
                 <li><a href="#mcp" className="block rounded-md px-3 py-1.5 text-[14px] text-gray-600 transition-colors hover:bg-white hover:text-[#1a1d29]">MCP server</a></li>
                 <li><a href="#mcp-tools" className="block rounded-md px-3 py-1.5 text-[14px] text-gray-600 transition-colors hover:bg-white hover:text-[#1a1d29]">MCP tools</a></li>
-                <li><a href="#models" className="block rounded-md px-3 py-1.5 text-[14px] text-gray-600 transition-colors hover:bg-white hover:text-[#1a1d29]">Choosing models</a></li>
+                <li><a href="#pricing-tiers" className="block rounded-md px-3 py-1.5 text-[14px] text-gray-600 transition-colors hover:bg-white hover:text-[#1a1d29]">Pricing tiers</a></li>
+                <li><a href="#models" className="block rounded-md px-3 py-1.5 text-[14px] text-gray-600 transition-colors hover:bg-white hover:text-[#1a1d29]">Advanced: choose models yourself</a></li>
                 <li><a href="#sdks" className="block rounded-md px-3 py-1.5 text-[14px] text-gray-600 transition-colors hover:bg-white hover:text-[#1a1d29]">Official SDKs</a></li>
                 {tags.map((t) => (
                   <li key={t}><a href={`#${slug(t)}`} className="block rounded-md px-3 py-1.5 text-[14px] text-gray-600 transition-colors hover:bg-white hover:text-[#1a1d29]">{t}</a></li>
@@ -136,10 +138,42 @@ export default function DocsPage() {
                 </div>
               </section>
 
-              <section id="models" className="mt-14 scroll-mt-[96px]">
-                <h2 className="text-[24px] font-semibold tracking-[-0.02em]">Choosing models</h2>
+              <section id="pricing-tiers" className="mt-14 scroll-mt-[96px]">
+                <h2 className="text-[24px] font-semibold tracking-[-0.02em]">Pricing tiers</h2>
                 <p className="mt-2 max-w-[640px] text-[15px] leading-[1.55] text-gray-500">
-                  Each agent version can choose the language model that runs the conversation and the voice model that speaks it. Pass <code className="rounded bg-white px-1.5 py-0.5 text-[13px]">llmModel</code> and <code className="rounded bg-white px-1.5 py-0.5 text-[13px]">ttsModel</code> when you publish a version, or read the same list from <code className="rounded bg-white px-1.5 py-0.5 text-[13px]">GET /models</code> or the <code className="rounded bg-white px-1.5 py-0.5 text-[13px]">list_model_options</code> tool. Leave them out for the defaults.
+                  Pick a tier when you publish a version and we choose the right voice and intelligence for it. You never need to pick a model. Pass <code className="rounded bg-white px-1.5 py-0.5 text-[13px]">tier</code> to <code className="rounded bg-white px-1.5 py-0.5 text-[13px]">POST /agents/{'{agentId}'}/versions</code> or the <code className="rounded bg-white px-1.5 py-0.5 text-[13px]">publish_agent_version</code> tool, and read the list from <code className="rounded bg-white px-1.5 py-0.5 text-[13px]">GET /pricing</code> (no sign-in needed) or <code className="rounded bg-white px-1.5 py-0.5 text-[13px]">list_pricing_tiers</code>.
+                </p>
+                <div className="mt-5 grid gap-4 md:grid-cols-3">
+                  {PRICING_TIERS.map((t) => (
+                    <div key={t.id} className="rounded-xl border border-gray-200 bg-white p-5">
+                      <div className="flex items-baseline justify-between gap-2">
+                        <h3 className="text-[15px] font-semibold tracking-[-0.01em]">{t.name}</h3>
+                        {t.availability === 'coming_soon' && <span className="rounded bg-amber-50 px-1.5 py-0.5 text-[11px] text-amber-700">Coming soon</span>}
+                      </div>
+                      <p className="mt-1 text-[22px] font-normal tracking-[-0.03em] text-[#00122e]">${(t.pricePerMinuteCents / 100).toFixed(2)}<span className="text-[13px] text-gray-400"> / min</span></p>
+                      <p className="mt-1 text-[13px] leading-[1.45] text-gray-500">{t.tagline}</p>
+                      <p className="mt-2 text-[12px] text-gray-400">{t.carrierMode === 'byo' ? 'Carrier billed separately' : 'Phone service included'}</p>
+                    </div>
+                  ))}
+                </div>
+                <ul className="mt-4 max-w-[640px] list-disc space-y-1 pl-5 text-[14px] leading-[1.5] text-gray-500">
+                  <li>Included on every tier: call summary, transcript and structured field extraction.</li>
+                  <li>{CARRIER_NOTE}</li>
+                  <li>Add-ons (proposed, amounts not final): {ADD_ONS.map((a) => a.label.toLowerCase()).join(', ')}. Caller sentiment is off unless you turn it on.</li>
+                  <li>Lite is coming soon: publishing with <code className="rounded bg-white px-1.5 py-0.5 text-[13px]">&quot;tier&quot;: &quot;lite&quot;</code> returns a 400 until it opens.</li>
+                  <li>Agents published without a tier keep their current per-minute price. Choosing a tier is optional.</li>
+                </ul>
+                <div className="mt-4"><Code label="Publish a version on the Standard tier">{`curl -X POST ${base}/agents/$AGENT/versions \\
+  -H "Authorization: Bearer cdk_live_..." \\
+  -H "Content-Type: application/json" \\
+  -d '{"flowName":"Front desk","startNodeId":"greet","nodes":[...],
+       "voiceEngine":"poc","tier":"standard"}'`}</Code></div>
+              </section>
+
+              <section id="models" className="mt-14 scroll-mt-[96px]">
+                <h2 className="text-[24px] font-semibold tracking-[-0.02em]">Advanced: choose models yourself</h2>
+                <p className="mt-2 max-w-[640px] text-[15px] leading-[1.55] text-gray-500">
+                  You do not need this to use a pricing tier. For API and MCP users who want control, an agent version can also choose the language model that runs the conversation and the voice model that speaks it. Models you set override the tier’s choice, and the tier’s price does not change. Pass <code className="rounded bg-white px-1.5 py-0.5 text-[13px]">llmModel</code> and <code className="rounded bg-white px-1.5 py-0.5 text-[13px]">ttsModel</code> when you publish a version, or read the same list from <code className="rounded bg-white px-1.5 py-0.5 text-[13px]">GET /models</code> or the <code className="rounded bg-white px-1.5 py-0.5 text-[13px]">list_model_options</code> tool. Leave them out and the tier (or the default) chooses.
                 </p>
                 <ul className="mt-3 max-w-[640px] list-disc space-y-1 pl-5 text-[14px] leading-[1.5] text-gray-500">
                   {catalog.notes.map((n) => <li key={n}>{n}</li>)}
@@ -172,7 +206,7 @@ export default function DocsPage() {
   -d '{"flowName":"Front desk","startNodeId":"greet","nodes":[...],
        "voiceEngine":"poc","ttsBackend":"elevenlabs",
        "ttsModel":"eleven_flash_v2_5","llmModel":"gpt-6-luna"}'`}</Code></div>
-                <p className="mt-3 max-w-[640px] text-[13px] leading-[1.5] text-gray-500">Provider prices are what the provider charges us, shown so you can compare options. What you pay per minute is set by your voice backend, see pricing.</p>
+                <p className="mt-3 max-w-[640px] text-[13px] leading-[1.5] text-gray-500">What you pay per minute is set by your pricing tier (or, for agents published without one, the flat price of your voice backend), not by the models you choose. See Pricing tiers above.</p>
               </section>
 
               <section id="sdks" className="mt-14 scroll-mt-[96px]">

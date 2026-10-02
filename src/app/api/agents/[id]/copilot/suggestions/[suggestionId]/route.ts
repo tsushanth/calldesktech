@@ -95,6 +95,11 @@ export async function PATCH(
         retellLlmId: latestVersion.retell_llm_id,
         voiceId: latestVersion.voice_id,
         ttsBackend: latestVersion.tts_backend,
+        // Carry the pricing tier and model choices forward, or accepting a suggestion would silently drop them (and, with a tier dropped,
+        // re-sync the subscription's voice price from the backend).
+        tier: latestVersion.tier || undefined,
+        llmModel: latestVersion.llm_model || undefined,
+        ttsModel: latestVersion.tts_model || undefined,
         wizardConfig: latestVersion.wizard_config,
       }),
     });
