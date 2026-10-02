@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/supabase';
 import { verifyTwilioSignature } from '@/lib/webhookAuth';
-import { buildDialTwiml, buildRejectTwiml, decideDial, normalizeNanp, sipUser } from '@/lib/outboundCalling';
+import { buildDialTwiml, buildRejectTwiml, decideDial, normalizeNanp, parseTestNumbers, sipUser } from '@/lib/outboundCalling';
 
 // POST /api/twilio/outbound-voice — the Voice URL of the outbound-sales SIP domain. A human caller dials
 // a number from a softphone, Twilio asks us what to do with the call, and we answer with a <Dial> from
@@ -71,6 +71,7 @@ export async function POST(request: NextRequest) {
     caller: caller ?? null,
     leadId,
     doNotCall,
+    isTestNumber: !!toE164 && parseTestNumbers(process.env.OUTBOUND_TEST_NUMBERS).has(toE164),
     requireLead: process.env.OUTBOUND_REQUIRE_LEAD !== 'false',
     dialsToday,
     maxDialsPerDay: Number(process.env.OUTBOUND_MAX_DIALS_PER_DAY) || 400,
@@ -97,6 +98,8 @@ export async function POST(request: NextRequest) {
     to_number: decision.to,
     caller_id: decision.callerId,
     status: 'initiated',
+    // Test calls are marked so they never count as pilot data.
+    ...(decision.isTest ? { outcome: 'test' } : {}),
   });
   return xml(buildDialTwiml({ callerId: decision.callerId, to: decision.to, actionUrl: publicUrl('/api/twilio/outbound-status') }));
 }

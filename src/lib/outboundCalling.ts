@@ -18,6 +18,18 @@ export function normalizeNanp(raw: string): string | null {
   return e164;
 }
 
+// Numbers callers may dial for setup and test calls (the supervisor's own phone): they bypass the
+// lead-list and do-not-call checks, and the call is logged with outcome "test" so it never counts
+// as pilot data. Comma-separated, any common US format; invalid entries are ignored.
+export function parseTestNumbers(raw: string | undefined | null): Set<string> {
+  const out = new Set<string>();
+  for (const part of String(raw ?? '').split(',')) {
+    const n = normalizeNanp(part.trim());
+    if (n) out.add(n);
+  }
+  return out;
+}
+
 // "sip:mary@calldesk.sip.twilio.com" / "sip:+14256284887@calldesk.sip.twilio.com;user=phone" -> user part.
 export function sipUser(uri: string): string | null {
   const m = /^sips?:([^@;>\s]+)@/i.exec(String(uri ?? '').trim().replace(/^<|>$/g, ''));
@@ -58,13 +70,14 @@ export interface DialDecisionInput {
   caller: { caller_id: string; enabled: boolean } | null;
   leadId: string | null;
   doNotCall: boolean;
+  isTestNumber?: boolean;
   requireLead: boolean;
   dialsToday: number;
   maxDialsPerDay: number;
 }
 
 export type DialDecision =
-  | { ok: true; to: string; callerId: string }
+  | { ok: true; to: string; callerId: string; isTest: boolean }
   | { ok: false; reason: string; spoken: string };
 
 // Order matters only for which reason gets logged; every branch refuses the call.
@@ -76,16 +89,18 @@ export function decideDial(i: DialDecisionInput): DialDecision {
   if (!to) {
     return { ok: false, reason: 'invalid_number', spoken: 'That number cannot be dialed from this line.' };
   }
-  if (i.doNotCall) {
-    return { ok: false, reason: 'do_not_call', spoken: 'That number is on the do not call list.' };
-  }
-  if (i.requireLead && !i.leadId) {
-    return { ok: false, reason: 'not_in_call_list', spoken: 'That number is not in your call list.' };
+  if (!i.isTestNumber) {
+    if (i.doNotCall) {
+      return { ok: false, reason: 'do_not_call', spoken: 'That number is on the do not call list.' };
+    }
+    if (i.requireLead && !i.leadId) {
+      return { ok: false, reason: 'not_in_call_list', spoken: 'That number is not in your call list.' };
+    }
   }
   if (i.dialsToday >= i.maxDialsPerDay) {
     return { ok: false, reason: 'daily_limit', spoken: 'You have reached the daily dial limit.' };
   }
-  return { ok: true, to, callerId: i.caller.caller_id };
+  return { ok: true, to, callerId: i.caller.caller_id, isTest: !!i.isTestNumber };
 }
 
 // Far-end leg status, from either <Dial action> (DialCallStatus) or the <Number> status callback
