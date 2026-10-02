@@ -17,6 +17,7 @@
 import { getSupabaseAdmin } from '@/lib/supabase';
 import { normalizeNanp } from '@/lib/outboundCalling';
 import { stateFromLocation, batchDateEastern, STATE_ZONES } from '@/lib/callingHours';
+import { selectRetries, dealWithQuotas, orderWithRetries, type PreviousRow } from '@/lib/batchPlanning';
 
 const CALLERS = (process.env.CALLERS || 'mary,mark').split(',').map((s) => s.trim()).filter(Boolean);
 const PER = Math.max(1, Number(process.env.PER) || 100);
@@ -67,7 +68,32 @@ async function main() {
   const used = new Set<string>(((prior.error ? [] : prior.data) ?? []).map((r: { phone: string }) => r.phone));
   if (prior.error) console.log(`(calldesk_call_batches not readable yet: ${prior.error.message}; treating as empty)`);
 
-  const need = PER * CALLERS.length;
+  // Retries: a number logged as "voicemail" on its first attempt comes back once, to the same caller, placed at a
+  // different time of the shift. At most a quarter of a caller's batch, so fresh numbers are never crowded out.
+  const weekAgo = new Date(`${DATE}T12:00:00Z`);
+  weekAgo.setUTCDate(weekAgo.getUTCDate() - 7);
+  const prev = await db.from('calldesk_call_batches')
+    .select('sip_username, phone, lead_id, company_name, state, attempt, outcome, batch_date')
+    .lt('batch_date', DATE).gte('batch_date', weekAgo.toISOString().slice(0, 10)).order('batch_date', { ascending: false });
+  const retriedBefore = await db.from('calldesk_call_batches').select('phone').eq('attempt', 2);
+  const retries: PreviousRow[] = selectRetries((prev.error ? [] : (prev.data ?? [])) as PreviousRow[], {
+    blocked: dnc,
+    alreadyRetried: new Set<string>(((retriedBefore.error ? [] : retriedBefore.data) ?? []).map((r: { phone: string }) => r.phone)),
+    maxPerCaller: Math.floor(PER * 0.25),
+  }).filter((r) => CALLERS.includes(r.sip_username));
+  if (retries.length) {
+    // When each was first dialled (US Eastern hour), so the retry lands at a different time of day.
+    const calls = await db.from('calldesk_outbound_calls').select('to_number, started_at').in('to_number', retries.map((r) => r.phone)).neq('status', 'rejected').order('started_at', { ascending: false });
+    const hourOf = new Map<string, number>();
+    for (const c of (calls.error ? [] : calls.data) ?? []) {
+      if (hourOf.has(c.to_number)) continue;
+      hourOf.set(c.to_number, Number(new Intl.DateTimeFormat('en-US', { timeZone: 'America/New_York', hour: '2-digit', hourCycle: 'h23' }).format(new Date(c.started_at))));
+    }
+    for (const r of retries) r.hourET = hourOf.get(r.phone) ?? null;
+  }
+  const quota: Record<string, number> = Object.fromEntries(CALLERS.map((c) => [c, PER - retries.filter((r) => r.sip_username === c).length]));
+  const need = Object.values(quota).reduce((a, b) => a + b, 0);
+  if (retries.length) console.log(`Retries coming back: ${retries.length} (${CALLERS.map((c) => `${c} ${retries.filter((r) => r.sip_username === c).length}`).join(', ')})`);
   const picked: Candidate[] = [];
   const seen = new Set<string>();
   const perProduct: Record<string, { eligible: number; taken: number }> = {};
@@ -105,18 +131,25 @@ async function main() {
   for (const [p, v] of Object.entries(perProduct)) console.log(`  ${p.padEnd(24)} eligible ${String(v.eligible).padStart(5)} | used in this batch ${v.taken}`);
   console.log(`Total picked ${picked.length} of ${need} needed${picked.length < need ? '  <-- SHORT: add products or wait for more phones' : ''}`);
 
-  // Deal alternately from a list sorted by line type then state, so every caller gets (almost exactly) the same
-  // mix of line types and states; a plain random split left one caller with 15 more mobile numbers. The order
-  // each caller then works in is shuffled again, so position carries no pattern.
+  // Deal from a list sorted by line type then state, so every caller gets (almost exactly) the same mix of line
+  // types and states; a plain random split left one caller with 15 more mobile numbers. Callers who already have
+  // retries get proportionally fewer fresh numbers. Each caller's order is shuffled, with retries moved to a
+  // different time of the shift than their first try.
   const keyOf = (c: Candidate) => `${lookups.get(c.phone)?.line_type || 'zz'}|${c.state}`;
   const sorted = picked.slice().sort((a, b) => keyOf(a).localeCompare(keyOf(b)));
-  const dealt = sorted.map((c, i) => ({ c, caller: CALLERS[i % CALLERS.length] }));
-  const rows = CALLERS.flatMap((u) =>
-    shuffle(dealt.filter((d) => d.caller === u), rng(`${DATE}:order:${u}`)).map((d, idx) => ({
-      batch_date: DATE, sip_username: u, lead_id: d.c.lead_id, phone: d.c.phone,
-      company_name: d.c.company_name, state: d.c.state, position: idx + 1, attempt: 1,
-    })),
-  );
+  const dealt = dealWithQuotas(sorted, CALLERS, quota);
+  const rows = CALLERS.flatMap((u) => {
+    const fresh = shuffle(dealt[u], rng(`${DATE}:order:${u}`)).map((c) => ({
+      lead_id: c.lead_id, phone: c.phone, company_name: c.company_name, state: c.state as string | null, attempt: 1, hourET: null as number | null | undefined,
+    }));
+    const back = retries.filter((r) => r.sip_username === u).map((r) => ({
+      lead_id: r.lead_id, phone: r.phone, company_name: r.company_name, state: r.state, attempt: 2, hourET: r.hourET,
+    }));
+    return orderWithRetries(fresh, back).map((x, idx) => ({
+      batch_date: DATE, sip_username: u, lead_id: x.lead_id, phone: x.phone, company_name: x.company_name,
+      state: x.state as string, position: idx + 1, attempt: x.attempt,
+    }));
+  });
   for (const u of CALLERS) {
     const mine = rows.filter((r) => r.sip_username === u);
     const byState: Record<string, number> = {};
