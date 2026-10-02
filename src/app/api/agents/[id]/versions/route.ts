@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/supabase';
-import { syncVoicePriceForTenant } from '@/lib/stripe';
+import { syncVoicePriceForTenant, ensureTierItemForTenant } from '@/lib/stripe';
+import { tierBillingConfigured } from '@/lib/tierBilling';
 import type { FlowNode, TtsBackend } from '@/types';
 import { authorizeResource } from '@/lib/authz';
 import { normalizeLanguage, LANGUAGE_VALUES } from '@/lib/languages';
@@ -160,6 +161,14 @@ export async function POST(
   if (!tierResult.ok) return NextResponse.json({ error: tierResult.error }, { status: 400 });
   const { llmModel, ttsModel, ttsBackend, tier, overrides: tierOverrides } = tierResult;
 
+  // A tiered agent must never run unbilled: if this tier's Stripe price is not configured, refuse before anything is written.
+  if (tier && !tierBillingConfigured(tier)) {
+    return NextResponse.json(
+      { error: `Billing for the ${tier} tier is not yet available, so a version cannot be published on it. Publish without a tier, or try again later.`, code: 'tier_billing_not_configured' },
+      { status: 503 }
+    );
+  }
+
   // Language (globalSettings.language): validate, and pin the voice backend a non-English language
   // needs (the default voice is English-only) so the stored tts_backend, and the billing price synced
   // from it below, match what the engine will really use. An explicit ttsBackend other than kokoro wins.
@@ -187,6 +196,21 @@ export async function POST(
     .single();
   if (agentError || !agent) {
     return NextResponse.json({ error: agentError?.message || 'Agent not found' }, { status: 404 });
+  }
+
+  // Tiered publish: make sure the subscription has a line for the tier's price BEFORE saving anything. The add is idempotent and a metered
+  // line with no usage costs nothing, so this order makes a failure cleanly retryable: no version exists until the line does, and
+  // publishing again simply repeats the call. (Tenants with no subscription yet are skipped, as the voice sync skips them.)
+  if (tier) {
+    try {
+      await ensureTierItemForTenant(agent.tenant_id, tier);
+    } catch (err) {
+      console.error('Failed to ensure tier subscription item', { tenantId: agent.tenant_id, tier }, err);
+      return NextResponse.json(
+        { error: `Could not set up billing for the ${tier} tier, so nothing was saved. No charge was made; publishing again is safe.`, code: 'tier_billing_failed', retryable: true },
+        { status: 502 }
+      );
+    }
   }
 
   const { nodes: embeddedNodes, error: embedError } = await embedSubflowSnapshots(nodes, agent.tenant_id);

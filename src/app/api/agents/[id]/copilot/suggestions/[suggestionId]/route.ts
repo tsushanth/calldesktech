@@ -105,7 +105,9 @@ export async function PATCH(
     });
     const body = await res.json().catch(() => ({}));
     if (!res.ok) {
-      return NextResponse.json({ error: body.error || `versions route returned HTTP ${res.status}` }, { status: 500 });
+      // Tier billing problems (not set up, or Stripe failed) are reported as such, not as a generic 500, so the caller knows to retry.
+      const status = res.status === 502 || res.status === 503 ? res.status : 500;
+      return NextResponse.json({ error: body.error || `versions route returned HTTP ${res.status}`, ...(body.code ? { code: body.code } : {}) }, { status });
     }
 
     const { data: updatedSuggestion, error: updateError } = await supabase

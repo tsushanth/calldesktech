@@ -79,7 +79,7 @@ export const PRICING_TIERS: PricingTier[] = [
   {
     id: 'standard',
     name: 'Standard',
-    pricePerMinuteCents: 5,
+    pricePerMinuteCents: 6,
     tagline: 'A natural-sounding agent for everyday business calls.',
     whoItsFor: 'Most businesses: reception, booking, intake and after-hours coverage.',
     includes: [...INCLUDED_ON_ALL, 'Natural, low-delay voice', 'Reliable multi-step conversations'],

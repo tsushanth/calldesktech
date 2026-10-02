@@ -1,13 +1,15 @@
 # Pricing tiers: what must change to bill by tier
 
+> Update: the billing work described below is implemented on the `tiered-billing` branch; see docs/tiered-billing.md. This file is kept as the original investigation.
+
 Status: investigation notes for the owner. Customer-facing prices only; no provider costs or margins belong in this file. Nothing here is deployed, applied or verified live. Written from a read-only pass over this repo; the metering side that lives in the voice engine repo (`call-loop-poc`, `stripeMeter.js`) was not read and is marked "unverified" where it matters.
 
 ## What the tier layer does today (this branch)
 
-- `src/lib/pricingTiers.ts` is the single source of truth for Lite 2c, Standard 5c, Pro 10c per minute and the proposed add-ons.
+- `src/lib/pricingTiers.ts` is the single source of truth for Lite 2c, Standard 6c, Pro 10c per minute and the proposed add-ons.
 - Publishing a version with `tier` records the tier on the version row and derives the language model and voice from it. Nothing is billed differently: **no Stripe price, meter, table or invoice line knows about tiers yet.**
-- A version published with a tier deliberately skips `syncVoicePriceForTenant`, because that function would swap the subscription's voice price to the legacy rate of the tier's voice backend (for Standard that is the $0.12 ElevenLabs line, more than double the advertised 5c). The subscription's voice price simply stays as it was.
-- Net effect until the work below is done: the pricing page and tier picker advertise prices that no invoice reflects. Do not deploy the pricing page or the picker before billing is wired, or customers will be shown 5c and billed whatever their subscription already says.
+- A version published with a tier deliberately skips `syncVoicePriceForTenant`, because that function would swap the subscription's voice price to the legacy rate of the tier's voice backend (for Standard that is the $0.12 ElevenLabs line, double the advertised 6c). The subscription's voice price simply stays as it was.
+- Net effect until the work below is done: the pricing page and tier picker advertised prices that no invoice reflects (superseded by docs/tiered-billing.md, which wires billing). Do not deploy the pricing page or the picker before billing is wired, or customers will be shown 6c and billed whatever their subscription already says.
 
 ## How usage is billed today
 
@@ -28,7 +30,7 @@ Database (draft migration `supabase/migrations/064_agent_version_tier.sql`, not 
 
 Stripe:
 
-- New metered prices on a per-minute basis for each purchasable tier: Standard 5c and Pro 10c now, Lite 2c when it opens. Prices are immutable in Stripe, so any later change is a new price.
+- New metered prices on a per-minute basis for each purchasable tier: Standard 6c and Pro 10c now, Lite 2c when it opens. Prices are immutable in Stripe, so any later change is a new price.
 - Either one meter per tier, or one meter with a tier dimension (Stripe meters support dimensions; confirm the meter's `dimension_payload_keys` before relying on it). The current voice meter is seconds-based, so keep the unit.
 - Per-tier prices need checkout and the subscription to hold more than one voice line at the same time if one account can run more than one tier. Today the code assumes exactly one voice line and swaps it.
 - Add-on prices and meters (or flat line items) once the owner sets amounts. All four add-ons are placeholders (`proposed: true`, no amount), and nothing is billed for them now.

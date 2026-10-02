@@ -1,4 +1,5 @@
 import { SupabaseClient } from '@supabase/supabase-js';
+import { PRICING_TIERS, isTierId, type TierId } from '@/lib/pricingTiers';
 
 // Shared usage-computation helpers. Both the billing page (billing/route.ts)
 // and the usage page (usage/route.ts) independently re-derive "minutes this
@@ -37,25 +38,92 @@ export function summarizeCallLogs(
   };
 }
 
+type CallLogRow = { duration_seconds: number | null; outcome: string | null; tier?: string | null };
+
+// calldesk_call_logs.tier (migration 065) is written by the engine for calls served by a tiered agent version. Before that migration is
+// applied the column does not exist; selecting it then fails with Postgres "undefined column" (42703), and every call is a legacy call.
+async function fetchCallLogs(supabase: SupabaseClient, tenantId: string, since: Date | null, until: Date): Promise<CallLogRow[]> {
+  const run = async (columns: string) => {
+    let query = supabase.from('calldesk_call_logs').select(columns).eq('tenant_id', tenantId).lt('created_at', until.toISOString());
+    if (since) query = query.gte('created_at', since.toISOString());
+    return query;
+  };
+  let res = await run('duration_seconds, outcome, tier');
+  if (res.error && (res.error.code === '42703' || /\btier\b/.test(res.error.message || ''))) res = await run('duration_seconds, outcome');
+  if (res.error) throw res.error;
+  return (res.data ?? []) as unknown as CallLogRow[];
+}
+
 // Fetches calldesk_call_logs for a tenant in [since, until) and summarizes
 // them. `since` null means "from the beginning" (never-reported tenant).
+// `legacyOnly` leaves out calls served by a tiered agent version: those are
+// billed through their tier's own price, so the legacy voice and per-event
+// meters (reportUsageToStripe.ts) must not count them a second time.
 export async function getTenantUsageSince(
   supabase: SupabaseClient,
   tenantId: string,
   since: Date | null,
-  until: Date = new Date()
+  until: Date = new Date(),
+  opts: { legacyOnly?: boolean } = {}
 ): Promise<CallOutcomeCounts> {
-  let query = supabase
-    .from('calldesk_call_logs')
-    .select('duration_seconds, outcome')
-    .eq('tenant_id', tenantId)
-    .lt('created_at', until.toISOString());
+  const rows = await fetchCallLogs(supabase, tenantId, since, until);
+  return summarizeCallLogs(opts.legacyOnly ? rows.filter((r) => !r.tier) : rows);
+}
 
-  if (since) {
-    query = query.gte('created_at', since.toISOString());
+export type TierUsageRow = {
+  /** null = calls from versions published without a tier (the account's flat per-minute voice price). */
+  tier: TierId | null;
+  label: string;
+  calls: number;
+  minutes: number;
+  seconds: number;
+  /** Cents per minute this row is billed at, or null when it is not known (legacy rate could not be read from the subscription). */
+  centsPerMinute: number | null;
+  /** Charge for the period so far in cents (seconds at the per-minute rate), or null when the rate is unknown. */
+  chargeCents: number | null;
+  /** Tiered rows include booking, transfer and message events in the per-minute price. */
+  eventsIncluded: boolean;
+};
+
+export const LEGACY_TIER_LABEL = 'Standard rate (legacy)';
+
+/**
+ * Groups call logs by tier: one row per tier that has calls, tiers in catalog order, the legacy (no tier) row last. A call with a tier
+ * id this code does not know is counted as legacy rather than dropped. `legacyCentsPerMinute` is the account's current flat voice rate.
+ */
+export function summarizeCallLogsByTier(rows: CallLogRow[], legacyCentsPerMinute: number | null): TierUsageRow[] {
+  const bucket = new Map<TierId | null, CallLogRow[]>();
+  for (const r of rows) {
+    const key: TierId | null = isTierId(r.tier) ? r.tier : null;
+    bucket.set(key, [...(bucket.get(key) ?? []), r]);
   }
+  const out: TierUsageRow[] = [];
+  for (const t of [...PRICING_TIERS.map((p) => p.id), null] as Array<TierId | null>) {
+    const group = bucket.get(t);
+    if (!group) continue;
+    const sum = summarizeCallLogs(group);
+    const centsPerMinute = t ? PRICING_TIERS.find((p) => p.id === t)!.pricePerMinuteCents : legacyCentsPerMinute;
+    out.push({
+      tier: t,
+      label: t ? PRICING_TIERS.find((p) => p.id === t)!.name : LEGACY_TIER_LABEL,
+      calls: sum.calls,
+      minutes: sum.minutes,
+      seconds: sum.seconds,
+      centsPerMinute,
+      chargeCents: centsPerMinute === null ? null : Math.round((sum.seconds * centsPerMinute) / 60),
+      eventsIncluded: t !== null,
+    });
+  }
+  return out;
+}
 
-  const { data, error } = await query;
-  if (error) throw error;
-  return summarizeCallLogs(data ?? []);
+/** Per-tier usage for a tenant in [since, until), for the billing page. */
+export async function getTenantUsageByTierSince(
+  supabase: SupabaseClient,
+  tenantId: string,
+  since: Date | null,
+  legacyCentsPerMinute: number | null,
+  until: Date = new Date()
+): Promise<TierUsageRow[]> {
+  return summarizeCallLogsByTier(await fetchCallLogs(supabase, tenantId, since, until), legacyCentsPerMinute);
 }

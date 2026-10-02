@@ -101,7 +101,8 @@ export async function reportTenantUsageToStripe(
 
   let usage;
   try {
-    usage = await getTenantUsageSince(supabase, tenantId, since, until);
+    // legacyOnly: calls served by a tiered agent are billed through their tier's price, not these meters.
+    usage = await getTenantUsageSince(supabase, tenantId, since, until, { legacyOnly: true });
   } catch (err) {
     return { tenantId, status: 'error', error: err instanceof Error ? err.message : String(err) };
   }

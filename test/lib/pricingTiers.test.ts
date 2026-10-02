@@ -8,8 +8,8 @@ import {
 } from '@/lib/pricingTiers';
 
 describe('pricing tiers', () => {
-  it('has exactly Lite, Standard and Pro at 2, 5 and 10 cents per minute', () => {
-    expect(PRICING_TIERS.map((t) => [t.id, t.pricePerMinuteCents])).toEqual([['lite', 2], ['standard', 5], ['pro', 10]]);
+  it('has exactly Lite, Standard and Pro at 2, 6 and 10 cents per minute', () => {
+    expect(PRICING_TIERS.map((t) => [t.id, t.pricePerMinuteCents])).toEqual([['lite', 2], ['standard', 6], ['pro', 10]]);
     expect([...TIER_IDS]).toEqual(['lite', 'standard', 'pro']);
   });
   it('Lite and Standard bring your own carrier; Pro includes managed phone service', () => {
@@ -57,9 +57,9 @@ describe('add-ons', () => {
 describe('priceFor', () => {
   it('quotes the base price with a one-line explanation', () => {
     const q = priceFor({ tier: 'standard' });
-    expect(q.centsPerMinute).toBe(5);
+    expect(q.centsPerMinute).toBe(6);
     expect(q.purchasable).toBe(true);
-    expect(q.explanation).toBe('Standard is $0.05 per minute (phone carrier billed separately).');
+    expect(q.explanation).toBe('Standard is $0.06 per minute (phone carrier billed separately).');
     expect(priceFor({ tier: 'pro' }).explanation).toBe('Pro is $0.10 per minute (phone service included).');
   });
   it('marks Lite as coming soon and not purchasable', () => {
@@ -70,7 +70,7 @@ describe('priceFor', () => {
   });
   it('an add-on with no amount set adds nothing and is reported as unpriced', () => {
     const q = priceFor({ tier: 'standard', addOns: ['sentiment_per_turn'] });
-    expect(q.centsPerMinute).toBe(5);
+    expect(q.centsPerMinute).toBe(6);
     expect(q.unpricedAddOns).toEqual(['sentiment_per_turn']);
     expect(q.explanation).toContain('price to be announced');
   });
@@ -79,9 +79,9 @@ describe('priceFor', () => {
     a.centsPerMinute = 1.5;
     try {
       const q = priceFor({ tier: 'standard', addOns: ['advanced_analytics', 'advanced_analytics'] });
-      expect(q.centsPerMinute).toBe(6.5);
+      expect(q.centsPerMinute).toBe(7.5);
       expect(q.unpricedAddOns).toEqual([]);
-      expect(q.explanation).toBe('Standard is $0.05 per minute plus Advanced analytics $0.015, $0.065 per minute in all (phone carrier billed separately).');
+      expect(q.explanation).toBe('Standard is $0.06 per minute plus Advanced analytics $0.015, $0.075 per minute in all (phone carrier billed separately).');
     } finally { a.centsPerMinute = null; }
   });
   it('throws on an unknown tier or add-on', () => {
@@ -145,7 +145,7 @@ describe('resolveTierForPublish', () => {
 describe('public pricing payload', () => {
   const p = publicPricing();
   it('lists the tiers and add-ons with prices in cents and dollars', () => {
-    expect(p.tiers.map((t) => [t.id, t.pricePerMinuteCents, t.pricePerMinuteDollars])).toEqual([['lite', 2, 0.02], ['standard', 5, 0.05], ['pro', 10, 0.1]]);
+    expect(p.tiers.map((t) => [t.id, t.pricePerMinuteCents, t.pricePerMinuteDollars])).toEqual([['lite', 2, 0.02], ['standard', 6, 0.06], ['pro', 10, 0.1]]);
     expect(p.addOns).toHaveLength(4);
     expect(p.carrierNote).toMatch(/Carrier billed separately/);
   });

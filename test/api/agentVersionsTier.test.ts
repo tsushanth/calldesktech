@@ -3,10 +3,13 @@ import { NextRequest } from 'next/server';
 
 vi.mock('@/lib/supabase', () => ({ getSupabaseAdmin: vi.fn() }));
 vi.mock('@/lib/authz', () => ({ authorizeResource: vi.fn().mockResolvedValue({ ok: true }) }));
-vi.mock('@/lib/stripe', () => ({ syncVoicePriceForTenant: vi.fn().mockResolvedValue(undefined) }));
+vi.mock('@/lib/stripe', () => ({
+  syncVoicePriceForTenant: vi.fn().mockResolvedValue(undefined),
+  ensureTierItemForTenant: vi.fn().mockResolvedValue({ status: 'added', itemId: 'si_1' }),
+}));
 
 import { getSupabaseAdmin } from '@/lib/supabase';
-import { syncVoicePriceForTenant } from '@/lib/stripe';
+import { syncVoicePriceForTenant, ensureTierItemForTenant } from '@/lib/stripe';
 import { POST } from '@/app/api/agents/[id]/versions/route';
 
 let inserted: Record<string, unknown> | null;
@@ -45,6 +48,10 @@ beforeEach(() => {
   inserted = null;
   vi.mocked(getSupabaseAdmin).mockReturnValue(supabaseMock() as never);
   vi.mocked(syncVoicePriceForTenant).mockClear();
+  vi.mocked(ensureTierItemForTenant).mockReset().mockResolvedValue({ status: 'added', itemId: 'si_1' });
+  process.env.STRIPE_TIER_STANDARD_PRICE = 'price_test_standard';
+  process.env.STRIPE_TIER_PRO_PRICE = 'price_test_pro';
+  delete process.env.STRIPE_TIER_LITE_PRICE;
 });
 
 it('without a tier nothing changes: no tier columns written, voice price synced as before', async () => {
@@ -54,6 +61,7 @@ it('without a tier nothing changes: no tier columns written, voice price synced 
   expect(inserted).not.toHaveProperty('tier');
   expect(inserted).not.toHaveProperty('tier_overrides');
   expect(syncVoicePriceForTenant).toHaveBeenCalledWith('t1', 'elevenlabs');
+  expect(ensureTierItemForTenant).not.toHaveBeenCalled();
 });
 
 it('tier standard derives the models, records the tier, and leaves the subscription voice price alone', async () => {
@@ -61,6 +69,7 @@ it('tier standard derives the models, records the tier, and leaves the subscript
   expect(res.status).toBe(201);
   expect(inserted).toMatchObject({ tier: 'standard', tier_overrides: null, llm_model: 'claude-haiku-4-5-20251001', tts_backend: 'elevenlabs', tts_model: 'eleven_flash_v2_5' });
   expect(syncVoicePriceForTenant).not.toHaveBeenCalled();
+  expect(ensureTierItemForTenant).toHaveBeenCalledWith('t1', 'standard');
 });
 
 it('explicit overrides win and are recorded', async () => {
@@ -92,4 +101,61 @@ it('rejects an unknown tier, a tier on retell, and an invalid override', async (
   expect(badModel.status).toBe(400);
   expect((await badModel.json()).error).toMatch(/Unknown llmModel/);
   expect(inserted).toBeNull();
+});
+
+it('a tiered publish whose price env var is not set is refused with 503 and writes nothing', async () => {
+  delete process.env.STRIPE_TIER_STANDARD_PRICE;
+  const res = await post({ tier: 'standard' });
+  expect(res.status).toBe(503);
+  const body = await res.json();
+  expect(body.error).toMatch(/not yet available/i);
+  expect(body.code).toBe('tier_billing_not_configured');
+  expect(inserted).toBeNull();
+  expect(ensureTierItemForTenant).not.toHaveBeenCalled();
+  expect(syncVoicePriceForTenant).not.toHaveBeenCalled();
+});
+
+it('a blank price env var counts as not configured', async () => {
+  process.env.STRIPE_TIER_PRO_PRICE = '   ';
+  const res = await post({ tier: 'pro' });
+  expect(res.status).toBe(503);
+  expect(inserted).toBeNull();
+});
+
+it('a Stripe failure returns an explicit retryable 502, saves no version, and a retry succeeds', async () => {
+  vi.mocked(ensureTierItemForTenant).mockRejectedValueOnce(new Error('stripe is down'));
+  const failed = await post({ tier: 'standard' });
+  expect(failed.status).toBe(502);
+  const body = await failed.json();
+  expect(body).toMatchObject({ code: 'tier_billing_failed', retryable: true });
+  expect(body.error).toMatch(/nothing was saved/i);
+  expect(inserted).toBeNull();
+  expect(syncVoicePriceForTenant).not.toHaveBeenCalled();
+
+  const retry = await post({ tier: 'standard' });
+  expect(retry.status).toBe(201);
+  expect(inserted).toMatchObject({ tier: 'standard' });
+  expect(ensureTierItemForTenant).toHaveBeenCalledTimes(2);
+});
+
+it('a tenant with no subscription still publishes (same as the voice sync)', async () => {
+  vi.mocked(ensureTierItemForTenant).mockResolvedValueOnce({ status: 'no_subscription' });
+  const res = await post({ tier: 'pro' });
+  expect(res.status).toBe(201);
+  expect(inserted).toMatchObject({ tier: 'pro' });
+});
+
+it('legacy publishes never need tier billing, even with every tier price unset', async () => {
+  delete process.env.STRIPE_TIER_STANDARD_PRICE;
+  delete process.env.STRIPE_TIER_PRO_PRICE;
+  const res = await post({ ttsBackend: 'cartesia' });
+  expect(res.status).toBe(201);
+  expect(ensureTierItemForTenant).not.toHaveBeenCalled();
+  expect(syncVoicePriceForTenant).toHaveBeenCalledWith('t1', 'cartesia');
+});
+
+it('lite is still rejected as coming soon before any billing check', async () => {
+  const res = await post({ tier: 'lite' });
+  expect(res.status).toBe(400);
+  expect(ensureTierItemForTenant).not.toHaveBeenCalled();
 });
