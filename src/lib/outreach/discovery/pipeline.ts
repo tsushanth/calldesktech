@@ -1416,6 +1416,13 @@ async function stagePhoneBackfill(db: Db, summary: RunSummary, dryRun: boolean, 
   }
 }
 
+// Sources whose leads are known payers of a competing realtime speech API (see readaloud/competitorCustomers.ts).
+const SPEECH_API_PAYER_SOURCES = ['ra-cartesia-customers', 'ra-deepgram-customers'];
+export function isKnownSpeechApiPayer(lead: { signals?: { readaloud?: { sources?: Record<string, unknown> } } | null }): boolean {
+  const sources = lead.signals?.readaloud?.sources;
+  return !!sources && SPEECH_API_PAYER_SOURCES.some((id) => id in sources);
+}
+
 // Research stage (Mac mini harness only, OUTREACH_RESEARCH=1): a restricted Claude
 // agent reads each qualified lead's own site and stores a dossier. Low-fit leads are
 // retired here so they never reach the review queue.
@@ -1429,7 +1436,13 @@ async function stageResearch(db: Db, summary: RunSummary, dryRun: boolean, limit
   for (const lead of (data ?? []) as LeadRow[]) {
     if (stop()) break;
     try {
-      const dossier = researchAgency({ name: lead.company_name, domain: lead.domain as string, description: lead.description });
+      const raw = researchAgency({ name: lead.company_name, domain: lead.domain as string, description: lead.description });
+      // The research agent judges fit from the lead's site, but a company that already pays a competing
+      // speech API (readaloud: Cartesia / Deepgram customer sources) is a buyer whatever its homepage says,
+      // so a 'low' verdict does not retire it: it is kept as 'unclear' and goes on to drafting.
+      const payer = product.id === 'readaloud' && isKnownSpeechApiPayer(lead);
+      const bypass = raw.fit === 'low' && payer;
+      const dossier = bypass ? { ...raw, fit: 'unclear' as const, fit_reason: `Known speech-API payer, low-fit gate bypassed. ${raw.fit_reason ?? ''}`.trim() } : raw;
       summary.researched++;
       if (dossier.fit === 'low') summary.lowFit++;
       summary.sample.researched.push({ name: lead.company_name, fit: dossier.fit, hook: dossier.hook, sources: dossier.sources.length });
