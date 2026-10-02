@@ -55,6 +55,11 @@ async function main() {
   console.log(`Batch date ${DATE} | callers ${CALLERS.join(', ')} | ${PER} each | products ${PRODUCTS.join(' > ')} | ${COMMIT ? 'COMMIT' : 'dry run'}`);
 
   const dnc = new Set<string>(((await db.from('calldesk_do_not_call').select('phone')).data ?? []).map((r: { phone: string }) => r.phone));
+  // Carrier lookups (scripts/lookup-line-types.mjs): numbers the carrier says are not valid are never batched.
+  const lk = await db.from('calldesk_phone_lookups').select('phone, line_type, valid');
+  const lookups = new Map<string, { line_type: string | null; valid: boolean | null }>(
+    ((lk.error ? [] : lk.data) ?? []).map((r: { phone: string; line_type: string | null; valid: boolean | null }) => [r.phone, r]),
+  );
   // Phones already given to a caller on an earlier day. (If migration 062 is not applied yet this is empty.)
   const prior = await db.from('calldesk_call_batches').select('phone').lt('batch_date', DATE);
   const used = new Set<string>(((prior.error ? [] : prior.data) ?? []).map((r: { phone: string }) => r.phone));
@@ -84,6 +89,7 @@ async function main() {
       const state = stateFromLocation(l.location);
       const excluded = (l.signals as { registry?: { callerPhoneExcluded?: string } } | null)?.registry?.callerPhoneExcluded;
       if (!phone || !state || excluded || dnc.has(phone) || used.has(phone) || seen.has(phone)) continue;
+      if (lookups.get(phone)?.valid === false) continue;
       seen.add(phone);
       eligible.push({ lead_id: l.id, phone, company_name: l.company_name, state, product });
     }
@@ -96,17 +102,27 @@ async function main() {
   for (const [p, v] of Object.entries(perProduct)) console.log(`  ${p.padEnd(24)} eligible ${String(v.eligible).padStart(5)} | used in this batch ${v.taken}`);
   console.log(`Total picked ${picked.length} of ${need} needed${picked.length < need ? '  <-- SHORT: add products or wait for more phones' : ''}`);
 
-  // Deal alternately so both callers get the same mix of products and states.
-  const rows = picked.map((c, i) => ({
-    batch_date: DATE, sip_username: CALLERS[i % CALLERS.length], lead_id: c.lead_id, phone: c.phone,
-    company_name: c.company_name, state: c.state, position: Math.floor(i / CALLERS.length) + 1, attempt: 1,
-  }));
+  // Deal alternately from a list sorted by line type then state, so every caller gets (almost exactly) the same
+  // mix of line types and states; a plain random split left one caller with 15 more mobile numbers. The order
+  // each caller then works in is shuffled again, so position carries no pattern.
+  const keyOf = (c: Candidate) => `${lookups.get(c.phone)?.line_type || 'zz'}|${c.state}`;
+  const sorted = picked.slice().sort((a, b) => keyOf(a).localeCompare(keyOf(b)));
+  const dealt = sorted.map((c, i) => ({ c, caller: CALLERS[i % CALLERS.length] }));
+  const rows = CALLERS.flatMap((u) =>
+    shuffle(dealt.filter((d) => d.caller === u), rng(`${DATE}:order:${u}`)).map((d, idx) => ({
+      batch_date: DATE, sip_username: u, lead_id: d.c.lead_id, phone: d.c.phone,
+      company_name: d.c.company_name, state: d.c.state, position: idx + 1, attempt: 1,
+    })),
+  );
   for (const u of CALLERS) {
     const mine = rows.filter((r) => r.sip_username === u);
     const byState: Record<string, number> = {};
     for (const r of mine) byState[r.state] = (byState[r.state] || 0) + 1;
     const top = Object.entries(byState).sort((a, b) => b[1] - a[1]).slice(0, 6).map(([s, n]) => `${s} ${n}`).join(', ');
     const zones = new Set(mine.map((r) => STATE_ZONES[r.state][0]));
+    const lt: Record<string, number> = {};
+    for (const r of mine) { const k = lookups.get(r.phone)?.line_type || 'not looked up'; lt[k] = (lt[k] || 0) + 1; }
+    console.log(`  ${u.padEnd(10)} line types: ${Object.entries(lt).sort((a, b) => b[1] - a[1]).map(([k, n]) => `${k} ${n}`).join(', ')}`);
     console.log(`  ${u.padEnd(10)} ${mine.length} numbers | top states: ${top} | ${zones.size} time zones`);
   }
 

@@ -33,3 +33,15 @@ CREATE INDEX IF NOT EXISTS idx_calldesk_call_batches_phone ON calldesk_call_batc
 
 -- Admin/service-role data only, same shape as 058/061: RLS on, no policies.
 ALTER TABLE calldesk_call_batches ENABLE ROW LEVEL SECURITY;
+
+-- Carrier line-type results per phone (E.164), so batches can skip dead numbers and the SMS/voice lists can
+-- be split by line type. Written by scripts/lookup-line-types.mjs; the provider is recorded per row.
+CREATE TABLE IF NOT EXISTS calldesk_phone_lookups (
+  phone TEXT PRIMARY KEY,
+  line_type TEXT,
+  carrier TEXT,
+  valid BOOLEAN,
+  provider TEXT NOT NULL DEFAULT 'telnyx',
+  checked_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+ALTER TABLE calldesk_phone_lookups ENABLE ROW LEVEL SECURITY;
