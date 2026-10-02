@@ -67,7 +67,8 @@ export async function getTenantUsageSince(
   opts: { legacyOnly?: boolean } = {}
 ): Promise<CallOutcomeCounts> {
   const rows = await fetchCallLogs(supabase, tenantId, since, until);
-  return summarizeCallLogs(opts.legacyOnly ? rows.filter((r) => !r.tier) : rows);
+  // An unknown tier id counts as legacy, consistent with summarizeCallLogsByTier.
+  return summarizeCallLogs(opts.legacyOnly ? rows.filter((r) => !isTierId(r.tier)) : rows);
 }
 
 export type TierUsageRow = {
@@ -126,4 +127,31 @@ export async function getTenantUsageByTierSince(
   until: Date = new Date()
 ): Promise<TierUsageRow[]> {
   return summarizeCallLogsByTier(await fetchCallLogs(supabase, tenantId, since, until), legacyCentsPerMinute);
+}
+
+export type UsageSplit = {
+  /** Calls with no tier (or an unknown tier id): billed on the legacy voice and per-event meters. */
+  legacy: CallOutcomeCounts;
+  /** Voice seconds per tier that has calls. Tiered calls include their events in the per-minute price, so only seconds are kept. */
+  byTier: Array<{ tier: TierId; calls: number; seconds: number }>;
+};
+
+/**
+ * Splits a window's calls so each call lands in exactly one place: legacy (tier null or unknown) or its tier. Used by the usage-reporting
+ * cron so a call is billed once, on the legacy meters or on its tier's meter, never both and never neither.
+ */
+export async function getTenantUsageSplitSince(
+  supabase: SupabaseClient,
+  tenantId: string,
+  since: Date | null,
+  until: Date = new Date()
+): Promise<UsageSplit> {
+  const rows = await fetchCallLogs(supabase, tenantId, since, until);
+  const legacy = summarizeCallLogs(rows.filter((r) => !isTierId(r.tier)));
+  const byTier: UsageSplit['byTier'] = [];
+  for (const t of PRICING_TIERS) {
+    const sum = summarizeCallLogs(rows.filter((r) => r.tier === t.id));
+    if (sum.calls > 0) byTier.push({ tier: t.id, calls: sum.calls, seconds: sum.seconds });
+  }
+  return { legacy, byTier };
 }

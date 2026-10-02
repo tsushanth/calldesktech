@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // Creates the Stripe objects behind the pricing tiers (src/lib/pricingTiers.ts, docs/tiered-billing.md):
 //   - one product ("CallDeskTech Voice Tiers")
-//   - one billing meter per tier (a subscription cannot hold two prices on one meter, and the legacy voice meter already carries the
+//   - one billing meter per tier, fed by the daily usage cron (src/lib/reportUsageToStripe.ts), same settings as the legacy voice meter (a subscription cannot hold two prices on one meter, and the legacy voice meter already carries the
 //     account's legacy voice price, so each tier meters on its own event name)
 //   - one metered, per-voice-second price per tier at 2, 6 and 10 cents per minute
 //
