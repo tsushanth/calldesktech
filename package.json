@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "eslint",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "e2e:builder": "node e2e/builder-smoke.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.124.0",
