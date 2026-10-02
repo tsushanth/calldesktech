@@ -1,4 +1,22 @@
 import { isBotUserAgent, verifySampleToken } from './samples';
+import { DEFAULT_BOT_IPS, ipMatches, parseList } from '@/lib/visitors/classify';
+
+/**
+ * True when the address belongs to a data-center or mail-security network. Email scanners (Defender safe links and
+ * similar) open every link in a message with a normal-looking Chrome, so the user agent alone cannot catch them.
+ * The address is only compared here; it is never stored or logged.
+ */
+export function isScannerIp(ip: string | null | undefined, extra: string[] = parseList(process.env.ANALYTICS_BOT_IPS)): boolean {
+  return !!ip && ipMatches([...DEFAULT_BOT_IPS, ...extra], ip);
+}
+
+/** First address of an x-forwarded-for list, or the single-address fly-client-ip header. */
+export function clientIpFrom(h: { get(name: string): string | null }): string | null {
+  const fly = h.get('fly-client-ip');
+  if (fly) return fly.trim();
+  const xff = h.get('x-forwarded-for');
+  return xff ? xff.split(',')[0].trim() || null : null;
+}
 
 export type SampleEventName = 'view' | 'play' | 'complete';
 export const SAMPLE_EVENTS: readonly SampleEventName[] = ['view', 'play', 'complete'];
@@ -22,11 +40,11 @@ export type RecordResult = 'recorded' | 'bot' | 'invalid_token' | 'invalid_event
 /**
  * Validate + dedupe + insert one event. Never throws. `view` dedupes per
  * message per hour; play/complete once per message ever. Bots are dropped
- * (not stored), no IP is ever read.
+ * (not stored). The caller's address is only compared against known scanner networks, never stored.
  */
 export async function recordSampleEvent(
   deps: SampleEventDeps,
-  input: { token: unknown; event: unknown; userAgent: string | null | undefined; sampleId?: string | null; product?: string | null },
+  input: { token: unknown; event: unknown; userAgent: string | null | undefined; ip?: string | null; sampleId?: string | null; product?: string | null },
 ): Promise<RecordResult> {
   if (typeof input.event !== 'string' || !SAMPLE_EVENTS.includes(input.event as SampleEventName)) return 'invalid_event';
   const event = input.event as SampleEventName;
@@ -37,7 +55,7 @@ export async function recordSampleEvent(
     messageId = null;
   }
   if (!messageId) return 'invalid_token';
-  if (isBotUserAgent(input.userAgent)) return 'bot';
+  if (isBotUserAgent(input.userAgent) || isScannerIp(input.ip)) return 'bot';
   try {
     const now = (deps.now ?? Date.now)();
     const since = event === 'view' ? new Date(now - VIEW_DEDUPE_MS).toISOString() : undefined;

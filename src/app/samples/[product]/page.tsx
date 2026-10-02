@@ -3,7 +3,7 @@ import { headers } from 'next/headers';
 import { notFound } from 'next/navigation';
 import { getSupabaseAdmin } from '@/lib/supabase';
 import { getPublishedSample, productFromSlug, verifySampleToken, type TranscriptLine } from '@/lib/outreach/samples';
-import { recordSampleEvent } from '@/lib/outreach/sampleEvents';
+import { recordSampleEvent, clientIpFrom } from '@/lib/outreach/sampleEvents';
 import { supabaseEventDeps } from '@/lib/outreach/sampleEventsDb';
 import SamplePlayer from './SamplePlayer';
 
@@ -61,8 +61,8 @@ export default async function SamplePage({
     token = null;
   }
   if (token) {
-    const ua = (await headers()).get('user-agent');
-    await recordSampleEvent(supabaseEventDeps(supabase), { token, event: 'view', userAgent: ua, sampleId: sample.id, product });
+    const h = await headers();
+    await recordSampleEvent(supabaseEventDeps(supabase), { token, event: 'view', userAgent: h.get('user-agent'), ip: clientIpFrom(h), sampleId: sample.id, product });
   }
 
   const audioUrl = await signedAudioUrl(sample.audio_path);

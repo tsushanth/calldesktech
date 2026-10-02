@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeAll, vi } from 'vitest';
 import { sampleTokenFor } from '@/lib/outreach/samples';
-import { recordSampleEvent, computeSampleStats, type SampleEventDeps } from '@/lib/outreach/sampleEvents';
+import { recordSampleEvent, computeSampleStats, isScannerIp, clientIpFrom, type SampleEventDeps } from '@/lib/outreach/sampleEvents';
 
 const MSG = '11111111-1111-4111-8111-111111111111';
 const UA = 'Mozilla/5.0 (iPhone) Safari/604.1';
@@ -78,5 +78,35 @@ describe('computeSampleStats', () => {
   });
   it('handles empty input without dividing by zero', () => {
     expect(computeSampleStats([], [])).toEqual([]);
+  });
+});
+
+describe('scanner networks', () => {
+  it('drops a view from a mail-scanner address even with a normal Chrome user agent', async () => {
+    const { d, inserted } = deps();
+    const chrome = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/150.0 Safari/537.36';
+    expect(await recordSampleEvent(d, { token: sampleTokenFor(MSG), event: 'view', userAgent: chrome, ip: '72.152.84.228' })).toBe('bot');
+    expect(await recordSampleEvent(d, { token: sampleTokenFor(MSG), event: 'view', userAgent: chrome, ip: '74.179.70.83' })).toBe('bot');
+    expect(inserted).toHaveLength(0);
+  });
+  it('still records a view from an ordinary home address', async () => {
+    const { d, inserted } = deps();
+    expect(await recordSampleEvent(d, { token: sampleTokenFor(MSG), event: 'view', userAgent: UA, ip: '98.1.2.3' })).toBe('recorded');
+    expect(inserted).toHaveLength(1);
+  });
+  it('records when no address is available', async () => {
+    const { d } = deps();
+    expect(await recordSampleEvent(d, { token: sampleTokenFor(MSG), event: 'view', userAgent: UA })).toBe('recorded');
+  });
+  it('matches extra configured networks', () => {
+    expect(isScannerIp('203.0.113.9', ['203.0.113.*'])).toBe(true);
+    expect(isScannerIp('203.0.114.9', ['203.0.113.*'])).toBe(false);
+    expect(isScannerIp(null)).toBe(false);
+  });
+  it('reads the client address from fly-client-ip first, then the first x-forwarded-for entry', () => {
+    const h = (m: Record<string, string>) => ({ get: (k: string) => m[k] ?? null });
+    expect(clientIpFrom(h({ 'fly-client-ip': '1.2.3.4', 'x-forwarded-for': '9.9.9.9' }))).toBe('1.2.3.4');
+    expect(clientIpFrom(h({ 'x-forwarded-for': '5.6.7.8, 10.0.0.1' }))).toBe('5.6.7.8');
+    expect(clientIpFrom(h({}))).toBeNull();
   });
 });
