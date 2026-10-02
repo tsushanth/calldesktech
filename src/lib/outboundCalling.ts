@@ -1,3 +1,5 @@
+import type { HoursCheck } from '@/lib/callingHours';
+
 // Pure helpers for the human-caller softphone route (/api/twilio/outbound-voice). No I/O so the
 // decisions that matter (what number is being dialed, who is dialing, what TwiML goes back) are unit tested.
 
@@ -69,6 +71,9 @@ export interface DialDecisionInput {
   to: string | null;
   caller: { caller_id: string; enabled: boolean } | null;
   leadId: string | null;
+  // True when the number is in this caller's batch for today (the thing the line actually gates on).
+  inBatch: boolean;
+  hours: HoursCheck;
   doNotCall: boolean;
   isTestNumber?: boolean;
   requireLead: boolean;
@@ -93,8 +98,11 @@ export function decideDial(i: DialDecisionInput): DialDecision {
     if (i.doNotCall) {
       return { ok: false, reason: 'do_not_call', spoken: 'That number is on the do not call list.' };
     }
-    if (i.requireLead && !i.leadId) {
-      return { ok: false, reason: 'not_in_call_list', spoken: 'That number is not in your call list.' };
+    if (i.requireLead && !i.inBatch) {
+      return { ok: false, reason: 'not_in_todays_batch', spoken: 'That number is not in your batch for today.' };
+    }
+    if (!i.hours.ok) {
+      return { ok: false, reason: 'outside_calling_hours', spoken: 'It is outside calling hours for that business.' };
     }
   }
   if (i.dialsToday >= i.maxDialsPerDay) {

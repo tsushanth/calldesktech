@@ -59,6 +59,8 @@ const base: DialDecisionInput = {
   to: '(425) 628-4887',
   caller: { caller_id: '+12395551212', enabled: true },
   leadId: 'lead-1',
+  inBatch: true,
+  hours: { ok: true } as const,
   doNotCall: false,
   requireLead: true,
   dialsToday: 10,
@@ -75,15 +77,17 @@ describe('decideDial', () => {
     ['no sip user', { sipUsername: null }, 'unknown_or_disabled_caller'],
     ['bad number', { to: '911' }, 'invalid_number'],
     ['do not call', { doNotCall: true }, 'do_not_call'],
-    ['number not in the call list', { leadId: null }, 'not_in_call_list'],
+    ['number not in todays batch', { inBatch: false, leadId: null }, 'not_in_todays_batch'],
+    ['outside calling hours', { hours: { ok: false, reason: 'too_late' } }, 'outside_calling_hours'],
     ['daily cap reached', { dialsToday: 400 }, 'daily_limit'],
   ])('refuses: %s', (_n, patch, reason) => {
     const d = decideDial({ ...base, ...patch } as DialDecisionInput);
     expect(d.ok).toBe(false);
     if (!d.ok) expect(d.reason).toBe(reason);
   });
-  it('lets a number outside the lead list through only when the gate is off', () => {
-    expect(decideDial({ ...base, leadId: null, requireLead: false }).ok).toBe(true);
+  it('lets a number outside the batch through only when the gate is off, but never outside calling hours', () => {
+    expect(decideDial({ ...base, inBatch: false, leadId: null, requireLead: false }).ok).toBe(true);
+    expect(decideDial({ ...base, requireLead: false, hours: { ok: false, reason: 'weekend' } }).ok).toBe(false);
   });
 });
 
@@ -94,7 +98,7 @@ describe('test numbers', () => {
     expect(parseTestNumbers('').size).toBe(0);
   });
   it('lets a test number through without a lead or do-not-call check, and marks it as a test', () => {
-    const d = decideDial({ ...base, leadId: null, doNotCall: true, isTestNumber: true });
+    const d = decideDial({ ...base, inBatch: false, leadId: null, doNotCall: true, hours: { ok: false, reason: 'too_late' }, isTestNumber: true });
     expect(d).toEqual({ ok: true, to: '+14256284887', callerId: '+12395551212', isTest: true });
   });
   it('still refuses a test number for an unknown caller, a bad number or the daily cap', () => {

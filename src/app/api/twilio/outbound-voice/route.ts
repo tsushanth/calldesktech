@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/supabase';
 import { verifyTwilioSignature } from '@/lib/webhookAuth';
 import { buildDialTwiml, buildRejectTwiml, decideDial, normalizeNanp, parseTestNumbers, sipUser } from '@/lib/outboundCalling';
+import { batchDateEastern, checkCallingHours } from '@/lib/callingHours';
 
 // POST /api/twilio/outbound-voice — the Voice URL of the outbound-sales SIP domain. A human caller dials
 // a number from a softphone, Twilio asks us what to do with the call, and we answer with a <Dial> from
@@ -46,11 +47,27 @@ export async function POST(request: NextRequest) {
     ? (await supabase.from('calldesk_outbound_callers').select('caller_id, enabled').eq('sip_username', username).maybeSingle()).data
     : null;
 
+  // The line gates on today's batch for THIS caller (not on the lead's own phone column, whose format varies).
   let leadId: string | null = null;
+  let batchState: string | null = null;
+  let inBatch = false;
   let doNotCall = false;
   let dialsToday = 0;
+  if (toE164 && username) {
+    const row = (
+      await supabase
+        .from('calldesk_call_batches')
+        .select('lead_id, state')
+        .eq('batch_date', batchDateEastern())
+        .eq('sip_username', username)
+        .eq('phone', toE164)
+        .maybeSingle()
+    ).data;
+    inBatch = !!row;
+    leadId = row?.lead_id ?? null;
+    batchState = row?.state ?? null;
+  }
   if (toE164) {
-    leadId = (await supabase.from('calldesk_outreach_leads').select('id').eq('phone', toE164).limit(1).maybeSingle()).data?.id ?? null;
     doNotCall = !!(await supabase.from('calldesk_do_not_call').select('phone').eq('phone', toE164).maybeSingle()).data;
   }
   if (username) {
@@ -70,6 +87,8 @@ export async function POST(request: NextRequest) {
     to: dialed,
     caller: caller ?? null,
     leadId,
+    inBatch,
+    hours: checkCallingHours(batchState),
     doNotCall,
     isTestNumber: !!toE164 && parseTestNumbers(process.env.OUTBOUND_TEST_NUMBERS).has(toE164),
     requireLead: process.env.OUTBOUND_REQUIRE_LEAD !== 'false',
