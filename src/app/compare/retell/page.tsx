@@ -4,7 +4,7 @@ import { PRICING } from '@/lib/constants';
 
 export const metadata: Metadata = {
   title: 'CallDeskTech vs Retell | CallDeskTech',
-  description: 'A feature-by-feature comparison with Retell: the builder, pricing, unit economics, and what live test calls actually showed.',
+  description: 'A feature-by-feature comparison with Retell: the builder, pricing, and what live test calls actually showed.',
 };
 
 type Verdict = 'Ahead' | 'Have' | 'Partial' | 'Gap' | 'Neither';
@@ -53,14 +53,10 @@ export default function RetellComparePage() {
       </Container>
 
       <Container className="pb-16">
-        <div className="grid gap-4 sm:grid-cols-3">
+        <div className="grid gap-4 sm:grid-cols-2">
           <div className="rounded-xl border border-gray-200 p-6">
             <p className="text-[13px] font-medium text-gray-400">Our price, default voice</p>
             <p className="mt-2 text-[32px] font-normal tracking-[-0.03em] text-[#00122e]">${PRICING.usage.voicePerMinute.kokoro.toFixed(2)}<span className="text-[15px] text-gray-400">/min</span></p>
-          </div>
-          <div className="rounded-xl border border-gray-200 p-6">
-            <p className="text-[13px] font-medium text-gray-400">Our real cost, measured</p>
-            <p className="mt-2 text-[32px] font-normal tracking-[-0.03em] text-[#00122e]">$0.044<span className="text-[15px] text-gray-400">/min</span></p>
           </div>
           <div className="rounded-xl border border-gray-200 p-6">
             <p className="text-[13px] font-medium text-gray-400">Retell, observed blended</p>
@@ -68,7 +64,7 @@ export default function RetellComparePage() {
           </div>
         </div>
         <p className="mt-4 text-[12.5px] leading-[1.5] text-gray-400">
-          Our numbers come from real Twilio, Deepgram, and Claude usage, not an estimate. The Retell range comes from an actual account’s billing dashboard, combining their separate voice, LLM, telephony, and speech charges — not a published rate card.
+          The Retell range comes from an actual account’s billing dashboard, combining their separate voice, LLM, telephony, and speech charges — not a published rate card.
         </p>
       </Container>
 

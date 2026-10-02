@@ -43,10 +43,9 @@ export async function GET(
 //    rather than unconditionally calling Retell's API the way the *other*
 //    knowledge route (/api/tenants/[id]/knowledge) does. A 'poc'-engine
 //    tenant's calls never touch Retell at all; there's no reason its
-//    knowledge base should either, and Retell's KB isn't free at scale
-//    ($8/KB/month past the first 10, plus $0.005/min when queried) — that's
-//    a real recurring cost to a direct competitor for functionality we can
-//    just build ourselves. Only a 'retell'-engine tenant (where Retell is
+//    knowledge base should either, and it's functionality we can
+//    just build ourselves rather than depend on a third party for. Only a
+//    'retell'-engine tenant (where Retell is
 //    already the thing answering the phone) delegates to Retell here.
 export async function POST(
   request: NextRequest,

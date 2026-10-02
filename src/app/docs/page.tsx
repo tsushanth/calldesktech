@@ -147,10 +147,10 @@ export default function DocsPage() {
                 <h3 className="mt-6 text-[15px] font-semibold tracking-[-0.01em]">Language models (<code className="text-[13px]">llmModel</code>)</h3>
                 <div className="mt-2 overflow-x-auto rounded-xl border border-gray-200 bg-white">
                   <table className="w-full min-w-[640px] text-left text-[13px]">
-                    <thead className="border-b border-gray-200 bg-gray-50 text-[12px] uppercase tracking-[0.04em] text-gray-500"><tr><th className="px-3 py-2">Id</th><th className="px-3 py-2">Provider cost per million tokens</th><th className="px-3 py-2">Status</th><th className="px-3 py-2">Notes</th></tr></thead>
+                    <thead className="border-b border-gray-200 bg-gray-50 text-[12px] uppercase tracking-[0.04em] text-gray-500"><tr><th className="px-3 py-2">Id</th><th className="px-3 py-2">Status</th><th className="px-3 py-2">Notes</th></tr></thead>
                     <tbody className="divide-y divide-gray-100">
                       {catalog.llmModels.map((m) => (
-                        <tr key={m.id}><td className="px-3 py-2 align-top"><code>{m.id}</code>{m.default && <span className="ml-1 rounded bg-emerald-50 px-1.5 py-0.5 text-[11px] text-emerald-700">default</span>}</td><td className="px-3 py-2 align-top text-gray-500">${m.price.in} in, ${m.price.out} out</td><td className="px-3 py-2 align-top text-gray-500">{m.status}</td><td className="px-3 py-2 align-top text-gray-500">{m.notes}</td></tr>
+                        <tr key={m.id}><td className="px-3 py-2 align-top"><code>{m.id}</code>{m.default && <span className="ml-1 rounded bg-emerald-50 px-1.5 py-0.5 text-[11px] text-emerald-700">default</span>}</td><td className="px-3 py-2 align-top text-gray-500">{m.status}</td><td className="px-3 py-2 align-top text-gray-500">{m.notes}</td></tr>
                       ))}
                     </tbody>
                   </table>
@@ -158,10 +158,10 @@ export default function DocsPage() {
                 <h3 className="mt-6 text-[15px] font-semibold tracking-[-0.01em]">Voice models (<code className="text-[13px]">ttsModel</code>, with <code className="text-[13px]">ttsBackend</code>)</h3>
                 <div className="mt-2 overflow-x-auto rounded-xl border border-gray-200 bg-white">
                   <table className="w-full min-w-[640px] text-left text-[13px]">
-                    <thead className="border-b border-gray-200 bg-gray-50 text-[12px] uppercase tracking-[0.04em] text-gray-500"><tr><th className="px-3 py-2">Id</th><th className="px-3 py-2">Backend</th><th className="px-3 py-2">Provider cost per 1,000 characters</th><th className="px-3 py-2">Notes</th></tr></thead>
+                    <thead className="border-b border-gray-200 bg-gray-50 text-[12px] uppercase tracking-[0.04em] text-gray-500"><tr><th className="px-3 py-2">Id</th><th className="px-3 py-2">Backend</th><th className="px-3 py-2">Notes</th></tr></thead>
                     <tbody className="divide-y divide-gray-100">
                       {catalog.ttsModels.map((m) => (
-                        <tr key={m.id}><td className="px-3 py-2 align-top"><code>{m.id}</code>{m.default && <span className="ml-1 rounded bg-emerald-50 px-1.5 py-0.5 text-[11px] text-emerald-700">default</span>}</td><td className="px-3 py-2 align-top text-gray-500">{m.backend}</td><td className="px-3 py-2 align-top text-gray-500">{m.pricePer1kChars === null ? 'see provider' : `$${m.pricePer1kChars}`}</td><td className="px-3 py-2 align-top text-gray-500">{m.notes}</td></tr>
+                        <tr key={m.id}><td className="px-3 py-2 align-top"><code>{m.id}</code>{m.default && <span className="ml-1 rounded bg-emerald-50 px-1.5 py-0.5 text-[11px] text-emerald-700">default</span>}</td><td className="px-3 py-2 align-top text-gray-500">{m.backend}</td><td className="px-3 py-2 align-top text-gray-500">{m.notes}</td></tr>
                       ))}
                     </tbody>
                   </table>

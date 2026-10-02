@@ -24,7 +24,7 @@ export const MCP_TOOL_GROUPS: McpToolGroup[] = [
       { name: 'analyze_agent_copilot', summary: 'Analyze recent real calls for recurring problems and propose flow edits grounded in specific transcripts.' },
     ],
   },
-  { group: 'Models', tools: [{ name: 'list_model_options', summary: 'List the language models (llmModel) and voice models (ttsModel) a version can use, with prices, status and notes.' }] },
+  { group: 'Models', tools: [{ name: 'list_model_options', summary: 'List the language models (llmModel) and voice models (ttsModel) a version can use, with status and notes.' }] },
   {
     group: 'Subflows and knowledge',
     tools: [

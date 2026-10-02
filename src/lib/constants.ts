@@ -75,11 +75,8 @@ export const CALL_STATUSES = {
 export type CallStatus = keyof typeof CALL_STATUSES;
 
 // Pricing info
-// 2026-08-26: replaced the old flat $39/mo plan with real usage-based
-// pricing — $0 base, pay only for what's used, undercutting Retell's
-// effective $0.07-0.31/min by 4-30x on our actual measured infra cost (see
-// costTracker.js). Mirrors Retell's own "$0 base + stacked per-minute"
-// model rather than a flat-plan-plus-overage. Backed by live metered
+// 2026-08-26: replaced the old flat $39/mo plan with usage-based pricing:
+// $0 base, pay only for what's used. Backed by live metered
 // Stripe prices on product "CallDeskTech Usage" (voice priced per backend,
 // since only one price per meter can be attached to a subscription at once
 // — see syncVoicePriceForTenant in lib/stripe.ts, which swaps it):
@@ -87,20 +84,11 @@ export type CallStatus = keyof typeof CALL_STATUSES;
 //   price_1UHXOrKFBTQTkmzt8nJK5u1b  elevenlabs_voice_seconds_v2 $0.12/min
 //   price_1UHXOrKFBTQTkmztD1ehUQFd  cartesia_voice_seconds_v2   $0.12/min
 //   price_1UCszEKFBTQTkmztXKqkApW7  minimax_voice_seconds      $0.16/min
-// 2026-09-19: voice repriced from $0.02/$0.08/$0.08 to $0.10/$0.12/$0.12 per minute. Measured costs
-// (Twilio voice + streaming $0.0129, Deepgram $0.0065, Claude ~$0.025 = ~$0.044/min before the
-// voice server) exceeded the old $0.02 default price. The superseded prices
+// 2026-09-19: voice repriced from $0.02/$0.08/$0.08 to $0.10/$0.12/$0.12 per minute. The superseded prices
 // (price_1U8tJeKF..., price_1U8tJfKF..., price_1UCsz6KF...) remain in Stripe, unused by new checkouts.
 //   price_1U8tJtKFBTQTkmzt8CqFVIDs  booking_completed        $0.007/event
 //   price_1U8tJtKFBTQTkmztdgtdAu8n  transfer_completed       $0.01/event
 //   price_1U8tJuKFBTQTkmztzhIqUrg3  message_taken            $0.004/event
-// cartesia/minimax rates (added 2026-09-06) apply the same markup ElevenLabs
-// already carries — 1.82x its real per-minute cost at ElevenLabs Flash
-// v2.5's published $0.05/1000-char rate, using ~880 chars/min (empirically
-// derived from MiniMax's own docs example) to convert characters to audio
-// time. Cartesia's Sonic pay-as-you-go rate is identical to ElevenLabs's
-// ($0.05/1000 chars), so it lands on the same $0.08/min; MiniMax's
-// speech-2.8-hd is 2x that raw cost ($0.10/1000 chars), so it's 2x the price.
 // The old flat plan (price_1SekfDKFBTQTkmzt9Qx2rYWY, prod_TbyctCCfmAN34Q)
 // stays live only for whoever already subscribed to it before this switch —
 // new checkouts go on the usage-based plan below.

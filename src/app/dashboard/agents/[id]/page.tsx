@@ -10,7 +10,8 @@ import type { RetellVoice } from '@/lib/retell';
 import type { TenantVoice } from '@/lib/api';
 import type { Agent, AgentVersion, AgentEnvironment, FlowNode, FlowEdge, StructuredCondition, TtsBackend, Subflow } from '@/types';
 import { AGENT_TEMPLATES } from '@/lib/agentTemplates';
-import { estimatePocCallCost } from '@/lib/costEstimate';
+import { estimatePocLatencyRange } from '@/lib/latencyEstimate';
+import { PRICING } from '@/lib/constants';
 import { renderMiniMarkdown } from '@/lib/miniMarkdown';
 import FlowVisualEditor from './versions/new/FlowVisualEditor';
 import VersionCompareModal from './VersionCompareModal';
@@ -1198,19 +1199,19 @@ export default function AgentBuilderPage() {
                   {voiceEngine === 'poc' ? (
                     <>
                       <div className="flex items-center justify-between px-1 text-[12.5px]">
-                        <span className="text-gray-500">Cost</span>
-                        <span className="font-medium text-[#1a1d29]">${estimatePocCallCost(ttsBackend || (languageForcesPremiumVoice(language) ? 'elevenlabs' : 'kokoro')).costPerMin.toFixed(3)}/min</span>
+                        <span className="text-gray-500">Price</span>
+                        <span className="font-medium text-[#1a1d29]">${(PRICING.usage.voicePerMinute[((ttsBackend || (languageForcesPremiumVoice(language) ? 'elevenlabs' : 'kokoro')) as keyof typeof PRICING.usage.voicePerMinute)] ?? PRICING.usage.voicePerMinute.kokoro).toFixed(2)}/min</span>
                       </div>
                       <div className="flex items-center justify-between px-1 text-[12.5px]">
                         <span className="text-gray-500">Latency</span>
                         <span className="font-medium text-[#1a1d29]">
-                          {estimatePocCallCost(ttsBackend || (languageForcesPremiumVoice(language) ? 'elevenlabs' : 'kokoro')).latencyRangeMs[0]}-{estimatePocCallCost(ttsBackend || (languageForcesPremiumVoice(language) ? 'elevenlabs' : 'kokoro')).latencyRangeMs[1]}ms
+                          {estimatePocLatencyRange(ttsBackend || (languageForcesPremiumVoice(language) ? 'elevenlabs' : 'kokoro'))[0]}-{estimatePocLatencyRange(ttsBackend || (languageForcesPremiumVoice(language) ? 'elevenlabs' : 'kokoro'))[1]}ms
                         </span>
                       </div>
-                      <p className="px-1 text-[10.5px] text-gray-400">Estimated from a typical minute of conversation, not this call&apos;s actual usage.</p>
+                      <p className="px-1 text-[10.5px] text-gray-400">Price is your per-minute voice rate for the selected voice; latency is a typical range, not this call&apos;s actual timing.</p>
                     </>
                   ) : (
-                    <p className="px-1 text-[11.5px] text-gray-400">Retell-engine cost/latency is governed by Retell&apos;s own usage-based pricing — see their dashboard, not estimated here.</p>
+                    <p className="px-1 text-[11.5px] text-gray-400">Retell-engine pricing and latency are governed by Retell&apos;s own usage-based pricing — see their dashboard, not estimated here.</p>
                   )}
                 </div>
               </div>

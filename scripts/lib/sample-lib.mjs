@@ -14,9 +14,6 @@ export const VERTICALS = [
 export const MAX_REAL_CALLS = 60;
 export const SNIPPET_MIN = 4;
 export const SNIPPET_MAX = 6;
-// Rough cost model (estimate only, see task-4 report): our engine ~$0.044/min per AI session (two sessions:
-// shopper + demo agent) plus Twilio voice for the two legs (~$0.0140/min each, US).
-export const COST_PER_MIN = { engine: 0.044, sessions: 2, twilioLegs: 2, twilioPerLegMin: 0.014 };
 
 /** Returns an array of error strings; empty means valid. */
 export function validateScenarios(doc) {
@@ -115,12 +112,6 @@ export function pickSnippet(transcript) {
   let idx = [...picked].sort((a, b) => a - b);
   while (idx.length > SNIPPET_MAX) idx.splice(idx[idx.length - 1] === action ? 1 : idx.length - 1, 1);
   return idx;
-}
-
-export function estimateCostUsd(durationSec) {
-  const min = Math.max(0, durationSec) / 60;
-  const c = COST_PER_MIN;
-  return Math.round(min * (c.engine * c.sessions + c.twilioLegs * c.twilioPerLegMin) * 1000) / 1000;
 }
 
 /** Row for calldesk_outreach_samples, matching migration 043 (published is always false here). */

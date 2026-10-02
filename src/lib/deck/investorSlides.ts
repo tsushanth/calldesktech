@@ -1,7 +1,7 @@
 // Investor deck for Calldesk. Same 1920x1080 HTML-slide format and look as the customer deck (slides.ts).
 //
 // Every number on a slide is either (a) a vendor's published list price retrieved on PRICING_AS_OF, (b) a figure
-// from our own systems, or (c) arithmetic on those, with the assumption stated on the slide. Nothing here is a
+// about the product, or (c) arithmetic on those, with the assumption stated on the slide. Nothing here is a
 // traction claim: the pitch is the competitive position and the plan, not customers or revenue.
 //
 // Anything the founders must still supply is marked with TODO(...) so the page refuses to serve in production
@@ -92,7 +92,7 @@ export function buildInvestorSlides(): string[] {
       ${bar('ElevenLabs Agents', 0.08, 0.16, 'from $0.08, $0.16 at burst', '#6C84AD')}
       ${bar('Deepgram Voice Agent', 0.075, 0.163, '$0.075 standard, $0.163 advanced', '#6C84AD')}
     </div>
-    ${note(`List prices from each vendor's own pricing page, retrieved ${PRICING_AS_OF}; bars show the published range. Vapi range is its own 1,000-minute example ($82 to $129). Synthflow publishes no per-minute price (enterprise from $30,000 a year). Enterprise discounts are not shown. We are at parity with the platforms; our edge is who we sell to and what it costs us to serve.`, false)}`));
+    ${note(`List prices from each vendor's own pricing page, retrieved ${PRICING_AS_OF}; bars show the published range. Vapi range is its own 1,000-minute example ($82 to $129). Synthflow publishes no per-minute price (enterprise from $30,000 a year). Enterprise discounts are not shown. We are at parity with the platforms; our edge is who we sell to.`, false)}`));
 
   s.push(section('human', true, `${h2('Against a human answering service, the gap is 30x or more', true)}
     ${row([
@@ -101,23 +101,6 @@ export function buildInvestorSlides(): string[] {
       card('Ruby', '$250 a month for 50 minutes ($5.00 a minute) down to $1,725 for 500 minutes ($3.45 a minute).', true),
     ])}
     ${note(`Assumes a 2-minute call (one of our own test calls ran about 2 minutes). Prices from each company's pricing page, retrieved ${PRICING_AS_OF}. A human can handle calls an agent cannot, so this is a price anchor and not a claim of equivalence.`, true)}`));
-
-  s.push(section('cost', false, `${h2('What a minute costs us to serve', false)}
-    <div style="display:flex; gap:28px">
-      <div style="flex:1.25; display:flex; flex-direction:column; gap:20px; background:${CARD}; border:1px solid ${LINE}; border-radius:20px; padding:40px; font-size:32px; color:${NAVY}">
-        <div style="display:flex; justify-content:space-between"><span>Speech recognition (Deepgram Flux)</span><b>$0.0077</b></div>
-        <div style="display:flex; justify-content:space-between"><span>Language model (Claude Haiku)</span><b>about $0.0019</b></div>
-        <div style="display:flex; justify-content:space-between"><span>Voice (ElevenLabs Flash)</span><b>about $0.0244</b></div>
-        <div style="display:flex; justify-content:space-between"><span>Phone line (Twilio inbound)</span><b>$0.0085</b></div>
-        <div style="height:2px; background:${LINE}"></div>
-        <div style="display:flex; justify-content:space-between; font-size:38px"><span>Provider cost, inbound</span><b>about $0.043</b></div>
-      </div>
-      <div style="flex:1; display:flex; flex-direction:column; gap:24px">
-        ${card('At $0.10 a minute', 'About a 57% margin before our own hosting and support.', false, 1, true)}
-        ${card('With a self-hosted voice', 'No per-character voice fee: about $0.018 a minute plus GPU time, near an 80% margin. We run an open voice model today; quality at scale is the work.', false, 1, true)}
-      </div>
-    </div>
-    ${note(`Component prices are published rates (Deepgram, Twilio retrieved ${PRICING_AS_OF}); the language-model and voice lines are measured on one 11-turn, roughly 2-minute call ($0.064 of provider cost in total) and expressed per minute. It is a model with a small sample, not an audited margin. Outbound lines cost $0.0055 more a minute.`, false)}`));
 
   s.push(section('compete', true, `${h2('How we intend to compete', true)}
     ${row([

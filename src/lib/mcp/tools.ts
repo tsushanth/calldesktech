@@ -92,7 +92,7 @@ server.registerTool('publish_agent_version', {
     ttsModel: z.string().optional().describe('Voice model within ttsBackend (elevenlabs or cartesia only). Call list_model_options for valid ids. Omit for the backend default.'),
   },
 }, run(({ agentId, ...body }: any) => api('POST', `/agents/${agentId}/versions`, body)));
-server.registerTool('list_model_options', { description: 'List the language models (llmModel) and voice models (ttsModel) an agent version can use, with provider prices, status (tested or preview) and notes on speed and reliability. Pass the ids to publish_agent_version. If the engine cannot use a chosen model the default answers, so a call never fails because of this setting.', annotations: READ, inputSchema: {} }, run(() => api('GET', '/models')));
+server.registerTool('list_model_options', { description: 'List the language models (llmModel) and voice models (ttsModel) an agent version can use, with status (tested or preview) and notes on speed and reliability. Pass the ids to publish_agent_version. If the engine cannot use a chosen model the default answers, so a call never fails because of this setting.', annotations: READ, inputSchema: {} }, run(() => api('GET', '/models')));
 
 // ---- subflows
 server.registerTool('list_subflows', { description: 'List subflows (library ones plus the given agent’s own).', annotations: READ, inputSchema: { agentId: z.string().optional() } }, run(async (a: any) => api('GET', `/tenants/${await tenant()}/subflows${a.agentId ? `?agentId=${a.agentId}` : ''}`)));
