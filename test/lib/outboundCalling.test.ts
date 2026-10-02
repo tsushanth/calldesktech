@@ -5,6 +5,7 @@ import {
   buildDialTwiml,
   buildRejectTwiml,
   decideDial,
+  parseTestNumbers,
   mapDialStatus,
   type DialDecisionInput,
 } from '@/lib/outboundCalling';
@@ -66,7 +67,7 @@ const base: DialDecisionInput = {
 
 describe('decideDial', () => {
   it('allows a valid call and dials the normalized number as the caller\'s number', () => {
-    expect(decideDial(base)).toEqual({ ok: true, to: '+14256284887', callerId: '+12395551212' });
+    expect(decideDial(base)).toEqual({ ok: true, to: '+14256284887', callerId: '+12395551212', isTest: false });
   });
   it.each([
     ['unknown caller', { caller: null }, 'unknown_or_disabled_caller'],
@@ -83,6 +84,26 @@ describe('decideDial', () => {
   });
   it('lets a number outside the lead list through only when the gate is off', () => {
     expect(decideDial({ ...base, leadId: null, requireLead: false }).ok).toBe(true);
+  });
+});
+
+describe('test numbers', () => {
+  it('parses a comma list of mixed formats and drops junk', () => {
+    expect([...parseTestNumbers('+14256284887, (206) 555-0142 ,nope,911')].sort()).toEqual(['+12065550142', '+14256284887']);
+    expect(parseTestNumbers(undefined).size).toBe(0);
+    expect(parseTestNumbers('').size).toBe(0);
+  });
+  it('lets a test number through without a lead or do-not-call check, and marks it as a test', () => {
+    const d = decideDial({ ...base, leadId: null, doNotCall: true, isTestNumber: true });
+    expect(d).toEqual({ ok: true, to: '+14256284887', callerId: '+12395551212', isTest: true });
+  });
+  it('still refuses a test number for an unknown caller, a bad number or the daily cap', () => {
+    expect(decideDial({ ...base, isTestNumber: true, caller: null }).ok).toBe(false);
+    expect(decideDial({ ...base, isTestNumber: true, to: '911' }).ok).toBe(false);
+    expect(decideDial({ ...base, isTestNumber: true, dialsToday: 400 }).ok).toBe(false);
+  });
+  it('real leads are not marked as tests', () => {
+    expect(decideDial(base)).toMatchObject({ ok: true, isTest: false });
   });
 });
 
