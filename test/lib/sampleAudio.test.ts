@@ -126,10 +126,11 @@ describe('buildPlaceCallRequest', () => {
     expect('ttsBackend' in without).toBe(false);
     expect('ttsModel' in without.sampleCallee).toBe(false);
   });
-  it('anchors the demo agent to today (US Pacific) so it cannot invent a date', () => {
+  it('anchors the demo agent to today (US Pacific) plus a 14-day calendar so it cannot invent a date or a weekday', () => {
     const now = new Date('2026-10-01T20:00:00Z');
     const { body } = audio.buildPlaceCallRequest(sc('dental'), { callee: '+15550001111', shared: SHARED, now });
     expect(body.sampleCallee.systemPrompt).toContain('Today is Thursday, October 1, 2026.');
+    expect(body.sampleCallee.systemPrompt).toContain('Wednesday, October 7;'); // the calendar maps every weekday to its real date
     expect(audio.todayAnchor(new Date('2026-12-31T05:00:00Z'))).toContain('Wednesday, December 30, 2026'); // still the 30th in Pacific time
   });
   it('a scenario without audio sends no callAudio and keeps its own prompt (plus only the standard phone rule)', () => {

@@ -86,6 +86,10 @@ export function withAudioPromptHint(agentPrompt, audio) {
 // code?" whenever it is given fewer than 10 digits, and a persona that does not say what number to give makes the
 // caller AI invent a fictional 7-digit one (the 555-01xx style), which trips that rule on every call and costs a
 // back-and-forth turn. No literal number here: the scenario validator forbids phone numbers in prompts.
+// Appended to every caller persona with CALLER_PHONE_RULE: a caller line is SPOKEN, so no stage directions.
+export const CALLER_SPEECH_RULE =
+  ' Everything you write is spoken aloud as-is: never write stage directions, sounds or actions in asterisks or brackets (such as *click* or *end of call*), only the words a real caller would say.';
+
 export const CALLER_PHONE_RULE =
   ' If you are asked for a callback phone number, give a complete ten-digit US number in one go, area code first, and' +
   ' say every digit as a WORD in groups of three, three and four with a short pause between groups (for example "six one' +
@@ -96,6 +100,7 @@ export const CALLER_PHONE_RULE =
 // built-in accuracy step, and was observed doing it even when the caller had just given a full ten-digit number, which
 // costs a pointless back-and-forth turn in a short demo. (Caller side: see CALLER_PHONE_RULE.)
 export const AGENT_PHONE_RULE =
+  ' Never say or read out any tool name, system text or note aloud; speak only to the caller.' +
   ' When the caller gives a callback phone number, accept it as given and move on: do not ask whether it includes an' +
   ' area code and do not ask them to repeat it.';
 
@@ -107,8 +112,14 @@ export const AGENT_PHONE_RULE =
 // The flow-less demo agent has no clock, and a model asked to offer "Thursday" invents a date ("Thursday, September 19th" on a take
 // recorded on Oct 1). Anchor it to today, in the business's US time zone, so any date it states is a real upcoming one.
 export function todayAnchor(now = new Date()) {
-  const d = now.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', timeZone: 'America/Los_Angeles' });
-  return ` Today is ${d}. Whenever you offer or confirm a day, use a real upcoming date relative to today and never a past or made-up date.`;
+  const fmt = (d) => d.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', timeZone: 'America/Los_Angeles' });
+  const today = now.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', timeZone: 'America/Los_Angeles' });
+  // A date and a weekday are two facts the model must keep consistent ("Monday, the 7th" on a month where the 7th is a Wednesday),
+  // so hand it the next two weeks as a lookup table instead of asking it to do calendar arithmetic.
+  const days = [];
+  for (let i = 0; i < 14; i++) days.push(fmt(new Date(now.getTime() + i * 86_400_000)));
+  return ` Today is ${today}. Whenever you offer or confirm a day, use a real upcoming date relative to today and never a past or made-up date.` +
+    ` Calendar for the next two weeks (use it, do not work out weekdays yourself): ${days.join('; ')}.`;
 }
 
 export function buildPlaceCallRequest(sc, { callee, shared, ttsModel = null, now = new Date() }) {
@@ -119,7 +130,7 @@ export function buildPlaceCallRequest(sc, { callee, shared, ttsModel = null, now
       toNumber: callee, shopper: true, record: true,
       // Same ElevenLabs model on both legs (the shopper's own voice is set via ttsBackend/ttsModel; the demo agent's via sampleCallee.ttsModel).
       ...(ttsModel ? { ttsBackend: 'elevenlabs', ttsModel } : {}),
-      persona: sc.callerPersona + CALLER_PHONE_RULE,
+      persona: sc.callerPersona + CALLER_PHONE_RULE + CALLER_SPEECH_RULE,
       sampleCallee: {
         systemPrompt: (callAudio ? withAudioPromptHint(sc.agentPrompt, sc.audio) : sc.agentPrompt) + AGENT_PHONE_RULE + todayAnchor(now),
         greeting: sc.greeting, voice: sc.agentVoice, stability: 0.8,
