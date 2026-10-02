@@ -514,7 +514,7 @@ export default function SettingsPage() {
                 <OptionCard selected={ttsBackend === 'kokoro'} onClick={() => setTtsBackend('kokoro')} title="CallDeskTech" description="Our own voice, lowest cost" />
                 <OptionCard selected={ttsBackend === 'elevenlabs'} onClick={() => setTtsBackend('elevenlabs')} title="ElevenLabs" description="Higher quality, per-char cost" />
                 <OptionCard selected={ttsBackend === 'cartesia'} onClick={() => setTtsBackend('cartesia')} title="Cartesia" description="Low-latency streaming" />
-                <OptionCard selected={ttsBackend === 'minimax'} onClick={() => setTtsBackend('minimax')} title="MiniMax" description="Higher cost, $0.16/min" />
+                <OptionCard selected={ttsBackend === 'minimax'} onClick={() => setTtsBackend('minimax')} title="MiniMax" description="Higher cost; $0.16/min on the existing flat price" />
               </div>
               {(ttsBackend === 'cartesia' || ttsBackend === 'minimax') && (
                 <p className="mt-2 text-[12px] text-amber-600">

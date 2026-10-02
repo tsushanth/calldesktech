@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { Container, Eyebrow, PrimaryButton, SecondaryButton } from '@/components/landing/primitives';
+import { PRO_CENTS, STANDARD_CENTS } from '@/lib/pricingCopy';
 
 export const metadata: Metadata = {
   title: 'Partner program | CallDeskTech',
@@ -16,7 +17,7 @@ const TERMS = [
 ];
 
 const MATH = [
-  { k: 'Customer pays', v: '$0.10 per minute', note: 'default voice' },
+  { k: 'Example: customer on Pro pays', v: `$${(PRO_CENTS / 100).toFixed(2)} per minute`, note: `phone numbers included; Standard is ${STANDARD_CENTS}¢` },
   { k: 'You earn', v: '$0.02 per minute', note: '20% for 12 months' },
   { k: '1,000 minutes a month', v: '$20 a month', note: 'per customer' },
 ];
@@ -56,7 +57,7 @@ export default function PartnersPage() {
             </div>
           ))}
         </dl>
-        <p className="mt-6 max-w-[640px] text-[13px] leading-[1.5] text-gray-400">Rates above are for the default voice. Premium voices are priced higher, and the share applies to what the customer is actually charged. Terms may change for new referrals with 30 days notice.</p>
+        <p className="mt-6 max-w-[640px] text-[13px] leading-[1.5] text-gray-400">The example uses the Pro tier. Other tiers (Standard is {STANDARD_CENTS}¢ per minute; Lite is coming soon) and existing flat prices differ, and the share applies to what the customer is actually charged. Terms may change for new referrals with 30 days notice.</p>
       </Container>
 
       <Container className="py-10">

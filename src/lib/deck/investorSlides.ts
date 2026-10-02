@@ -7,6 +7,7 @@
 // Anything the founders must still supply is marked with TODO(...) so the page refuses to serve in production
 // until it is filled in (see investorDeckTodos and the /investors page).
 import { DECK_FONTS_HREF } from './slides';
+import { LIVE_RANGE_WORDS, PRO_CENTS, STANDARD_CENTS, LITE_CENTS, twoMinuteCallRange } from '@/lib/pricingCopy';
 
 export { DECK_FONTS_HREF };
 export const PRICING_AS_OF = 'October 1, 2026';
@@ -85,7 +86,7 @@ export function buildInvestorSlides(): string[] {
 
   s.push(section('price', false, `${h2('Price per minute: where we sit', false)}
     <div style="display:flex; flex-direction:column; gap:16px; margin-top:0">
-      ${bar('Calldesk', 0.10, 0.16, '$0.10 default, to $0.16 premium voices', AMBER)}
+      ${bar('Calldesk', STANDARD_CENTS / 100, PRO_CENTS / 100, `${STANDARD_CENTS} cents Standard (phone line extra), ${PRO_CENTS} cents Pro (numbers included); Lite ${LITE_CENTS} cents coming soon`, AMBER)}
       ${bar('Retell', 0.07, 0.31, '$0.07 to $0.31 (add-ons extra)', '#6C84AD')}
       ${bar('Vapi', 0.082, 0.129, 'about $0.08 to $0.13 all in', '#6C84AD')}
       ${bar('Bland', 0.12, 0.14, '$0.12 to $0.14 (plan fee $299 a month)', '#6C84AD')}
@@ -96,7 +97,7 @@ export function buildInvestorSlides(): string[] {
 
   s.push(section('human', true, `${h2('Against a human answering service, the gap is 30x or more', true)}
     ${row([
-      card('Calldesk', '$0.10 a minute.<br/>About <b>$0.20</b> for a 2-minute call.', true),
+      card('Calldesk', `${LIVE_RANGE_WORDS} a minute (Standard to Pro).<br/>About <b>${twoMinuteCallRange()}</b> for a 2-minute call.`, true),
       card('Smith.ai', '$300 a month for 30 calls ($10 a call) down to $2,100 for 300 calls ($7 a call). Over plan: $8.50 to $11.50 a call.', true),
       card('Ruby', '$250 a month for 50 minutes ($5.00 a minute) down to $1,725 for 500 minutes ($3.45 a minute).', true),
     ])}
@@ -162,7 +163,7 @@ export function buildInvestorSlides(): string[] {
     ${row([
       card('Public licensing records', `We have built loaders for state and national registries and keep a database of 558,000+ businesses sourced from them: 41 US states with 100+ records each, 16 trades, and 7 other countries.`, true, 1.2),
       card('Phone first, email second', 'Many registries publish phone numbers and few publish email, so calling is the main channel, with email and website discovery filling in the rest. Personal and home lines are kept off call lists.', true, 1.2),
-      card('A simple offer', 'Free two-week pilot on a forwarded number, then $0.10 a minute with no minimum.', true),
+      card('A simple offer', `Free two-week pilot on a forwarded number, then ${STANDARD_CENTS} cents a minute (Standard, phone line billed separately) or ${PRO_CENTS} cents (Pro, phone numbers included), with no minimum.`, true),
     ])}
     ${note('Counts are from our own lead database as of October 1, 2026. These are businesses we can reach, not customers.', true)}`));
 

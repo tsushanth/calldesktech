@@ -10,6 +10,7 @@ import {
 import { MESH } from './gradient';
 import { Reveal } from './Reveal';
 import { DailyFootage } from './DailyFootage';
+import { HEADLINE_WITH_QUALIFIER, ADD_ONS_LINE } from '@/lib/pricingCopy';
 
 /**
  * FAQ, final CTA and footer.
@@ -52,6 +53,10 @@ const FAQS = [
   {
     q: 'What does it do outside business hours?',
     a: 'Whatever you configure. Common setups answer questions and take messages overnight, then resume booking and transfers when you open.',
+  },
+  {
+    q: 'How much does it cost?',
+    a: `${HEADLINE_WITH_QUALIFIER} On Lite and Standard you bring your own phone carrier and pay it directly; Pro includes phone numbers and calling. Transfers, DTMF, testing and monitoring are included, with no per-booking or per-transfer fees. ${ADD_ONS_LINE} Customers on an earlier flat per-minute price keep it.`,
   },
   {
     q: 'Can I turn a capability off later?',
