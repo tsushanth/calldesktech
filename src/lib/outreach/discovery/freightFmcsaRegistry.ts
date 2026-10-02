@@ -11,7 +11,7 @@ import { cityState, describeRegistryLead, emptyResult, reject, type RegistryLead
 
 const HOST = 'data.transportation.gov';
 const REGISTRY = 'FMCSA (US DOT) broker authority and census files';
-const WHERE = "broker_stat='A' AND bus_ctry_code='US' AND docket_number like 'MC%'";
+const BASE_WHERE = "broker_stat='A' AND bus_ctry_code='US' AND docket_number like 'MC%'";
 const PAGE = 300;
 const CENSUS_CHUNK = 150;
 
@@ -67,12 +67,16 @@ export function toFmcsaRegistryLead(auth: AuthorityRow, census: CensusRow, ev: {
 // Walks every active broker page by page. `max` bounds how many new candidates are returned (the
 // import takes them all in one go when called with MAX_SAFE_INTEGER). Skips leads already held.
 export async function findFmcsaBrokerRegistryLeads(
-  opts: { max?: number; isKnown?: (sourceKey: string) => boolean; log?: (m: string) => void; now?: Date; startOffset?: number } = {},
+  opts: { max?: number; state?: string; isKnown?: (sourceKey: string) => boolean; log?: (m: string) => void; now?: Date; startOffset?: number } = {},
 ): Promise<RegistryResult> {
   const log = opts.log ?? (() => {});
   const max = opts.max ?? Number.MAX_SAFE_INTEGER;
   const now = opts.now ?? new Date();
   const result = emptyResult();
+  // Optional single-state load (callers dial from a local number): ?state=TX narrows the broker list.
+  const state = (opts.state ?? '').trim().toUpperCase();
+  if (state && !/^[A-Z]{2}$/.test(state)) { result.errors.push(`fmcsa brokers: bad state "${opts.state}"`); return result; }
+  const WHERE = state ? `${BASE_WHERE} AND bus_state_code='${state}'` : BASE_WHERE;
   try {
     const cnt = await socrataGet<{ count: string }>(HOST, AUTHORITY_DATASET, { $select: 'count(*)', $where: WHERE }, log);
     const total = Number(cnt[0]?.count);

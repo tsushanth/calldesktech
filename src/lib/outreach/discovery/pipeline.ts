@@ -880,7 +880,7 @@ export function registryLeadRow(c: RegistryLead, product: ProductConfig, now: st
 // The email-bearing registries that can be imported in one go, and the vertical each belongs to.
 // `load` returns every candidate the source has, not a capped window.
 const BULK_REGISTRY_SOURCES: Record<string, { products: string[]; load: (product: ProductConfig, isKnown: (k: string) => boolean, log: (m: string) => void) => Promise<RegistryResult> }> = {
-  'fmcsa-brokers': { products: ['freight'], load: (_p, isKnown, log) => findFmcsaBrokerRegistryLeads({ isKnown, log, max: Number(process.env.FMCSA_BROKER_MAX) || undefined }) },
+  'fmcsa-brokers': { products: ['freight'], load: (_p, isKnown, log) => findFmcsaBrokerRegistryLeads({ isKnown, log, max: Number(process.env.FMCSA_BROKER_MAX) || undefined, state: process.env.FMCSA_BROKER_STATE || undefined }) },
   'fl-dfs': {
     products: ['insurance', 'bailbonds'],
     load: (product, isKnown, log) => findFlDfsCandidates(product.id as 'insurance' | 'bailbonds', Number.MAX_SAFE_INTEGER, { isKnown, log }),
