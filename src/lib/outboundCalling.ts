@@ -1,3 +1,5 @@
+import type { HoursCheck } from '@/lib/callingHours';
+
 // Pure helpers for the human-caller softphone route (/api/twilio/outbound-voice). No I/O so the
 // decisions that matter (what number is being dialed, who is dialing, what TwiML goes back) are unit tested.
 
@@ -45,18 +47,36 @@ export function xmlEscape(s: string): string {
   return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&apos;');
 }
 
-export function buildDialTwiml(opts: { callerId: string; to: string; actionUrl: string; timeoutSec?: number }): string {
+export interface RecordingOptions {
+  // Twilio posts here when the recording is ready (RecordingSid, RecordingUrl, RecordingDuration).
+  statusCallbackUrl: string;
+  // If set, the person called hears a short notice (TwiML from this URL) before they are connected.
+  noticeUrl?: string;
+}
+
+export function buildDialTwiml(opts: { callerId: string; to: string; actionUrl: string; timeoutSec?: number; recording?: RecordingOptions }): string {
   // The <Dial action> only fires when the dial finishes with the caller still on the line. The <Number>
   // status callbacks fire for the far-end leg regardless (answered / any final state), so a call that
   // the caller hangs up first, or that fails on the SIP side, still gets its outcome recorded.
   // answerOnBridge: the caller hears real ringing until the far end answers, and Twilio does not bill the
   // caller's leg as answered while it is still ringing.
+  // Recording (only when enabled): both sides on separate channels from the moment the callee answers, kept
+  // by Twilio until deleted. The optional notice is a whisper on the callee's leg, played before they are bridged.
+  const rec = opts.recording;
+  const recAttrs = rec
+    ? ` record="record-from-answer-dual" recordingStatusCallback="${xmlEscape(rec.statusCallbackUrl)}" recordingStatusCallbackEvent="completed" recordingStatusCallbackMethod="POST"`
+    : '';
+  const whisper = rec?.noticeUrl ? ` url="${xmlEscape(rec.noticeUrl)}" method="POST"` : '';
   return (
     '<?xml version="1.0" encoding="UTF-8"?><Response>' +
-    `<Dial callerId="${xmlEscape(opts.callerId)}" answerOnBridge="true" timeout="${opts.timeoutSec ?? 30}" action="${xmlEscape(opts.actionUrl)}" method="POST">` +
-    `<Number statusCallback="${xmlEscape(opts.actionUrl)}" statusCallbackEvent="answered completed" statusCallbackMethod="POST">${xmlEscape(opts.to)}</Number></Dial></Response>`
+    `<Dial callerId="${xmlEscape(opts.callerId)}" answerOnBridge="true" timeout="${opts.timeoutSec ?? 30}" action="${xmlEscape(opts.actionUrl)}" method="POST"${recAttrs}>` +
+    `<Number${whisper} statusCallback="${xmlEscape(opts.actionUrl)}" statusCallbackEvent="answered completed" statusCallbackMethod="POST">${xmlEscape(opts.to)}</Number></Dial></Response>`
   );
 }
+
+// The short notice the person called hears before being connected, when recording is on.
+export const RECORDING_NOTICE_TWIML =
+  '<?xml version="1.0" encoding="UTF-8"?><Response><Say>This call may be recorded for quality.</Say></Response>';
 
 export function buildRejectTwiml(spokenMessage: string): string {
   return `<?xml version="1.0" encoding="UTF-8"?><Response><Say>${xmlEscape(spokenMessage)}</Say><Hangup/></Response>`;
@@ -69,6 +89,9 @@ export interface DialDecisionInput {
   to: string | null;
   caller: { caller_id: string; enabled: boolean } | null;
   leadId: string | null;
+  // True when the number is in this caller's batch for today (the thing the line actually gates on).
+  inBatch: boolean;
+  hours: HoursCheck;
   doNotCall: boolean;
   isTestNumber?: boolean;
   requireLead: boolean;
@@ -93,8 +116,11 @@ export function decideDial(i: DialDecisionInput): DialDecision {
     if (i.doNotCall) {
       return { ok: false, reason: 'do_not_call', spoken: 'That number is on the do not call list.' };
     }
-    if (i.requireLead && !i.leadId) {
-      return { ok: false, reason: 'not_in_call_list', spoken: 'That number is not in your call list.' };
+    if (i.requireLead && !i.inBatch) {
+      return { ok: false, reason: 'not_in_todays_batch', spoken: 'That number is not in your batch for today.' };
+    }
+    if (!i.hours.ok) {
+      return { ok: false, reason: 'outside_calling_hours', spoken: 'It is outside calling hours for that business.' };
     }
   }
   if (i.dialsToday >= i.maxDialsPerDay) {
