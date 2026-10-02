@@ -5,7 +5,7 @@ import { findJobPostingSignals } from '@/lib/outreach/signals/jobPostings';
 import { parseManualReviewImport, type ReviewSiteImportRow } from '@/lib/outreach/signals/reviewSites';
 import { findTechFingerprintSignals } from '@/lib/outreach/signals/techFingerprint';
 
-// GET /api/admin/outreach/leads — list all leads, newest first.
+// GET /api/admin/outreach/leads — the newest 1000 leads, newest first.
 export async function GET() {
   const admin = await requireAdminSession();
   if (!admin) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -14,7 +14,10 @@ export async function GET() {
   const { data, error } = await supabase
     .from('calldesk_outreach_leads')
     .select('*')
-    .order('created_at', { ascending: false });
+    .order('created_at', { ascending: false })
+    // The table holds hundreds of thousands of leads. The newest page is what the admin screen shows; an explicit limit
+    // keeps this a short index scan instead of relying on the API's implicit row cap.
+    .limit(1000);
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   return NextResponse.json({ leads: data });
