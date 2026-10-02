@@ -18,6 +18,8 @@ import { looksLikeIndividual } from './individualName';
 import { researchAgency, type Dossier } from '../research';
 import { findSearchCandidates, queriesForDay } from './searchSource';
 import { findFreightBrokerCandidates, describeBroker, isFreeMail } from './freightFmcsa';
+import { findFmcsaBrokerRegistryLeads } from './freightFmcsaRegistry';
+import { callerPhoneExclusion } from './callerPhonePolicy';
 import { findVerticalSearchCandidates, type SearchVertical } from './verticalSearch';
 import { findTowingCandidates } from './towingWa';
 import { findSepticCandidates } from './septicRegistry';
@@ -737,9 +739,14 @@ async function stageFreight(
     summary.leadsNew++;
     summary.contactsFound++;
 
+    // The FMCSA census phone goes to callers' lists unless it is probably a personal line (callerPhonePolicy.ts).
+    const phoneExcluded = c.phone ? callerPhoneExclusion({ name: c.name }) : null;
+    const phone = phoneExcluded ? null : c.phone;
     const fields = {
       company_name: c.name, domain, source_key: sourceKey, tier: null, location, description,
-      score, region_blocked: false, signals: { reasons, techPlatforms: [] as string[] },
+      score, region_blocked: false,
+      signals: { reasons, techPlatforms: [] as string[], ...(phoneExcluded ? { registry: { callerPhoneExcluded: phoneExcluded } } : {}) },
+      ...(phone ? { phone } : {}),
       contact_email: c.email, contact_status: 'found',
       contact_source_url: `https://data.transportation.gov/resource/az4n-8mr2.json?dot_number=${c.dot}`,
       enriched_at: now,
@@ -873,6 +880,7 @@ export function registryLeadRow(c: RegistryLead, product: ProductConfig, now: st
 // The email-bearing registries that can be imported in one go, and the vertical each belongs to.
 // `load` returns every candidate the source has, not a capped window.
 const BULK_REGISTRY_SOURCES: Record<string, { products: string[]; load: (product: ProductConfig, isKnown: (k: string) => boolean, log: (m: string) => void) => Promise<RegistryResult> }> = {
+  'fmcsa-brokers': { products: ['freight'], load: (_p, isKnown, log) => findFmcsaBrokerRegistryLeads({ isKnown, log, max: Number(process.env.FMCSA_BROKER_MAX) || undefined }) },
   'fl-dfs': {
     products: ['insurance', 'bailbonds'],
     load: (product, isKnown, log) => findFlDfsCandidates(product.id as 'insurance' | 'bailbonds', Number.MAX_SAFE_INTEGER, { isKnown, log }),

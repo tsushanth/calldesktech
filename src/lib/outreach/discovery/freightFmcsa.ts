@@ -42,6 +42,7 @@ export interface CensusRow {
   legal_name?: string;
   dba_name?: string;
   email_address?: string;
+  phone?: string;
   status_code?: string;
   add_date?: string;
   power_units?: string;
@@ -162,9 +163,18 @@ export function titleCase(name: string): string {
     .join(' ');
 }
 
+// The FMCSA census file carries the business phone as `phone` (the authority file's bus_telno is
+// empty for these brokers). Formatted "(NNN) NNN-NNNN"; null when it is not a plausible US number.
+export function censusPhone(census: CensusRow | undefined, authPhone?: string): string | null {
+  const digits = (census?.phone || authPhone || '').replace(/\D/g, '');
+  const d = digits.length === 11 && digits.startsWith('1') ? digits.slice(1) : digits;
+  if (d.length !== 10 || /^(\d)\1{9}$/.test(d) || d[0] === '0' || d[0] === '1') return null;
+  return `(${d.slice(0, 3)}) ${d.slice(3, 6)}-${d.slice(6)}`;
+}
+
 // Pure filter + scoring for one authority row and its census row. All hard
 // requirements are here so they can be unit tested without the network.
-export function evaluateBroker(auth: AuthorityRow, census: CensusRow | undefined, now = new Date()): Evaluation {
+export function evaluateBroker(auth: AuthorityRow, census: CensusRow | undefined, now = new Date(), opts: { allowNoEmail?: boolean } = {}): Evaluation {
   if (auth.broker_stat !== 'A') return { keep: false, reason: 'no active broker authority' };
   if (auth.broker_rev_pend === 'Y') return { keep: false, reason: 'broker authority revocation pending' };
   if (auth.bond_file === 'N') return { keep: false, reason: 'no broker bond on file' };
@@ -173,7 +183,9 @@ export function evaluateBroker(auth: AuthorityRow, census: CensusRow | undefined
   if (!census) return { keep: false, reason: 'no census record' };
   if (census.status_code && census.status_code !== 'A') return { keep: false, reason: 'census record inactive' };
   const email = cleanEmail(census.email_address);
-  if (!email) return { keep: false, reason: 'no valid published email' };
+  // allowNoEmail (phone-first loading): keep a broker with a callable census phone but no published
+  // email; it goes through website discovery like any other phone-only registry lead.
+  if (!email && !(opts.allowNoEmail && censusPhone(census))) return { keep: false, reason: opts.allowNoEmail ? 'no phone and no valid published email' : 'no valid published email' };
   if (isBigBroker(auth.legal_name, auth.dba_name, census.legal_name, census.dba_name)) return { keep: false, reason: 'known large broker' };
 
   let adjust = 0;
@@ -183,7 +195,8 @@ export function evaluateBroker(auth: AuthorityRow, census: CensusRow | undefined
     reasons.push(`${delta >= 0 ? '+' : ''}${delta}: ${reason}`);
   };
 
-  if (isFreeMail(email)) add(-10, 'contact is a free-mail address (likely a very small or one-person shop, less reachable as a business)');
+  if (!email) add(-5, 'no published email (website discovery needed)');
+  else if (isFreeMail(email)) add(-10, 'contact is a free-mail address (likely a very small or one-person shop, less reachable as a business)');
   else add(5, 'business-domain email address');
 
   const power = Number(census.power_units);
@@ -214,7 +227,7 @@ export function toCandidate(auth: AuthorityRow, census: CensusRow, ev: { adjust:
     city: city ? titleCase(city) : null,
     state: state || null,
     email: cleanEmail(census.email_address) as string,
-    phone: auth.bus_telno?.trim() || null,
+    phone: censusPhone(census, auth.bus_telno),
     addDate: census.add_date ?? null,
     adjust: ev.adjust,
     reasons: ev.reasons,
@@ -280,7 +293,7 @@ export async function findFreightBrokerCandidates(
       const chunk = ids.slice(i, i + 75);
       const rows = await socrata<CensusRow>(CENSUS_DATASET, {
         $where: `dot_number in(${chunk.map((d) => `'${d.replace(/\D/g, '')}'`).join(',')}) AND email_address IS NOT NULL`,
-        $select: 'dot_number,legal_name,dba_name,email_address,status_code,add_date,power_units,total_drivers,business_org_desc,phy_city,phy_state',
+        $select: 'dot_number,legal_name,dba_name,email_address,phone,status_code,add_date,power_units,total_drivers,business_org_desc,phy_city,phy_state',
         $limit: '200',
       }, log);
       for (const r of rows) census.set(stripZeros(r.dot_number), r);
