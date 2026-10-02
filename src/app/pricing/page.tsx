@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/Button';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 import Link from 'next/link';
 import { PRICING_TIERS, ADD_ONS, CARRIER_NOTE } from '@/lib/pricingTiers';
+import { PricingCalculator } from '@/components/pricing/PricingCalculator';
 
 export default function PricingPage() {
   return (
@@ -88,14 +89,21 @@ function PricingPageContent() {
   return (
     <main className="bg-white py-14 px-4 md:py-20">
       <div className="max-w-5xl mx-auto">
-        {/* Header */}
-        <div className="text-center mb-12">
-          <h1 className="text-[40px] font-normal leading-[1.02] tracking-[-0.05em] text-[#00122e] md:text-[64px]">
-            Three plans. Pay by the minute.
-          </h1>
-          <p className="mx-auto mt-5 max-w-[560px] text-[17px] leading-[1.5] text-gray-500">
-            No monthly minimum. Pick the plan that fits your calls and pay only for talk time.
-          </p>
+        {/* Header: the claim, the plain-language terms, and a calculator so a visitor can price their own month */}
+        <div className="mb-12 grid items-start gap-8 md:grid-cols-[1.1fr_1fr] md:gap-12">
+          <div className="min-w-0">
+            <h1 className="text-[40px] font-normal leading-[1.02] tracking-[-0.05em] text-[#00122e] md:text-[60px]">
+              Phone agents from 2¢ a minute.
+            </h1>
+            <p className="mt-5 max-w-[34rem] text-[17px] leading-[1.5] text-gray-600">
+              Lite at 2¢ is coming soon. Standard at 6¢ and Pro at 10¢ are available now. You pay for talk time only, with no monthly minimum and no per-booking or per-transfer fees.
+            </p>
+            <p className="mt-4 max-w-[34rem] text-[15px] leading-[1.55] text-gray-500">
+              The plans are priced the way other per-minute voice platforms such as ThunderPhone price theirs: a rate for the agent, with your phone carrier billed separately unless it is included.{' '}
+              <Link href="/compare/thunderphone" className="text-[#00122e] underline underline-offset-4 hover:text-blue-600">See the comparison</Link>.
+            </p>
+          </div>
+          <PricingCalculator />
         </div>
 
         {/* Tiers */}
