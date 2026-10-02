@@ -22,6 +22,8 @@ const CALLERS = (process.env.CALLERS || 'mary,mark').split(',').map((s) => s.tri
 const PER = Math.max(1, Number(process.env.PER) || 100);
 const PRODUCTS = (process.env.PRODUCTS || 'calldesk:freight,calldesk:insurance').split(',').map((s) => s.trim()).filter(Boolean);
 const COMMIT = process.env.COMMIT === '1';
+// Optional: only batch leads in these US states, e.g. STATES=TX (a one-state pilot).
+const STATES = (process.env.STATES || '').split(',').map((s) => s.trim().toUpperCase()).filter(Boolean);
 
 function nextWeekdayEastern(): string {
   const d = new Date();
@@ -52,7 +54,7 @@ type Candidate = { lead_id: string; phone: string; company_name: string; state: 
 
 async function main() {
   const db = getSupabaseAdmin();
-  console.log(`Batch date ${DATE} | callers ${CALLERS.join(', ')} | ${PER} each | products ${PRODUCTS.join(' > ')} | ${COMMIT ? 'COMMIT' : 'dry run'}`);
+  console.log(`Batch date ${DATE} | callers ${CALLERS.join(', ')} | ${PER} each | products ${PRODUCTS.join(' > ')} | states ${STATES.join(',') || 'all'} | ${COMMIT ? 'COMMIT' : 'dry run'}`);
 
   const dnc = new Set<string>(((await db.from('calldesk_do_not_call').select('phone')).data ?? []).map((r: { phone: string }) => r.phone));
   // Carrier lookups (scripts/lookup-line-types.mjs): numbers the carrier says are not valid are never batched.
@@ -88,6 +90,7 @@ async function main() {
       const phone = normalizeNanp(l.phone);
       const state = stateFromLocation(l.location);
       const excluded = (l.signals as { registry?: { callerPhoneExcluded?: string } } | null)?.registry?.callerPhoneExcluded;
+      if (STATES.length && state && !STATES.includes(state)) continue;
       if (!phone || !state || excluded || dnc.has(phone) || used.has(phone) || seen.has(phone)) continue;
       if (lookups.get(phone)?.valid === false) continue;
       seen.add(phone);
