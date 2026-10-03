@@ -115,7 +115,7 @@ export async function createTrialForSession(sessionId: string) {
       transitionFlexibility: 'flexible',
       handbook: `You are the AI receptionist for ${company_name}. Be friendly, concise, and professional. If someone wants to leave a message, collect their name, phone number, and what they need. If they say it's urgent or want to transfer, immediately transfer to ${transfer_number}. Never make up policies or prices.`,
     },
-    ttsBackend: 'kokoro',
+    ttsBackend: 'elevenlabs', // trials run on the premium voice (decision 2026-10-03); Kokoro cold-starts
   });
 
   const number = await cdApi('POST', `/tenants/${tid}/phone-numbers/purchase`, {
