@@ -95,7 +95,7 @@ it('publishes lite on piper once the quality tradeoff is accepted', async () => 
   process.env.STRIPE_TIER_LITE_PRICE = 'price_lite';
   const res = await post({ tier: 'lite', acceptLowerQuality: true });
   expect(res.status).toBe(201);
-  expect(inserted).toMatchObject({ tier: 'lite', tts_backend: 'piper' });
+  expect(inserted).toMatchObject({ tier: 'lite', tts_backend: 'piper', voice_id: 'custom:en-us-warm-f' });
   delete process.env.STRIPE_TIER_LITE_PRICE;
 });
 

@@ -258,7 +258,7 @@ export async function POST(
       flow_id: flow.id,
       retell_agent_id: retellAgentId || null,
       retell_llm_id: retellLlmId || null,
-      voice_id: voiceId || null,
+      voice_id: voiceId || (tier ? tierResult.voiceId : undefined) || null,
       tts_backend: effectiveTtsBackend || null,
       llm_model: llmModel || null,
       tts_model: ttsModel || null,

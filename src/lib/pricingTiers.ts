@@ -33,6 +33,8 @@ export type TierStack = {
   ttsBackend: TtsBackend;
   /** Voice model within ttsBackend, or null when the backend has no model choice. */
   ttsModel: string | null;
+  /** Voice id the tier speaks with on its own backend (stamped on the version unless the caller sets voiceId). Piper voice ids are validated by the engine (piperVoices.js). */
+  voiceId?: string;
   /** Internal reminder shown to engineers only; never sent to customers (see publicPricing). */
   ttsPromoNote?: string;
 };
@@ -76,7 +78,8 @@ export const PRICING_TIERS: PricingTier[] = [
     includes: [...INCLUDED_ON_ALL, 'Fast responses on our lowest-cost voice, with noticeably lower voice quality than Standard'],
     carrierMode: 'byo',
     availability: 'live',
-    stack: { llmModel: LITE_LLM_MODEL, ttsBackend: 'piper', ttsModel: null },
+    // The Kokoro-distilled voice (owner-accepted provenance, 2026-10-03): explicit so Lite never falls back to the engine's global Piper default.
+    stack: { llmModel: LITE_LLM_MODEL, ttsBackend: 'piper', ttsModel: null, voiceId: 'custom:en-us-warm-f' },
     lowerQuality: true,
   },
   {
@@ -217,7 +220,7 @@ export type TierPublishInput = {
 };
 
 export type TierPublishResult =
-  | { ok: true; tier: TierId | null; llmModel: string | undefined; ttsModel: string | undefined; ttsBackend: TtsBackend | undefined; overrides: Array<'llmModel' | 'ttsBackend' | 'ttsModel'> }
+  | { ok: true; tier: TierId | null; llmModel: string | undefined; ttsModel: string | undefined; ttsBackend: TtsBackend | undefined; voiceId?: string; overrides: Array<'llmModel' | 'ttsBackend' | 'ttsModel'> }
   | { ok: false; error: string };
 
 /**
@@ -247,7 +250,9 @@ export function resolveTierForPublish(input: TierPublishInput): TierPublishResul
   // The tier's voice model only makes sense on the tier's own backend; on another backend the engine default applies.
   const ttsModel = input.ttsModel || (ttsBackend === stack.ttsBackend ? stack.ttsModel || undefined : undefined);
   if (input.ttsModel && input.ttsModel !== stack.ttsModel) overrides.push('ttsModel');
-  return { ok: true, tier: tier.id, llmModel, ttsModel, ttsBackend, overrides };
+  // The tier's voice only applies on the tier's own backend; an overridden backend picks its own voice.
+  const voiceId = ttsBackend === stack.ttsBackend ? stack.voiceId : undefined;
+  return { ok: true, tier: tier.id, llmModel, ttsModel, ttsBackend, voiceId, overrides };
 }
 
 /** Sanity check used by tests: every tier stack is accepted by the model catalog's own validation. */

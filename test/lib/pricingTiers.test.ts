@@ -184,3 +184,15 @@ describe('lowerQuality tier acceptance', () => {
     }
   });
 });
+
+describe('tier voice', () => {
+  it('Lite speaks the Kokoro-distilled Piper voice on its own backend; Standard and Pro set no voice', () => {
+    const lite = PRICING_TIERS.find((t) => t.id === 'lite')!;
+    expect(lite.stack.voiceId).toBe('custom:en-us-warm-f');
+    expect(resolveTierForPublish({ tier: 'lite', voiceEngine: 'poc', acceptLowerQuality: true })).toMatchObject({ ok: true, voiceId: 'custom:en-us-warm-f' });
+    expect(resolveTierForPublish({ tier: 'standard', voiceEngine: 'poc' })).toMatchObject({ ok: true, voiceId: undefined });
+  });
+  it('the tier voice is not applied when the backend is overridden', () => {
+    expect(resolveTierForPublish({ tier: 'lite', voiceEngine: 'poc', acceptLowerQuality: true, ttsBackend: 'elevenlabs' })).toMatchObject({ ok: true, voiceId: undefined });
+  });
+});
