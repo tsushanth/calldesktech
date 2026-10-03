@@ -1,5 +1,7 @@
 import type { Metadata } from 'next';
 import { Container, Section, PrimaryButton, SecondaryButton } from '@/components/landing/primitives';
+import { PricingComparison } from '@/components/compare/PricingComparison';
+import { THUNDERPHONE_PRICING } from '@/lib/competitorPricing';
 
 export const metadata: Metadata = {
   title: 'CallDeskTech vs ThunderPhone | CallDeskTech',
@@ -52,6 +54,13 @@ export default function ThunderPhoneComparePage() {
         <p className="mt-5 max-w-[620px] text-[16px] leading-[1.6] text-gray-600">
           Same shopper persona, same goal, same script, placed against our POC engine (Deepgram, Claude Haiku, Kokoro) and ThunderPhone&rsquo;s Spark tier (GPT-4o-mini) &mdash; their entry pricing tier, not their higher Bolt or Storm tiers. A blind judge scored each transcript on turns to resolution and response latency. Our first pass came back 2&ndash;1 because of a bug in how we scripted the shopper; we fixed it and reran clean, which is the 3&ndash;0 result above.
         </p>
+      </Section>
+
+      <Section size="secondary" className="pt-0 pb-16 md:pb-20">
+        <h2 className="text-[32px] md:text-[44px] font-normal leading-[1.04] tracking-[-0.045em] text-[#00122e]">
+          Pricing.
+        </h2>
+        <PricingComparison competitor={THUNDERPHONE_PRICING} />
       </Section>
 
       <div className="border-t border-gray-100 bg-[#f8f8fb]">

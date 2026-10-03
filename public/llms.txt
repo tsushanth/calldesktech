@@ -26,5 +26,9 @@ Local service businesses that take phone calls for appointments and customer que
 
 ## Pricing
 
-- $49/month flat plan, includes: dedicated phone number, 100 minutes/month, custom knowledge base, appointment booking, call transcripts & analytics, SMS confirmations
-- Overage: $0.10/minute, $0.05/SMS
+- Lite: 2 cents per minute (coming soon, not available to buy yet); phone carrier billed separately
+- Standard: 6 cents per minute; phone carrier billed separately
+- Pro: 10 cents per minute; phone numbers and calling included
+- Phone agents from 2 cents a minute. Lite is coming soon; Standard 6 cents and Pro 10 cents are available now.
+- Add-ons are optional and priced per minute; amounts are on the pricing page.
+- Transfers, DTMF, testing and monitoring are included in the per-minute rate. Customers on an earlier flat per-minute price keep it.

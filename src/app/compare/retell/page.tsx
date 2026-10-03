@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import { Container, Section, PrimaryButton, SecondaryButton } from '@/components/landing/primitives';
-import { PRICING } from '@/lib/constants';
+import { HEADLINE_WITH_QUALIFIER, LIVE_RANGE, CARRIER_SHORT } from '@/lib/pricingCopy';
 
 export const metadata: Metadata = {
   title: 'CallDeskTech vs Retell | CallDeskTech',
@@ -29,7 +29,7 @@ const ROWS: { group: string; item: string; verdict: Verdict; note: string }[] = 
   { group: 'Tools & data', item: 'MCP server authentication', verdict: 'Ahead', note: 'Real OAuth 2.1 login for external MCP clients. Retell’s is unconfirmed beyond existing.' },
   { group: 'Tools & data', item: 'Knowledge base, custom functions, calendar booking', verdict: 'Have', note: 'Comparable depth on both sides.' },
   { group: 'After the call', item: 'Customizable dashboards', verdict: 'Gap', note: 'Retell shipped user-configurable dashboards; ours aren’t configurable yet.' },
-  { group: 'Pricing', item: 'Price per minute', verdict: 'Ahead', note: `$${PRICING.usage.voicePerMinute.kokoro.toFixed(2)} flat on our default voice. Retell stacks voice, LLM, telephony, and text-to-speech separately, blending to roughly $0.07–$0.31 depending on what you pick.` },
+  { group: 'Pricing', item: 'Price per minute', verdict: 'Have', note: `${HEADLINE_WITH_QUALIFIER} Retell stacks voice, LLM, telephony, and text-to-speech separately, blending to roughly $0.07–$0.31 depending on what you pick. The ranges overlap, so this is a comparison of structure rather than a win either way: our tiers bundle the language model and voice into one per-minute rate, and Pro adds phone numbers.` },
   { group: 'Pricing', item: 'Free tier', verdict: 'Gap', note: 'Retell gives new accounts $10 in credit and 20 free concurrent calls. We don’t have a free tier yet.' },
   { group: 'Team & access', item: 'White-labeling', verdict: 'Neither', note: 'Confirmed absent on both sides.' },
 ];
@@ -55,12 +55,12 @@ export default function RetellComparePage() {
       <Container className="pb-16">
         <div className="grid gap-4 sm:grid-cols-3">
           <div className="rounded-xl border border-gray-200 p-6">
-            <p className="text-[13px] font-medium text-gray-400">Our price, default voice</p>
-            <p className="mt-2 text-[32px] font-normal tracking-[-0.03em] text-[#00122e]">${PRICING.usage.voicePerMinute.kokoro.toFixed(2)}<span className="text-[15px] text-gray-400">/min</span></p>
+            <p className="text-[13px] font-medium text-gray-400">Our price, available now (Standard to Pro)</p>
+            <p className="mt-2 text-[32px] font-normal tracking-[-0.03em] text-[#00122e]">{LIVE_RANGE}<span className="text-[15px] text-gray-400">/min</span></p>
           </div>
           <div className="rounded-xl border border-gray-200 p-6">
-            <p className="text-[13px] font-medium text-gray-400">Our real cost, measured</p>
-            <p className="mt-2 text-[32px] font-normal tracking-[-0.03em] text-[#00122e]">$0.044<span className="text-[15px] text-gray-400">/min</span></p>
+            <p className="text-[13px] font-medium text-gray-400">Phone service</p>
+            <p className="mt-2 text-[20px] font-normal leading-[1.3] tracking-[-0.03em] text-[#00122e]">Included on Pro; {CARRIER_SHORT.replace(' on Lite and Standard', '')} on Lite and Standard</p>
           </div>
           <div className="rounded-xl border border-gray-200 p-6">
             <p className="text-[13px] font-medium text-gray-400">Retell, observed blended</p>
@@ -68,7 +68,7 @@ export default function RetellComparePage() {
           </div>
         </div>
         <p className="mt-4 text-[12.5px] leading-[1.5] text-gray-400">
-          Our numbers come from real Twilio, Deepgram, and Claude usage, not an estimate. The Retell range comes from an actual account’s billing dashboard, combining their separate voice, LLM, telephony, and speech charges — not a published rate card.
+          {HEADLINE_WITH_QUALIFIER} Add-ons are optional and priced per minute; see the pricing page for amounts. The Retell range comes from an actual account’s billing dashboard, combining their separate voice, LLM, telephony, and speech charges — not a published rate card.
         </p>
       </Container>
 

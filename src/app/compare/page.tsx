@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { Container, Section } from '@/components/landing/primitives';
 import { COMPETITORS } from '@/lib/compareData';
+import { LIVE_RANGE } from '@/lib/pricingCopy';
 
 export const metadata: Metadata = {
   title: 'Compare | CallDeskTech',
@@ -22,8 +23,8 @@ const PAGES = [
     href: '/compare/retell',
     name: 'Retell',
     line: 'A feature-by-feature look at the builder, pricing, and real test calls.',
-    stat: '$0.10',
-    statLabel: 'per minute, flat — Retell blends to $0.07–$0.31',
+    stat: LIVE_RANGE,
+    statLabel: 'per minute by tier, Lite coming soon — Retell blends to $0.07–$0.31',
   },
   {
     href: '/compare/thunderphone',

@@ -8,6 +8,7 @@ import {
   HowItWorks,
 } from "@/components/landing/Sections";
 import { FAQ, FinalCTA, SiteFooter } from "@/components/landing/Closing";
+import { PricingSummary } from "@/components/landing/PricingSummary";
 import { ContactCenter, Developers, Studio, Trust, UseCases } from "@/components/landing/Platform";
 import type { UseCaseGroup } from "@/components/landing/UseCases";
 import { listTemplates } from "@/lib/templateInstall";
@@ -53,6 +54,7 @@ export default function Home() {
         <HowItWorks />
         <Developers />
         <Trust />
+        <PricingSummary />
         <FAQ />
         <FinalCTA />
       </main>
