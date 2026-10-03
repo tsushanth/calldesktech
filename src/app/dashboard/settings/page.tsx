@@ -11,6 +11,7 @@ import type { TtsBackend } from '@/types';
 import { WizardBlocksPicker } from '@/components/flow-builder/WizardBlocksPicker';
 import { buildWizardFlow, DEFAULT_WIZARD_BLOCKS, type WizardBlocks } from '@/lib/flowBuilder';
 import type { Agent, AgentVersion } from '@/types';
+import { buildSettingsVersionPayload } from '@/lib/settingsVersionPayload';
 
 import ApiKeysSection from './ApiKeysSection';
 
@@ -51,6 +52,9 @@ export default function SettingsPage() {
   const [calEventTypeId, setCalEventTypeId] = useState('');
   const [voiceEngine, setVoiceEngine] = useState<VoiceEngine>('poc');
   const [ttsBackend, setTtsBackend] = useState<TtsBackend>('kokoro');
+  // Set only when the user picks an option here, so an untouched selection carries over the previous version instead of overriding it.
+  const [engineTouched, setEngineTouched] = useState(false);
+  const [backendTouched, setBackendTouched] = useState(false);
   // Call recording — mirrors Retell's own data_storage_setting/
   // data_storage_retention_days (see src/lib/retell.ts's updateAgent).
   // 'everything' + indefinite matches their default.
@@ -218,14 +222,17 @@ export default function SettingsPage() {
       const versionRes = await fetch(`/api/agents/${agentId}/versions`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
+        body: JSON.stringify(buildSettingsVersionPayload({
+          previous: latestVersion,
+          voiceEngine,
+          ttsBackend,
+          engineTouched,
+          backendTouched,
           flowName: `v${(latestVersion?.version_number || 0) + 1}`,
           startNodeId: synthesized.startNodeId,
           nodes: synthesized.nodes,
-          voiceEngine,
-          ttsBackend: voiceEngine === 'poc' ? ttsBackend : undefined,
           wizardConfig: { ...wizardBlocks, transferToNumber },
-        }),
+        })),
       });
       const versionBody = await versionRes.json();
       if (!versionRes.ok) throw new Error(versionBody.error);
@@ -503,18 +510,18 @@ export default function SettingsPage() {
             Which pipeline handles this tenant&apos;s calls. CallDeskTech is our own engine, with real phone numbers and outbound/inbound calling; Retell is kept only as a comparison baseline.
           </p>
           <div className="grid max-w-md grid-cols-2 gap-2.5">
-            <OptionCard selected={voiceEngine === 'poc'} onClick={() => setVoiceEngine('poc')} title="CallDeskTech" description="Our own engine — real phone numbers" />
-            <OptionCard selected={voiceEngine === 'retell'} onClick={() => setVoiceEngine('retell')} title="Retell" description="Comparison baseline" />
+            <OptionCard selected={voiceEngine === 'poc'} onClick={() => { setVoiceEngine('poc'); setEngineTouched(true); }} title="CallDeskTech" description="Our own engine — real phone numbers" />
+            <OptionCard selected={voiceEngine === 'retell'} onClick={() => { setVoiceEngine('retell'); setEngineTouched(true); }} title="Retell" description="Comparison baseline" />
           </div>
 
           {voiceEngine === 'poc' && (
             <div className="mt-5">
               <label className="mb-2 block text-[12.5px] font-medium text-gray-500">TTS Backend</label>
               <div className="grid max-w-2xl grid-cols-2 gap-2.5 md:grid-cols-4">
-                <OptionCard selected={ttsBackend === 'kokoro'} onClick={() => setTtsBackend('kokoro')} title="CallDeskTech" description="Our own voice, lowest cost" />
-                <OptionCard selected={ttsBackend === 'elevenlabs'} onClick={() => setTtsBackend('elevenlabs')} title="ElevenLabs" description="Higher quality, per-char cost" />
-                <OptionCard selected={ttsBackend === 'cartesia'} onClick={() => setTtsBackend('cartesia')} title="Cartesia" description="Low-latency streaming" />
-                <OptionCard selected={ttsBackend === 'minimax'} onClick={() => setTtsBackend('minimax')} title="MiniMax" description="Higher cost; $0.16/min on the existing flat price" />
+                <OptionCard selected={ttsBackend === 'kokoro'} onClick={() => { setTtsBackend('kokoro'); setBackendTouched(true); }} title="CallDeskTech" description="Our own voice, lowest cost" />
+                <OptionCard selected={ttsBackend === 'elevenlabs'} onClick={() => { setTtsBackend('elevenlabs'); setBackendTouched(true); }} title="ElevenLabs" description="Higher quality, per-char cost" />
+                <OptionCard selected={ttsBackend === 'cartesia'} onClick={() => { setTtsBackend('cartesia'); setBackendTouched(true); }} title="Cartesia" description="Low-latency streaming" />
+                <OptionCard selected={ttsBackend === 'minimax'} onClick={() => { setTtsBackend('minimax'); setBackendTouched(true); }} title="MiniMax" description="Higher cost; $0.16/min on the existing flat price" />
               </div>
               {(ttsBackend === 'cartesia' || ttsBackend === 'minimax') && (
                 <p className="mt-2 text-[12px] text-amber-600">
