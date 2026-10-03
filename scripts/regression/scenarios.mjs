@@ -93,7 +93,6 @@ SCENARIOS.push(
   {
     id: 'language-switch',
     title: 'Mid-call language switching follows a Spanish-speaking caller',
-    knownIssue: 'while the agent is configured for English, a Spanish caller is not transcribed at all (the agent heard nothing for the whole call), so the switch never triggers. Control: language-es-agent passes with the same caller.',
     version: single('You are the receptionist for Sol Cafe. Answer briefly and reply in the language the caller is speaking.', { globalSettings: { allowLanguageSwitching: true, switchableLanguages: ['es'] } }),
     persona: 'Eres una persona que llama a una cafetería. Hablas solo en español. Pregunta a qué hora cierran y despídete.',
     shopperLanguage: 'es',
