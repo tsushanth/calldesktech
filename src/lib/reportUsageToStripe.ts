@@ -67,6 +67,17 @@ type BusinessRow = { tenant_id: string; stripe_customer_id: string | null };
 // a failed DB write (usage reported to Stripe but last_usage_reported_at
 // not advanced) is the one residual gap this doesn't close — see the
 // route's doc comment.
+// Stripe rejects a meter event `identifier` longer than 100 characters. The previous format (`usage-report:<tenant uuid>:<dimension>:<ISO since>_<ISO until>`)
+// was 105 characters for the voice dimension and longer for the others, so every tenant with billable usage failed with
+// "Invalid string ... must be at most 100 characters" and its watermark never advanced. Windows are floored to the minute (floorToMinute),
+// so minute precision keeps the key unique per window and identical on a same-minute retry: 3 + 36 + 1 + up to 14 + 1 + 27 = 82 characters.
+export function compactMinute(d: Date | null): string {
+  return d ? d.toISOString().slice(0, 16).replace(/[-:]/g, '') : 'epoch';
+}
+export function meterEventIdentifier(tenantId: string, dimension: string, periodKey: string): string {
+  return `ur:${tenantId}:${dimension}:${periodKey}`;
+}
+
 export function floorToMinute(d: Date): Date {
   const floored = new Date(d);
   floored.setSeconds(0, 0);
@@ -144,7 +155,7 @@ export async function reportTenantUsageToStripe(
     return { tenantId, status: 'skipped_zero_usage', since: since?.toISOString() ?? null, until: until.toISOString() };
   }
 
-  const periodKey = `${since ? since.toISOString() : 'epoch'}_${until.toISOString()}`;
+  const periodKey = `${compactMinute(since)}_${compactMinute(until)}`;
   const recorded: Array<{ dimension: string; eventName: string; value: number; identifier: string }> = [];
 
   try {
@@ -157,7 +168,7 @@ export async function reportTenantUsageToStripe(
       // are a non-overlapping, monotonically-advancing window per tenant
       // (gated by last_usage_reported_at) — this always reports NEW usage
       // for the window, never re-sums a prior one.
-      const identifier = `usage-report:${tenantId}:${dim.dimension}:${periodKey}`;
+      const identifier = meterEventIdentifier(tenantId, dim.dimension, periodKey);
       await stripe.billing.meterEvents.create({
         event_name: eventName,
         identifier,

@@ -97,7 +97,7 @@ it('reports usage for a tenant with new call seconds since last_usage_reported_a
   expect(body.results).toHaveLength(1);
   expect(body.results[0].status).toBe('reported');
   expect(body.results[0].recorded).toEqual([
-    { dimension: 'voice', eventName: 'calldesktech_voice_seconds', value: 600, identifier: expect.stringMatching(/^usage-report:t1:voice:/) },
+    { dimension: 'voice', eventName: 'calldesktech_voice_seconds', value: 600, identifier: expect.stringMatching(/^ur:t1:voice:/) },
   ]);
 
   expect(meterEventsCreate).toHaveBeenCalledTimes(1);
@@ -106,7 +106,7 @@ it('reports usage for a tenant with new call seconds since last_usage_reported_a
     event_name: 'calldesktech_voice_seconds',
     payload: { stripe_customer_id: 'cus_1', value: '600' },
   });
-  expect(payload.identifier).toMatch(/^usage-report:t1:voice:/);
+  expect(payload.identifier).toMatch(/^ur:t1:voice:/);
 
   // last_usage_reported_at advanced so the same window isn't re-reported.
   expect(tenantUpdates).toHaveLength(1);
