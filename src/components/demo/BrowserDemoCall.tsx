@@ -15,7 +15,7 @@ import { getCallLoopWsUrl } from '@/lib/voiceEngine';
 import { api } from '@/lib/api';
 import { track } from '@/components/Analytics';
 import { buildIntroFlow } from '@/lib/introFlow';
-import { demoTtsFields, demoAudioFields, DEMO_SFX_PROMPT_HINT } from '@/lib/demoVoice';
+import { demoTtsFields, demoAudioFields, demoTenantId, DEMO_SFX_PROMPT_HINT } from '@/lib/demoVoice';
 
 type LogLine = { text: string; cls: 'user' | 'assistant' | 'muted' };
 
@@ -53,7 +53,9 @@ const INTRO_FLOW = buildIntroFlow();
 
 export default function BrowserDemoCall({ intro = false }: { intro?: boolean }) {
   const router = useRouter();
-  const { selectedProfileId, demoType, businessName: focusedBusinessName, tenantId, agentFlow } = useOnboarding();
+  const { selectedProfileId, demoType, businessName: focusedBusinessName, tenantId: savedTenantId, agentFlow } = useOnboarding();
+  // Capability demos are anonymous: ignore any workspace saved from an earlier session (see demoTenantId).
+  const tenantId = demoTenantId(demoType, savedTenantId);
 
   const profile = !intro && selectedProfileId ? CAPABILITY_DEMOS[selectedProfileId] : null;
   const businessName = intro ? 'Calldesk' : demoType === 'focused' ? focusedBusinessName || 'Your business' : profile?.businessName || 'Demo Business';

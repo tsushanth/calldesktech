@@ -118,7 +118,9 @@ interface OnboardingActions {
   setOnboardingStep: (step: number) => void;
 
   // Business operations
-  createTenantAndStartDemo: () => Promise<void>;
+  // `opts.ownerPhone`: the number the visitor just typed on the phone step. Sample (capability) demos pass it explicitly so a number
+  // saved by an earlier session can never be dialed by accident.
+  createTenantAndStartDemo: (opts?: { ownerPhone?: string }) => Promise<void>;
   retryDemoCall: () => Promise<void>;
   // True when a failed phone demo can fall back to the in-browser demo: the
   // focused-demo agent flow exists and the in-house engine is active.
@@ -385,18 +387,19 @@ export function OnboardingProvider({ children }: { children: React.ReactNode }) 
     return body as { call_id: string; status: string };
   }, [ownerPhone, wizardBlocks, transferToNumber]);
 
-  const createTenantAndStartDemo = useCallback(async () => {
+  const createTenantAndStartDemo = useCallback(async (opts?: { ownerPhone?: string }) => {
     const isFocusedDemo = demoType === 'focused';
+    const dialPhone = opts?.ownerPhone ?? ownerPhone;
 
     if (isFocusedDemo) {
-      if (!businessName || (demoMechanism === 'phone' && !ownerPhone)) {
+      if (!businessName || (demoMechanism === 'phone' && !dialPhone)) {
         setError('Please enter your business name and phone number');
         return;
       }
     } else {
       // A browser-mechanism capability demo places no real call, so there's
       // nothing to dial a phone number for.
-      if (!selectedProfileId || (demoMechanism === 'phone' && !ownerPhone)) {
+      if (!selectedProfileId || (demoMechanism === 'phone' && !dialPhone)) {
         setError(
           demoMechanism === 'phone'
             ? 'Please select a capability and enter your phone number'
@@ -521,7 +524,7 @@ export function OnboardingProvider({ children }: { children: React.ReactNode }) 
         // Start demo call with the new tenant
         const callResponse = await api.initiateDemoCall({
           tenant_id: tenantResponse.id,
-          phone_number: formatPhoneE164(ownerPhone),
+          phone_number: formatPhoneE164(dialPhone),
         });
 
         setCallId(callResponse.call_id);
@@ -555,7 +558,7 @@ export function OnboardingProvider({ children }: { children: React.ReactNode }) 
 
         const callResponse = await api.initiateDemoCall({
           profile_id: selectedProfileId!,
-          phone_number: formatPhoneE164(ownerPhone),
+          phone_number: formatPhoneE164(dialPhone),
         });
 
         setCallId(callResponse.call_id);

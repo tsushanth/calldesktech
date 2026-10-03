@@ -13,7 +13,6 @@ export default function SampleDemoPhonePage() {
   const router = useRouter();
   const {
     selectedProfileId,
-    ownerPhone,
     setOwnerPhone,
     createTenantAndStartDemo,
     isLoading,
@@ -22,9 +21,12 @@ export default function SampleDemoPhonePage() {
   } = useOnboarding();
 
   const [localError, setLocalError] = useState('');
+  // Starts empty on purpose: a capability demo never dials a number saved by an earlier session (for example one typed for someone
+  // else's business demo). Only what the visitor types here is used.
+  const [phone, setPhone] = useState('');
 
   const profile = selectedProfileId ? CAPABILITY_DEMOS[selectedProfileId] : null;
-  const isPhoneValid = isValidUSPhone(ownerPhone);
+  const isPhoneValid = isValidUSPhone(phone);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -38,7 +40,8 @@ export default function SampleDemoPhonePage() {
     clearError();
 
     try {
-      await createTenantAndStartDemo();
+      setOwnerPhone(phone); // so a retry from the call page dials the same number
+      await createTenantAndStartDemo({ ownerPhone: phone });
     } catch (err) {
       setLocalError(err instanceof Error ? err.message : 'Failed to start demo');
     }
@@ -91,8 +94,8 @@ export default function SampleDemoPhonePage() {
 
           <form onSubmit={handleSubmit}>
             <PhoneInput
-              value={ownerPhone}
-              onChange={setOwnerPhone}
+              value={phone}
+              onChange={setPhone}
               error={localError || error || undefined}
               className="mb-6"
             />

@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
@@ -9,7 +10,13 @@ import { CAPABILITY_DEMOS, type DemoProfileId } from '@/lib/constants';
 
 export default function SampleDemoProfilesPage() {
   const router = useRouter();
-  const { selectedProfileId, selectProfile, demoMechanism, setDemoMechanism, createTenantAndStartDemo, isLoading } = useOnboarding();
+  const { selectedProfileId, selectProfile, demoMechanism, setDemoMechanism, createTenantAndStartDemo, isLoading, isHydrated, demoType, setDemoType } = useOnboarding();
+
+  // This page is always a capability (sample) demo. A demo type saved by an earlier business demo is restored on load, so reset it
+  // once the saved state has been read, or the call would run as that other business instead of the capability picked here.
+  useEffect(() => {
+    if (isHydrated && demoType !== 'sample') setDemoType('sample');
+  }, [isHydrated, demoType, setDemoType]);
 
   const profiles = Object.entries(CAPABILITY_DEMOS) as [DemoProfileId, typeof CAPABILITY_DEMOS[DemoProfileId]][];
 

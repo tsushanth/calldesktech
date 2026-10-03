@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { demoTtsModel, demoTtsFields, demoAudioFields, DEFAULT_DEMO_TTS_MODEL, DEMO_SFX_PROMPT_HINT } from '@/lib/demoVoice';
+import { demoTtsModel, demoTtsFields, demoAudioFields, demoTenantId, DEFAULT_DEMO_TTS_MODEL, DEMO_SFX_PROMPT_HINT } from '@/lib/demoVoice';
 import { buildIntroFlow } from '@/lib/introFlow';
 
 describe('demoTtsModel', () => {
@@ -49,5 +49,16 @@ describe('sound-effect prompt hint', () => {
     expect(nodes.find((n) => n.id === 'business')!.prompt).toContain(DEMO_SFX_PROMPT_HINT);
     expect(nodes.find((n) => n.id === 'intro')!.prompt).not.toContain('play_sound_effect');
     expect(nodes.find((n) => n.id === 'wrapup')!.prompt).not.toContain('play_sound_effect');
+  });
+});
+
+describe('demoTenantId', () => {
+  it('a capability (sample) demo never uses a workspace saved by an earlier session', () => {
+    expect(demoTenantId('sample', 'ebaa6800-7d2f-4085-adad-e544c809b3dc')).toBeNull();
+  });
+  it('a business (focused) demo keeps its own workspace, and a missing one is null', () => {
+    expect(demoTenantId('focused', 't1')).toBe('t1');
+    expect(demoTenantId('focused', null)).toBeNull();
+    expect(demoTenantId(null, undefined)).toBeNull();
   });
 });

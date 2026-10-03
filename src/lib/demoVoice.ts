@@ -22,6 +22,12 @@ export function demoTtsFields(
     : { ttsBackend };
 }
 
+// The workspace a demo call may attach to. A capability (sample) demo is anonymous by design: a workspace id saved by an earlier
+// session (the owner's own business, a customer trial) must never leak into it, so it gets none.
+export function demoTenantId(demoType: string | null | undefined, tenantId: string | null | undefined): string | null {
+  return demoType === 'sample' ? null : tenantId ?? null;
+}
+
 // Opt in to the jingle + chime only for anonymous demos (no tenant). Server-side flags still decide.
 export function demoAudioFields(opts: { intro: boolean; tenantId?: string | null }): { demoAudio?: true } {
   return opts.intro || !opts.tenantId ? { demoAudio: true } : {};
