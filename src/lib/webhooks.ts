@@ -1,3 +1,4 @@
+import { safeFetch } from '@/lib/safeFetch';
 import crypto from 'crypto';
 import { getSupabaseAdmin } from '@/lib/supabase';
 
@@ -88,24 +89,20 @@ export async function deliverWebhook(
   try {
     // Bound each delivery so one slow/hung endpoint can't wedge the caller
     // (the Retell webhook handler dispatches these inline).
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 8000);
-    let res: Response;
-    try {
-      res = await fetch(webhook.url, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'User-Agent': 'CallDesk-Webhooks/1',
-          'X-CallDesk-Event': event,
-          'X-CallDesk-Signature': `sha256=${signature}`,
-        },
-        body,
-        signal: controller.signal,
-      });
-    } finally {
-      clearTimeout(timeout);
-    }
+    // The URL is tenant-controlled: safeFetch refuses private/internal destinations (re-checked on every delivery and
+    // on every redirect hop), caps the time and the response, and never lets a redirect carry our headers elsewhere.
+    const res = await safeFetch(webhook.url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'User-Agent': 'CallDesk-Webhooks/1',
+        'X-CallDesk-Event': event,
+        'X-CallDesk-Signature': `sha256=${signature}`,
+      },
+      body,
+      timeoutMs: 8000,
+      maxBytes: 100_000,
+    });
     return { ok: res.ok, status: res.status };
   } catch (err) {
     return {

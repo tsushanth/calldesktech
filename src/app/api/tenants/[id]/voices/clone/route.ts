@@ -1,3 +1,4 @@
+import { safeFetch, SsrfBlockedError } from '@/lib/safeFetch';
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/supabase';
 import { authorizeTenant } from '@/lib/authz';
@@ -9,6 +10,8 @@ const ELEVENLABS_BASE = 'https://api.elevenlabs.io';
 // Clone a voice from an audio sample URL via ElevenLabs, then register the
 // resulting voice_id in calldesk_voices for use with poc (tts_backend=elevenlabs)
 // or retell engines.
+const SAMPLE_MAX_BYTES = 25_000_000;
+
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -34,22 +37,25 @@ export async function POST(
   // --- 1. Download sample audio from provided URL ---
   let sampleBuffer: ArrayBuffer;
   try {
-    const sampleRes = await fetch(sampleUrl, { signal: AbortSignal.timeout(30_000) });
+    // sampleUrl is tenant-controlled: public destinations only, capped size, audio content only (see safeFetch.ts).
+    const sampleRes = await safeFetch(sampleUrl, { timeoutMs: 30_000, maxBytes: SAMPLE_MAX_BYTES });
     if (!sampleRes.ok) {
       return NextResponse.json({ error: `Failed to download sample: HTTP ${sampleRes.status}` }, { status: 400 });
     }
     const contentType = sampleRes.headers.get('content-type') || '';
+    // A presigned S3 link may report binary/octet-stream, so that is accepted; anything else (HTML, JSON, ...) is not
+    // audio and is never forwarded to ElevenLabs.
     if (!contentType.startsWith('audio/') && !contentType.includes('octet-stream')) {
-      // Allow but warn — URL might be a presigned S3 link that reports binary/octet-stream
-      console.warn('[voice clone] Sample content-type:', contentType);
+      return NextResponse.json({ error: 'The sample URL must point to an audio file' }, { status: 400 });
     }
     sampleBuffer = await sampleRes.arrayBuffer();
     if (sampleBuffer.byteLength < 1024) {
       return NextResponse.json({ error: 'Sample audio too small — must be at least 1 KB' }, { status: 400 });
     }
   } catch (err) {
-    const msg = err instanceof Error ? err.message : 'download failed';
-    return NextResponse.json({ error: `Failed to download sample: ${msg}` }, { status: 400 });
+    if (err instanceof SsrfBlockedError) return NextResponse.json({ error: 'That sample URL is not allowed' }, { status: 400 });
+    console.error('[voice clone] sample download failed:', err);
+    return NextResponse.json({ error: 'Failed to download sample' }, { status: 400 });
   }
 
   // --- 2. Upload to ElevenLabs voice cloning ---

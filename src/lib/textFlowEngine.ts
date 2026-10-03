@@ -21,6 +21,7 @@
 // in on every call and handed back out, so they can be persisted on the chat
 // session row between HTTP requests.
 
+import { safeFetch } from '@/lib/safeFetch';
 import type { FlowNode, StructuredCondition } from '@/types';
 
 const ANTHROPIC_API_URL = 'https://api.anthropic.com/v1/messages';
@@ -237,15 +238,18 @@ function evaluateLogicSplit(node: FlowNode, collectedData: Record<string, string
 
 // Runs a flow 'function' node's configured webhook and folds the result into
 // history as a system note — port of _executeFunctionNode.
-async function executeFunctionNode(node: FlowNode, collectedData: Record<string, string>, history: EngineMessage[]) {
+export async function executeFunctionNode(node: FlowNode, collectedData: Record<string, string>, history: EngineMessage[]) {
   const url = node.params?.webhookUrl;
   if (!url) return;
   try {
-    const res = await fetch(url, {
+    // webhookUrl is set by the flow's author, and this runs for public chat visitors too: public destinations only,
+    // small capped responses (see safeFetch.ts).
+    const res = await safeFetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ function: node.function, collectedData }),
-      signal: AbortSignal.timeout(8000),
+      timeoutMs: 8000,
+      maxBytes: 200_000,
     });
     const result = await res.json().catch(() => ({}));
     history.push({

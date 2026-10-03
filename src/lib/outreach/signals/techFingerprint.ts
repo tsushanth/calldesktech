@@ -10,6 +10,7 @@
 // (BuiltWith has a free-tier lookup endpoint) later by replacing the body
 // of checkDomain(); the return type is designed to stay the same either way.
 
+import { safeFetch, SsrfBlockedError } from '@/lib/safeFetch';
 import { politeFetchText } from '../discovery/http';
 
 export interface TechFingerprintSignal {
@@ -23,7 +24,14 @@ const RETELL_MARKERS = ['retellai.com', 'retell-client-js-sdk', 'retell-web-clie
 
 export async function checkDomainForRetell(domain: string, companyName: string): Promise<TechFingerprintSignal | null> {
   const url = domain.startsWith('http') ? domain : `https://${domain}`;
-  const res = await fetch(url, { headers: { 'User-Agent': 'calldesk-outreach-research/1.0' } });
+  // A lead's website comes from public registries and is not trusted: public destinations only.
+  let res: Response;
+  try {
+    res = await safeFetch(url, { headers: { 'User-Agent': 'calldesk-outreach-research/1.0' }, timeoutMs: 15000, maxBytes: 3_000_000 });
+  } catch (err) {
+    if (err instanceof SsrfBlockedError) return null;
+    throw err;
+  }
   if (!res.ok) return null;
 
   const html = await res.text();

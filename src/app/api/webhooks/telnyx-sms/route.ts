@@ -4,6 +4,7 @@ import { dispatchWebhookEvent } from '@/lib/webhooks';
 import { verifyTelnyxSignature, verifyTwilioSignature, internalForwardHeaders } from '@/lib/webhookAuth';
 import { isStopKeyword, isHelpKeyword, isStartKeyword, recordOptOut, clearOptOut, HELP_TEXT, STOP_CONFIRMATION_TEXT, OPT_IN_CONFIRMATION_TEXT } from '@/lib/smsOptOut';
 import { getSmsProvider } from '@/lib/smsProvider';
+import { internalBaseUrl } from '@/lib/internalBase';
 
 // POST /api/webhooks/telnyx-sms — receives inbound SMS from Telnyx (or,
 // as a fallback, Twilio-format form-encoded POSTs).
@@ -214,9 +215,8 @@ export async function POST(request: NextRequest) {
   const trialNumber = process.env.TRIAL_ONBOARDING_NUMBER;
   if (trialNumber && toNumber === normalizeE164(trialNumber)) {
     try {
-      const host = request.headers.get('host') || 'calldesk.tech';
-      const proto = request.headers.get('x-forwarded-proto') || 'https';
-      const forwardUrl = `${proto}://${host}/api/webhooks/trial-sms`;
+      // A fixed, local base: the request's Host header must never decide where INTERNAL_WEBHOOK_SECRET is sent.
+      const forwardUrl = `${internalBaseUrl()}/api/webhooks/trial-sms`;
       console.log(`[telnyx-sms] forwarding to ${forwardUrl}`);
       const resp = await fetch(forwardUrl, {
         method: 'POST',

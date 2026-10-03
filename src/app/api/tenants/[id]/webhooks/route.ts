@@ -1,3 +1,4 @@
+import { validateUrlShape } from '@/lib/safeFetch';
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/supabase';
 import { generateWebhookSecret, WEBHOOK_EVENT_IDS } from '@/lib/webhooks';
@@ -51,6 +52,13 @@ export async function POST(
   }
   if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
     return NextResponse.json({ error: 'URL must be http or https' }, { status: 400 });
+  }
+  // Refuse localhost, private addresses, internal host names and embedded credentials up front. Delivery re-checks the
+  // resolved address every time, so this is the friendly early answer, not the only guard.
+  try {
+    validateUrlShape(url);
+  } catch (err) {
+    return NextResponse.json({ error: err instanceof Error ? err.message : 'URL is not allowed' }, { status: 400 });
   }
 
   // Keep only recognized event ids; reject a subscription to nothing.
