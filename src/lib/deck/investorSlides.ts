@@ -87,13 +87,13 @@ export function buildInvestorSlides(): string[] {
   s.push(section('price', false, `${h2('Price per minute: where we sit', false)}
     <div style="display:flex; flex-direction:column; gap:16px; margin-top:0">
       ${bar('Calldesk', STANDARD_CENTS / 100, PRO_CENTS / 100, `${STANDARD_CENTS} cents Standard (phone line extra), ${PRO_CENTS} cents Pro (numbers included); Lite ${LITE_CENTS} cents coming soon`, AMBER)}
-      ${bar('Retell', 0.07, 0.31, '$0.07 to $0.31 (add-ons extra)', '#6C84AD')}
+      ${bar('Retell', 0.07, 0.31, '$0.07 to $0.31 (add-ons extra); its own example: $0.11', '#6C84AD')}
       ${bar('Vapi', 0.082, 0.129, 'about $0.08 to $0.13 all in', '#6C84AD')}
       ${bar('Bland', 0.12, 0.14, '$0.12 to $0.14 (plan fee $299 a month)', '#6C84AD')}
       ${bar('ElevenLabs Agents', 0.08, 0.16, 'from $0.08, $0.16 at burst', '#6C84AD')}
       ${bar('Deepgram Voice Agent', 0.075, 0.163, '$0.075 standard, $0.163 advanced', '#6C84AD')}
     </div>
-    ${note(`List prices from each vendor's own pricing page, retrieved ${PRICING_AS_OF}; bars show the published range. Vapi range is its own 1,000-minute example ($82 to $129). Synthflow publishes no per-minute price (enterprise from $30,000 a year). Enterprise discounts are not shown. We are at parity with the platforms; our edge is who we sell to.`, false)}`));
+    ${note(`List prices from each vendor's own pricing page, retrieved ${PRICING_AS_OF}; bars show the published range. Retell's own worked example on retellai.com/pricing is about $0.11 a minute. Vapi range is its own 1,000-minute example ($82 to $129). Synthflow publishes no per-minute price (enterprise from $30,000 a year). Enterprise discounts are not shown. We are at parity with the platforms; our edge is who we sell to.`, false)}`));
 
   s.push(section('human', true, `${h2('Against a human answering service, the gap is 30x or more', true)}
     ${row([
