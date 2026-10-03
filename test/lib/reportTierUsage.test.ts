@@ -55,7 +55,7 @@ describe('tier usage reporting in the daily cron', () => {
     // total seconds reported across voice meters equals total call seconds: nothing dropped, nothing doubled
     const voiceTotal = events().filter((e) => e.event_name.startsWith('calldesktech_voice_seconds')).reduce((s, e) => s + Number(e.payload.value), 0);
     expect(voiceTotal).toBe(600 + 60 + 1200 + 300 + 90);
-    expect(events().find((e) => e.event_name === TIER_METER_EVENT_NAMES.standard)!.identifier).toMatch(/^usage-report:t1:voice_standard:/);
+    expect(events().find((e) => e.event_name === TIER_METER_EVENT_NAMES.standard)!.identifier).toMatch(/^ur:t1:voice_standard:/);
     expect(updates).toHaveLength(1);
   });
 
@@ -112,12 +112,12 @@ describe('tier usage reporting in the daily cron', () => {
   it('a legacy-only tenant is byte-identical to before: same events, names, values, identifiers, no tier meters', async () => {
     logs = [{ created_at: at, duration_seconds: 600, outcome: 'booked' }, { created_at: at, duration_seconds: 60, outcome: 'voicemail' }];
     const r = await reportTenantUsageToStripe(supabase, stripe, tenant, business, NOW);
-    const period = `2026-01-01T00:00:00.000Z_2026-01-02T12:00:00.000Z`;
+    const period = `20260101T0000_20260102T1200`;
     const ts = Math.floor(new Date('2026-01-02T12:00:00.000Z').getTime() / 1000);
     expect(events()).toEqual([
-      { event_name: 'calldesktech_voice_seconds', identifier: `usage-report:t1:voice:${period}`, timestamp: ts, payload: { stripe_customer_id: 'cus_1', value: '660' } },
-      { event_name: 'calldesktech_booking_events', identifier: `usage-report:t1:booking:${period}`, timestamp: ts, payload: { stripe_customer_id: 'cus_1', value: '1' } },
-      { event_name: 'calldesktech_message_events', identifier: `usage-report:t1:message:${period}`, timestamp: ts, payload: { stripe_customer_id: 'cus_1', value: '1' } },
+      { event_name: 'calldesktech_voice_seconds', identifier: `ur:t1:voice:${period}`, timestamp: ts, payload: { stripe_customer_id: 'cus_1', value: '660' } },
+      { event_name: 'calldesktech_booking_events', identifier: `ur:t1:booking:${period}`, timestamp: ts, payload: { stripe_customer_id: 'cus_1', value: '1' } },
+      { event_name: 'calldesktech_message_events', identifier: `ur:t1:message:${period}`, timestamp: ts, payload: { stripe_customer_id: 'cus_1', value: '1' } },
     ]);
     expect(r.status).toBe('reported');
   });
