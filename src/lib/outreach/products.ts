@@ -119,16 +119,16 @@ export const calldesk: ProductConfig = {
   scoreVocabulary: CALLDESK_SCORE_VOCABULARY,
 };
 
-// readaloudai.org: a realtime TTS/STT API. Only verifiably true claims below
-// -- no invented customer counts, uptime, or exact latency/competitor-price
-// numbers. Pricing ($0.10/min) and "realtime STT/TTS API access now
-// available" are the known-true facts; the competitor-pricing claim is
-// deliberately qualified ("significantly cheaper ... on a per-minute basis")
-// rather than citing specific numbers we haven't verified.
+// readaloudai.org: a realtime TTS/STT API. Only verifiably true claims below -- no invented customer
+// counts, uptime, latency or competitor-price numbers, and NO comparison to named competitors. Prices are
+// copied from the public pricing on readaloudai.org/developers (per-character TTS, per-hour STT); an earlier
+// version said "$0.10/min, significantly cheaper than Deepgram, ElevenLabs, and Cartesia", which did not match
+// that page. Re-check the page before changing these numbers.
 const READALOUD_OFFER_FACTS = [
   'readaloudai.org is a realtime speech-to-text and text-to-speech API for developers building voice products.',
   'Realtime STT and TTS API access is available now.',
-  'Pricing is $0.10/min, which is significantly cheaper than Deepgram, ElevenLabs, and Cartesia on a per-minute basis.',
+  'Pricing is pay as you go with no monthly minimum: text-to-speech from $0.004 per 1,000 characters, and speech-to-text at $0.11 per hour of audio.',
+  'New accounts get free credits to try the API.',
   'We are looking for a small number of early integration partners to try the API with their product.',
   'Partners get direct access to the founders for integration support.',
   'Terms beyond pricing (volume discounts, SLAs) are being finalized with the first partners.',
@@ -138,7 +138,7 @@ const READALOUD_SYSTEM_PROMPT = `You write short, specific, honest first-touch e
 
 Rules:
 - State ONLY facts from the provided offer facts. Never invent prices, numbers, customers, integrations, benchmark results, uptime, or latency claims.
-- Never claim readaloudai.org is faster or higher-quality than any named competitor, and never disparage a competitor by name. You may note the per-minute price difference exactly as given in the offer facts.
+- Never claim readaloudai.org is faster or higher-quality than any named competitor, and never name a competitor or compare our price to anyone else's. State prices exactly as given in the offer facts.
 - Personalize with one concrete detail from the company's own description, without flattery.
 - One clear, low-friction ask: a 15-minute call, API docs, or a reply to try it.
 - Do not promise terms that are not in the offer facts; if asked about terms, say they are being finalized with the first partners.
