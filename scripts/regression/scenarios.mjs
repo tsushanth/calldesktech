@@ -80,19 +80,6 @@ const SPANISH_RE = /\b(hola|gracias|ayuda|puedo|puede|cómo|como puedo|buenos|bu
 
 SCENARIOS.push(
   {
-    id: 'silence-hangup',
-    title: 'End call after silence hangs up on a silent caller',
-    skip: 'needs a scripted silent caller (TwiML <Pause>); the AI shopper cannot stay silent, it says "Silence." out loud',
-    version: single('You are the receptionist for Alder Clinic. Greet the caller and ask how you can help.', { globalSettings: { endCallAfterSilenceSec: 8 } }),
-    persona: 'You are a caller who never says a single word. Stay completely silent for the entire call, even if asked a question.',
-    assert: (log) => {
-      const f = []; const d = log.duration_seconds;
-      if (lines(log).some((l) => l.speaker === 'caller' && !/^\[/.test(l.text))) f.push('the shopper spoke, so silence was not tested');
-      if (!(d >= 8 && d <= 40)) f.push(`the call lasted ${d}s; expected a hang-up roughly 8s after the greeting`);
-      return f;
-    },
-  },
-  {
     id: 'silence-checkin',
     title: 'Check in after silence prompts a silent caller',
     version: { startNodeId: 'main', nodes: [node('main', 'greeting', 'You are the receptionist for Alder Clinic. Greet the caller and ask how you can help.', { params: { reminderMessageFrequencySec: 5 } })], globalSettings: { endCallAfterSilenceSec: 24 } },
@@ -230,6 +217,77 @@ SCENARIOS.push(
       if (toolCall && (toolCall.params?.name !== 'lookup_order' || toolCall.params?.arguments?.id !== 'A-77')) f.push(`tools/call carried the wrong tool or arguments (${JSON.stringify(toolCall.params).slice(0, 100)})`);
       if (!(events || []).some((e) => e.kind === 'mcp' && /bearer regression-token/i.test(e.headers?.authorization || ''))) f.push('the configured Authorization header did not reach the MCP server');
       if (!/tuesday/i.test(t)) f.push('the agent did not tell the caller the arrival day from the tool result (Tuesday)');
+      return f;
+    },
+  },
+);
+
+// Outbound scenarios: the tenant's number calls the receiver number, whose Twilio webhook plays a scripted callee
+// (a phone menu that collects keypad digits, a voicemail greeting, or a silent line). They test what the engine does
+// with a callee that is not a person, which an AI shopper cannot stand in for.
+SCENARIOS.push(
+  {
+    id: 'dtmf-ivr',
+    title: 'A press-digit node sends keypad tones that a phone menu receives',
+    outbound: { mode: 'ivr' },
+    needsReceiver: true,
+    // Start directly on the press-digit node so the keypad step does not depend on the model choosing an edge.
+    version: {
+      startNodeId: 'press',
+      nodes: [
+        node('press', 'press_digit', 'Enter the extension.', { params: { digits: 'w214' }, edges: [{ id: 'e1', target: 'done', condition: 'the digits were sent' }] }),
+        node('done', 'goodbye', 'Say that you entered the extension and say goodbye.', { edges: [] }),
+      ],
+      globalSettings: {},
+    },
+    assert: (log, { events }) => {
+      const f = [];
+      if (!(events || []).some((e) => e.kind === 'twiml')) f.push('the call never reached the receiver number');
+      const dtmf = (events || []).find((e) => e.kind === 'dtmf');
+      let digits = ''; try { digits = String(JSON.parse(dtmf?.body || '{}').digits || ''); } catch { /* handled below */ }
+      if (!dtmf) f.push('the phone menu never received any keypad digits');
+      else if (digits !== '214') f.push(`the menu received digits "${digits}" instead of 214`);
+      return f;
+    },
+  },
+  {
+    id: 'voicemail-hangup',
+    title: 'Voicemail detection in hang-up mode ends a call that reaches a voicemail greeting',
+    outbound: { mode: 'voicemail' },
+    needsReceiver: true,
+    version: single('You are calling to confirm an appointment for Alder Clinic. Greet whoever answers and ask for the patient.', { globalSettings: { voicemailDetection: 'hangup' } }),
+    assert: (log, { events }) => {
+      const f = [];
+      if (!(events || []).some((e) => e.kind === 'twiml')) f.push('the call never reached the receiver number');
+      if (log.outcome !== 'voicemail') f.push(`the call outcome was "${log.outcome}", expected "voicemail"`);
+      if (!(log.duration_seconds <= 40)) f.push(`the call lasted ${log.duration_seconds}s; expected a quick hang-up on the voicemail greeting`);
+      return f;
+    },
+  },
+  {
+    id: 'voicemail-message',
+    title: 'Voicemail detection in leave-message mode speaks the configured message',
+    outbound: { mode: 'voicemail' },
+    needsReceiver: true,
+    version: single('You are calling to confirm an appointment for Acme Dental.', { globalSettings: { voicemailDetection: 'leave_message', voicemailMessage: 'Hi, this is Acme Dental calling about your appointment tomorrow. Please call us back.' } }),
+    assert: (log) => {
+      const f = [];
+      if (log.outcome !== 'voicemail') f.push(`the call outcome was "${log.outcome}", expected "voicemail"`);
+      if (!/acme dental calling about your appointment/i.test(agentText(log))) f.push('the configured voicemail message was not spoken');
+      return f;
+    },
+  },
+  {
+    id: 'silence-hangup',
+    title: 'End call after silence hangs up on a callee who says nothing',
+    outbound: { mode: 'silent' },
+    needsReceiver: true,
+    version: single('You are calling from Alder Clinic. Say hello and ask if this is a good time to talk.', { globalSettings: { endCallAfterSilenceSec: 8 } }),
+    assert: (log, { events }) => {
+      const f = [];
+      if (!(events || []).some((e) => e.kind === 'twiml')) f.push('the call never reached the receiver number');
+      const d = log.duration_seconds;
+      if (!(d >= 8 && d <= 40)) f.push(`the call lasted ${d}s; expected a hang-up roughly 8s after the greeting`);
       return f;
     },
   },

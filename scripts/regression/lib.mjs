@@ -70,9 +70,11 @@ export async function ensureFixtures(env, d, api) {
   // A second agent in the same tenant: the target of agent-to-agent transfers.
   let agentB = (await d.select(`calldesk_agents?tenant_id=eq.${tenant.id}&name=eq.${encodeURIComponent(REG_AGENT_B_NAME)}&select=id`))[0];
   if (!agentB) agentB = (await api('POST', `/api/tenants/${tenant.id}/agents`, { name: REG_AGENT_B_NAME })).agent;
-  // Optional extra numbers (REGRESSION_NUMBER_B ...), registered to the same tenant, for transfer / outbound targets.
+  // Optional extra numbers: B is registered to the same tenant (transfer target answered by the engine); C is only a
+  // dial target whose Twilio voice webhook is the receiver Worker (scripted IVR / voicemail / silent callee).
   const extra = {};
-  for (const [key, label] of [['REGRESSION_NUMBER_B', 'Regression transfer target'], ['REGRESSION_NUMBER_C', 'Regression receiver number']]) {
+  if (env.REGRESSION_NUMBER_C) extra.REGRESSION_NUMBER_C = { number: env.REGRESSION_NUMBER_C }; // answered by the receiver Worker, not by the engine
+  for (const [key, label] of [['REGRESSION_NUMBER_B', 'Regression transfer target']]) {
     const n = env[key];
     if (!n) continue;
     let row = (await d.select(`calldesk_phone_numbers?number=eq.${encodeURIComponent(n)}&select=id,tenant_id`))[0];
@@ -113,6 +115,17 @@ export async function placeShopperCall(env, { number, persona, language, speakFi
   });
   const j = await res.json().catch(() => ({}));
   if (!res.ok || !j.sid) throw new Error(`place-test-call failed (HTTP ${res.status}): ${JSON.stringify(j).slice(0, 200)}`);
+  return j.sid;
+}
+
+// Outbound call from the tenant's own number (routeAs) to `to`, handled by that number's outbound version.
+export async function placeOutboundCall(env, { from, to }) {
+  const res = await fetch(`${env.CALL_LOOP_POC_BASE_URL}/place-test-call`, {
+    method: 'POST', headers: { Authorization: `Bearer ${env.CALL_LOOP_POC_TEST_CALL_SECRET}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ toNumber: to, routeAs: from, direction: 'outbound', record: false }),
+  });
+  const j = await res.json().catch(() => ({}));
+  if (!res.ok || !j.sid) throw new Error(`outbound place-test-call failed (HTTP ${res.status}): ${JSON.stringify(j).slice(0, 200)}`);
   return j.sid;
 }
 
@@ -176,6 +189,11 @@ export function makeReceiver(env, runId) {
         await new Promise((r) => setTimeout(r, 2000));
       } while (Date.now() - t0 < waitMs);
       return out;
+    },
+    // Choose what the receiver NUMBER does for the next call (ivr | voicemail | silent); events then land under this run.
+    async setMode(mode) {
+      const res = await fetch(`${base}/current`, { method: 'POST', headers: { ...headers, 'Content-Type': 'application/json' }, body: JSON.stringify({ run: runId, mode }) });
+      if (!res.ok) throw new Error(`receiver /current -> ${res.status}`);
     },
     async clear() { await fetch(`${base}/events/${runId}`, { method: 'DELETE', headers }).catch(() => {}); },
   };

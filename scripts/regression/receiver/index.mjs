@@ -4,6 +4,8 @@
 //   POST|GET /hook/<run>[?delay=ms][&body=<url-encoded json>]   function-node webhook; records the request, answers JSON
 //   POST     /mcp/<run>                                          minimal MCP server (initialize, tools/call lookup_order)
 //   GET|DELETE /events/<run>   (header X-Reg-Secret)             what arrived for that run / clear it
+//   POST     /current  {run, mode}  (header X-Reg-Secret)       choose what the receiver NUMBER does for the next call
+//   POST     /twiml, /twiml/done                                  Twilio voice webhook for that number: mode ivr | voicemail | silent
 //   GET      /health
 // <run> is a random id per scenario run (4-40 chars of a-z 0-9 and dashes).
 
@@ -34,11 +36,41 @@ function mcpReply(rpc) {
   return { rpc: { jsonrpc: '2.0', id, error: { code: -32601, message: `unsupported: ${rpc.method}` } } };
 }
 
+const xml = (body) => new Response(`<?xml version="1.0" encoding="UTF-8"?><Response>${body}</Response>`, { headers: { 'Content-Type': 'text/xml' } });
+
+async function currentState(env) {
+  const row = await env.DB.prepare("SELECT v FROM state WHERE k = 'current'").first();
+  try { return row ? JSON.parse(row.v) : { run: 'unset-run', mode: 'silent' }; } catch { return { run: 'unset-run', mode: 'silent' }; }
+}
+
+const IVR = '<Gather numDigits="3" timeout="15" action="/twiml/done" method="POST"><Say>Welcome to the regression test line. Please enter your three digit extension now.</Say></Gather><Say>No input received. Goodbye.</Say><Hangup/>';
+const VOICEMAIL = '<Pause length="2"/><Say>Hi, you have reached the voicemail of Quillbert Hardware. We are unable to take your call right now. Please leave a message after the tone.</Say><Pause length="20"/><Hangup/>';
+// A bare <Pause> does not answer the call (it would ring until the caller gives up), so answer with an inaudible
+// half-second DTMF wait first.
+const SILENT = '<Play digits="w"/><Pause length="60"/>';
+
 const handler = {
   async fetch(req, env) {
     const url = new URL(req.url);
     const [kind, run] = url.pathname.split('/').filter(Boolean);
     if (kind === 'health') return json({ ok: true });
+
+    // The receiver NUMBER's voice webhook has no run id in its path: the harness sets the current run and mode first.
+    if (kind === 'current') {
+      if (!env.REG_SECRET || req.headers.get('x-reg-secret') !== env.REG_SECRET) return json({ error: 'unauthorized' }, 401);
+      const body = await req.json().catch(() => ({}));
+      if (!RUN_RE.test(body.run || '') || !['ivr', 'voicemail', 'silent'].includes(body.mode)) return json({ error: 'need {run, mode: ivr|voicemail|silent}' }, 400);
+      await env.DB.prepare("INSERT INTO state (k, v) VALUES ('current', ?) ON CONFLICT(k) DO UPDATE SET v = excluded.v").bind(JSON.stringify(body)).run();
+      return json({ ok: true });
+    }
+    if (kind === 'twiml') {
+      const { run: current, mode } = await currentState(env);
+      const form = req.method === 'POST' ? Object.fromEntries(await req.formData().then((f) => [...f.entries()]).catch(() => [])) : {};
+      const done = run === 'done';
+      await record(env, current, done ? 'dtmf' : 'twiml', req, JSON.stringify({ mode, from: form.From, to: form.To, callSid: form.CallSid, digits: form.Digits }));
+      if (done) return xml(`<Say>Received ${String(form.Digits || '').split('').join(' ')}. Goodbye.</Say><Hangup/>`);
+      return xml(mode === 'ivr' ? IVR : mode === 'voicemail' ? VOICEMAIL : SILENT);
+    }
     if (!run || !RUN_RE.test(run)) return json({ error: 'bad run id' }, 400);
 
     if (kind === 'events') {

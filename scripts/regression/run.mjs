@@ -10,7 +10,7 @@
 // NEXT_PUBLIC_SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY. Secret values are never printed. Results go to out/regression/.
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { loadEnv, requireEnv, db, apiClient, ensureFixtures, publishVersion, routeNumber, checkSpend, recordCall, callsUsed, TOTAL_CALL_CAP, placeShopperCall, waitForCallEnd, fetchTenantCallLog, fetchTenantLogsSince, lines, makeReceiver, newRunId } from './lib.mjs';
+import { loadEnv, requireEnv, db, apiClient, ensureFixtures, publishVersion, routeNumber, checkSpend, recordCall, callsUsed, TOTAL_CALL_CAP, placeShopperCall, placeOutboundCall, waitForCallEnd, fetchTenantCallLog, fetchTenantLogsSince, lines, makeReceiver, newRunId } from './lib.mjs';
 import { pick } from './scenarios.mjs';
 
 const args = process.argv.slice(2);
@@ -48,14 +48,29 @@ for (const sc of scenarios) {
     const ctx = { env, d, api, fx, receiver, publish: (opts) => publishVersion(api, fx, sc, opts), route: (numberId, versionId, direction) => routeNumber(api, numberId, versionId, direction) };
     const prepared = sc.prepare ? await sc.prepare(ctx) : null;
     const versionId = await publishVersion(api, fx, sc, prepared ? { version: prepared } : {});
-    await routeNumber(api, fx.numberId, versionId);
     const since = new Date(Date.now() - 5000).toISOString();
-    const sid = await placeShopperCall(env, { number: fx.number, persona: sc.persona, language: sc.shopperLanguage, speakFirst: sc.speakFirst });
-    recordCall();
-    await waitForCallEnd(env, sid);
-    const logs = sc.needsAllLogs ? await fetchTenantLogsSince(d, fx.tenantId, since, { excludeSid: sid }) : null;
-    // For a multi-call scenario the main log is the first one that reached the number under test.
-    const log = sc.needsAllLogs ? logs.find((l) => l.to_number === fx.number) || logs[0] : await fetchTenantCallLog(d, fx.tenantId, since, { excludeSid: sid });
+    let sid, logs = null, log;
+    if (sc.outbound) {
+      // Outbound: this tenant's number calls the scripted receiver number, answering as its OUTBOUND version.
+      const target = fx.extra.REGRESSION_NUMBER_C?.number;
+      if (!target) throw new Error('REGRESSION_NUMBER_C is not set in .env');
+      await receiver.setMode(sc.outbound.mode);
+      await routeNumber(api, fx.numberId, versionId, 'outbound');
+      sid = await placeOutboundCall(env, { from: fx.number, to: target });
+      recordCall();
+      await waitForCallEnd(env, sid);
+      logs = await fetchTenantLogsSince(d, fx.tenantId, since, { excludeSid: null });
+      // An outbound call is logged with the tenant's own number in to_number, so pick it by direction.
+      log = logs.find((l) => l.direction === 'outbound') || null;
+    } else {
+      await routeNumber(api, fx.numberId, versionId);
+      sid = await placeShopperCall(env, { number: fx.number, persona: sc.persona, language: sc.shopperLanguage, speakFirst: sc.speakFirst });
+      recordCall();
+      await waitForCallEnd(env, sid);
+      logs = sc.needsAllLogs ? await fetchTenantLogsSince(d, fx.tenantId, since, { excludeSid: sid }) : null;
+      // For a multi-call scenario the main log is the first one that reached the number under test.
+      log = sc.needsAllLogs ? logs.find((l) => l.to_number === fx.number) || logs[0] : await fetchTenantCallLog(d, fx.tenantId, since, { excludeSid: sid });
+    }
     if (!log) { res.failures = ['no call log appeared for the test tenant (did the call reach the engine?)']; }
     else {
       const events = receiver ? await receiver.events() : null;

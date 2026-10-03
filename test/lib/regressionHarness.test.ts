@@ -29,7 +29,9 @@ describe('scenarios', () => {
     const ids = new Set<string>();
     for (const s of SCENARIOS) {
       expect(ids.has(s.id)).toBe(false); ids.add(s.id);
-      expect(s.persona.length).toBeGreaterThan(20);
+      // Outbound scenarios have no AI shopper (a scripted receiver answers), so no persona.
+      if (!s.outbound) expect(s.persona.length).toBeGreaterThan(20);
+      else expect(['ivr', 'voicemail', 'silent']).toContain(s.outbound.mode);
       expect(typeof s.assert).toBe('function');
       // A scenario with `prepare` builds its real version at run time; otherwise the static one must be valid.
       if (!s.prepare) expect(s.version.nodes.some((n: { id: string }) => n.id === s.version.startNodeId)).toBe(true);
@@ -38,7 +40,7 @@ describe('scenarios', () => {
   });
   it('pick leaves skipped scenarios out unless asked for by id', () => {
     expect(pick([]).some((s: { skip?: string }) => !!s.skip)).toBe(false);
-    expect(pick(['silence-hangup'])).toHaveLength(1);
+    expect(pick(['silence-hangup'])).toHaveLength(1); // no scenario is skipped today; the mechanism stays for future ones
   });
   it('the silence check-in needs the reminder right after the greeting, not just any two agent lines', () => {
     const sc = SCENARIOS.find((s) => s.id === 'silence-checkin')!;
@@ -84,5 +86,30 @@ describe('scenarios', () => {
     expect(by('max-duration').assert(log(['hi'], 3))).not.toEqual([]);
     expect(by('extraction-flow').assert(log(['Thanks Priya, your haircut is booked.']))).toEqual([]);
     expect(by('extraction-flow').assert(log(['Thanks, you are booked.']))).not.toEqual([]);
+  });
+});
+
+describe('outbound scenarios', () => {
+  const ev = (digits: string | null) => [{ kind: 'twiml' }, ...(digits === null ? [] : [{ kind: 'dtmf', body: JSON.stringify({ digits }) }])];
+  const sc = (id: string) => SCENARIOS.find((s) => s.id === id)!;
+  it('dtmf needs the exact digits at the menu', () => {
+    expect(sc('dtmf-ivr').assert({}, { events: ev('214') })).toEqual([]);
+    expect(sc('dtmf-ivr').assert({}, { events: ev('999') })).not.toEqual([]);
+    expect(sc('dtmf-ivr').assert({}, { events: ev(null) })).not.toEqual([]);
+    expect(sc('dtmf-ivr').assert({}, { events: [] })).not.toEqual([]);
+  });
+  it('voicemail hang-up needs outcome voicemail and a short call', () => {
+    expect(sc('voicemail-hangup').assert({ outcome: 'voicemail', duration_seconds: 14 }, { events: ev(null) })).toEqual([]);
+    expect(sc('voicemail-hangup').assert({ outcome: 'answered', duration_seconds: 14 }, { events: ev(null) })).not.toEqual([]);
+    expect(sc('voicemail-hangup').assert({ outcome: 'voicemail', duration_seconds: 90 }, { events: ev(null) })).not.toEqual([]);
+  });
+  it('voicemail message must be spoken', () => {
+    const t = (c: string) => ({ outcome: 'voicemail', transcript: [{ role: 'assistant', content: c }] });
+    expect(sc('voicemail-message').assert(t('Hi, this is Acme Dental calling about your appointment tomorrow.'))).toEqual([]);
+    expect(sc('voicemail-message').assert(t('Hello?'))).not.toEqual([]);
+  });
+  it('silence hang-up needs a call roughly 8s long', () => {
+    expect(sc('silence-hangup').assert({ duration_seconds: 14 }, { events: ev(null) })).toEqual([]);
+    expect(sc('silence-hangup').assert({ duration_seconds: 58 }, { events: ev(null) })).not.toEqual([]);
   });
 });

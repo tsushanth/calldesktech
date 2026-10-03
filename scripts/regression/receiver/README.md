@@ -8,8 +8,11 @@ check what the engine actually sent. It stores only requests made by our own tes
 | `POST /hook/<run>` | function-node webhook; records the request, answers `{"status":"ok","slots":["10am","2pm"]}` |
 | `POST /mcp/<run>` | minimal MCP server: `initialize`, `notifications/initialized`, `tools/call` (`lookup_order`) |
 | `GET/DELETE /events/<run>` | the harness (needs header `X-Reg-Secret`) |
+| `POST /current` `{run, mode}` | the harness picks what the receiver NUMBER does for the next call: `ivr` (asks for a 3-digit extension and records the digits), `voicemail` (plays a voicemail greeting), `silent` (answers and says nothing) |
+| `POST /twiml`, `/twiml/done` | the Twilio voice webhook of the receiver number (set it once with the Twilio console or API: Voice URL `https://<worker>/twiml`, POST) |
 
-`<run>` is a random id the harness makes per scenario run, so concurrent or repeated runs never mix.
+`<run>` is a random id the harness makes per scenario run. The receiver number has no run id in its URL, so the harness sets the
+current run and mode just before each call (one call at a time).
 
 ## Deploy (one time)
 
