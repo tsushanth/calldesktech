@@ -86,7 +86,7 @@ export function buildInvestorSlides(): string[] {
 
   s.push(section('price', false, `${h2('Price per minute: where we sit', false)}
     <div style="display:flex; flex-direction:column; gap:16px; margin-top:0">
-      ${bar('Calldesk', STANDARD_CENTS / 100, PRO_CENTS / 100, `${STANDARD_CENTS} cents Standard (phone line extra), ${PRO_CENTS} cents Pro (numbers included); Lite ${LITE_CENTS} cents coming soon`, AMBER)}
+      ${bar('Calldesk', STANDARD_CENTS / 100, PRO_CENTS / 100, `${STANDARD_CENTS} cents Standard (phone line extra), ${PRO_CENTS} cents Pro (numbers included); Lite ${LITE_CENTS} cents (lowest-cost voice)`, AMBER)}
       ${bar('Retell', 0.07, 0.31, '$0.07 to $0.31 (add-ons extra); its own example: $0.11', '#6C84AD')}
       ${bar('Vapi', 0.082, 0.129, 'about $0.08 to $0.13 all in', '#6C84AD')}
       ${bar('Bland', 0.12, 0.14, '$0.12 to $0.14 (plan fee $299 a month)', '#6C84AD')}

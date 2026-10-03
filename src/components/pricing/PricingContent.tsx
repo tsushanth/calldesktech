@@ -16,7 +16,7 @@ export function PricingContent({ cta }: { cta: ReactNode }) {
               {`Phone agents from ${centsLabel(LITE_CENTS)} a minute.`}
             </h1>
             <p className="mt-5 max-w-[34rem] text-[17px] leading-[1.5] text-gray-600">
-              Lite at 2¢ is coming soon. Standard at 6¢ and Pro at 10¢ are available now. You pay for talk time only, with no monthly minimum and no per-booking or per-transfer fees.
+              Three plans, one rule: you pay for talk time only. No monthly minimum and no per-booking or per-transfer fees.
             </p>
             <p className="mt-4 max-w-[34rem] text-[15px] leading-[1.55] text-gray-500">
               The plans are priced the way other per-minute voice platforms such as ThunderPhone price theirs: a rate for the agent, with your phone carrier billed separately unless it is included.{' '}
@@ -39,6 +39,7 @@ export function PricingContent({ cta }: { cta: ReactNode }) {
                 <div className="flex items-center justify-between gap-2">
                   <h2 id={`plan-${t.id}`} className="text-2xl font-semibold tracking-[-0.03em] text-[#00122e]">{t.name}</h2>
                   {soon && <span className="rounded-full bg-amber-50 px-2.5 py-1 text-[12px] font-medium text-amber-700">Coming soon</span>}
+                  {!soon && t.id === 'standard' && <span className="rounded-full bg-[#00122e] px-2.5 py-1 text-[12px] font-medium text-white">Most popular</span>}
                 </div>
                 <p className="mt-4 text-[#00122e]">
                   <span className="text-5xl font-normal tracking-[-0.05em]">${(t.pricePerMinuteCents / 100).toFixed(2)}</span>
@@ -63,7 +64,10 @@ export function PricingContent({ cta }: { cta: ReactNode }) {
           })}
         </div>
 
-        <p className="mx-auto mt-5 max-w-3xl text-center text-[13px] leading-[1.5] text-gray-500">*{CARRIER_NOTE}</p>
+        <p className="mx-auto mt-6 max-w-3xl text-center text-[14px] leading-[1.55] text-gray-600" data-testid="voice-quality-note">
+          The difference between the plans is mostly the voice. Standard and Pro use premium, natural-sounding voices. Lite uses our lowest-cost voice, which is noticeably less natural, and you confirm that tradeoff when you choose it.
+        </p>
+        <p className="mx-auto mt-3 max-w-3xl text-center text-[13px] leading-[1.5] text-gray-500">*{CARRIER_NOTE}</p>
 
         {/* Add-ons */}
         <section aria-labelledby="addons-heading" className="mx-auto mt-14 max-w-3xl">

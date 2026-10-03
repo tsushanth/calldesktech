@@ -28,6 +28,8 @@ export type CarryOverBody = {
   ttsModel?: string;
   tier?: 'lite' | 'standard' | 'pro';
   tierOverrides?: string[];
+  /** Set for a lowerQuality tier (Lite): the original publisher already accepted that tradeoff, so the rebuilt version carries it. */
+  acceptLowerQuality?: true;
 };
 
 export function carryOverFromVersion(v: CarryOverSource): { body: CarryOverBody; dropped: string[] } {
@@ -58,7 +60,7 @@ export function carryOverFromVersion(v: CarryOverSource): { body: CarryOverBody;
   }
 
   return {
-    body: { voiceId: v.voice_id || undefined, ttsBackend, llmModel, ttsModel, tier, tierOverrides },
+    body: { voiceId: v.voice_id || undefined, ttsBackend, llmModel, ttsModel, tier, tierOverrides, acceptLowerQuality: tier && tierById(tier)?.lowerQuality ? true : undefined },
     dropped,
   };
 }

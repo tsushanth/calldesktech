@@ -31,11 +31,16 @@ describe('carryOverFromVersion', () => {
     expect(r.dropped).toEqual(['ttsModel']);
     expect(r.body.ttsModel).toBeUndefined();
   });
-  it('drops a tier that cannot be published (unknown, coming soon, or not on the poc engine)', () => {
+  it('drops a tier that cannot be published (unknown or not on the poc engine)', () => {
     expect(carryOverFromVersion({ ...base, tier: 'enterprise' }).dropped).toEqual(['tier']);
-    expect(carryOverFromVersion({ ...base, tier: 'lite' }).body.tier).toBeUndefined();
     const retell = carryOverFromVersion({ ...base, voice_engine: 'retell', tier: 'standard' });
     expect(retell.body.tier).toBeUndefined();
+  });
+  it('carries the quality acceptance with Lite (already accepted when it was first published) and not with other tiers', () => {
+    const lite = carryOverFromVersion({ ...base, tier: 'lite' });
+    expect(lite.body.tier).toBe('lite');
+    expect(lite.body.acceptLowerQuality).toBe(true);
+    expect(carryOverFromVersion({ ...base, tier: 'standard' }).body.acceptLowerQuality).toBeUndefined();
   });
   it('ignores junk tier_overrides entries', () => {
     const r = carryOverFromVersion({ ...base, tier: 'pro', llm_model: 'claude-sonnet-4-6', tier_overrides: ['llmModel', 'bogus', 'ttsModel'] });

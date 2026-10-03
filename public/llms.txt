@@ -26,9 +26,9 @@ Local service businesses that take phone calls for appointments and customer que
 
 ## Pricing
 
-- Lite: 2 cents per minute (coming soon, not available to buy yet); phone carrier billed separately
+- Lite: 2 cents per minute; phone carrier billed separately
 - Standard: 6 cents per minute; phone carrier billed separately
 - Pro: 10 cents per minute; phone numbers and calling included
-- Phone agents from 2 cents a minute. Lite is coming soon; Standard 6 cents and Pro 10 cents are available now.
+- Phone agents from 2 cents a minute. Lite 2 cents, Standard 6 cents and Pro 10 cents per minute, all available now.
 - Optional add-ons are coming soon and cannot be bought yet; amounts will be announced when they launch.
 - Transfers, DTMF, testing and monitoring are included in the per-minute rate. Customers on an earlier flat per-minute price keep it.

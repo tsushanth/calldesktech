@@ -7,7 +7,7 @@ it('GET /api/pricing is public and returns the tiers', async () => {
   expect(res.status).toBe(200);
   const body = await res.json();
   expect(body.tiers.map((t: { id: string }) => t.id)).toEqual(['lite', 'standard', 'pro']);
-  expect(body.tiers.find((t: { id: string }) => t.id === 'lite').availability).toBe('coming_soon');
+  expect(body.tiers.find((t: { id: string }) => t.id === 'lite').availability).toBe('live');
   expect(body.addOns.every((a: { proposed: boolean }) => a.proposed)).toBe(true);
 });
 

@@ -5,7 +5,7 @@ import { PRICING_TIERS, tierById, type TierId } from '@/lib/pricingTiers';
 // partner page, decks, llms.txt) uses these strings.
 //
 // Rules this file enforces:
-//  - The lowest advertised price (Lite) is never shown without saying it is coming soon.
+//  - A tier that is not on sale yet is never advertised without saying it is coming soon (none today: all three tiers are live).
 //  - Add-ons are not billable yet: copy says they are coming soon, with no amounts, until add-on billing exists.
 //  - Customer-facing prices only: no cost, margin or vendor-rate figures.
 
@@ -39,11 +39,13 @@ const cheapest = [...PRICING_TIERS].sort((a, b) => a.pricePerMinuteCents - b.pri
 
 export const HEADLINE = `Phone agents from ${centsWords(cheapest.pricePerMinuteCents)} a minute`;
 
-/** Must always accompany HEADLINE: the advertised floor is not purchasable yet. */
+/** Must always accompany HEADLINE: says which tiers can be bought now (and which are still coming). */
 export const QUALIFIER = (() => {
+  const live = LIVE_TIERS.map((t) => `${t.name} ${centsWords(t.pricePerMinuteCents)}`);
+  const joined = live.length > 1 ? `${live.slice(0, -1).join(', ')} and ${live[live.length - 1]}` : live.join('');
+  if (COMING_SOON_TIERS.length === 0) return `${joined} per minute, all available now`;
   const soon = COMING_SOON_TIERS.map((t) => t.name).join(' and ');
-  const live = LIVE_TIERS.map((t) => `${t.name} ${centsWords(t.pricePerMinuteCents)}`).join(' and ');
-  return `${soon} ${COMING_SOON_TIERS.length === 1 ? 'is' : 'are'} coming soon; ${live} ${LIVE_TIERS.length === 1 ? 'is' : 'are'} available now`;
+  return `${soon} ${COMING_SOON_TIERS.length === 1 ? 'is' : 'are'} coming soon; ${joined} ${LIVE_TIERS.length === 1 ? 'is' : 'are'} available now`;
 })();
 
 /** One line for a "pricing" sentence on any public page. */
@@ -54,18 +56,17 @@ export const ADD_ONS_LINE = 'Optional add-ons are coming soon and cannot be boug
 /** Carrier explanation shared by compare copy. */
 export const CARRIER_SHORT = 'carrier billed separately on Lite and Standard';
 
-const standard = tier('standard');
-const pro = tier('pro');
-const lite = tier('lite');
+/** "Lite 2¢/min" plus " (coming soon)" only while a tier is not on sale. */
+const soonSuffix = (id: TierId) => (tier(id).availability === 'coming_soon' ? ' (coming soon)' : '');
 
 /** Comparison-table "us" cell, long form. */
-export const US_RATE_LONG = `From ${centsLabel(standard.pricePerMinuteCents)}/min (Standard) or ${centsLabel(pro.pricePerMinuteCents)}/min with numbers included (Pro); Lite from ${centsLabel(lite.pricePerMinuteCents)}/min coming soon; ${CARRIER_SHORT}`;
+export const US_RATE_LONG = `${centsLabel(tier('lite').pricePerMinuteCents)}/min Lite${soonSuffix('lite')}, ${centsLabel(tier('standard').pricePerMinuteCents)}/min Standard, or ${centsLabel(tier('pro').pricePerMinuteCents)}/min Pro with numbers included; ${CARRIER_SHORT}`;
 
 /** Comparison-table "us" cell, medium width. */
-export const US_RATE_MEDIUM = `${centsLabel(standard.pricePerMinuteCents)}/min Standard (carrier separate) or ${centsLabel(pro.pricePerMinuteCents)}/min Pro (numbers included); Lite ${centsLabel(lite.pricePerMinuteCents)}/min coming soon`;
+export const US_RATE_MEDIUM = `${centsLabel(tier('lite').pricePerMinuteCents)}/min Lite${soonSuffix('lite')}, ${centsLabel(tier('standard').pricePerMinuteCents)}/min Standard (carrier separate) or ${centsLabel(tier('pro').pricePerMinuteCents)}/min Pro (numbers included)`;
 
 /** Comparison-table "us" cell, narrow (stat cards). */
-export const US_RATE_SHORT = `${centsLabel(standard.pricePerMinuteCents)} Standard, ${centsLabel(pro.pricePerMinuteCents)} Pro (Lite ${centsLabel(lite.pricePerMinuteCents)} coming soon)`;
+export const US_RATE_SHORT = `${centsLabel(tier('lite').pricePerMinuteCents)} Lite${soonSuffix('lite')}, ${centsLabel(tier('standard').pricePerMinuteCents)} Standard, ${centsLabel(tier('pro').pricePerMinuteCents)} Pro`;
 
 /** "6¢ to 10¢" range of what can be bought today. */
 export const LIVE_RANGE = `${centsLabel(Math.min(...LIVE_TIERS.map((t) => t.pricePerMinuteCents)))} to ${centsLabel(Math.max(...LIVE_TIERS.map((t) => t.pricePerMinuteCents)))}`;

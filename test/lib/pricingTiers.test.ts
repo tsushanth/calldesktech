@@ -17,8 +17,8 @@ describe('pricing tiers', () => {
     expect(tierById('standard')!.carrierMode).toBe('byo');
     expect(tierById('pro')!.carrierMode).toBe('managed');
   });
-  it('only Lite is coming soon', () => {
-    expect(PRICING_TIERS.filter((t) => t.availability === 'coming_soon').map((t) => t.id)).toEqual(['lite']);
+  it('all three tiers are on sale', () => {
+    expect(PRICING_TIERS.filter((t) => t.availability === 'coming_soon')).toEqual([]);
   });
   it('every tier includes summary, transcript and structured extraction', () => {
     for (const t of PRICING_TIERS) {
@@ -62,11 +62,11 @@ describe('priceFor', () => {
     expect(q.explanation).toBe('Standard is $0.06 per minute (phone carrier billed separately).');
     expect(priceFor({ tier: 'pro' }).explanation).toBe('Pro is $0.10 per minute (phone service included).');
   });
-  it('marks Lite as coming soon and not purchasable', () => {
+  it('Lite is purchasable at 2 cents', () => {
     const q = priceFor({ tier: 'lite' });
     expect(q.centsPerMinute).toBe(2);
-    expect(q.purchasable).toBe(false);
-    expect(q.explanation).toContain('Coming soon');
+    expect(q.purchasable).toBe(true);
+    expect(q.explanation).not.toContain('Coming soon');
   });
   it('an add-on with no amount set adds nothing and is reported as unpriced', () => {
     const q = priceFor({ tier: 'standard', addOns: ['sentiment_per_turn'] });
@@ -118,10 +118,10 @@ describe('resolveTierForPublish', () => {
   it('derives the models from the tier when none are given', () => {
     expect(resolveTierForPublish({ tier: 'standard', voiceEngine: 'poc' })).toEqual({ ok: true, tier: 'standard', llmModel: DEFAULT_LLM_MODEL, ttsBackend: 'elevenlabs', ttsModel: 'eleven_flash_v2_5', overrides: [] });
   });
-  it('rejects Lite with a clear coming-soon message', () => {
+  it('refuses Lite without the quality acceptance, with a clear message', () => {
     const r = resolveTierForPublish({ tier: 'lite', voiceEngine: 'poc' });
     expect(r.ok).toBe(false);
-    expect((r as { error: string }).error).toMatch(/Lite tier is coming soon/);
+    expect((r as { error: string }).error).toMatch(/acceptLowerQuality/);
   });
   it('rejects an unknown tier and a tier on the retell engine', () => {
     expect((resolveTierForPublish({ tier: 'storm', voiceEngine: 'poc' }) as { error: string }).error).toMatch(/Unknown tier "storm"/);

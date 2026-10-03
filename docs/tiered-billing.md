@@ -6,7 +6,7 @@ Status: built, not deployed, not applied. Customer-facing prices only. Companion
 
 | Tier | Per minute | Status |
 | --- | --- | --- |
-| Lite | 2 cents | coming soon, cannot be published yet |
+| Lite | 2 cents | live; lowest-cost voice (Piper), publish needs acceptLowerQuality: true |
 | Standard | 6 cents | live |
 | Pro | 10 cents | live |
 

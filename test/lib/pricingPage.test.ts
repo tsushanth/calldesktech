@@ -20,7 +20,10 @@ describe('/pricing server-rendered content (no session, no JS)', () => {
       expect(text).toContain(t.name);
       expect(html).toContain(`$${(t.pricePerMinuteCents / 100).toFixed(2)}`);
     }
-    expect(text).toContain('Lite at 2¢ is coming soon');
+    expect(text).not.toMatch(/Lite[^.]{0,30}coming soon/i);
+    expect(text).toContain('Most popular');
+    expect(html).toContain('data-testid="voice-quality-note"');
+    expect(text).toContain('noticeably less natural');
   });
   it('has the carrier note, the add-on list and the ThunderPhone line', () => {
     expect(text).toContain(CARRIER_NOTE);
@@ -46,7 +49,7 @@ describe('/pricing page wiring', () => {
     expect(page).toContain('export const metadata');
     expect(page).toContain('HEADLINE_WITH_QUALIFIER');
     expect(HEADLINE).toBe('Phone agents from 2 cents a minute');
-    expect(HEADLINE_WITH_QUALIFIER).toContain('Lite is coming soon');
+    expect(HEADLINE_WITH_QUALIFIER).toContain('all available now');
   });
   it('the session lives only in the checkout island, which keeps the checkout logic', () => {
     const island = read('src/components/pricing/GetStartedButton.tsx');

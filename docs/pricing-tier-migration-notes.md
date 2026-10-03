@@ -64,7 +64,7 @@ The current model is one voice price per subscription, applied to the whole acco
 - Re-publishing an existing agent from a path that does not carry the tier (settings page, onboarding, template install) silently drops the tier and re-syncs the legacy voice price.
 - Invoices and the billing page for tiered accounts would show lines the current page does not expect.
 - The usage job's first-run rule (it only sets a baseline for tenants that have never reported, to avoid back-billing) should be kept for any new meter, or the first run could bill months of history at once.
-- Coming-soon Lite: while it is not purchasable, the API returns a 400 for it and the pages mark it "Coming soon"; there is no price or meter for it to bill against yet.
+- Lite: live at 2 cents on the lowest-cost voice (Piper). Publishing it needs acceptLowerQuality: true (UI checkbox or API field); carry-over of an existing Lite version keeps that acceptance. Its metered price is STRIPE_TIER_LITE_PRICE.
 
 ## Customer-facing places that still describe the flat price (not rewritten; owner's wording decision)
 

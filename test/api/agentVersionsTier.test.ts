@@ -84,11 +84,19 @@ it('a non-English language still pins a voice backend with a tier', async () => 
   expect(inserted).toMatchObject({ tts_backend: 'elevenlabs', tier: 'standard' });
 });
 
-it('rejects lite with a 400 coming-soon message and writes nothing', async () => {
+it('rejects lite without acceptLowerQuality with a 400 and writes nothing', async () => {
   const res = await post({ tier: 'lite' });
   expect(res.status).toBe(400);
-  expect((await res.json()).error).toMatch(/coming soon/i);
+  expect((await res.json()).error).toMatch(/acceptLowerQuality/);
   expect(inserted).toBeNull();
+});
+
+it('publishes lite on piper once the quality tradeoff is accepted', async () => {
+  process.env.STRIPE_TIER_LITE_PRICE = 'price_lite';
+  const res = await post({ tier: 'lite', acceptLowerQuality: true });
+  expect(res.status).toBe(201);
+  expect(inserted).toMatchObject({ tier: 'lite', tts_backend: 'piper' });
+  delete process.env.STRIPE_TIER_LITE_PRICE;
 });
 
 it('rejects an unknown tier, a tier on retell, and an invalid override', async () => {
@@ -154,7 +162,7 @@ it('legacy publishes never need tier billing, even with every tier price unset',
   expect(syncVoicePriceForTenant).toHaveBeenCalledWith('t1', 'cartesia');
 });
 
-it('lite is still rejected as coming soon before any billing check', async () => {
+it('lite without acceptance is rejected before any billing check', async () => {
   const res = await post({ tier: 'lite' });
   expect(res.status).toBe(400);
   expect(ensureTierItemForTenant).not.toHaveBeenCalled();

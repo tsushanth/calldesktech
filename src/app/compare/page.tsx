@@ -24,7 +24,7 @@ const PAGES = [
     name: 'Retell',
     line: 'A feature-by-feature look at the builder, pricing, and real test calls.',
     stat: LIVE_RANGE,
-    statLabel: 'per minute by tier, Lite coming soon — Retell blends to $0.07–$0.31',
+    statLabel: 'per minute by tier — Retell blends to $0.07–$0.31',
   },
   {
     href: '/compare/thunderphone',

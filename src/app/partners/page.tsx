@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import { Container, Eyebrow, PrimaryButton, SecondaryButton } from '@/components/landing/primitives';
-import { PRO_CENTS, STANDARD_CENTS } from '@/lib/pricingCopy';
+import { LITE_CENTS, PRO_CENTS, STANDARD_CENTS } from '@/lib/pricingCopy';
 
 export const metadata: Metadata = {
   title: 'Partner program | CallDeskTech',
@@ -57,7 +57,7 @@ export default function PartnersPage() {
             </div>
           ))}
         </dl>
-        <p className="mt-6 max-w-[640px] text-[13px] leading-[1.5] text-gray-400">The example uses the Pro tier. Other tiers (Standard is {STANDARD_CENTS}¢ per minute; Lite is coming soon) and existing flat prices differ, and the share applies to what the customer is actually charged. Terms may change for new referrals with 30 days notice.</p>
+        <p className="mt-6 max-w-[640px] text-[13px] leading-[1.5] text-gray-400">The example uses the Pro tier. Other tiers (Standard is {STANDARD_CENTS}¢ per minute; Lite is {LITE_CENTS}¢) and existing flat prices differ, and the share applies to what the customer is actually charged. Terms may change for new referrals with 30 days notice.</p>
       </Container>
 
       <Container className="py-10">

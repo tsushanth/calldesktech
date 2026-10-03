@@ -75,7 +75,7 @@ export const PRICING_TIERS: PricingTier[] = [
     whoItsFor: 'Straightforward calls such as confirmations and quick questions, where cost matters most.',
     includes: [...INCLUDED_ON_ALL, 'Fast responses on our lowest-cost voice, with noticeably lower voice quality than Standard'],
     carrierMode: 'byo',
-    availability: 'coming_soon',
+    availability: 'live',
     stack: { llmModel: LITE_LLM_MODEL, ttsBackend: 'piper', ttsModel: null },
     lowerQuality: true,
   },

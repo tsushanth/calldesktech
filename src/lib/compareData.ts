@@ -310,7 +310,7 @@ export const COMPETITORS: CompetitorEntry[] = [
     heroHeadline: 'A carrier that also builds a finished agent — and it shows in the compliance list.',
     heroSub: 'Plivo ships a no-code builder like ours, but it’s also a telephony carrier in its own right, with the SIP infrastructure and audited certifications that come with owning that stack.',
     stats: [
-      { label: 'AI stack rate (excl. telephony)', us: `${centsLabel(STANDARD_CENTS)}/min Standard (carrier separate); Lite ${centsLabel(LITE_CENTS)} coming soon`, them: '$0.03/min, plus telephony billed separately' },
+      { label: 'AI stack rate (excl. telephony)', us: `${centsLabel(STANDARD_CENTS)}/min Standard (carrier separate); Lite ${centsLabel(LITE_CENTS)}`, them: '$0.03/min, plus telephony billed separately' },
       { label: 'Compliance', us: 'None yet', them: 'SOC 2, PCI DSS Level 1, GDPR, HIPAA BAA' },
       { label: 'Automated testing', us: 'Manual only', them: 'Auto-generated simulation tests + 6 analytics dashboards' },
     ],

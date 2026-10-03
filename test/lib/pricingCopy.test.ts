@@ -14,19 +14,20 @@ import { buildInvestorSlides } from '@/lib/deck/investorSlides';
 const strip = (h: string) => h.replace(/<[^>]+>/g, ' ').replace(/&#x27;|&#39;/g, "'").replace(/&amp;/g, '&').replace(/\s+/g, ' ');
 
 describe('pricing copy is derived from the tiers', () => {
-  it('headline never appears without the coming-soon qualifier', () => {
+  it('headline always appears with the qualifier that says what can be bought now', () => {
     expect(HEADLINE).toBe('Phone agents from 2 cents a minute');
-    expect(QUALIFIER).toBe('Lite is coming soon; Standard 6 cents and Pro 10 cents are available now');
+    expect(QUALIFIER).toBe('Lite 2 cents, Standard 6 cents and Pro 10 cents per minute, all available now');
     expect(HEADLINE_WITH_QUALIFIER).toContain(QUALIFIER);
   });
   it('matches the tier catalog', () => {
     const c = (id: string) => PRICING_TIERS.find((t) => t.id === id)!.pricePerMinuteCents;
     expect([c('lite'), c('standard'), c('pro')]).toEqual([2, 6, 10]);
-    expect(LIVE_RANGE).toBe('6¢ to 10¢');
-    expect(twoMinuteCallRange()).toBe('$0.12 to $0.20');
-    expect(US_RATE_LONG).toContain('6¢/min (Standard)');
-    expect(US_RATE_LONG).toContain('10¢/min with numbers included (Pro)');
-    expect(US_RATE_LONG).toMatch(/Lite from 2¢\/min coming soon/);
+    expect(LIVE_RANGE).toBe('2¢ to 10¢');
+    expect(twoMinuteCallRange()).toBe('$0.04 to $0.20');
+    expect(US_RATE_LONG).toContain('6¢/min Standard');
+    expect(US_RATE_LONG).toContain('10¢/min Pro with numbers included');
+    expect(US_RATE_LONG).toContain('2¢/min Lite');
+    expect(US_RATE_LONG).not.toMatch(/coming soon/i);
   });
   it('states no add-on amounts', () => {
     expect(pricingPlainText()).not.toMatch(/\+\s?\d/);
@@ -38,8 +39,8 @@ describe('compare data: no stale flat-price claims about us, and never a bare 2 
     it(`${c.slug}: our column`, () => {
       const ours = [...c.stats.map((s) => s.us), ...c.rows.filter((r) => r.group === 'Pricing').map((r) => r.us), c.heroHeadline, c.heroSub].join(' | ');
       expect(ours).not.toMatch(/\$0\.10|flat, all-in|\$0\.10\/min flat/);
-      // any mention of the 2 cent Lite price must say it is coming soon
-      for (const m of ours.matchAll(/2¢[^|]*/g)) expect(m[0]).toMatch(/coming soon/i);
+      // the 2 cent price is only ever shown as the Lite plan's, never as a bare headline rate
+      for (const m of ours.matchAll(/.{0,14}(?<![0-9])2¢.{0,14}/g)) expect(m[0]).toMatch(/Lite/);
     });
   }
   it('pricing rows do not carry an "ahead" verdict where the competitor is level or cheaper', () => {
@@ -75,7 +76,7 @@ describe('ThunderPhone pricing section renders from competitorPricing.ts', () =>
   });
   it('makes no superiority claim and states no our-side add-on amounts', () => {
     expect(text).not.toMatch(/cheaper|better than|beat/i);
-    expect(text).toContain('Lite is coming soon');
+    expect(text).not.toMatch(/Lite[^.]{0,40}coming soon/i);
   });
 });
 
@@ -91,7 +92,7 @@ describe('page wiring', () => {
   });
   it('llms.txt states the three tiers with the qualified headline', () => {
     const t = read('public/llms.txt');
-    expect(t).toContain('Phone agents from 2 cents a minute. Lite is coming soon; Standard 6 cents and Pro 10 cents are available now.');
+    expect(t).toContain('Phone agents from 2 cents a minute. Lite 2 cents, Standard 6 cents and Pro 10 cents per minute, all available now.');
     expect(t).not.toMatch(/\$49|\$0\.10/);
   });
   it('the partner payout numbers are untouched', () => {
@@ -104,14 +105,14 @@ describe('page wiring', () => {
 describe('decks', () => {
   it('customer deck pricing slide states the tiers, not the flat price', () => {
     const t = strip(DECK_SLIDES.find((s) => s.includes('id="pricing"'))!);
-    expect(t).toContain('6 to 10 cents a minute');
-    expect(t).toContain('Lite from 2 cents is coming soon');
+    expect(t).toContain('2 to 10 cents a minute');
+    expect(t).toContain('Lite is 2 cents on our lowest-cost voice');
     expect(t).not.toContain('$0.10 per minute');
   });
   it('investor deck price slide leads with the tiers and qualifies Lite', () => {
     const t = strip(buildInvestorSlides().join(' '));
     expect(t).toContain('6 cents Standard');
-    expect(t).toContain('Lite 2 cents coming soon');
+    expect(t).toContain('Lite 2 cents (lowest-cost voice)');
     expect(t).not.toContain('$0.10 default, to $0.16 premium voices');
   });
 });
