@@ -1,7 +1,7 @@
 import { getAnthropicClient } from '@/lib/anthropic';
 import { cliComplete, apiComplete, extractJson, usingApi, usingCli } from './llm';
 import { detectDraftLanguage } from './language';
-import { calldesk, type ProductConfig } from './products';
+import { calldesk, resolveArmPrompts, type ProductConfig } from './products';
 
 // Drafts a short first-touch email to a voice-AI agency. Facts the model may
 // state are limited to product.offerFacts (see products.ts); everything else
@@ -22,6 +22,8 @@ export interface AgencyDraftInput {
   description?: string | null;
   dossier?: { summary: string; verticals: string[]; services: string[]; hook: string | null } | null;
   product?: ProductConfig;
+  // Experiment arm (freight: 'free_week' | 'demo'). Absent/unknown = the product's default offer.
+  arm?: string | null;
 }
 
 export interface AgencyDraft {
@@ -65,6 +67,7 @@ export function tidyBody(body: string, product: ProductConfig = calldesk): strin
 
 export async function draftAgencyEmail(input: AgencyDraftInput): Promise<AgencyDraft> {
   const product = input.product ?? calldesk;
+  const armPrompts = resolveArmPrompts(product, input.arm);
   const language = detectDraftLanguage(input.location ?? null);
 
   const userPrompt = [
@@ -81,12 +84,12 @@ export async function draftAgencyEmail(input: AgencyDraftInput): Promise<AgencyD
       : '',
     '',
     'Offer facts you may use (and nothing else):',
-    ...product.offerFacts.map((f) => `- ${f}`),
+    ...armPrompts.offerFacts.map((f) => `- ${f}`),
   ]
     .filter((l) => l !== '')
     .join('\n');
 
-  const systemPrompt = product.systemPrompt;
+  const systemPrompt = armPrompts.systemPrompt;
 
   const jsonInstruction = `Reply with ONLY a JSON object {"subject": string, "body": string${language ? ', "translationSubject": string, "translationBody": string' : ''}}. No markdown fences, no commentary.`;
 
@@ -151,6 +154,7 @@ export function followUpSubject(previousSubject: string): string {
 
 export async function draftFollowUpEmail(input: FollowUpInput): Promise<AgencyDraft> {
   const product = input.product ?? calldesk;
+  const armPrompts = resolveArmPrompts(product, input.arm);
   const language = detectDraftLanguage(input.location ?? null);
   const userPrompt = [
     `${product.vertical?.leadLabel ?? 'Agency'}: ${input.name}${input.domain ? ` (${input.domain})` : ''}`,
@@ -160,13 +164,13 @@ export async function draftFollowUpEmail(input: FollowUpInput): Promise<AgencyDr
     input.isFinal ? 'This is the final follow-up in this sequence — say so, and offer to close the loop if it\'s not a fit.' : '',
     '',
     'Offer facts you may reference (and nothing else):',
-    ...product.offerFacts.map((f) => `- ${f}`),
+    ...armPrompts.offerFacts.map((f) => `- ${f}`),
   ]
     .filter((l) => l !== '')
     .join('\n');
 
   const text = cliComplete(
-    `${product.followUpSystemPrompt}\n\n${userPrompt}\n\nReply with ONLY a JSON object {"subject": string, "body": string${language ? ', "translationSubject": string, "translationBody": string' : ''}}. subject should be "${followUpSubject(input.previousSubject)}" unless a small variation reads more natural. No markdown fences, no commentary.`,
+    `${armPrompts.followUpSystemPrompt}\n\n${userPrompt}\n\nReply with ONLY a JSON object {"subject": string, "body": string${language ? ', "translationSubject": string, "translationBody": string' : ''}}. subject should be "${followUpSubject(input.previousSubject)}" unless a small variation reads more natural. No markdown fences, no commentary.`,
     { maxTurns: 2 },
   );
   const parsed = extractJson<AgencyDraft>(text, 'object');

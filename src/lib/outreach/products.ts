@@ -56,6 +56,17 @@ export interface ProductConfig {
   //   * follow-ups default to `defaultMaxFollowUps` (env OUTREACH_MAX_FOLLOWUPS still wins)
   // Left undefined for calldesk/readaloud so their behavior is unchanged.
   vertical?: { leadLabel: string; leadPlural: string; defaultMaxFollowUps: number };
+  // Optional experiment arms (freight only today). The arm named 'free_week' is the same content as the
+  // top-level offerFacts/prompts; other arms swap in their own. Looked up by resolveArmPrompts().
+  arms?: Record<string, ArmPrompts>;
+}
+
+export interface ArmPrompts { offerFacts: string[]; systemPrompt: string; followUpSystemPrompt: string }
+
+/** The offer facts and prompts to draft with for an arm; unknown/absent arm = the product's own defaults. */
+export function resolveArmPrompts(product: ProductConfig, arm?: string | null): ArmPrompts {
+  const a = arm ? product.arms?.[arm] : undefined;
+  return a ?? { offerFacts: product.offerFacts, systemPrompt: product.systemPrompt, followUpSystemPrompt: product.followUpSystemPrompt };
 }
 
 const CALLDESK_OFFER_FACTS = [
@@ -229,26 +240,82 @@ interface VerticalDef {
   registryFact: string; // what the lead data can support about the recipient
   // Extra hard rules appended to the draft/follow-up prompts (vertical-specific compliance framing).
   extraRules?: string[];
+  // Extra hard rules appended to the PILOT-offer prompts only (not the demo arm, which never mentions the pilot).
+  pilotOnlyRules?: string[];
+  // Overrides PILOT_TERMS for this vertical only (the shared wording stays two weeks for everyone else).
+  pilotTerms?: string;
+  // Total touches including the first email (the follow-up stage sends touches 2..maxTouches).
+  maxTouches?: number;
+  // Adds a 'demo' experiment arm (asks for a 15-minute demo instead of offering the pilot).
+  demoArm?: boolean;
   scoreVocabulary: ScoreVocabularyRule[];
 }
 
 const VERTICAL_SIGNATURE = 'Sushanth & Deepika\nCo-founders, Calldesk';
 
 const PILOT_TERMS = 'free for two weeks, capped at 50 minutes of calls, no credit card, and they can stop any time';
+// Freight pilots are ONE week (decided 2026-10-02); every other vertical keeps PILOT_TERMS.
+const FREIGHT_PILOT_TERMS = 'a free pilot of one week, capped at 50 minutes of calls, no credit card, and they can stop any time';
 
 function verticalOfferFacts(v: VerticalDef): string[] {
   return [
     'Calldesk (calldesk.tech) is an AI voice-agent platform: inbound and outbound phone agents.',
     `We want to help small ${v.leadPlural} with ${v.topic}.`,
     `The offer: we set up a Calldesk phone agent for them, on a number they forward their overflow or after-hours calls to. It ${v.agentHandles}, and every call gets a summary and transcript they can review.`,
-    `The pilot is ${PILOT_TERMS}. We do the setup ourselves; they only need to forward calls.`,
+    `The pilot is ${v.pilotTerms ?? PILOT_TERMS}. We do the setup ourselves; they only need to forward calls.`,
     'To accept, they reply "yes" and tell us which number they would forward calls from. If it is not useful, we ask them to tell us what would be, which helps us just as much.',
     'We have not built anything specific for this industry; the agent is a general Calldesk phone agent configured for their calls. Do not claim integrations with their software, booking systems, or CRM.',
   ];
 }
 
-function extra(v: VerticalDef): string {
-  return (v.extraRules ?? []).map((r) => `\n- ${r}`).join('');
+// ---- freight experiment arm 'demo': ask for a 15-minute demo instead of offering the pilot -----------------
+function demoOfferFacts(v: VerticalDef): string[] {
+  return [
+    'Calldesk (calldesk.tech) is an AI voice-agent platform: inbound and outbound phone agents.',
+    `We want to help small ${v.leadPlural} with ${v.topic}.`,
+    `The ask: a 15-minute call with us, the co-founders, where we show a Calldesk phone agent that ${v.agentHandles}, so they can judge whether it would help. The demo is run live by us (people), not an automated call.`,
+    'To accept, they reply with a time that works, or the best number to reach them, and we call them. If it is not useful, we ask them to tell us what would be, which helps us just as much.',
+    'We have not built anything specific for this industry; the agent is a general Calldesk phone agent configured for their calls. Do not claim integrations with their software, booking systems, or CRM.',
+  ];
+}
+
+function demoSystemPrompt(v: VerticalDef): string {
+  return `You write short, honest, help-first cold emails from the co-founders of Calldesk (Sushanth and Deepika) to owners and operators of small ${v.leadPlural}. The goal is to ask for a 15-minute demo of a phone agent that catches calls they would otherwise miss. It is not a generic sales pitch, and not a partnership offer.
+
+Rules:
+- State ONLY facts from the provided offer facts and lead data. About the recipient you may say only what the lead data supports: the business name, its location, and ${v.registryFact}. Never invent customers, results, integrations, statistics, or claims about their operations, volume, staff, tools, or problems. Do not assert they have a problem; ask about ${v.situation} as a question.
+- No fake familiarity: no "loved your post", "I saw you recently", "I noticed your team is growing". No flattery.
+- Content, in this order: (1) one sentence: we are the co-founders of Calldesk, and we build AI phone agents, plus at most one supported fact about them; (2) one question about what happens to calls when ${v.situation}; (3) the ask: a 15-minute call where we show them a Calldesk phone agent handling those calls, and say briefly what it does (from the offer facts); (4) the one-line reply: reply with a time that works or the best number to reach them, or tell us what would make it useful.
+- Do NOT mention a free trial, pilot, free period, minutes cap, forwarding calls, or any price in this email: the only ask is the 15-minute demo.
+- Never mention a recording, audio, attachment, link, or "below": any sample call is added below the email automatically, and not every email has one.
+- No other pricing, discounts, revenue share, partner terms, or urgency/scarcity tricks. No hype words, no emojis, no exclamation marks.
+- Never claim Calldesk is better, faster, or cheaper than any product or competitor. Do not say it "never misses a call", or promise results.
+- Subject: plain and specific, under 70 characters, in the spirit of "15-minute demo: ${v.subjectHint}". Not clickbait, not "Re:" or "Fwd:".
+- Body: 70-120 words, 3 short paragraphs. Start with "Hi there,".${extra(v, 'demo')}
+- Write in the first person plural ("we", "us", "our"). Never use "I", "me" or "my", and never introduce yourselves by name or title.
+- Do NOT write a sign-off or signature; one is added automatically.
+- Any sentence that asks something must end with a question mark.
+${LANGUAGE_RULES('email')}`;
+}
+
+function demoFollowUpPrompt(v: VerticalDef): string {
+  return `You write short, low-pressure follow-up emails from the co-founders of Calldesk (Sushanth and Deepika), following up on an earlier request for a 15-minute demo to a small business (${v.leadPlural}) that got no reply.
+
+Rules:
+- This is a BRIEF bump: 2-3 sentences. Restate that we would like 15 minutes to show them a Calldesk phone agent handling ${v.situation}, and that a reply with a time that works or the best number to reach them is all we need.
+- State ONLY facts from the provided offer facts. Never invent customers, results, or claims about the recipient. Do NOT mention a trial, pilot, free period, minutes cap, or any price.
+- Never mention a recording, audio, attachment, link, or "below".
+- Do not guilt-trip, create false urgency, or use hype words, emojis, or exclamation marks.
+- Write in the first person plural ("we", "us", "our"). Never use "I", "me" or "my", and never introduce yourselves by name or title.
+- Do NOT write a sign-off or signature; one is added automatically.
+- Any sentence that asks something must end with a question mark.
+- On the LAST allowed follow-up (see "This is the final follow-up" note if present), say this is the last note and that we will not follow up again.${extra(v, 'demo')}
+${LANGUAGE_RULES('follow-up')}`;
+}
+
+function extra(v: VerticalDef, mode: 'pilot' | 'demo' = 'pilot'): string {
+  const rules = [...(v.extraRules ?? []), ...(mode === 'pilot' ? v.pilotOnlyRules ?? [] : [])];
+  return rules.map((r) => `\n- ${r}`).join('');
 }
 
 // The vertical prompts used to end with a flat "Write in English." while
@@ -314,7 +381,11 @@ const VERTICAL_DEFS: VerticalDef[] = [
     situation: 'carrier calls come in while everyone is busy on other loads or after hours',
     agentHandles: "answers carrier check calls and load inquiries, collects the carrier's MC number, the load in question, and a callback number",
     subjectHint: 'Help with carrier calls when nobody is free to pick up',
-    registryFact: 'that it is listed in a public transport registry, worded exactly as the lead data words it (for example "listed in the public FMCSA registry with active property broker authority", or "listed in the Traffic Commissioners for Great Britain goods vehicle operator licence register as a licensed goods vehicle operator")',
+    pilotTerms: FREIGHT_PILOT_TERMS,
+    maxTouches: 3, // first email + day-4 follow-up + day-9 close-the-loop
+    demoArm: true,
+    pilotOnlyRules: ['The pilot is ONE WEEK. Never say two weeks, 14 days, or any other duration, and never offer a longer pilot or a discount.'],
+    registryFact: 'that it is listed in a public transport registry, worded exactly as the lead data words it (for example "listed in the public FMCSA registry with active property broker authority"); freight outreach is US brokers only',
     scoreVocabulary: [
       { pattern: /\b(brokerage|3pl|logistics|freight)\b/, delta: 5, reason: 'name reads like a freight brokerage' },
       { pattern: /family[- ]owned|independent|owner[- ]operated|boutique/, delta: 10, reason: 'describes itself as small, independent, or owner-run' },
@@ -640,18 +711,18 @@ const VERTICAL_DEFS: VerticalDef[] = [
 ];
 
 function verticalProduct(v: VerticalDef): ProductConfig {
+  const base: ArmPrompts = { offerFacts: verticalOfferFacts(v), systemPrompt: verticalSystemPrompt(v), followUpSystemPrompt: verticalFollowUpPrompt(v) };
   return {
     id: v.id,
     tablePrefix: 'calldesk_outreach',
     stateDirName: `.calldesk-${v.id}-outreach`,
     baseUrl: 'https://calldesk.tech',
     sharedTableProductValue: `calldesk:${v.id}`,
-    offerFacts: verticalOfferFacts(v),
-    systemPrompt: verticalSystemPrompt(v),
-    followUpSystemPrompt: verticalFollowUpPrompt(v),
+    ...base,
     signature: VERTICAL_SIGNATURE,
     scoreVocabulary: v.scoreVocabulary,
-    vertical: { leadLabel: v.leadLabel, leadPlural: v.leadPlural, defaultMaxFollowUps: 2 }, // total touches incl. the first email: 1 follow-up
+    vertical: { leadLabel: v.leadLabel, leadPlural: v.leadPlural, defaultMaxFollowUps: v.maxTouches ?? 2 }, // total touches incl. the first email (default 2: 1 follow-up)
+    ...(v.demoArm ? { arms: { free_week: base, demo: { offerFacts: demoOfferFacts(v), systemPrompt: demoSystemPrompt(v), followUpSystemPrompt: demoFollowUpPrompt(v) } } } : {}),
   };
 }
 

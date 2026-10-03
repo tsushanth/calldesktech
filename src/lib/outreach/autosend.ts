@@ -1,10 +1,14 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { sendApprovedMessage, sentTodayCount, dailyCap, laneFilter, type Lane, type SendOutcome } from './sender';
+import { followUpDailyCap } from './followUps';
+import { FREIGHT_NON_US_ERROR, isFreightProduct, isUsFreightLead, type FreightLeadFacts } from './freight';
+import { sendApprovedMessage, sentTodayCount, dailyCap, laneFilter, startOfDayInTz, type Lane, type SendOutcome } from './sender';
 
 // Paced, automatic sending of messages that were already approved in the queue.
 // One message per tick, only inside a weekday send window, spaced so the daily cap
 // is spread across the window, and paused automatically when recent deliverability
-// looks bad. Drafts are never sent from here; approval in the queue stays manual.
+// looks bad. Drafts are never sent from here: a message must be 'approved' first, either by a human in the
+// queue or, for follow-ups only, by the follow-up stage when OUTREACH_FOLLOWUP_AUTOAPPROVE allows it
+// (followUps.ts). Follow-ups share the lane's daily send cap and get priority up to followUpDailyCap().
 // Each lane (all calldesk* products; all kreativekoala:* apps; readaloud) is paced, capped and
 // health-checked on its own, so one lane's problems never stall or speed up the other.
 
@@ -102,15 +106,39 @@ async function runLane(
       if (minutesSinceLast < minGapMinutes) return { action: 'too_soon', minutesSinceLast, minGapMinutes };
     }
 
-    const { data: candidates } = await supabase
-      .from('calldesk_outreach_messages')
-      .select('id, lead:calldesk_outreach_leads(replied_at)')
-      .eq('status', 'approved').or(products)
-      .order('step', { ascending: true }).order('created_at', { ascending: true }).limit(20);
-    const next = ((candidates ?? []) as { id: string; lead: { replied_at: string | null } | { replied_at: string | null }[] | null }[]).find((c) => {
-      const lead = Array.isArray(c.lead) ? c.lead[0] : c.lead;
-      return !lead?.replied_at;
-    });
+    // Follow-ups (step > 1) get priority up to OUTREACH_FOLLOWUP_DAILY_CAP a day (default half the lane cap),
+    // after which only first touches go out; otherwise a steady stream of first touches (step ascending)
+    // would starve every follow-up. Only the calldesk lane has follow-up pacing; kk/readaloud are unchanged.
+    let followUpsLeft = Infinity;
+    if (lane === 'calldesk') {
+      const { count: fuSent } = await supabase
+        .from('calldesk_outreach_messages').select('id', { count: 'exact', head: true })
+        .eq('status', 'sent').or(products).gt('step', 1).gte('sent_at', startOfDayInTz(now).toISOString());
+      followUpsLeft = followUpDailyCap(cap) - (fuSent ?? 0);
+    }
+    const pick = async (followUpsOnly: boolean) => {
+      let q = supabase
+        .from('calldesk_outreach_messages')
+        .select('id, product, lead:calldesk_outreach_leads(replied_at, region_blocked, source_key, location, domain, contact_email, signals)')
+        .eq('status', 'approved').or(products);
+      if (followUpsOnly) q = q.gt('step', 1);
+      else if (followUpsLeft <= 0) q = q.lte('step', 1);
+      const { data: candidates } = await q.order('step', { ascending: true }).order('created_at', { ascending: true }).limit(20);
+      type Lead = (FreightLeadFacts & { replied_at: string | null }) | null;
+      for (const c of (candidates ?? []) as { id: string; product?: string | null; lead: Lead | Lead[] | null }[]) {
+        const lead = (Array.isArray(c.lead) ? c.lead[0] : c.lead) as Lead;
+        if (lead?.replied_at) continue;
+        // Freight is US brokers only. A non-US freight message is failed (not skipped) so it cannot sit at the
+        // head of this 20-row window and starve the queue; a dry run just skips it.
+        if (isFreightProduct(c.product) && !(lead && isUsFreightLead(lead))) {
+          if (!opts.dry) await supabase.from('calldesk_outreach_messages').update({ status: 'failed', error: FREIGHT_NON_US_ERROR }).eq('id', c.id);
+          continue;
+        }
+        return c;
+      }
+      return undefined;
+    };
+    const next = (followUpsLeft > 0 && followUpsLeft !== Infinity ? await pick(true) : undefined) ?? await pick(false);
     if (!next) return { action: 'nothing_approved' };
     if (opts.dry) return { action: 'would_send', messageId: next.id };
 

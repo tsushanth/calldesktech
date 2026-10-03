@@ -4,6 +4,8 @@ import { unsubscribeUrl, oneClickUnsubscribeUrl } from './unsubscribe';
 import { domainCanReceiveMail } from './mxCheck';
 import { verifyLeadEmail, shouldBlock } from './emailVerify';
 import { renderOutreachEmail, escapeHtml, type EmailSample } from './emailHtml';
+import { campaignFor } from './utm';
+import { FREIGHT_NON_US_ERROR, isFreightProduct, isUsFreightLead } from './freight';
 import { getPublishedSample, pickVariant, sampleTokenFor, sampleUrl, snippetLines, productSlug } from './samples';
 
 // The only path that emails a real prospect. A human still triggers every
@@ -164,7 +166,7 @@ export async function buildOutreachEmail(
   if (variant === 'sample' && !emailSample) variant = 'plain';
   const deckUrl = brand.deckUrl && process.env.OUTREACH_DECK_LINK !== 'off'
     ? `${brand.deckUrl}?t=${encodeURIComponent(sampleTokenFor(String(msg.id)))}` : null;
-  const { html, text } = renderOutreachEmail({ bodyText: String(msg.body_text), footer, sample: emailSample, deckUrl, site: { label: brand.siteUrl, url: /^https?:\/\//.test(brand.siteUrl) ? brand.siteUrl : `https://${brand.siteUrl}` } });
+  const { html, text } = renderOutreachEmail({ bodyText: String(msg.body_text), footer, sample: emailSample, deckUrl, utm: { campaign: campaignFor(product), step: Number(msg.step) || 1 }, site: { label: brand.siteUrl, url: /^https?:\/\//.test(brand.siteUrl) ? brand.siteUrl : `https://${brand.siteUrl}` } });
   return { html, text, variant, sampleId };
 }
 
@@ -184,10 +186,17 @@ export async function sendApprovedMessage(supabase: SupabaseClient<any>, message
   const from = (process.env[brand.fromEnvVar] || '').trim();
   if (!from) return { ok: false, error: `${brand.fromEnvVar} is not set` };
 
-  const { data: lead } = await supabase.from('calldesk_outreach_leads').select('id, region_blocked, signals').eq('id', msg.lead_id).maybeSingle();
+  const { data: lead } = await supabase.from('calldesk_outreach_leads').select('id, region_blocked, signals, source_key, location, domain, contact_email').eq('id', msg.lead_id).maybeSingle();
   if (lead?.region_blocked) {
     await supabase.from('calldesk_outreach_messages').update({ status: 'failed', error: 'lead is in an excluded region (DE/AT/CH)' }).eq('id', messageId);
     return { ok: false, error: 'This lead is in an excluded region (Germany/Austria/Switzerland); not sending' };
+  }
+
+  // Freight is US brokers only (compliance scope). Applies to every send path, manual or autosend, so an old
+  // non-US freight lead can never be emailed even if its country hold was released.
+  if (isFreightProduct(product) && !(lead && isUsFreightLead({ ...lead, contact_email: lead.contact_email ?? msg.to_email }))) {
+    await supabase.from('calldesk_outreach_messages').update({ status: 'failed', error: FREIGHT_NON_US_ERROR }).eq('id', messageId);
+    return { ok: false, error: `${FREIGHT_NON_US_ERROR}; not sending` };
   }
 
   const toEmail = String(msg.to_email).trim().toLowerCase();

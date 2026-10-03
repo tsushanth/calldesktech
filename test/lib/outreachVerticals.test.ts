@@ -51,11 +51,29 @@ describe('resolveProduct', () => {
     expect(scopeToProduct(q, freight)).toEqual({ c: 'product', v: 'calldesk:freight' });
   });
   it('discovery prompts are help-first, allow only the pilot terms, and forbid other pricing', () => {
-    for (const v of [freight, homeservices, dental, insurance]) {
+    for (const v of [homeservices, dental, insurance]) {
       expect(v.systemPrompt).toMatch(/not a generic sales pitch/);
       expect(v.systemPrompt).toMatch(/only pricing statement allowed is the pilot terms/);
       expect(v.offerFacts.join(' ')).toMatch(/free for two weeks, capped at 50 minutes/);
       expect(v.offerFacts.join(' ')).not.toMatch(/revenue share|20%|partner/i);
+    }
+  });
+  it('freight alone offers a ONE-week pilot (other verticals keep two weeks)', () => {
+    expect(freight.systemPrompt).toMatch(/not a generic sales pitch/);
+    expect(freight.systemPrompt).toMatch(/only pricing statement allowed is the pilot terms/);
+    const facts = freight.offerFacts.join(' ');
+    expect(facts).toMatch(/a free pilot of one week, capped at 50 minutes of calls, no credit card/);
+    expect(facts).not.toMatch(/two weeks/);
+    expect(facts).toMatch(/We do the setup ourselves; they only need to forward calls/);
+    expect(facts).toMatch(/reply "yes" and tell us which number they would forward calls from/);
+    expect(freight.systemPrompt).toMatch(/ONE WEEK/);
+    expect(freight.systemPrompt).not.toMatch(/free for two weeks/i);
+    expect(freight.systemPrompt).not.toMatch(/Great Britain|DVSA/);
+    expect(freight.followUpSystemPrompt).toMatch(/ONE WEEK/);
+    expect(freight.vertical?.defaultMaxFollowUps).toBe(3);
+    for (const v of [homeservices, dental, insurance]) {
+      expect(v.offerFacts.join(' ')).not.toMatch(/one week/);
+      expect(v.vertical?.defaultMaxFollowUps).toBe(2);
     }
   });
 });

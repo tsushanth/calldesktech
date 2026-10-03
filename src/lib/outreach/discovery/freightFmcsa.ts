@@ -1,5 +1,6 @@
 import { sleep as politeSleep } from './http';
 import { socrataGet } from './socrata';
+import { isUsStateCode, normalizeFreightPhone } from '../freight';
 
 // Freight-broker discovery from FMCSA's free open data on data.transportation.gov
 // (Socrata). No paid API, no scraping. Two datasets are joined on DOT number:
@@ -163,13 +164,14 @@ export function titleCase(name: string): string {
     .join(' ');
 }
 
-// The FMCSA census file carries the business phone as `phone` (the authority file's bus_telno is
-// empty for these brokers). Formatted "(NNN) NNN-NNNN"; null when it is not a plausible US number.
+// Business phone for a broker, normalized to E.164 US ("+16305546101") or null when neither source holds
+// a plausible US number. The census file's `phone` is tried first, then the authority file's `bus_telno`
+// (populated for ~97% of active US brokers in the 6eyk-hxee dataset; each is tried on its own so an
+// invalid census value no longer hides a valid authority one).
+// HUMAN CALLS ONLY: this value lands in leads.phone, which only the human caller tooling may read. No
+// automated or AI-voice dialer may use it (cold AI calls are off-limits, see freight.ts).
 export function censusPhone(census: CensusRow | undefined, authPhone?: string): string | null {
-  const digits = (census?.phone || authPhone || '').replace(/\D/g, '');
-  const d = digits.length === 11 && digits.startsWith('1') ? digits.slice(1) : digits;
-  if (d.length !== 10 || /^(\d)\1{9}$/.test(d) || d[0] === '0' || d[0] === '1') return null;
-  return `(${d.slice(0, 3)}) ${d.slice(3, 6)}-${d.slice(6)}`;
+  return normalizeFreightPhone(census?.phone) ?? normalizeFreightPhone(authPhone);
 }
 
 // Pure filter + scoring for one authority row and its census row. All hard
@@ -179,6 +181,8 @@ export function evaluateBroker(auth: AuthorityRow, census: CensusRow | undefined
   if (auth.broker_rev_pend === 'Y') return { keep: false, reason: 'broker authority revocation pending' };
   if (auth.bond_file === 'N') return { keep: false, reason: 'no broker bond on file' };
   if (auth.bus_ctry_code && auth.bus_ctry_code !== 'US') return { keep: false, reason: 'not a US business address' };
+  // US brokers only (freight compliance scope): a state that is not a US state/territory code is not a US address.
+  if (auth.bus_state_code && !isUsStateCode(auth.bus_state_code)) return { keep: false, reason: 'not a US business address' };
   if (!mcNumber(auth.docket_number)) return { keep: false, reason: 'no MC docket' };
   if (!census) return { keep: false, reason: 'no census record' };
   if (census.status_code && census.status_code !== 'A') return { keep: false, reason: 'census record inactive' };

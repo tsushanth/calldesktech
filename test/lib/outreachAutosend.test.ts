@@ -29,7 +29,7 @@ function fake(all: World | Partial<Record<Lane, World>>) {
         select: (_s: string, o?: { head?: boolean }) => { c.head = !!o?.head; return q; },
         eq: (k: string, v: unknown) => { c.eq[k] = v; return q; },
         in: () => { c.hasIn = true; return q; },
-        or: (f: string) => { laneNow = f.includes('kreativekoala') ? 'kk' : f.includes('readaloud') ? 'readaloud' : 'calldesk'; return q; }, gte: () => q, not: () => q, like: () => q, limit: () => q,
+        or: (f: string) => { laneNow = f.includes('kreativekoala') ? 'kk' : f.includes('readaloud') ? 'readaloud' : 'calldesk'; return q; }, gte: () => q, gt: () => q, lte: () => q, not: () => q, like: () => q, limit: () => q,
         order: (col: string) => { c.order.push(col); return q; },
         then: (res: (v: unknown) => unknown) => res(handler(c)),
       };
