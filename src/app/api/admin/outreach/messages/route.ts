@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/supabase';
 import { requireAdminSession } from '@/lib/outreach/adminAuth';
 import { getPublishedSample } from '@/lib/outreach/samples';
+import { computeArmStats } from '@/lib/outreach/freight';
 import { capResetLabel, dailyCap, sentTodayCount, startOfDayInTz } from '@/lib/outreach/sender';
 
 // GET /api/admin/outreach/messages?status=draft — the review queue, with the
@@ -59,5 +60,21 @@ export async function GET(request: NextRequest) {
   } else {
     sentToday = await sentTodayCount(supabase, product);
   }
-  return NextResponse.json({ messages: data, sampleTitle, sampleTitles, sentToday, cap: dailyCap(product), resets: capResetLabel() });
+  // Freight experiment (migration 067): first-email sent/reply counts per arm. Tolerates the column not existing yet.
+  let armStats: ReturnType<typeof computeArmStats> = [];
+  if (grouped && (!vertical || vertical === 'freight')) {
+    try {
+      const { data: armRows, error: armErr } = await supabase
+        .from('calldesk_outreach_messages')
+        .select('experiment_arm, lead:calldesk_outreach_leads(replied_at)')
+        .eq('status', 'sent').eq('step', 1).eq('product', 'calldesk:freight').not('experiment_arm', 'is', null).limit(5000);
+      if (!armErr) {
+        armStats = computeArmStats(((armRows ?? []) as unknown as { experiment_arm: string; lead: { replied_at: string | null } | { replied_at: string | null }[] | null }[]).map((m) => {
+          const lead = Array.isArray(m.lead) ? m.lead[0] : m.lead;
+          return { experiment_arm: m.experiment_arm, replied: !!lead?.replied_at };
+        }));
+      }
+    } catch { /* stats are best-effort */ }
+  }
+  return NextResponse.json({ messages: data, armStats, sampleTitle, sampleTitles, sentToday, cap: dailyCap(product), resets: capResetLabel() });
 }

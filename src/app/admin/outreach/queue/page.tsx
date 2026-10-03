@@ -11,6 +11,7 @@ interface Message {
   status: string;
   error: string | null;
   step: number;
+  experiment_arm?: string | null;
   sources?: string[];
   translation_subject?: string | null;
   translation_body?: string | null;
@@ -96,6 +97,7 @@ export default function OutreachQueuePage() {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState<string | null>(null);
   const [notice, setNotice] = useState<{ text: string; ok: boolean } | null>(null);
+  const [armStats, setArmStats] = useState<{ arm: string; sent: number; replied: number; replyRate: number }[]>([]);
   const [quota, setQuota] = useState<{ sentToday: number; cap: number; resets: string } | null>(null);
   const [vertical, setVertical] = useState<string>('');
   const [sampleTitles, setSampleTitles] = useState<Record<string, string | null>>({});
@@ -124,6 +126,7 @@ export default function OutreachQueuePage() {
       setMessages(body.messages ?? []);
       setSampleTitle(typeof body.sampleTitle === 'string' ? body.sampleTitle : null);
       setSampleTitles(body.sampleTitles ?? {});
+      setArmStats(Array.isArray(body.armStats) ? body.armStats : []);
       setQuota({ sentToday: body.sentToday, cap: body.cap, resets: body.resets });
     }
     setLoading(false);
@@ -358,6 +361,11 @@ export default function OutreachQueuePage() {
         </div>
       )}
 
+      {tab !== 'forms' && armStats.length > 0 && (
+        <p className="rounded-lg border border-purple-100 bg-purple-50 px-3 py-2 text-[12.5px] text-purple-800">
+          Freight experiment, first emails sent / replied: {armStats.map((a) => `${a.arm} ${a.sent} / ${a.replied} (${(a.replyRate * 100).toFixed(1)}%)`).join(' · ')}
+        </p>
+      )}
       {tab !== 'forms' && messages.map((m) => {
         const draft = edits[m.id] ?? { subject: m.subject, body_text: m.body_text };
         const editable = m.status === 'draft';
@@ -368,6 +376,7 @@ export default function OutreachQueuePage() {
                 <p className="text-[14px] font-semibold">
                   {m.lead?.company_name ?? 'Unknown'}
                   {m.step > 1 && <span className="ml-2 rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-medium text-amber-700">follow-up #{m.step - 1}</span>}
+                  {m.experiment_arm && <span className="ml-2 rounded-full bg-purple-50 px-2 py-0.5 text-[11px] font-medium text-purple-700" title="Freight experiment arm (free_week = one-week pilot offer, demo = 15-minute demo ask)">arm: {m.experiment_arm}</span>}
                   {m.lead?.replied_at && <span className="ml-2 rounded-full bg-green-50 px-2 py-0.5 text-[11px] font-medium text-green-700">replied</span>}
                   {verticalLabel(m.product) && (
                     <span className="ml-2 rounded-full bg-gray-100 px-2 py-0.5 text-[11px] font-medium text-gray-600">{verticalLabel(m.product)}</span>

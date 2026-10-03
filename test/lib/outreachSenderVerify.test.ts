@@ -18,7 +18,7 @@ function fake() {
         then: (res: (v: unknown) => unknown) => res({ count: 0 }),
         maybeSingle: async () => table === 'calldesk_outreach_messages'
           ? { data: { id: MSG_ID, status: 'approved', product: 'calldesk:freight', lead_id: 'l1', to_email: 'Info@Dead.co', subject: 'S', body_text: 'Hi' }, error: null }
-          : table === 'calldesk_outreach_leads' ? { data: { id: 'l1', region_blocked: false, signals: {} }, error: null } : { data: null, error: null },
+          : table === 'calldesk_outreach_leads' ? { data: { id: 'l1', region_blocked: false, signals: {}, source_key: 'freight:mc:1' }, error: null } : { data: null, error: null },
         update: (v: unknown) => { updates.push({ table, v }); return { eq: async () => ({ error: null }) }; },
         upsert: async (v: unknown) => { upserts.push(v); return { error: null }; },
       };

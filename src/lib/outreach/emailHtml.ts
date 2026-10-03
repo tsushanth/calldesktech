@@ -2,6 +2,8 @@
 // output is byte-for-byte what sender.ts historically built; with a sample a
 // compact table-based transcript card is inserted between body and footer.
 
+import { withUtm, type UtmContext } from './utm';
+
 export interface EmailSample {
   title: string;
   durationLabel?: string;
@@ -21,6 +23,9 @@ export interface RenderInput {
   // Link to the product's hosted pitch deck. Shown even when there is no sample card
   // (sample.deckUrl still wins when both are set, so it stays inside the card).
   deckUrl?: string | null;
+  // When set, every link above (sample, deck, site) is UTM-tagged by the one helper in utm.ts, in both the
+  // HTML and the text alternative. The footer (unsubscribe) is never tagged. Unset = links untouched.
+  utm?: UtmContext;
 }
 
 const CARD_MAX_LINES = 6;
@@ -67,7 +72,20 @@ function renderCard(sample: EmailSample, lines: EmailSample['lines']): string {
   );
 }
 
-export function renderOutreachEmail(input: RenderInput): { html: string; text: string } {
+function tagLinks(input: RenderInput): RenderInput {
+  const utm = input.utm;
+  if (!utm) return input;
+  const tag = (u: string) => withUtm(u, utm);
+  return {
+    ...input,
+    sample: input.sample ? { ...input.sample, url: tag(input.sample.url), deckUrl: input.sample.deckUrl ? tag(input.sample.deckUrl) : input.sample.deckUrl } : input.sample,
+    deckUrl: input.deckUrl ? tag(input.deckUrl) : input.deckUrl,
+    site: input.site ? { ...input.site, url: tag(input.site.url) } : input.site,
+  };
+}
+
+export function renderOutreachEmail(rawInput: RenderInput): { html: string; text: string } {
+  const input = tagLinks(rawInput);
   const { bodyText, footer, sample, site } = input;
   const paragraphs = String(bodyText)
     .split(/\n{2,}/)

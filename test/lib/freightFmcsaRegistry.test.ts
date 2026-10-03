@@ -7,8 +7,14 @@ const census: CensusRow = { dot_number: '2229942', legal_name: 'COUNTY LINE TRAN
 
 describe('FMCSA broker phone loading', () => {
   it('formats the census phone and rejects implausible numbers', () => {
-    expect(censusPhone(census)).toBe('(630) 554-6101');
-    expect(censusPhone({ phone: '1-630-554-6101' })).toBe('(630) 554-6101');
+    expect(censusPhone(census)).toBe('+16305546101');
+    expect(censusPhone({ phone: '1-630-554-6101' })).toBe('+16305546101');
+    // bus_telno from the authority file is used when the census has no valid phone, or none at all
+    expect(censusPhone(undefined, '2032650921')).toBe('+12032650921');
+    expect(censusPhone({ phone: '555' }, '2032650921')).toBe('+12032650921');
+    expect(censusPhone({ phone: '6305546101' }, '2032650921')).toBe('+16305546101');
+    expect(censusPhone({ phone: '2125550123' })).toBeNull(); // fictional 555-01XX range
+    expect(censusPhone({ phone: '9005551234' })).toBeNull(); // premium-rate area code
     expect(censusPhone({ phone: '0000000000' })).toBeNull();
     expect(censusPhone({ phone: '1111111111' })).toBeNull();
     expect(censusPhone({ phone: '555' })).toBeNull();
@@ -31,7 +37,7 @@ describe('FMCSA broker phone loading', () => {
     if (!ev.keep) throw new Error('expected keep');
     const lead = toFmcsaRegistryLead(auth, census, ev);
     expect(lead.sourceKey).toBe('freight:mc:443795');
-    expect(lead.phone).toBe('(630) 554-6101');
+    expect(lead.phone).toBe('+16305546101');
     expect(lead.email).toBe('terryv@clttransport.com');
     expect(lead.callerPhoneExcluded).toBeNull();
   });

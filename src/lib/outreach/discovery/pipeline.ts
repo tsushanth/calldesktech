@@ -2,6 +2,9 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { sendEmail } from '@/lib/email';
 import { adminEmails } from '../config';
 import { draftAgencyEmail, draftFollowUpEmail } from '../agencyDraft';
+import { armForLead, passesFreightUsGuard, isFreightProduct } from '../freight';
+import { followUpAutoApprove, followUpDailyCap, followUpDelayDays, followUpDraftProblem, followUpPerRunCap, isFollowUpDue } from '../followUps';
+import { dailyCap } from '../sender';
 import { fetchDirectory } from './retellDirectory';
 import { findAgencyDomain } from './findDomain';
 import { findContact, type ContactForm } from './contactPages';
@@ -114,6 +117,10 @@ export interface RunSummary {
   draftsCreated: number;
   formDrafts?: number;
   followUpsCreated: number;
+  // Of followUpsCreated, how many were auto-approved (OUTREACH_FOLLOWUP_AUTOAPPROVE) and so go to autosend.
+  followUpsAutoApproved?: number;
+  // Dry run only: follow-ups that WOULD be drafted now (nothing is drafted or written).
+  followUpPlan?: { company: string; step: number; arm: string | null; autoApprove: boolean }[];
   phoneBackfilled: number;
   researched: number;
   lowFit: number;
@@ -234,6 +241,10 @@ export async function runDiscovery(db: Db, opts: RunOptions = {}): Promise<RunSu
     // that's already sitting there ready to go out.
     if (!stop()) await stageDraft(db, summary, dryRun, draftLimit, stop, researchOn, product);
     if (!stop() && product.vertical) await stageFormDrafts(db, summary, dryRun, draftLimit, stop, product);
+    // Follow-ups run right after first-touch drafting for the same reason drafting moved up: a slow
+    // discovery pass used to burn the whole deadline first, so this stage (the last one) never ran and only
+    // ~11 follow-ups were drafted against ~175 due.
+    if (!stop()) await stageFollowUp(db, summary, dryRun, stop, product);
 
     const { entries, index } = await stageDirectory(db, summary, dryRun, product);
     const searchEntries = stop() ? [] : await stageSearch(db, summary, dryRun, index, stop, product);
@@ -259,7 +270,6 @@ export async function runDiscovery(db: Db, opts: RunOptions = {}): Promise<RunSu
     // up on a FUTURE run -- a one-run lag, not a correctness issue (same convergence pattern every
     // other stage here already has).
     if (researchOn && !stop()) await stageResearch(db, summary, dryRun, opts.researchLimit ?? 5, stop, product);
-    if (!stop()) await stageFollowUp(db, summary, dryRun, stop, product);
   } catch (error) {
     summary.status = 'error';
     summary.errors.push(error instanceof Error ? error.message : String(error));
@@ -1000,8 +1010,12 @@ const BULK_REGISTRY_SOURCES: Record<string, { products: string[]; load: (product
 
 export const BULK_REGISTRY_SOURCE_IDS = Object.keys(BULK_REGISTRY_SOURCES);
 
+// Freight is a US-brokers-only vertical (compliance scope, see freight.ts): these non-US sources list
+// freight in their `products` for historical reasons but are never offered for it.
+const FREIGHT_NON_US_SOURCES = new Set(['uk-dvsa', 'no-brreg']);
+
 export function bulkRegistrySourcesFor(product: ProductConfig): string[] {
-  return BULK_REGISTRY_SOURCE_IDS.filter((id) => BULK_REGISTRY_SOURCES[id].products.includes(product.id));
+  return BULK_REGISTRY_SOURCE_IDS.filter((id) => BULK_REGISTRY_SOURCES[id].products.includes(product.id) && !(isFreightProduct(product.id) && FREIGHT_NON_US_SOURCES.has(id)));
 }
 
 // One-off bulk import of a whole email-bearing registry instead of the daily capped window.
@@ -1180,6 +1194,8 @@ async function stageEnrich(
   const candidates = entries
     .filter((e) => e.row.status !== 'dead' && !e.row.region_blocked)
     .filter((e) => enrichRowFilter?.(e.row) ?? true)
+    // Freight is US brokers only: never spend website/contact lookups on a non-US freight lead.
+    .filter((e) => passesFreightUsGuard(product.id, e.row))
     .filter((e) => !(enrichGuessMode === 'only' && e.row.signals?.domainGuess))
     .filter((e) => !e.row.enriched_at || (e.row.contact_status !== 'found' && new Date(e.row.enriched_at).getTime() < recheckBefore))
     .sort((a, b) => (b.row.score ?? 0) - (a.row.score ?? 0))
@@ -1382,6 +1398,10 @@ export function resolvePhoneBackfillCap(raw: string | undefined): number {
   return Math.min(1000, Math.max(0, Number.isFinite(n) && n >= 0 ? Math.floor(n) : DEFAULT_PHONE_BACKFILL_MAX));
 }
 
+// Applies to every product including freight (scoped by scopeToProduct; the cap env is shared). For freight the
+// FMCSA phone is loaded at discovery and by scripts/backfill-freight-phones.mjs; this website scrape only
+// fills what those left. HUMAN CALLS ONLY: leads.phone is read by the human caller tooling alone, never by
+// an automated or AI-voice dialer (see freight.ts).
 async function stagePhoneBackfill(db: Db, summary: RunSummary, dryRun: boolean, stop: () => boolean, product: ProductConfig) {
   if (dryRun) return;
   const max = resolvePhoneBackfillCap(process.env.OUTREACH_PHONE_BACKFILL_MAX_PER_RUN);
@@ -1392,7 +1412,7 @@ async function stagePhoneBackfill(db: Db, summary: RunSummary, dryRun: boolean, 
     .is('signals->>phoneCheckedAt', null), product)
     .order('score', { ascending: false }).limit(max);
 
-  const leads = (data ?? []) as LeadRow[];
+  const leads = ((data ?? []) as LeadRow[]).filter((l) => passesFreightUsGuard(product.id, l));
   // Each lead is an independent HTTP fetch (findContact), not an LLM call, so this parallelizes
   // cleanly -- was one-at-a-time before, which meant raising `max` alone barely moved throughput
   // within a run's remaining time budget.
@@ -1458,7 +1478,7 @@ async function stageResearch(db: Db, summary: RunSummary, dryRun: boolean, limit
   }
 }
 
-async function stageDraft(db: Db, summary: RunSummary, dryRun: boolean, limit: number, stop: () => boolean, researchOn = false, product: ProductConfig = calldesk) {
+export async function stageDraft(db: Db, summary: RunSummary, dryRun: boolean, limit: number, stop: () => boolean, researchOn = false, product: ProductConfig = calldesk) {
   if (dryRun) return;
   if (limit <= 0) return;
   let query = scopeToProduct(db.from(leadsTable(product)).select('*')
@@ -1486,6 +1506,9 @@ async function stageDraft(db: Db, summary: RunSummary, dryRun: boolean, limit: n
   const queued = leads.filter((lead) => {
     const email = (lead.contact_email ?? '').toLowerCase();
     if (!email || drafted.has(lead.id) || emailed.has(email) || suppressed.has(email)) return false;
+    // Freight is US brokers only: existing non-US freight leads (DVSA, Norway, ...) are never drafted,
+    // whatever their stored state, so this needs no change to production data.
+    if (!passesFreightUsGuard(product.id, lead)) return false;
     drafted.add(lead.id);
     emailed.add(email);
     return true;
@@ -1498,17 +1521,23 @@ async function stageDraft(db: Db, summary: RunSummary, dryRun: boolean, limit: n
   for (let i = 0; made < limit && i < queued.length && !stop(); i += concurrency) {
     const batch = queued.slice(i, i + Math.min(concurrency, limit - made));
     const settled = await Promise.allSettled(batch.map(async (lead) => {
+      // Experiment arm (freight only, OUTREACH_FREIGHT_EXPERIMENT=on): stored in experiment_arm, NOT in
+      // `variant`, which already means plain/sample for the sample-call A/B (see migration 067).
+      const arm = armForLead(product.id, lead.id);
       const draft = await draftAgencyEmail({
         name: lead.company_name, domain: lead.domain, tier: lead.tier, location: lead.location, description: lead.description,
-        dossier: lead.research ?? null, product,
+        dossier: lead.research ?? null, product, arm,
       });
-      const { error } = await db.from(messagesTable(product)).insert({
+      const row = {
         lead_id: lead.id, to_email: (lead.contact_email ?? '').toLowerCase(), subject: draft.subject, body_text: draft.body, status: 'draft',
         sources: lead.research?.sources ?? [],
         translation_subject: draft.translationSubject ?? null, translation_body: draft.translationBody ?? null,
         ...productInsertFields(product),
-      });
-      if (error) throw new Error(error.message);
+      };
+      const { error } = await db.from(messagesTable(product)).insert(arm ? { ...row, experiment_arm: arm } : row);
+      // Column not there yet (migration 067 unapplied): fail loudly instead of silently sending an
+      // unattributed email under an arm-specific offer.
+      if (error) throw new Error(arm && /experiment_arm/i.test(error.message) ? `experiment_arm column missing: apply migration 067 or unset OUTREACH_FREIGHT_EXPERIMENT (${error.message})` : error.message);
       await db.from(leadsTable(product)).update({ status: 'report_generated', updated_at: new Date().toISOString() }).eq('id', lead.id);
     }));
     for (let j = 0; j < batch.length; j++) {
@@ -1527,7 +1556,7 @@ async function stageFormDrafts(db: Db, summary: RunSummary, dryRun: boolean, lim
   const { data } = await scopeToProduct(db.from(leadsTable(product)).select('*')
     .eq('status', 'new').eq('contact_status', 'form_only').eq('region_blocked', false).gte('score', MIN_DRAFT_SCORE), product)
     .order('score', { ascending: false }).limit(200);
-  const leads = ((data ?? []) as LeadRow[]).filter((l) => l.signals?.contactForm && !l.signals?.formOutreach);
+  const leads = ((data ?? []) as LeadRow[]).filter((l) => l.signals?.contactForm && !l.signals?.formOutreach && passesFreightUsGuard(product.id, l));
   let made = 0;
   for (const lead of leads) {
     if (made >= limit || stop()) break;
@@ -1549,54 +1578,137 @@ async function stageFormDrafts(db: Db, summary: RunSummary, dryRun: boolean, lim
   }
 }
 
-// Follow-ups: most people don't reply to a single cold email. A lead whose
-// last message was sent (and never marked replied_at, which only a human
-// reviewing the queue sets — there is no automated reply detection) gets a
-// short follow-up drafted after a delay, capped at MAX_FOLLOWUPS touches
-// total. Off entirely if OUTREACH_MAX_FOLLOWUPS is set to 0 or less.
-const DEFAULT_FOLLOWUP_DELAY_DAYS = 4;
+// Follow-ups: most people don't reply to a single cold email. A lead whose last message was SENT (and
+// never marked replied_at, which the inbound-reply webhook or a human sets) gets a short follow-up after a
+// delay, capped at maxFollowUps touches in total. Off entirely if OUTREACH_MAX_FOLLOWUPS is set to 0.
+//
+// Cadence is counted from the FIRST email: step 2 on day 4, step 3 on day 9 (the final close-the-loop
+// note); see followUps.ts. For products where followUpAutoApprove() is true (freight by default) the new
+// follow-up is inserted already 'approved' and goes out through autosend's normal pacing, daily caps, health
+// pause and per-send checks (suppression, bounce, replied_at). OUTREACH_FOLLOWUP_AUTOAPPROVE=0 turns that
+// off and every follow-up lands as a draft for manual approval, as before. A draft that fails the guardrails
+// in followUpDraftProblem() is left as a draft even when auto-approve is on.
+const MAX_FOLLOWUP_SCAN_PAGES = 20;
+const FOLLOWUP_SCAN_PAGE = 500;
+const IN_CHUNK = 100;
 const DEFAULT_MAX_FOLLOWUPS = 3;
 
-async function stageFollowUp(db: Db, summary: RunSummary, dryRun: boolean, stop: () => boolean, product: ProductConfig) {
-  if (dryRun) return;
-  const delayDays = Math.max(1, Number(process.env.OUTREACH_FOLLOWUP_DELAY_DAYS) || DEFAULT_FOLLOWUP_DELAY_DAYS);
-  // Number(undefined) is NaN, and `??` does not treat NaN as absent (only null/undefined
-  // are) -- so an unset env var must be checked with isNaN, not `||`/`??`, or it silently
-  // stays NaN and `!maxFollowUps` (NaN is falsy) makes this stage a permanent no-op.
-  const rawMaxFollowUps = Number(process.env.OUTREACH_MAX_FOLLOWUPS);
-  const maxFollowUps = Math.max(0, Number.isNaN(rawMaxFollowUps) ? (product.vertical?.defaultMaxFollowUps ?? DEFAULT_MAX_FOLLOWUPS) : rawMaxFollowUps);
+interface DueFollowUp {
+  lead: LeadRow;
+  latest: { subject: string; to_email: string; step: number | null };
+  nextStep: number;
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const chunked = <T,>(xs: T[]): T[][] => { const out: T[][] = []; for (let i = 0; i < xs.length; i += IN_CHUNK) out.push(xs.slice(i, i + IN_CHUNK)); return out; };
+
+export function resolveMaxFollowUps(product: ProductConfig, raw = process.env.OUTREACH_MAX_FOLLOWUPS): number {
+  // Number(undefined) is NaN, and `??` does not treat NaN as absent (only null/undefined are), so an unset
+  // env var must be checked with isNaN or `!maxFollowUps` (NaN is falsy) makes the stage a permanent no-op.
+  const rawMax = Number(raw);
+  return Math.max(0, Number.isNaN(rawMax) ? (product.vertical?.defaultMaxFollowUps ?? DEFAULT_MAX_FOLLOWUPS) : rawMax);
+}
+
+// Finds the leads whose next touch is due now. Read-only. Pages through SENT messages oldest first and
+// groups by lead, instead of the old "first 200 leads with status sent" window: that window kept returning
+// the same already-handled leads, so the due ones further down were never reached.
+export async function findDueFollowUps(db: Db, product: ProductConfig, now: Date, maxFollowUps: number, want: number, stop: () => boolean = () => false): Promise<DueFollowUp[]> {
+  const delay = followUpDelayDays();
+  const cutoff = new Date(now.getTime() - delay * 86_400_000).toISOString();
+  const due: DueFollowUp[] = [];
+  const seen = new Set<string>();
+  for (let page = 0; page < MAX_FOLLOWUP_SCAN_PAGES && due.length < want && !stop(); page++) {
+    const { data: sent, error } = await scopeToProduct(db.from(messagesTable(product)).select('lead_id, step, sent_at')
+      .eq('status', 'sent').lt('step', maxFollowUps).lte('sent_at', cutoff), product)
+      .order('sent_at', { ascending: true }).order('id', { ascending: true }).range(page * FOLLOWUP_SCAN_PAGE, (page + 1) * FOLLOWUP_SCAN_PAGE - 1);
+    if (error) throw new Error(error.message);
+    const rows = (sent ?? []) as { lead_id: string }[];
+    const fresh = [...new Set(rows.map((r) => r.lead_id))].filter((id) => !seen.has(id));
+    fresh.forEach((id) => seen.add(id));
+    for (const ids of chunked(fresh)) {
+      if (due.length >= want) break;
+      const [{ data: leadRows }, { data: msgRows }] = await Promise.all([
+        scopeToProduct(db.from(leadsTable(product)).select('*').in('id', ids).eq('status', 'sent').eq('region_blocked', false).is('replied_at', null), product),
+        db.from(messagesTable(product)).select('lead_id, step, status, subject, to_email, sent_at').in('lead_id', ids).neq('status', 'rejected'),
+      ]);
+      const leads = (leadRows ?? []) as LeadRow[];
+      if (!leads.length) continue;
+      const msgs = (msgRows ?? []) as { lead_id: string; step: number | null; status: string; subject: string; to_email: string; sent_at: string | null }[];
+      const emails = [...new Set(msgs.map((m) => String(m.to_email).toLowerCase()))];
+      // Suppression is global by email (no product column), as in sender.ts: hard bounces, spam complaints and unsubscribes all land here.
+      const { data: supData } = await db.from(suppressionsTable(product)).select('email').in('email', emails);
+      const suppressed = new Set(((supData ?? []) as { email: string }[]).map((x) => String(x.email).toLowerCase()));
+      for (const lead of leads) {
+        if (due.length >= want) break;
+        if (!passesFreightUsGuard(product.id, lead)) continue;
+        const mine = msgs.filter((m) => m.lead_id === lead.id).sort((x, y) => (y.step ?? 1) - (x.step ?? 1));
+        const latest = mine[0];
+        if (!latest || latest.status !== 'sent' || !latest.sent_at) continue; // a pending draft/approved step is still in flight
+        if (suppressed.has(String(latest.to_email).toLowerCase())) continue;
+        const nextStep = (latest.step ?? 1) + 1;
+        if (nextStep > maxFollowUps) continue; // sequence exhausted
+        const firstSentAt = mine.filter((m) => m.status === 'sent' && m.sent_at).map((m) => m.sent_at as string).sort()[0] ?? null;
+        if (!isFollowUpDue(nextStep, { firstSentAt, latestSentAt: latest.sent_at }, now, delay)) continue;
+        due.push({ lead, latest: { subject: latest.subject, to_email: latest.to_email, step: latest.step }, nextStep });
+      }
+    }
+    if (rows.length < FOLLOWUP_SCAN_PAGE) break;
+  }
+  return due;
+}
+
+export async function stageFollowUp(db: Db, summary: RunSummary, dryRun: boolean, stop: () => boolean, product: ProductConfig) {
+  const maxFollowUps = resolveMaxFollowUps(product);
   if (!maxFollowUps) return;
+  const autoApprove = followUpAutoApprove(product.id);
+  const now = new Date();
 
-  let budget = Infinity;
+  let budget = followUpPerRunCap();
+  if (autoApprove && !dryRun) {
+    // Do not stack up approved follow-ups faster than autosend can send them (it sends at most
+    // followUpDailyCap() a day): keep roughly two days' worth waiting, no more, so none goes stale.
+    const { count } = await scopeToProduct(db.from(messagesTable(product)).select('id', { count: 'exact', head: true }).eq('status', 'approved').gt('step', 1), product);
+    budget = Math.min(budget, Math.max(0, followUpDailyCap(dailyCap(product.sharedTableProductValue ?? 'calldesk')) * 2 - (count ?? 0)));
+  }
+  if (budget <= 0) return;
 
-  const cutoff = new Date(Date.now() - delayDays * 86_400_000).toISOString();
-  const { data: leads } = await scopeToProduct(db.from(leadsTable(product)).select('*')
-    .eq('status', 'sent').eq('region_blocked', false).is('replied_at', null), product).limit(200);
-  if (!leads?.length) return;
+  let due: DueFollowUp[];
+  try {
+    due = await findDueFollowUps(db, product, now, maxFollowUps, budget, stop);
+  } catch (error) {
+    summary.errors.push(`follow-up scan: ${error instanceof Error ? error.message : String(error)}`);
+    return;
+  }
 
-  for (const lead of leads as LeadRow[]) {
-    if (budget <= 0 || stop()) break;
+  if (dryRun) {
+    summary.followUpPlan = due.map((d) => ({ company: d.lead.company_name, step: d.nextStep, arm: armForLead(product.id, d.lead.id), autoApprove }));
+    return;
+  }
+
+  for (const { lead, latest, nextStep } of due) {
+    if (stop()) break;
     try {
-      const { data: msgs } = await db.from(messagesTable(product)).select('*').eq('lead_id', lead.id).neq('status', 'rejected').order('step', { ascending: false });
-      const latest = msgs?.[0];
-      if (!latest || latest.status !== 'sent' || !latest.sent_at) continue; // a pending draft/approved earlier step is still in flight
-      if (latest.sent_at > cutoff) continue; // too soon
-      const nextStep = (latest.step ?? 1) + 1;
-      if (nextStep > maxFollowUps) continue; // sequence exhausted
-
+      const arm = armForLead(product.id, lead.id);
       const draft = await draftFollowUpEmail({
         name: lead.company_name, domain: lead.domain, tier: lead.tier, location: lead.location, description: lead.description,
-        dossier: lead.research ?? null, previousSubject: latest.subject, step: nextStep, isFinal: nextStep >= maxFollowUps, product,
+        dossier: lead.research ?? null, previousSubject: latest.subject, step: nextStep, isFinal: nextStep >= maxFollowUps, product, arm,
       });
+      const problem = autoApprove ? followUpDraftProblem(product.id, arm, draft.body) : null;
+      const approve = autoApprove && !problem;
+      if (problem) summary.errors.push(`follow-up ${lead.company_name}: left as draft for review (${problem})`);
       const { error } = await db.from(messagesTable(product)).insert({
-        lead_id: lead.id, to_email: latest.to_email, subject: draft.subject, body_text: draft.body, status: 'draft',
+        lead_id: lead.id, to_email: latest.to_email, subject: draft.subject, body_text: draft.body,
+        status: approve ? 'approved' : 'draft', ...(approve ? { approved_at: new Date().toISOString() } : {}),
         step: nextStep, sources: lead.research?.sources ?? [],
         translation_subject: draft.translationSubject ?? null, translation_body: draft.translationBody ?? null,
+        ...(arm ? { experiment_arm: arm } : {}),
         ...productInsertFields(product),
       });
-      if (error) throw new Error(error.message);
-      budget--;
+      // 23505: another run already created this lead's step (unique on lead_id, step): not an error.
+      if (error && (error as { code?: string }).code !== '23505') throw new Error(error.message);
+      if (error) continue;
       summary.followUpsCreated++;
+      if (approve) summary.followUpsAutoApproved = (summary.followUpsAutoApproved ?? 0) + 1;
     } catch (error) {
       summary.errors.push(`follow-up ${lead.company_name}: ${error instanceof Error ? error.message : String(error)}`);
     }
