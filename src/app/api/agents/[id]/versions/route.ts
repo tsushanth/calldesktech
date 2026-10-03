@@ -7,6 +7,7 @@ import { authorizeResource } from '@/lib/authz';
 import { normalizeLanguage, LANGUAGE_VALUES } from '@/lib/languages';
 import { validateModelChoice } from '@/lib/modelCatalog';
 import { resolveTierForPublish } from '@/lib/pricingTiers';
+import { TIER_OVERRIDE_FIELDS } from '@/lib/versionCarryOver';
 
 // For every 'subflow_ref' node, snapshot the referenced subflow's current
 // nodes straight into that node's own params — server.js executes purely
@@ -116,6 +117,7 @@ export async function POST(
     llmModel: requestedLlmModel,
     ttsModel: requestedTtsModel,
     tier: requestedTier,
+    tierOverrides: requestedTierOverrides,
     wizardConfig,
   } = body as {
     flowName: string;
@@ -130,6 +132,7 @@ export async function POST(
     llmModel?: string;
     ttsModel?: string;
     tier?: unknown;
+    tierOverrides?: unknown;
     wizardConfig?: Record<string, unknown>;
   };
 
@@ -159,7 +162,12 @@ export async function POST(
   // With no tier this is a pass-through, so the request behaves exactly as it did before tiers existed.
   const tierResult = resolveTierForPublish({ tier: requestedTier, voiceEngine, llmModel: requestedLlmModel, ttsModel: requestedTtsModel, ttsBackend: requestedTtsBackend });
   if (!tierResult.ok) return NextResponse.json({ error: tierResult.error }, { status: 400 });
-  const { llmModel, ttsModel, ttsBackend, tier, overrides: tierOverrides } = tierResult;
+  const { llmModel, ttsModel, ttsBackend, tier } = tierResult;
+  // A version rebuilt from an older one (restore, Copilot accept) passes the original's tier_overrides, which replace the ones derived
+  // above: the tier's stack may have changed since, and comparing the old models to the new stack would mislabel them as overrides.
+  const tierOverrides: string[] = tier && Array.isArray(requestedTierOverrides)
+    ? requestedTierOverrides.filter((f): f is string => typeof f === 'string' && (TIER_OVERRIDE_FIELDS as readonly string[]).includes(f))
+    : tierResult.overrides;
 
   // A tiered agent must never run unbilled: if this tier's Stripe price is not configured, refuse before anything is written.
   if (tier && !tierBillingConfigured(tier)) {

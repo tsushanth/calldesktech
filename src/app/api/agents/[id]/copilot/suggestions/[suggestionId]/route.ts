@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/supabase';
 import type { FlowNode } from '@/types';
 import { authorizeResource } from '@/lib/authz';
+import { carryOverFromVersion } from '@/lib/versionCarryOver';
 
 // PATCH /api/agents/[id]/copilot/suggestions/[suggestionId] — resolve a
 // single Copilot suggestion.
@@ -93,13 +94,10 @@ export async function PATCH(
         voiceEngine: latestVersion.voice_engine,
         retellAgentId: latestVersion.retell_agent_id,
         retellLlmId: latestVersion.retell_llm_id,
-        voiceId: latestVersion.voice_id,
-        ttsBackend: latestVersion.tts_backend,
         // Carry the pricing tier and model choices forward, or accepting a suggestion would silently drop them (and, with a tier dropped,
         // re-sync the subscription's voice price from the backend).
-        tier: latestVersion.tier || undefined,
-        llmModel: latestVersion.llm_model || undefined,
-        ttsModel: latestVersion.tts_model || undefined,
+        // Values the catalog no longer accepts are dropped rather than failing the accept.
+        ...carryOverFromVersion(latestVersion).body,
         wizardConfig: latestVersion.wizard_config,
       }),
     });
