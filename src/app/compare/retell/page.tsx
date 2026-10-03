@@ -29,7 +29,7 @@ const ROWS: { group: string; item: string; verdict: Verdict; note: string }[] = 
   { group: 'Tools & data', item: 'MCP server authentication', verdict: 'Ahead', note: 'Real OAuth 2.1 login for external MCP clients. Retell’s is unconfirmed beyond existing.' },
   { group: 'Tools & data', item: 'Knowledge base, custom functions, calendar booking', verdict: 'Have', note: 'Comparable depth on both sides.' },
   { group: 'After the call', item: 'Customizable dashboards', verdict: 'Gap', note: 'Retell shipped user-configurable dashboards; ours aren’t configurable yet.' },
-  { group: 'Pricing', item: 'Price per minute', verdict: 'Have', note: `${HEADLINE_WITH_QUALIFIER} Retell stacks voice, LLM, telephony, and text-to-speech separately, blending to roughly $0.07–$0.31 depending on what you pick. The ranges overlap, so this is a comparison of structure rather than a win either way: our tiers bundle the language model and voice into one per-minute rate, and Pro adds phone numbers.` },
+  { group: 'Pricing', item: 'Price per minute', verdict: 'Have', note: `${HEADLINE_WITH_QUALIFIER} Retell lists $0.07 to $0.31 per minute depending on configuration, and its own pricing-page example comes to about $0.11 per minute. The ranges overlap, so this is a comparison of structure rather than a win either way: our tiers bundle the language model and voice into one per-minute rate, and Pro adds phone numbers.` },
   { group: 'Pricing', item: 'Free tier', verdict: 'Gap', note: 'Retell gives new accounts $10 in credit and 20 free concurrent calls. We don’t have a free tier yet.' },
   { group: 'Team & access', item: 'White-labeling', verdict: 'Neither', note: 'Confirmed absent on both sides.' },
 ];
@@ -63,12 +63,13 @@ export default function RetellComparePage() {
             <p className="mt-2 text-[20px] font-normal leading-[1.3] tracking-[-0.03em] text-[#00122e]">Included on Pro; {CARRIER_SHORT.replace(' on Lite and Standard', '')} on Lite and Standard</p>
           </div>
           <div className="rounded-xl border border-gray-200 p-6">
-            <p className="text-[13px] font-medium text-gray-400">Retell, observed blended</p>
+            <p className="text-[13px] font-medium text-gray-400">Retell, published list price</p>
             <p className="mt-2 text-[32px] font-normal tracking-[-0.03em] text-gray-700">$0.07–$0.31<span className="text-[15px] text-gray-400">/min</span></p>
+            <p className="mt-1 text-[13px] text-gray-500">Retell’s own pricing-page example: about $0.11/min</p>
           </div>
         </div>
         <p className="mt-4 text-[12.5px] leading-[1.5] text-gray-400">
-          {HEADLINE_WITH_QUALIFIER} Add-ons are optional and priced per minute; see the pricing page for amounts. The Retell range comes from an actual account’s billing dashboard, combining their separate voice, LLM, telephony, and speech charges — not a published rate card.
+          {HEADLINE_WITH_QUALIFIER} Add-ons are optional and priced per minute; see the pricing page for amounts. Retell figures are Retell’s published list prices from retellai.com/pricing, retrieved October 1, 2026: “$0.07-$0.31 / min for AI Voice Agents”, and a worked example on the same page that comes to $0.11 per minute (LLM $0.04, voice infrastructure $0.055, text-to-speech $0.015, no telephony or add-ons). Configurations vary, so your own total will depend on the choices you make.
         </p>
       </Container>
 
