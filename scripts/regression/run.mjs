@@ -1,0 +1,70 @@
+#!/usr/bin/env node
+// Builder regression runner: publish a version, route the dedicated test number to it, have the AI shopper phone it,
+// check what the engine logged. Real calls cost money (about $0.20 each), so the default is a DRY RUN.
+//
+//   node scripts/regression/run.mjs                                   # dry run: lists scenarios, checks config, shows the spend
+//   node scripts/regression/run.mjs --scenario handbook-secret --place-calls
+//   node scripts/regression/run.mjs --place-calls --max-calls 6       # run every scenario (refuses if it would exceed the cap)
+//
+// Needs in .env: REGRESSION_NUMBER, CALL_LOOP_POC_BASE_URL, CALL_LOOP_POC_TEST_CALL_SECRET, NEXTAUTH_SECRET,
+// NEXT_PUBLIC_SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY. Secret values are never printed. Results go to out/regression/.
+import { mkdirSync, writeFileSync } from 'node:fs';
+import { resolve } from 'node:path';
+import { loadEnv, requireEnv, db, apiClient, ensureFixtures, publishVersion, routeNumber, checkSpend, recordCall, callsUsed, TOTAL_CALL_CAP, placeShopperCall, waitForCallEnd, fetchTenantCallLog, lines } from './lib.mjs';
+import { pick } from './scenarios.mjs';
+
+const args = process.argv.slice(2);
+const flag = (n) => args.includes(`--${n}`);
+const val = (n, dflt) => { const i = args.indexOf(`--${n}`); return i >= 0 ? args[i + 1] : dflt; };
+const place = flag('place-calls');
+const maxCalls = Number(val('max-calls', 8));
+const wanted = val('scenario', '') ? val('scenario').split(',').map((s) => s.trim()).filter(Boolean) : [];
+
+const env = loadEnv();
+requireEnv(env, ['REGRESSION_NUMBER', 'CALL_LOOP_POC_BASE_URL', 'CALL_LOOP_POC_TEST_CALL_SECRET', 'NEXTAUTH_SECRET', 'NEXT_PUBLIC_SUPABASE_URL', 'SUPABASE_SERVICE_ROLE_KEY']);
+const scenarios = pick(wanted);
+const spend = checkSpend({ wanted: scenarios.length, maxCalls });
+
+console.log(`Scenarios (${scenarios.length}): ${scenarios.map((s) => s.id).join(', ')}`);
+console.log(`Calls used so far: ${callsUsed()} of ${TOTAL_CALL_CAP}. ${spend.ok ? `Estimated cost of this run: about $${spend.estimateUsd}.` : `REFUSED: ${spend.reason}`}`);
+if (!place) { console.log('\nDry run only (add --place-calls to dial). Nothing was published, routed or called.'); process.exit(spend.ok ? 0 : 1); }
+if (!spend.ok) process.exit(1);
+
+const d = db(env);
+const api = await apiClient(env);
+const fx = await ensureFixtures(env, d, api);
+const results = [];
+mkdirSync(resolve(process.cwd(), 'out/regression'), { recursive: true });
+
+for (const sc of scenarios) {
+  const t0 = Date.now();
+  let res = { id: sc.id, title: sc.title, status: 'error', failures: [], knownIssue: sc.knownIssue || null };
+  try {
+    const versionId = await publishVersion(api, fx, sc);
+    await routeNumber(api, fx, versionId);
+    const since = new Date(Date.now() - 5000).toISOString();
+    const sid = await placeShopperCall(env, { number: fx.number, persona: sc.persona });
+    recordCall();
+    await waitForCallEnd(env, sid);
+    const log = await fetchTenantCallLog(d, fx.tenantId, since);
+    if (!log) { res.failures = ['no call log appeared for the test tenant (did the call reach the engine?)']; }
+    else {
+      res.failures = sc.assert(log);
+      res.durationSeconds = log.duration_seconds;
+      res.transcript = lines(log).slice(0, 40);
+    }
+    res.status = res.failures.length === 0 ? 'pass' : 'fail';
+  } catch (e) {
+    res.failures = [e instanceof Error ? e.message : String(e)];
+  }
+  res.seconds = Math.round((Date.now() - t0) / 1000);
+  const label = res.status === 'pass' ? (sc.knownIssue ? 'FIXED (was a known issue)' : 'pass') : (sc.knownIssue ? 'still failing (known)' : res.status.toUpperCase());
+  console.log(`  ${label.padEnd(26)} ${sc.id}  (${res.seconds}s)${res.failures.length ? `\n      ${res.failures.join('\n      ')}` : ''}`);
+  results.push(res);
+}
+
+const stamp = new Date().toISOString().replace(/[:.]/g, '-');
+writeFileSync(resolve(process.cwd(), `out/regression/${stamp}.json`), JSON.stringify({ ranAt: stamp, results }, null, 2));
+const bad = results.filter((r) => r.status !== 'pass' && !r.knownIssue);
+console.log(`\n${results.filter((r) => r.status === 'pass').length}/${results.length} passed; ${bad.length} unexpected failure(s). Details: out/regression/${stamp}.json`);
+process.exit(bad.length ? 1 : 0);
