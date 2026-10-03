@@ -22,6 +22,7 @@ import { initialLiveCallState, nextLiveCallState, type LiveCallState } from '@/l
 import CopilotPanel from '@/components/flow-builder/CopilotPanel';
 import TierPicker from '@/components/flow-builder/TierPicker';
 import { tierById, type TierId } from '@/lib/pricingTiers';
+import { initialTierForBuilder, readStoredPlan, clearStoredPlan } from '@/lib/planSelection';
 import { LLM_MODELS, ttsModelsFor, DEFAULT_LLM_MODEL } from '@/lib/modelCatalog';
 import { carryOverFromVersion } from '@/lib/versionCarryOver';
 
@@ -313,6 +314,7 @@ export default function AgentBuilderPage() {
 
   useEffect(() => {
     let cancelled = false;
+    let loadedExisting = false;
     (async () => {
       try {
         const res = await fetch(`/api/agents/${agentId}/versions`);
@@ -329,10 +331,17 @@ export default function AgentBuilderPage() {
         if (loadedNodes.length === 0) return;
 
         applyVersionToBuilder(latest, flowBody.flow?.global_settings || {}, loadedNodes);
+        loadedExisting = true;
         setShowEditor(true);
       } catch {
         // Falls through to the template picker.
       } finally {
+        // A brand-new agent (nothing to load): preselect the plan chosen on /pricing. Existing agents keep what they have, and the Lite
+        // voice-quality acceptance stays unticked (lowerQualityAccepted is never touched here).
+        if (!loadedExisting && !cancelled) {
+          const pre = initialTierForBuilder({ storedPlan: readStoredPlan() });
+          if (pre) setTier(pre);
+        }
         if (!cancelled) setIsCheckingExisting(false);
       }
     })();
@@ -921,6 +930,7 @@ export default function AgentBuilderPage() {
       });
       const body = await res.json();
       if (!res.ok) throw new Error(body.error);
+      if (tier) clearStoredPlan();
       track('agent_version_created', { voice_engine: voiceEngine });
       trackBuilder('version_published', { voice_engine: voiceEngine, node_count: cleanNodes.length, version_number: body.version.version_number });
       setShowFeedback(true);
@@ -1408,7 +1418,7 @@ export default function AgentBuilderPage() {
                       {channel === 'voice' && voiceEngine === 'poc' && (
                         <TierPicker
                           value={tier}
-                          onChange={(next) => { setTier(next); setLowerQualityAccepted(false); setLlmModel(''); setTtsModel(''); setTtsBackend(''); }}
+                          onChange={(next) => { setTier(next); if (!next) clearStoredPlan(); setLowerQualityAccepted(false); setLlmModel(''); setTtsModel(''); setTtsBackend(''); }}
                           lowerQualityAccepted={lowerQualityAccepted}
                           onLowerQualityAcceptedChange={setLowerQualityAccepted}
                           advanced={

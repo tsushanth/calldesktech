@@ -52,7 +52,8 @@ describe('/pricing page wiring', () => {
     expect(HEADLINE_WITH_QUALIFIER).toContain('all available now');
   });
   it('the session lives only in the checkout island, which keeps the checkout logic', () => {
-    const island = read('src/components/pricing/GetStartedButton.tsx');
+    expect(read('src/components/pricing/GetStartedButton.tsx')).toMatch(/^'use client'/);
+    const island = read('src/components/pricing/useStartCheckout.ts');
     expect(island).toMatch(/^'use client'/);
     expect(island).toContain("fetch('/api/checkout'");
     expect(island).toContain("activeTenantId || localStorage.getItem('calldesk_business_id')");

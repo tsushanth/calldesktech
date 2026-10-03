@@ -1,11 +1,11 @@
 import type { ReactNode } from 'react';
 import Link from 'next/link';
-import { PRICING_TIERS, ADD_ONS, CARRIER_NOTE } from '@/lib/pricingTiers';
+import { PRICING_TIERS, ADD_ONS, CARRIER_NOTE, type TierId } from '@/lib/pricingTiers';
 import { LITE_CENTS, centsLabel } from '@/lib/pricingCopy';
 import { PricingCalculator } from '@/components/pricing/PricingCalculator';
 
 // Server-rendered body of /pricing. `cta` is the checkout button (a client island, see GetStartedButton) so everything else is plain HTML.
-export function PricingContent({ cta }: { cta: ReactNode }) {
+export function PricingContent({ cta, planCta }: { cta: ReactNode; planCta?: (plan: TierId) => ReactNode }) {
   return (
     <main className="bg-white py-14 px-4 md:py-20">
       <div className="max-w-5xl mx-auto">
@@ -59,6 +59,7 @@ export function PricingContent({ cta }: { cta: ReactNode }) {
                   ))}
                 </ul>
                 {soon && <p className="mt-auto pt-5 text-[13px] font-medium text-gray-500">Not available to start yet.</p>}
+                {!soon && planCta && <div className="mt-auto pt-6" data-testid={`plan-cta-${t.id}`}>{planCta(t.id)}</div>}
               </section>
             );
           })}
