@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/supabase';
 import { getRetellClient } from '@/lib/retell';
 import { authorizeTenant } from '@/lib/authz';
+import { parseTenantUpdates, protectServerManagedSettings } from '@/lib/tenantUpdates';
 
 // GET/PATCH a single tenant, server-side (service role) — src/lib/api.ts's
 // getTenant/updateTenant used to hit calldesk_tenants directly from the
@@ -40,7 +41,14 @@ export async function PATCH(
 
   const { id } = await params;
   const supabase = getSupabaseAdmin();
-  const updates = await request.json();
+  const parsed = parseTenantUpdates(await request.json().catch(() => null));
+  if (!parsed.ok) return NextResponse.json({ error: parsed.error }, { status: 400 });
+  const updates = parsed.updates;
+  if (updates.settings) {
+    // Keep server-managed keys (billing/activation flags) out of the tenant's reach, whatever it sends.
+    const { data: current } = await supabase.from('calldesk_tenants').select('settings').eq('id', id).maybeSingle();
+    updates.settings = protectServerManagedSettings(current?.settings, updates.settings as Record<string, unknown>);
+  }
   const { data, error } = await supabase
     .from('calldesk_tenants')
     .update(updates)

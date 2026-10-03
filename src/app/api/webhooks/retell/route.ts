@@ -7,10 +7,17 @@ import { dispatchWebhookEvent } from '@/lib/webhooks';
 import { syncCallToHubSpot } from '@/lib/crmSync';
 import { runAndStorePostCallAnalysis } from '@/lib/postCallAnalysis';
 import type { RetellWebhookEvent } from '@/types';
+import { verifyRetellSignature } from '@/lib/retellSignature';
 
 export async function POST(request: NextRequest) {
   try {
-    const event = (await request.json()) as RetellWebhookEvent;
+    // Fail closed: without a valid Retell signature nobody can create call logs, store recording URLs or fire a
+    // tenant's webhooks and alerts just by knowing (or guessing) an agent id.
+    const rawBody = await request.text();
+    if (!verifyRetellSignature(rawBody, process.env.RETELL_API_KEY, request.headers.get('x-retell-signature'))) {
+      return NextResponse.json({ error: 'Invalid signature' }, { status: 401 });
+    }
+    const event = JSON.parse(rawBody) as RetellWebhookEvent;
     const supabase = getSupabaseAdmin();
 
     // Find tenant by agent ID

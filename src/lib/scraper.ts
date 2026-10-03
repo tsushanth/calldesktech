@@ -1,5 +1,6 @@
 import * as cheerio from 'cheerio';
 import { chromium } from 'playwright-core';
+import { safeFetch, validateUrlShape, type GuardDeps } from '@/lib/safeFetch';
 
 // Our own website-knowledge-base scraper — used for 'poc'-engine tenants so
 // building a knowledge base never depends on (or pays for) Retell's API.
@@ -117,11 +118,16 @@ function extractItemsFromHtml(html: string, url: string): ScrapedItem[] {
   return items;
 }
 
-async function fetchStatic(url: string): Promise<string> {
-  const res = await fetch(url, {
+const SCRAPE_MAX_BYTES = 5_000_000;
+
+// The URL comes from a tenant, so every request goes through safeFetch: public http(s) destinations only, redirects
+// re-checked per hop, size and time capped (see safeFetch.ts).
+async function fetchStatic(url: string, guardDeps?: GuardDeps): Promise<string> {
+  const res = await safeFetch(url, {
     headers: { 'User-Agent': 'Mozilla/5.0 (compatible; CallDeskTechBot/1.0; +https://calldesktech.com)' },
-    signal: AbortSignal.timeout(15000),
-  });
+    timeoutMs: 15000,
+    maxBytes: SCRAPE_MAX_BYTES,
+  }, guardDeps);
   if (!res.ok) throw new Error(`Failed to fetch ${url}: HTTP ${res.status}`);
   return res.text();
 }
@@ -138,20 +144,56 @@ async function fetchStatic(url: string): Promise<string> {
 // Dockerfile — since playwright-core ships no browser of its own and its
 // own downloaded builds don't run on musl/Alpine); unset locally, where
 // playwright-core finds its shared ms-playwright cache automatically.
-async function fetchRendered(url: string): Promise<string> {
+// `guardDeps` is a test-only seam (see test/lib/scraperGuard.test.ts); no route passes it.
+export async function fetchRendered(url: string, guardDeps?: GuardDeps): Promise<string> {
   const browser = await chromium.launch({
     executablePath: process.env.CHROMIUM_EXECUTABLE_PATH || undefined,
-    args: ['--no-sandbox', '--disable-dev-shm-usage'], // required inside the container's restricted /dev/shm
+    // --proxy-server points at a dead port: nothing Chromium tries to open itself (a WebSocket, a prefetch, WebRTC)
+    // can reach any network. Every normal request is answered by the route handler below instead.
+    args: ['--no-sandbox', '--disable-dev-shm-usage', '--proxy-server=http://127.0.0.1:9', '--proxy-bypass-list=<-loopback>'],
   });
   try {
-    const page = await browser.newPage({
+    const context = await browser.newContext({
       userAgent: 'Mozilla/5.0 (compatible; CallDeskTechBot/1.0; +https://calldesktech.com)',
+      serviceWorkers: 'block',
     });
+    // Chromium never connects to anything itself. Each request (the page, redirects, scripts, XHR, images) is fetched
+    // by safeFetch, which refuses private/internal destinations and re-checks the address at connect time, and the
+    // answer is handed back to the page. A page that tries to reach an internal address gets a blocked request.
+    await context.route('**/*', async (route) => {
+      const request = route.request();
+      const requestUrl = request.url();
+      try {
+        validateUrlShape(requestUrl); // http(s) only; data:/blob: never reach here, file:/ftp: etc. are refused
+        const res = await safeFetch(requestUrl, {
+          method: request.method(),
+          headers: pickRequestHeaders(request.headers()),
+          body: request.postDataBuffer(),
+          timeoutMs: 15000,
+          maxBytes: SCRAPE_MAX_BYTES,
+        }, guardDeps);
+        const headers: Record<string, string> = {};
+        res.headers.forEach((value, key) => {
+          if (!['content-length', 'content-encoding', 'transfer-encoding', 'connection', 'keep-alive'].includes(key)) headers[key] = value;
+        });
+        await route.fulfill({ status: res.status, headers, body: Buffer.from(await res.arrayBuffer()) });
+      } catch {
+        await route.abort('blockedbyclient').catch(() => {});
+      }
+    });
+    await context.routeWebSocket(/.*/, (ws) => { void ws.close(); });
+    const page = await context.newPage();
     await page.goto(url, { waitUntil: 'networkidle', timeout: 20000 });
     return await page.content();
   } finally {
     await browser.close();
   }
+}
+
+// Only headers the page legitimately controls. Cookies and credentials never leave the browser context.
+function pickRequestHeaders(all: Record<string, string>): Record<string, string> {
+  const keep = ['accept', 'accept-language', 'content-type', 'user-agent', 'referer', 'origin'];
+  return Object.fromEntries(Object.entries(all).filter(([k]) => keep.includes(k.toLowerCase())));
 }
 
 // Renders first, not as a conditional fallback: tried a "static fetch,
@@ -165,9 +207,10 @@ async function fetchRendered(url: string): Promise<string> {
 // document), not a hot path, so paying the real cost of a full render
 // every time is the right trade for actual correctness over a heuristic
 // that already demonstrated it can't be trusted.
-export async function scrapeUrl(url: string): Promise<ScrapedItem[]> {
+export async function scrapeUrl(url: string, guardDeps?: GuardDeps): Promise<ScrapedItem[]> {
+  validateUrlShape(url); // refuse before launching a browser: non-http(s), credentials, localhost, private literals
   try {
-    const renderedHtml = await fetchRendered(url);
+    const renderedHtml = await fetchRendered(url, guardDeps);
     const renderedItems = extractItemsFromHtml(renderedHtml, url);
     if (renderedItems.length > 0) return renderedItems;
   } catch (err) {
@@ -177,7 +220,7 @@ export async function scrapeUrl(url: string): Promise<ScrapedItem[]> {
   // Rendering can legitimately fail (site blocks headless browsers, a
   // Chromium launch issue, a network timeout) — static fetch as a last
   // resort rather than losing the document entirely.
-  const staticHtml = await fetchStatic(url);
+  const staticHtml = await fetchStatic(url, guardDeps);
   const staticItems = extractItemsFromHtml(staticHtml, url);
   if (staticItems.length === 0) {
     throw new Error(`No extractable text content found on ${url}`);

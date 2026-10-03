@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/supabase';
 import { authorizeResource } from '@/lib/authz';
+import { safeFetch, SsrfBlockedError } from '@/lib/safeFetch';
 
 // GET /api/calls/[id]/recording — streams a call's audio to the browser.
 // Three paths:
@@ -11,6 +12,8 @@ import { authorizeResource } from '@/lib/authz';
 //    (calldesktech now holds its own Twilio credentials).
 //
 // Also updates recording_downloaded_at for audit.
+const RECORDING_MAX_BYTES = 100_000_000;
+
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -31,8 +34,14 @@ export async function GET(
 
   try {
     if (call.voice_engine === 'retell' && call.recording_url) {
-      // Retell recordings are public-signed URLs — fetch directly.
-      upstream = await fetch(call.recording_url);
+      // Retell recordings are public-signed URLs. The stored URL came from a webhook, so it is treated as untrusted:
+      // https only, public destinations only (safeFetch), audio content only, size capped.
+      if (!call.recording_url.startsWith('https://')) return NextResponse.json({ error: 'Recording not available' }, { status: 404 });
+      upstream = await safeFetch(call.recording_url, { timeoutMs: 30000, maxBytes: RECORDING_MAX_BYTES });
+      const type = upstream.headers.get('content-type') || '';
+      if (upstream.ok && !/^(audio\/|application\/octet-stream)/i.test(type)) {
+        return NextResponse.json({ error: 'Recording not available' }, { status: 502 });
+      }
     } else if (call.voice_engine === 'poc' && call.recording_url) {
       // Legacy poc path: proxy through call-loop-poc.
       const baseUrl = process.env.CALL_LOOP_POC_BASE_URL;
@@ -76,7 +85,9 @@ export async function GET(
       },
     });
   } catch (err) {
-    const message = err instanceof Error ? err.message : 'Failed to fetch recording';
-    return NextResponse.json({ error: message }, { status: 502 });
+    // Never echo what a blocked or failed fetch said: it would tell a tenant what lives at an internal address.
+    if (err instanceof SsrfBlockedError) return NextResponse.json({ error: 'Recording not available' }, { status: 404 });
+    console.error('[recording] fetch failed:', err);
+    return NextResponse.json({ error: 'Failed to fetch recording' }, { status: 502 });
   }
 }
