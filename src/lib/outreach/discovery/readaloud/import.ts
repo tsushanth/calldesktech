@@ -29,6 +29,9 @@ import { loadGithubOrgs } from './githubOrgs';
 import { loadJobsSignal, type Company } from './jobsSignal';
 import { loadWpPlugins, loadFirefoxTts } from './marketplaces';
 import { loadHnLaunches } from './hnLaunches';
+import { loadElevenlabsCustomers } from './elevenlabsCustomers';
+import { loadYcMedia } from './ycMedia';
+import { loadGithubPublishers } from './githubPublishers';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Db = SupabaseClient<any>;
@@ -83,6 +86,12 @@ export const RA_SOURCES: Record<RaSourceId, { what: string; load: (ctx: LoadCont
   'ra-wp-plugins': { what: 'WordPress text-to-speech plugin publishers (>=1000 installs)', load: (c) => loadWpPlugins(c.http) },
   'ra-firefox-tts': { what: 'Firefox text-to-speech add-on publishers (>=5000 daily users)', load: (c) => loadFirefoxTts(c.http) },
   'ra-hn-launches': { what: 'Hacker News voice/speech product launches', load: (c) => loadHnLaunches(c.http) },
+  'ra-elevenlabs-customers': { what: 'ElevenLabs customer stories (large enterprises scored down)', load: (c) => loadElevenlabsCustomers(c.http, { log: c.log }) },
+  'ra-yc-media': { what: 'Y Combinator education/gaming/media/audio/accessibility companies', load: (c) => loadYcMedia(c.http) },
+  'ra-github-publishers': {
+    what: 'GitHub organisations publishing WordPress/CMS text-to-speech and audio-version tools',
+    load: (c) => loadGithubPublishers(c.http, { log: c.log, searchPages: num(c.env.RA_GITHUB_SEARCH_PAGES, 2), maxOrgs: num(c.env.RA_GITHUB_MAX_ORGS, 300) }),
+  },
 };
 
 export function isRaSource(id: string): id is RaSourceId {

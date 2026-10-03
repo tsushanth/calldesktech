@@ -193,7 +193,7 @@ is Delaware and never Germany.
   `arquivos.receitafederal.gov.br` and the mirrors all refused or timed out from here. Not built.
 
 ## readaloud bulk lead sources (`bulk-import.ts`, `src/lib/outreach/discovery/readaloud/`)
-Eight one-off sources of readaloud leads (companies building on realtime speech). They go through
+Eleven one-off sources of readaloud leads (companies building on realtime speech, plus the audio-by-default segments: ad/audio production, publishers, e-learning/accessibility, games/apps). They go through
 `bulk-import.ts` like the registries, but through a sibling importer (`readaloud/import.ts`) rather than
 `BULK_REGISTRY_SOURCES`: they are not registries (no licence/phone/city for `registryLeadRow`), they must not
 take the international registry hold (readaloud's daily stages apply only the DACH block), and the job signal
@@ -210,6 +210,9 @@ are unused).
 | `ra-wp-plugins` | WordPress TTS plugin publishers, >=1000 installs. **Blocked by robots.txt** (see below) | directory |
 | `ra-firefox-tts` | Firefox TTS add-on publishers, >=5000 daily users | directory |
 | `ra-hn-launches` | Show HN voice/speech launches, story URL domain only | search |
+| `ra-elevenlabs-customers` | customer stories on ElevenLabs' site (`/customer-stories` -> `/blog/<slug>` -> the customer's own website). Very large enterprises (Meta, Vimeo, Deutsche Telekom, Twilio, Klarna, Revolut, ...) are scored DOWN, mid-size kept | directory |
+| `ra-yc-media` | active YC education/e-learning/language-learning, gaming, media/podcast/audiobook, audio and accessibility companies (same mirror as `ra-yc-voice`; voice companies are left to it) | directory |
+| `ra-github-publishers` | GitHub ORGS publishing WordPress/CMS text-to-speech, "listen to this article", "audio version" or narration tools | search |
 
     PRODUCT=readaloud SOURCE=ra-yc-voice NO_DB=1 ./node_modules/.bin/tsx bulk-import.ts    # counts, no DB at all
     PRODUCT=readaloud SOURCE=ra-yc-voice DRY_RUN=1 ./node_modules/.bin/tsx bulk-import.ts  # counts, deduped against the DB
@@ -240,6 +243,16 @@ boards of every readaloud lead already in the DB, so it covers what the others a
   so the source stops at the robots check and reports it. The plugins API is a documented public API, so whether
   robots.txt should govern it is a policy call; the parsers are built and tested, and nothing else changes if
   that call is made.
+- **The three segment sources.** `ra-elevenlabs-customers`: vendor is a scoring fact only (+20; -10 net for the
+  large-enterprise list), never in the description. robots.txt allows `/customer-stories` and `/blog/` (checked
+  2026-10-02). The index only server-renders the first ~26 stories (the rest sit behind a client-side "Load More",
+  not fetched), and stories that link no customer site are skipped. `ra-yc-media`: one request (the same JSON as
+  `ra-yc-voice`), uses the company's own one-liner, reuses the key `readaloud:yc:<slug>` so a company already imported
+  by `ra-yc-voice` is merged into, never double-inserted; companies `ra-yc-voice` would produce are not emitted.
+  `ra-github-publishers`: org-owned repos only via the REST search API, then `GET /orgs/<login>`; the only address
+  stored is a role mailbox (info@, support@, ...) the org itself publishes on its profile at its own domain, never
+  commit-author or member emails. Same env as `ra-github-orgs` (`GITHUB_TOKEN` or `gh auth token`,
+  `RA_GITHUB_SEARCH_PAGES`, `RA_GITHUB_MAX_ORGS` default 300 here).
 - **Personal data.** Only organisations. GitHub: org accounts only, and only what the org itself publishes (name,
   blog, public email, location, description); GitHub's terms bar using personal data from the site for
   marketing. HN: the company's own URL/name/pitch only, never the poster or commenters, never an address from a
