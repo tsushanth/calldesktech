@@ -59,7 +59,7 @@ export function detectContactForm(html: string, pageUrl: string): ContactForm | 
 }
 
 const EMAIL_RE = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g;
-const JUNK_LOCALPARTS = ['noreply', 'no-reply', 'donotreply', 'privacy', 'abuse', 'postmaster', 'webmaster', 'unsubscribe', 'legal', 'careers', 'jobs', 'press'];
+const JUNK_LOCALPARTS = ['noreply', 'no-reply', 'donotreply', 'privacy', 'security', 'abuse', 'postmaster', 'webmaster', 'unsubscribe', 'legal', 'careers', 'jobs', 'press'];
 const JUNK_DOMAINS = ['example.com', 'sentry.io', 'wixpress.com', 'godaddy.com', 'domain.com', 'email.com', 'yourdomain.com'];
 const PREFERRED = ['partners', 'partnership', 'hello', 'hi', 'contact', 'info', 'sales', 'team', 'support'];
 const IMAGE_EXT = /\.(png|jpe?g|gif|svg|webp|avif)$/i;
