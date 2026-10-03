@@ -477,8 +477,8 @@ describe('readaloud import: dedupe, merge, idempotence', () => {
     expect(plan.inserts[0]).not.toHaveProperty('contact_email');
   });
 
-  it('registers exactly the eight source ids', () => {
-    expect(Object.keys(RA_SOURCES).sort()).toEqual(['ra-cartesia-customers', 'ra-deepgram-customers', 'ra-firefox-tts', 'ra-github-orgs', 'ra-hn-launches', 'ra-jobs-signal', 'ra-wp-plugins', 'ra-yc-voice']);
+  it('registers exactly the eleven source ids', () => {
+    expect(Object.keys(RA_SOURCES).sort()).toEqual(['ra-cartesia-customers', 'ra-deepgram-customers', 'ra-elevenlabs-customers', 'ra-firefox-tts', 'ra-github-orgs', 'ra-github-publishers', 'ra-hn-launches', 'ra-jobs-signal', 'ra-wp-plugins', 'ra-yc-media', 'ra-yc-voice']);
     expect(isRaSource('fl-dfs')).toBe(false);
   });
 

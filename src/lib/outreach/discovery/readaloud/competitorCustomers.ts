@@ -30,14 +30,14 @@ export function parseCustomerSlugs(html: string): string[] {
 }
 
 // Hosts that appear on case-study pages but are never the customer.
-const CASE_STUDY_NOISE = [
+export const CASE_STUDY_NOISE = [
   'googletagmanager.com', 'visualwebsiteoptimizer.com', 'sanity.io', 'luma.com', 'lu.ma', 'calendly.com', 'cal.com', 'status.io',
   'hubspot.com', 'hsforms.com', 'typeform.com', 'vimeo.com', 'wistia.net', 'cloudfront.net', 'amazonaws.com', 'webflow.com', 'website-files.com',
   'framer.com', 'framerusercontent.com', 'g2.com', 'gartner.com', 'techcrunch.com', 'businesswire.com', 'prnewswire.com', 'forbes.com',
   // CMS / asset CDNs (a case-study PDF link is not the customer's site)
   'datocms-assets.com', 'ctfassets.net', 'contentful.com', 'imgix.net', 'cloudinary.com', 'prismic.io', 'storyblok.com', 'jsdelivr.net', 'unpkg.com',
 ];
-const ASSET_LINK = /\.(pdf|png|jpe?g|gif|svg|webp|mp4|mov|zip)(\?|#|$)/i;
+export const ASSET_LINK =/\.(pdf|png|jpe?g|gif|svg|webp|mp4|mov|zip)(\?|#|$)/i;
 
 // The customer's website: the most-linked external org host on the page, with
 // a strong preference for a host whose name appears in the slug.
