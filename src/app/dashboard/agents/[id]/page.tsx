@@ -1418,6 +1418,7 @@ export default function AgentBuilderPage() {
                                 >
                                   <option value="">{tier ? 'Chosen by your plan' : 'Default (CallDeskTech)'}</option>
                                   <option value="kokoro">CallDeskTech</option>
+                                  <option value="piper">Piper</option>
                                   <option value="elevenlabs">ElevenLabs</option>
                                   <option value="cartesia">Cartesia</option>
                                   <option value="minimax">MiniMax</option>

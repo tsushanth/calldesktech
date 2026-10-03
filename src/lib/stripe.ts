@@ -41,7 +41,7 @@ export const STRIPE_CONFIG = {
 // whenever a poc-engine version sets a tts_backend, so the subscription's
 // voice line item always matches what's actually configured.
 //
-// All four backends (kokoro/elevenlabs/cartesia/minimax) have a
+// All five backends (kokoro/elevenlabs/cartesia/minimax/piper) have a
 // USAGE_PRICES.voice entry — see the comment there for how the cartesia/
 // minimax rates were derived. This still no-ops gracefully for any future
 // backend added without a price yet, same "don't guess" behavior as no

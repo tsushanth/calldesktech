@@ -8,7 +8,7 @@ import { POST } from '@/app/api/webhooks/inbound-reply/route';
 
 type Row = { data: unknown; error: unknown };
 
-function makeSupabaseMock(queueByTable: Record<string, Row[]>) {
+function makeSupabaseMock(queueByTable: Record<string, Row[]>, rpcResult?: Row) {
   return {
     from(table: string) {
       const queue = queueByTable[table] ?? [];
@@ -21,6 +21,9 @@ function makeSupabaseMock(queueByTable: Record<string, Row[]>) {
       (builder as unknown as PromiseLike<unknown>).then = (resolve: (v: unknown) => unknown, reject?: (e: unknown) => unknown) =>
         Promise.resolve(result).then(resolve, reject);
       return builder;
+    },
+    rpc(_name: string, _params?: Record<string, unknown>) {
+      return Promise.resolve(rpcResult ?? { data: 1, error: null });
     },
   };
 }

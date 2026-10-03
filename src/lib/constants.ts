@@ -95,6 +95,7 @@ export type CallStatus = keyof typeof CALL_STATUSES;
 export const USAGE_PRICES = {
   voice: {
     kokoro: 'price_1UHXOqKFBTQTkmztIPlG72Wy',
+    piper: 'price_1UHXOqKFBTQTkmztIPlG72Wy',
     elevenlabs: 'price_1UHXOrKFBTQTkmzt8nJK5u1b',
     cartesia: 'price_1UHXOrKFBTQTkmztD1ehUQFd',
     minimax: 'price_1UCszEKFBTQTkmztXKqkApW7',
@@ -106,7 +107,7 @@ export const USAGE_PRICES = {
 
 export const PRICING = {
   usage: {
-    voicePerMinute: { kokoro: 0.10, elevenlabs: 0.12, cartesia: 0.12, minimax: 0.16 },
+    voicePerMinute: { kokoro: 0.10, piper: 0.10, elevenlabs: 0.12, cartesia: 0.12, minimax: 0.16 },
     perBookingEvent: 0.007,
     perTransferEvent: 0.01,
     perMessageEvent: 0.004,

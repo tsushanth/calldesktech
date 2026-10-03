@@ -16,7 +16,7 @@ export interface TenantVoice {
   language: string;
   accent: string | null;
   engine: 'poc' | 'retell';
-  tts_backend: 'kokoro' | 'elevenlabs' | 'cartesia' | 'minimax' | null;
+  tts_backend: 'kokoro' | 'elevenlabs' | 'cartesia' | 'minimax' | 'piper' | null;
   sample_url: string | null;
   is_active: boolean;
   metadata: Record<string, unknown>;
@@ -31,7 +31,7 @@ export interface CreateTenantVoiceInput {
   language?: string;
   accent?: string;
   engine?: 'poc' | 'retell';
-  ttsBackend?: 'kokoro' | 'elevenlabs' | 'cartesia' | 'minimax';
+  ttsBackend?: 'kokoro' | 'elevenlabs' | 'cartesia' | 'minimax' | 'piper';
   sampleUrl?: string;
   metadata?: Record<string, unknown>;
 }

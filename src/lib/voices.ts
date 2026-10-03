@@ -14,7 +14,7 @@ export interface VoiceDef {
   language: string;
   accent?: string;
   engine: 'poc' | 'retell';
-  tts_backend?: 'kokoro' | 'elevenlabs' | 'cartesia' | 'minimax';
+  tts_backend?: 'kokoro' | 'elevenlabs' | 'cartesia' | 'minimax' | 'piper';
   sample_url?: string;
 }
 

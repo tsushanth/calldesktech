@@ -131,7 +131,7 @@ export interface Agent {
 // a Stripe usage price (see USAGE_PRICES in lib/constants.ts) — that's a
 // real billing decision, made once there's an account and a real rate to
 // price against, not invented here.
-export type TtsBackend = 'kokoro' | 'elevenlabs' | 'cartesia' | 'minimax';
+export type TtsBackend = 'kokoro' | 'elevenlabs' | 'cartesia' | 'minimax' | 'piper';
 
 export interface AgentVersion {
   id: string;

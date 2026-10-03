@@ -58,7 +58,7 @@ export function getModelCatalog() {
     ttsModels: TTS_MODELS,
     notes: [
       'llmModel applies to agents on the in-house voice engine (voiceEngine "poc"). If the engine cannot use the chosen model (for example its provider key is not configured) or the provider fails before the agent speaks, the default model answers, so the call still works.',
-      'ttsModel must belong to the agent’s voice backend (ttsBackend). The kokoro and minimax backends have no model choice.',
+      'ttsModel must belong to the agent’s voice backend (ttsBackend). The kokoro, piper, and minimax backends have no model choice.',
       'Individual flow nodes can override the model with params.model.',
       'Most people never need this list: publish with a pricing tier (tier "standard" or "pro", see GET /pricing) and the right models are chosen for you. Models you set explicitly override the tier’s choice.',
     ],

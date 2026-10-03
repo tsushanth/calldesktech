@@ -87,7 +87,7 @@ server.registerTool('publish_agent_version', {
     voiceEngine: z.enum(['poc', 'retell']).default('poc'),
     globalSettings: z.record(z.any()).optional(),
     voiceId: z.string().optional(),
-    ttsBackend: z.enum(['kokoro', 'elevenlabs', 'cartesia', 'minimax']).optional(),
+    ttsBackend: z.enum(['kokoro', 'elevenlabs', 'cartesia', 'minimax', 'piper']).optional(),
     tier: z.enum(['lite', 'standard', 'pro']).optional().describe('Pricing tier (voiceEngine poc only). Call list_pricing_tiers. The tier picks the models and voice for you. "lite" is coming soon and is rejected for now. Omit to keep the flat per-minute price of the voice backend.'),
     llmModel: z.string().optional().describe('Advanced: overrides the tier. Language model that runs the agent (voiceEngine poc only). Call list_model_options for valid ids. Omit to let the tier (or the default, claude-haiku-4-5-20251001) choose.'),
     ttsModel: z.string().optional().describe('Advanced: overrides the tier. Voice model within ttsBackend (elevenlabs or cartesia only). Call list_model_options for valid ids. Omit for the backend default.'),
