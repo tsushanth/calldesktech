@@ -8,7 +8,7 @@
 // values they typed are what got stored AND what the builder shows after a reload. It does NOT place a call or
 // touch Twilio/Retell (default 'poc' engine, database only). All rows belong to the throwaway user demo_e2e_smoke
 // (treated as internal everywhere) and are deleted at the end, pass or fail.
-import { BASE_URL, E2E_USER_ID, loadEnv, sessionCookie, db, launch, reporter } from './lib.mjs';
+import { BASE_URL, E2E_USER_ID, CONTEXT_OPTIONS, loadEnv, sessionCookie, db, launch, reporter } from './lib.mjs';
 
 const env = loadEnv();
 const d = db(env);
@@ -48,7 +48,7 @@ try {
     tenantId = (await d.insert('calldesk_tenants', { user_id: E2E_USER_ID, name: 'E2E Smoke (do not use)' }))[0].id;
   });
 
-  const ctx = await browser.newContext({ viewport: { width: 1500, height: 950 } });
+  const ctx = await browser.newContext({ viewport: { width: 1500, height: 950 }, ...CONTEXT_OPTIONS });
   await ctx.addCookies([await sessionCookie(env)]);
   const page = await ctx.newPage();
   const badResponses = [];

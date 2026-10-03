@@ -48,8 +48,15 @@ export function db(env) {
 
 export async function launch() {
   const executablePath = process.env.E2E_CHROME || (existsSync('/Applications/Google Chrome.app/Contents/MacOS/Google Chrome') ? '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome' : undefined);
-  return chromium.launch({ executablePath, headless: process.env.E2E_HEADED ? false : true });
+  // E2E_ANALYTICS=1 lets our own PostHog capture the run: posthog-js drops events from browsers that look automated
+// (navigator.webdriver, HeadlessChrome), which is right for visitors but hides the telemetry we want to verify.
+const args = process.env.E2E_ANALYTICS ? ['--disable-blink-features=AutomationControlled'] : [];
+  return chromium.launch({ executablePath, headless: process.env.E2E_HEADED ? false : true, args });
 }
+
+export const CONTEXT_OPTIONS = process.env.E2E_ANALYTICS
+  ? { userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36' }
+  : {};
 
 export function reporter() {
   const results = [];
