@@ -69,6 +69,15 @@ export async function POST(
   // created unattached, e.g. from a future tenant-wide library view) but
   // must be set for any knowledge_base node to actually see its content.
   const { name, source_type: sourceType, source_url: sourceUrl, agent_id: agentId } = body;
+  if (!name || typeof name !== 'string') {
+    return NextResponse.json({ error: 'name is required' }, { status: 400 });
+  }
+  if (!sourceType || !['website', 'pdf', 'manual'].includes(sourceType)) {
+    return NextResponse.json({ error: 'source_type must be one of: website, pdf, manual' }, { status: 400 });
+  }
+  if (sourceType === 'website' && (!sourceUrl || typeof sourceUrl !== 'string')) {
+    return NextResponse.json({ error: 'source_url is required for website sources' }, { status: 400 });
+  }
   if (agentId && !(await belongsToTenant('calldesk_agents', agentId, tenantId))) {
     return NextResponse.json({ error: 'agent_id not found' }, { status: 404 });
   }

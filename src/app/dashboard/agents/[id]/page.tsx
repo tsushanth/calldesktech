@@ -186,6 +186,7 @@ export default function AgentBuilderPage() {
   const [voicemailDetection, setVoicemailDetection] = useState<'' | 'hangup' | 'leave_message'>('');
   const [voicemailMessage, setVoicemailMessage] = useState('');
   const [fillerWords, setFillerWords] = useState('');
+  const [fillerWordsEnabled, setFillerWordsEnabled] = useState(true);
   // Configured {{placeholders}} (business_name, agent_name, custom). Stored in
   // globalSettings.variables; blank entries are never persisted.
   const [variables, setVariables] = useState<Record<string, string>>({});
@@ -290,6 +291,7 @@ export default function AgentBuilderPage() {
     setEndCallAfterSilenceSec(typeof gs.endCallAfterSilenceSec === 'number' ? String(gs.endCallAfterSilenceSec) : '');
     setVoicemailDetection(gs.voicemailDetection === 'hangup' || gs.voicemailDetection === 'leave_message' ? gs.voicemailDetection : '');
     setVoicemailMessage(typeof gs.voicemailMessage === 'string' ? gs.voicemailMessage : '');
+    setFillerWordsEnabled(gs.fillerWords !== false);
     setFillerWords(Array.isArray(gs.fillerWords) ? gs.fillerWords.join(', ') : '');
     setVariables(
       gs.variables && typeof gs.variables === 'object' && !Array.isArray(gs.variables)
@@ -682,8 +684,12 @@ export default function AgentBuilderPage() {
       out.voicemailDetection = voicemailDetection;
       if (voicemailDetection === 'leave_message' && voicemailMessage.trim()) out.voicemailMessage = voicemailMessage.trim();
     }
-    const fillers = fillerWords.split(',').map((w) => w.trim()).filter(Boolean);
-    if (fillers.length) out.fillerWords = fillers;
+    if (!fillerWordsEnabled) {
+      out.fillerWords = false;
+    } else {
+      const fillers = fillerWords.split(',').map((w) => w.trim()).filter(Boolean);
+      if (fillers.length) out.fillerWords = fillers;
+    }
     const vars = Object.fromEntries(Object.entries(variables).map(([k, v]) => [k, v.trim()]).filter(([, v]) => v));
     if (Object.keys(vars).length) out.variables = vars;
     const resp = num(responsiveness);
@@ -1594,8 +1600,14 @@ export default function AgentBuilderPage() {
                             </div>
                           )}
                           <div>
-                            <label className="mb-1 block text-[12.5px] font-medium text-gray-500">Filler words</label>
-                            <input value={fillerWords} onChange={(e) => setFillerWords(e.target.value)} placeholder="e.g. one moment, let me check (comma-separated; blank = off)" className="w-full rounded-lg border border-gray-200 bg-white px-3.5 py-2.5 text-[13.5px] focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100" />
+                            <label className="mb-1 block text-[12.5px] font-medium text-gray-500">Filler words during slow tool steps</label>
+                            <select value={fillerWordsEnabled ? 'on' : 'off'} onChange={(e) => setFillerWordsEnabled(e.target.value === 'on')} className="w-full rounded-lg border border-gray-200 bg-white px-3.5 py-2.5 text-[13.5px] focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100">
+                              <option value="on">On (default phrases)</option>
+                              <option value="off">Off</option>
+                            </select>
+                            {fillerWordsEnabled && (
+                              <input value={fillerWords} onChange={(e) => setFillerWords(e.target.value)} placeholder="Custom phrases, comma-separated (blank = default)" className="mt-2 w-full rounded-lg border border-gray-200 bg-white px-3.5 py-2.5 text-[13.5px] focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100" />
+                            )}
                           </div>
                           <div>
                             <label className="mb-1 block text-[12.5px] font-medium text-gray-500">Backchannel (short &ldquo;Got it.&rdquo; when the reply is slow)</label>
