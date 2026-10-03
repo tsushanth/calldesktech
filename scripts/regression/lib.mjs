@@ -128,11 +128,15 @@ export async function waitForCallEnd(env, sid, { timeoutMs = 240000 } = {}) {
 }
 
 // The tenant's own log of the inbound call (what the agent said and heard), newest first after `sinceIso`.
-export async function fetchTenantCallLog(d, tenantId, sinceIso, { waitMs = 90000 } = {}) {
+// The shopper's own call is logged under the tenant too (its to_number is the tenant's number), so every call
+// leaves a pair of rows: the business side and the shopper's side. `excludeSid` drops the shopper's row (its
+// retell_call_id is the SID place-test-call returned), leaving only what the business heard and said.
+export async function fetchTenantCallLog(d, tenantId, sinceIso, { waitMs = 90000, excludeSid = null } = {}) {
   const t0 = Date.now();
   while (Date.now() - t0 < waitMs) {
-    const rows = await d.select(`calldesk_call_logs?tenant_id=eq.${tenantId}&created_at=gte.${encodeURIComponent(sinceIso)}&select=id,transcript,duration_seconds,outcome,extracted_data,analysis,direction,created_at&order=created_at.desc&limit=1`);
-    if (rows[0]?.transcript?.length) return rows[0];
+    const rows = await d.select(`calldesk_call_logs?tenant_id=eq.${tenantId}&created_at=gte.${encodeURIComponent(sinceIso)}&select=id,retell_call_id,transcript,duration_seconds,outcome,extracted_data,analysis,direction,to_number,created_at&order=created_at.asc&limit=10`);
+    const mine = rows.filter((r) => r.retell_call_id !== excludeSid && r.transcript?.length);
+    if (mine.length) return mine[0];
     await new Promise((r) => setTimeout(r, 5000));
   }
   return null;
@@ -140,9 +144,10 @@ export async function fetchTenantCallLog(d, tenantId, sinceIso, { waitMs = 90000
 
 // Every call the tenant logged since `sinceIso` (oldest first). Used when one scenario produces several calls
 // (for example a transfer: the original call plus the leg that reaches the target).
-export async function fetchTenantLogsSince(d, tenantId, sinceIso, { settleMs = 25000 } = {}) {
+export async function fetchTenantLogsSince(d, tenantId, sinceIso, { settleMs = 25000, excludeSid = null } = {}) {
   await new Promise((r) => setTimeout(r, settleMs));
-  return d.select(`calldesk_call_logs?tenant_id=eq.${tenantId}&created_at=gte.${encodeURIComponent(sinceIso)}&select=id,transcript,duration_seconds,outcome,extracted_data,analysis,direction,to_number,created_at&order=created_at.asc&limit=10`);
+  const rows = await d.select(`calldesk_call_logs?tenant_id=eq.${tenantId}&created_at=gte.${encodeURIComponent(sinceIso)}&select=id,retell_call_id,transcript,duration_seconds,outcome,extracted_data,analysis,direction,to_number,created_at&order=created_at.asc&limit=12`);
+  return rows.filter((r) => r.retell_call_id !== excludeSid);
 }
 
 // Normalise the stored transcript into [{speaker:'agent'|'caller', text}]. For the callee's own log, 'assistant' is the agent.

@@ -52,8 +52,9 @@ for (const sc of scenarios) {
     const sid = await placeShopperCall(env, { number: fx.number, persona: sc.persona, language: sc.shopperLanguage, speakFirst: sc.speakFirst });
     recordCall();
     await waitForCallEnd(env, sid);
-    const logs = sc.needsAllLogs ? await fetchTenantLogsSince(d, fx.tenantId, since) : null;
-    const log = sc.needsAllLogs ? logs.find((l) => l.direction !== 'outbound') || logs[0] : await fetchTenantCallLog(d, fx.tenantId, since);
+    const logs = sc.needsAllLogs ? await fetchTenantLogsSince(d, fx.tenantId, since, { excludeSid: sid }) : null;
+    // For a multi-call scenario the main log is the first one that reached the number under test.
+    const log = sc.needsAllLogs ? logs.find((l) => l.to_number === fx.number) || logs[0] : await fetchTenantCallLog(d, fx.tenantId, since, { excludeSid: sid });
     if (!log) { res.failures = ['no call log appeared for the test tenant (did the call reach the engine?)']; }
     else {
       res.failures = sc.assert(log, { logs, ctx });

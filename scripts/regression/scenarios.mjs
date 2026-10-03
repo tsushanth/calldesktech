@@ -147,6 +147,36 @@ SCENARIOS.push(
   },
 );
 
+SCENARIOS.push({
+  id: 'transfer-to-number',
+  title: 'A transfer node dials the target number and the call arrives there',
+  needsAllLogs: true,
+  prepare: async ({ publish, route, fx }) => {
+    const b = fx.extra.REGRESSION_NUMBER_B;
+    if (!b) throw new Error('REGRESSION_NUMBER_B is not set in .env');
+    // The target answers with a distinctive line, so its own call log proves the transfer arrived.
+    const targetVersion = await publish({ agentId: fx.agentBId, name: 'reg-transfer-target', version: { startNodeId: 'main', nodes: [node('main', 'greeting', 'Say hello and ask how you can help.', { params: { spokenMessage: 'Transfer target reached for the regression suite.' } })], globalSettings: {} } });
+    await route(b.id, targetVersion, 'inbound');
+    return {
+      startNodeId: 'greeting',
+      nodes: [
+        node('greeting', 'greeting', 'You are the front desk at Willow Realty. Greet the caller briefly. If they ask for sales or to speak to a person, transfer them.', { edges: [{ id: 'e1', target: 'xfer', condition: 'caller asks to be transferred, or to speak to sales or a person' }] }),
+        node('xfer', 'transfer', 'Tell the caller you are connecting them to sales.', { params: { transferTo: b.number } }),
+      ],
+      globalSettings: {},
+    };
+  },
+  version: { startNodeId: 'x', nodes: [], globalSettings: {} },
+  persona: 'You are a caller who wants to speak to sales. Ask to be transferred to sales right away. Once connected to someone, say hello and then goodbye.',
+  assert: (log, { logs }) => {
+    const f = [];
+    const reached = (logs || []).some((l) => /transfer target reached/i.test(agentText(l)));
+    if (!reached) f.push('no call reached the transfer target number (no log with "Transfer target reached")');
+    if (!/connect|transfer|sales/i.test(agentText(log))) f.push('the first agent never announced the transfer');
+    return f;
+  },
+});
+
 export function pick(ids) {
   // Skipped scenarios run only when asked for by id.
   if (!ids || !ids.length) return SCENARIOS.filter((s) => !s.skip);
