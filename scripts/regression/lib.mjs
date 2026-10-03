@@ -155,3 +155,29 @@ export function lines(log) {
   return (log?.transcript || []).map((t) => ({ speaker: t.role === 'assistant' ? 'agent' : 'caller', text: String(t.content ?? t.text ?? '').replace(/\s+/g, ' ').trim() })).filter((l) => l.text);
 }
 export const agentText = (log) => lines(log).filter((l) => l.speaker === 'agent').map((l) => l.text).join(' ');
+
+// Client for the test receiver (scripts/regression/receiver): hands out URLs for one run id and reads back what the
+// engine sent to them. Needs REGRESSION_RECEIVER_URL and REGRESSION_RECEIVER_SECRET in .env.
+export function makeReceiver(env, runId) {
+  const base = env.REGRESSION_RECEIVER_URL;
+  const secret = env.REGRESSION_RECEIVER_SECRET;
+  if (!base || !secret) throw new Error('REGRESSION_RECEIVER_URL / REGRESSION_RECEIVER_SECRET are not set in .env (see scripts/regression/receiver/README.md)');
+  const headers = { 'X-Reg-Secret': secret };
+  return {
+    runId,
+    url: (kind, query = '') => `${base}/${kind}/${runId}${query}`,
+    async events({ waitMs = 8000 } = {}) {
+      const t0 = Date.now();
+      let out = [];
+      do {
+        const res = await fetch(`${base}/events/${runId}`, { headers });
+        if (res.ok) out = (await res.json()).events || [];
+        if (out.length) break;
+        await new Promise((r) => setTimeout(r, 2000));
+      } while (Date.now() - t0 < waitMs);
+      return out;
+    },
+    async clear() { await fetch(`${base}/events/${runId}`, { method: 'DELETE', headers }).catch(() => {}); },
+  };
+}
+export const newRunId = () => `r-${Math.random().toString(36).slice(2, 10)}${Date.now().toString(36)}`.slice(0, 40);

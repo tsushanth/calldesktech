@@ -24,5 +24,7 @@ version through the real API with one distinctive setting, routes a dedicated te
   trusting a pass (a check that matches too loosely passes for the wrong reason).
 - **Known limits of the AI shopper:** it cannot stay silent (it says "Silence." out loud), so the silence hang-up
   scenario is skipped until a scripted TwiML caller exists. Skipped scenarios run only when named with `--scenario`.
+- **Not observable from a transcript:** filler words and other audio-only behavior (the engine speaks them but they are
+  not stored). Checking those needs a recording and a transcription step.
 - **Known issues are scenarios too:** `knownIssue` marks a check that fails today (it is expected to); the run reports
   "FIXED" when it starts passing. Currently: `language-switch` (an English agent never hears a Spanish caller).

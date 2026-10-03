@@ -1,0 +1,9 @@
+name = "regression-receiver"
+main = "index.mjs"
+compatibility_date = "2025-01-01"
+
+# database_id is filled in after `wrangler d1 create regression-receiver` (see README.md)
+[[d1_databases]]
+binding = "DB"
+database_name = "regression-receiver"
+database_id = "a6e0f74b-2fa5-4717-bafb-67bcffcbc03e"

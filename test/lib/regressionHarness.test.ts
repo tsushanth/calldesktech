@@ -46,6 +46,26 @@ describe('scenarios', () => {
     expect(sc.assert(mk([['user', '[Call connected]'], ['assistant', 'Hello, welcome.'], ['assistant', 'Are you still there?']]))).toEqual([]);
     expect(sc.assert(mk([['user', '[Call connected]'], ['assistant', 'Hello, welcome.'], ['user', 'I need a haircut'], ['assistant', 'Sure, what day?']]))).not.toEqual([]);
   });
+  it('the webhook scenario accepts any spoken form of the returned times but needs the webhook call', () => {
+    const sc = SCENARIOS.find((s) => s.id === 'webhook-function')!;
+    const ev = [{ kind: 'hook', body: JSON.stringify({ function: 'check_availability', collectedData: {} }) }];
+    expect(sc.assert(log(['We have 10 in the morning or 2 in the afternoon.']), { events: ev })).toEqual([]);
+    expect(sc.assert(log(['We have ten o\'clock or two pm.']), { events: ev })).toEqual([]);
+    expect(sc.assert(log(['We have 10 in the morning or 2 in the afternoon.']), { events: [] })).not.toEqual([]);
+    expect(sc.assert(log(['Nothing is available.']), { events: ev })).not.toEqual([]);
+  });
+  it('the MCP scenario needs all three protocol calls, the header, and the result', () => {
+    const sc = SCENARIOS.find((s) => s.id === 'mcp-tool')!;
+    const ev = (extra: object[] = []) => [
+      { kind: 'mcp', body: JSON.stringify({ method: 'initialize' }), headers: { authorization: 'Bearer regression-token' } },
+      { kind: 'mcp', body: JSON.stringify({ method: 'notifications/initialized' }), headers: {} },
+      { kind: 'mcp', body: JSON.stringify({ method: 'tools/call', params: { name: 'lookup_order', arguments: { id: 'A-77' } } }), headers: {} },
+      ...extra,
+    ];
+    expect(sc.assert(log(['It should arrive Tuesday.']), { events: ev() })).toEqual([]);
+    expect(sc.assert(log(['It should arrive Tuesday.']), { events: ev().slice(0, 2) })).not.toEqual([]);
+    expect(sc.assert(log(['No idea.']), { events: ev() })).not.toEqual([]);
+  });
   it('pick rejects unknown ids', () => {
     expect(() => pick(['nope'])).toThrow(/unknown scenario/);
     expect(pick(['handbook-secret'])).toHaveLength(1);

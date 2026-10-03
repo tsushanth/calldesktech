@@ -177,6 +177,64 @@ SCENARIOS.push({
   },
 });
 
+const toolFlow = (toolNode, reportPrompt) => ({
+  startNodeId: 'greeting',
+  nodes: [
+    node('greeting', 'greeting', 'You are the front desk at Birch Appliance Repair. Greet the caller briefly. When they ask about appointment times or an order, look it up.', { edges: [{ id: 'e1', target: toolNode.id, condition: 'caller asks about available times or about an order' }] }),
+    { ...toolNode, edges: [{ id: 'e2', target: 'report', condition: 'the lookup has finished' }] },
+    node('report', 'greeting', reportPrompt, { edges: [] }),
+  ],
+});
+
+SCENARIOS.push(
+  {
+    id: 'webhook-function',
+    // Filler words are played as audio and do not appear in the stored transcript, so they cannot be checked here.
+    title: 'A function node posts {function, collectedData} to its webhook and the agent uses the reply',
+    needsReceiver: true,
+    prepare: async ({ receiver }) => ({
+      ...toolFlow({ id: 'check', type: 'function', function: 'check_availability', prompt: 'Check availability.', params: { webhookUrl: receiver.url('hook') } },
+        'Tell the caller the available times from the system note (read them out), then say goodbye.'),
+      globalSettings: {},
+    }),
+    version: { startNodeId: 'x', nodes: [], globalSettings: {} },
+    persona: 'You are a caller who asks what appointment times are available this week. Wait for the answer, say thanks and goodbye.' + KEEP_IT_SHORT,
+    assert: (log, { events }) => {
+      const f = []; const t = agentText(log);
+      const hook = (events || []).find((e) => e.kind === 'hook');
+      if (!hook) f.push('the webhook never received a request from the engine');
+      else {
+        let body = {}; try { body = JSON.parse(hook.body); } catch { /* checked below */ }
+        if (body.function !== 'check_availability') f.push(`the webhook body did not carry the function name (got ${JSON.stringify(body).slice(0, 80)})`);
+      }
+      // The webhook returns 10am and 2pm; the agent may say "10 AM", "10 in the morning" or "ten o'clock".
+      if (!/\b(10|ten)\b/i.test(t) || !/\b(2|two)\b/i.test(t)) f.push('the agent did not read out the times returned by the webhook (10am and 2pm)');
+      return f;
+    },
+  },
+  {
+    id: 'mcp-tool',
+    title: 'An MCP node calls the tool with its header and arguments and the agent uses the result',
+    needsReceiver: true,
+    prepare: async ({ receiver }) => toolFlow(
+      { id: 'lookup', type: 'mcp', prompt: 'Look up the order.', params: { serverUrl: receiver.url('mcp'), toolName: 'lookup_order', toolArguments: '{"id":"A-77"}', headers: '{"Authorization":"Bearer regression-token"}' } },
+      'Tell the caller the order status and the expected arrival day from the system note, then say goodbye.'),
+    version: { startNodeId: 'x', nodes: [], globalSettings: {} },
+    persona: 'You are a caller who asks where your order is. Wait for the answer, say thanks and goodbye.' + KEEP_IT_SHORT,
+    assert: (log, { events }) => {
+      const f = []; const t = agentText(log);
+      const calls = (events || []).filter((e) => e.kind === 'mcp').map((e) => { try { return JSON.parse(e.body); } catch { return {}; } });
+      const methods = calls.map((c) => c.method);
+      for (const m of ['initialize', 'notifications/initialized', 'tools/call']) if (!methods.includes(m)) f.push(`the MCP server never received ${m}`);
+      const toolCall = calls.find((c) => c.method === 'tools/call');
+      if (toolCall && (toolCall.params?.name !== 'lookup_order' || toolCall.params?.arguments?.id !== 'A-77')) f.push(`tools/call carried the wrong tool or arguments (${JSON.stringify(toolCall.params).slice(0, 100)})`);
+      if (!(events || []).some((e) => e.kind === 'mcp' && /bearer regression-token/i.test(e.headers?.authorization || ''))) f.push('the configured Authorization header did not reach the MCP server');
+      if (!/tuesday/i.test(t)) f.push('the agent did not tell the caller the arrival day from the tool result (Tuesday)');
+      return f;
+    },
+  },
+);
+
 export function pick(ids) {
   // Skipped scenarios run only when asked for by id.
   if (!ids || !ids.length) return SCENARIOS.filter((s) => !s.skip);

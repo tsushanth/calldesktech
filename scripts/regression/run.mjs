@@ -10,7 +10,7 @@
 // NEXT_PUBLIC_SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY. Secret values are never printed. Results go to out/regression/.
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { loadEnv, requireEnv, db, apiClient, ensureFixtures, publishVersion, routeNumber, checkSpend, recordCall, callsUsed, TOTAL_CALL_CAP, placeShopperCall, waitForCallEnd, fetchTenantCallLog, fetchTenantLogsSince, lines } from './lib.mjs';
+import { loadEnv, requireEnv, db, apiClient, ensureFixtures, publishVersion, routeNumber, checkSpend, recordCall, callsUsed, TOTAL_CALL_CAP, placeShopperCall, waitForCallEnd, fetchTenantCallLog, fetchTenantLogsSince, lines, makeReceiver, newRunId } from './lib.mjs';
 import { pick } from './scenarios.mjs';
 
 const args = process.argv.slice(2);
@@ -44,7 +44,8 @@ for (const sc of scenarios) {
   let res = { id: sc.id, title: sc.title, status: 'error', failures: [], knownIssue: sc.knownIssue || null };
   try {
     // `prepare` may publish helper versions (a transfer target, another agent) and return the version under test.
-    const ctx = { env, d, api, fx, publish: (opts) => publishVersion(api, fx, sc, opts), route: (numberId, versionId, direction) => routeNumber(api, numberId, versionId, direction) };
+    const receiver = sc.needsReceiver ? makeReceiver(env, newRunId()) : null;
+    const ctx = { env, d, api, fx, receiver, publish: (opts) => publishVersion(api, fx, sc, opts), route: (numberId, versionId, direction) => routeNumber(api, numberId, versionId, direction) };
     const prepared = sc.prepare ? await sc.prepare(ctx) : null;
     const versionId = await publishVersion(api, fx, sc, prepared ? { version: prepared } : {});
     await routeNumber(api, fx.numberId, versionId);
@@ -57,7 +58,9 @@ for (const sc of scenarios) {
     const log = sc.needsAllLogs ? logs.find((l) => l.to_number === fx.number) || logs[0] : await fetchTenantCallLog(d, fx.tenantId, since, { excludeSid: sid });
     if (!log) { res.failures = ['no call log appeared for the test tenant (did the call reach the engine?)']; }
     else {
-      res.failures = sc.assert(log, { logs, ctx });
+      const events = receiver ? await receiver.events() : null;
+      res.failures = sc.assert(log, { logs, ctx, events });
+      if (events) res.receiverEvents = events.map((e) => ({ kind: e.kind, method: e.method, query: e.query, body: String(e.body).slice(0, 300), authorization: e.headers?.authorization ? '(present)' : null }));
       res.durationSeconds = log.duration_seconds;
       res.transcript = lines(log).slice(0, 40);
       if (logs) res.otherCalls = logs.filter((l) => l.id !== log.id).map((l) => ({ to: l.to_number, direction: l.direction, durationSeconds: l.duration_seconds, transcript: lines(l).slice(0, 12) }));
@@ -67,6 +70,7 @@ for (const sc of scenarios) {
     res.failures = [e instanceof Error ? e.message : String(e)];
   }
   res.seconds = Math.round((Date.now() - t0) / 1000);
+  if (sc.needsReceiver && res.receiverEvents !== undefined) { /* events already captured above */ }
   const label = res.status === 'pass' ? (sc.knownIssue ? 'FIXED (was a known issue)' : 'pass') : (sc.knownIssue ? 'still failing (known)' : res.status.toUpperCase());
   console.log(`  ${label.padEnd(26)} ${sc.id}  (${res.seconds}s)${res.failures.length ? `\n      ${res.failures.join('\n      ')}` : ''}`);
   results.push(res);
