@@ -69,7 +69,7 @@ export default function RetellComparePage() {
           </div>
         </div>
         <p className="mt-4 text-[12.5px] leading-[1.5] text-gray-400">
-          {HEADLINE_WITH_QUALIFIER} Add-ons are optional and priced per minute; see the pricing page for amounts. Retell figures are Retell’s published list prices from retellai.com/pricing, retrieved October 1, 2026: “$0.07-$0.31 / min for AI Voice Agents”, and a worked example on the same page that comes to $0.11 per minute (LLM $0.04, voice infrastructure $0.055, text-to-speech $0.015, no telephony or add-ons). Configurations vary, so your own total will depend on the choices you make.
+          {HEADLINE_WITH_QUALIFIER} Our optional add-ons are coming soon and cannot be bought yet. Retell figures are Retell’s published list prices from retellai.com/pricing, retrieved October 1, 2026: “$0.07-$0.31 / min for AI Voice Agents”, and a worked example on the same page that comes to $0.11 per minute (LLM $0.04, voice infrastructure $0.055, text-to-speech $0.015, no telephony or add-ons). Configurations vary, so your own total will depend on the choices you make.
         </p>
       </Container>
 

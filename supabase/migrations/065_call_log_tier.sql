@@ -1,4 +1,4 @@
--- DRAFT, NOT APPLIED. Apply with 064_agent_version_tier.sql, before deploying the engine or web changes in docs/tiered-billing.md.
+-- Applied to production on 2026-10-02 (via the Supabase console), together with 064_agent_version_tier.sql; kept here for the record. See docs/tiered-billing.md.
 --
 -- The pricing tier of the agent version that served a call (the engine writes it when the call is logged). NULL means the call ran on a
 -- version published without a tier: it is billed at the account's flat per-minute voice price, exactly as before, so every existing row keeps

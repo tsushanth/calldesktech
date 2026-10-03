@@ -159,3 +159,16 @@ it('lite is still rejected as coming soon before any billing check', async () =>
   expect(res.status).toBe(400);
   expect(ensureTierItemForTenant).not.toHaveBeenCalled();
 });
+
+it('tierOverrides from a restored version replace the derived ones (the stack may have changed since)', async () => {
+  const res = await post({ tier: 'pro', llmModel: 'claude-sonnet-4-6', ttsModel: 'eleven_flash_v2_5', ttsBackend: 'elevenlabs', tierOverrides: ['llmModel', 'bogus', 7] });
+  expect(res.status).toBe(201);
+  // derived overrides would be [llmModel, ttsModel]; the caller's (filtered to known names) win
+  expect(inserted).toMatchObject({ tier: 'pro', llm_model: 'claude-sonnet-4-6', tts_model: 'eleven_flash_v2_5', tier_overrides: ['llmModel'] });
+});
+
+it('tierOverrides are ignored without a tier', async () => {
+  const res = await post({ tierOverrides: ['llmModel'] });
+  expect(res.status).toBe(201);
+  expect(inserted).not.toHaveProperty('tier_overrides');
+});

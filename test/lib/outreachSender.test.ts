@@ -19,6 +19,7 @@ function fakeSupabase(product: string, failVariant = false, step?: number, sentT
         then: (res: (v: unknown) => unknown) => res({ count: sentToday }),
         maybeSingle: async () =>
           table === 'calldesk_outreach_messages' ? { data: { id: MSG_ID, status: 'draft', product, lead_id: 'l1', to_email: 'a@b.co', subject: 'S', body_text: 'Hi\n\nA & B', ...(step === undefined ? {} : { step }) }, error: null }
+          : table === 'calldesk_outreach_leads' ? { data: { id: 'l1', region_blocked: false, signals: {}, source_key: 'freight:mc:1' }, error: null }
           : { data: null, error: null },
         update: (v: Record<string, unknown>) => {
           updates.push(v);
@@ -82,8 +83,8 @@ describe('sendApprovedMessage sample integration', () => {
     const f = buildFooter('a@b.co', '1 Main St');
     const deckHtml = args.html.match(/<p style="margin:0 0 14px;font-size:13px;[^"]*">Prefer to read\? <a href="[^"]+" style="color:#2563eb">See our short deck<\/a>\.<\/p>/)?.[0] ?? '';
     expect(deckHtml).toMatch(/href="https:\/\/calldesk\.tech\/deck\?t=[^"]+"/);
-    expect(args.html).toBe(`<div style="font-family:-apple-system,Segoe UI,sans-serif;font-size:15px;line-height:1.6;color:#1a1d29;max-width:560px"><p style="margin:0 0 18px"><a href="https://calldesk.tech" style="color:#2563eb;font-weight:600;text-decoration:none">calldesk.tech</a></p><p style="margin:0 0 14px">Hi</p><p style="margin:0 0 14px">A &amp; B</p>${deckHtml}${f.html}</div>`);
-    expect(args.text).toMatch(/^https:\/\/calldesk\.tech\n\nHi\n\nA & B\nShort deck: https:\/\/calldesk\.tech\/deck\?t=\S+\n/);
+    expect(args.html).toBe(`<div style="font-family:-apple-system,Segoe UI,sans-serif;font-size:15px;line-height:1.6;color:#1a1d29;max-width:560px"><p style="margin:0 0 18px"><a href="https://calldesk.tech/?utm_source=outreach&amp;utm_medium=email&amp;utm_campaign=freight&amp;utm_content=step1" style="color:#2563eb;font-weight:600;text-decoration:none">calldesk.tech</a></p><p style="margin:0 0 14px">Hi</p><p style="margin:0 0 14px">A &amp; B</p>${deckHtml}${f.html}</div>`);
+    expect(args.text).toMatch(/^https:\/\/calldesk\.tech\/\?utm_source=outreach&utm_medium=email&utm_campaign=freight&utm_content=step1\n\nHi\n\nA & B\nShort deck: https:\/\/calldesk\.tech\/deck\?t=\S+\n/);
   });
 
   it('sends RFC 8058 one-click unsubscribe headers pointing at the POST endpoint', async () => {

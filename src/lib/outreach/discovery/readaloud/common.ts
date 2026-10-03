@@ -19,6 +19,7 @@ export { hostOf, isFreeMail, sleep };
 export const RA_SOURCE_IDS = [
   'ra-cartesia-customers', 'ra-deepgram-customers', 'ra-yc-voice', 'ra-github-orgs',
   'ra-jobs-signal', 'ra-wp-plugins', 'ra-firefox-tts', 'ra-hn-launches',
+  'ra-elevenlabs-customers', 'ra-yc-media', 'ra-github-publishers',
 ] as const;
 export type RaSourceId = (typeof RA_SOURCE_IDS)[number];
 

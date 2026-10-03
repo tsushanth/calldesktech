@@ -23,6 +23,7 @@ import CopilotPanel from '@/components/flow-builder/CopilotPanel';
 import TierPicker from '@/components/flow-builder/TierPicker';
 import { tierById, type TierId } from '@/lib/pricingTiers';
 import { LLM_MODELS, ttsModelsFor, DEFAULT_LLM_MODEL } from '@/lib/modelCatalog';
+import { carryOverFromVersion } from '@/lib/versionCarryOver';
 
 type DraftNode = FlowNode & { _key: string };
 
@@ -719,11 +720,7 @@ export default function AgentBuilderPage() {
           nodes: flowNodes,
           globalSettings: restSettings,
           voiceEngine: v.voice_engine,
-          voiceId: v.voice_id || undefined,
-          ttsBackend: v.tts_backend || undefined,
-          ...(v.tier ? { tier: v.tier } : {}),
-          llmModel: v.llm_model || undefined,
-          ttsModel: v.tts_model || undefined,
+          ...carryOverFromVersion(v).body,
           retellAgentId: v.retell_agent_id || undefined,
           retellLlmId: v.retell_llm_id || undefined,
           wizardConfig: v.wizard_config || undefined,

@@ -79,7 +79,7 @@ export default async function AdminHome() {
             <b>{level === 'ok' ? 'All systems healthy' : level === 'warn' ? 'Some systems degraded' : 'A system is down'}</b>
           </p>
           <nav className="flex gap-2 text-[13px]">
-            {[['/admin/usage', 'Product usage'], ['/admin/traffic', 'Visitors'], ['/admin/outreach', 'Outreach']].map(([href, label]) => (
+            {[['/admin/pilots', 'Pilots'], ['/admin/usage', 'Product usage'], ['/admin/traffic', 'Visitors'], ['/admin/outreach', 'Outreach']].map(([href, label]) => (
               <Link key={href} href={href} className="rounded-md bg-white px-3 py-1.5 text-gray-700 ring-1 ring-gray-200 hover:bg-gray-50">{label}</Link>
             ))}
           </nav>

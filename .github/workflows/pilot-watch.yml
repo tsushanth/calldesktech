@@ -1,0 +1,39 @@
+name: Pilot watch (hourly)
+
+# Emails the owner (PILOT_ALERT_EMAIL on the Fly app) when a pilot hits 80% / 100% of its minute cap, has no calls after 24h, has a failed
+# or under-10-second call, or ends within 24h; also keeps pilot status and calldesk_tenants.pilot_blocked in step. See
+# src/lib/pilotJobs.ts. Dry run by hand: workflow_dispatch with dry = true, or POST the URL with ?dry=1.
+#
+# Repo secrets (this workflow does nothing until PILOT_WATCH_URL is set):
+#   PILOT_WATCH_URL  e.g. https://calldesk.tech/api/cron/pilot-watch
+#   CRON_SECRET      same value as the CRON_SECRET secret on the Fly app
+
+on:
+  schedule:
+    - cron: '7 * * * *' # hourly, at :07
+  workflow_dispatch:
+    inputs:
+      dry:
+        description: 'Dry run (no emails, no writes)'
+        type: boolean
+        default: true
+
+jobs:
+  pilot-watch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Run pilot watch
+        env:
+          URL: ${{ secrets.PILOT_WATCH_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          DRY: ${{ github.event.inputs.dry }}
+        run: |
+          set -euo pipefail
+          if [ -z "$URL" ] || [ -z "$CRON_SECRET" ]; then
+            echo "PILOT_WATCH_URL / CRON_SECRET not set: pilot monitoring is not enabled, nothing to do."
+            exit 0
+          fi
+          if [ "$DRY" = "true" ]; then URL="${URL}?dry=1"; fi
+          curl -sS --fail-with-body --max-time 120 -X POST "$URL" \
+            -H "Authorization: Bearer $CRON_SECRET"

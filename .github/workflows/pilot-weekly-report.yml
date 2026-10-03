@@ -1,0 +1,38 @@
+name: Pilot weekly report (Mondays)
+
+# Emails the owner one digest of all pilots: usage, outcomes, notable calls, suggested follow-ups, common call topics. Sent at most once
+# per week (marker in calldesk_pilot_events). See src/lib/pilotJobs.ts.
+#
+# Repo secrets (this workflow does nothing until PILOT_WEEKLY_REPORT_URL is set):
+#   PILOT_WEEKLY_REPORT_URL  e.g. https://calldesk.tech/api/cron/pilot-weekly-report
+#   CRON_SECRET              same value as the CRON_SECRET secret on the Fly app
+
+on:
+  schedule:
+    - cron: '0 15 * * 1' # Mondays 15:00 UTC
+  workflow_dispatch:
+    inputs:
+      dry:
+        description: 'Dry run (return the digest, send nothing)'
+        type: boolean
+        default: true
+
+jobs:
+  pilot-weekly-report:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Run weekly report
+        env:
+          URL: ${{ secrets.PILOT_WEEKLY_REPORT_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          DRY: ${{ github.event.inputs.dry }}
+        run: |
+          set -euo pipefail
+          if [ -z "$URL" ] || [ -z "$CRON_SECRET" ]; then
+            echo "PILOT_WEEKLY_REPORT_URL / CRON_SECRET not set: pilot monitoring is not enabled, nothing to do."
+            exit 0
+          fi
+          if [ "$DRY" = "true" ]; then URL="${URL}?dry=1"; fi
+          curl -sS --fail-with-body --max-time 120 -X POST "$URL" \
+            -H "Authorization: Bearer $CRON_SECRET"

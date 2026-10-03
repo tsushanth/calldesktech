@@ -678,7 +678,10 @@ describe('the international hold', () => {
     expect(bulkRegistrySourcesFor(homeservices)).toContain('fr-rge');
     expect(bulkRegistrySourcesFor(dental)).toContain('uk-cqc');
     expect(bulkRegistrySourcesFor(dental)).toContain('no-brreg');
-    expect(bulkRegistrySourcesFor(freight)).toEqual(expect.arrayContaining(['uk-dvsa', 'no-brreg']));
+    // Freight is US brokers only: the UK and Norway sources are registered but never offered for it.
+    expect(bulkRegistrySourcesFor(freight)).not.toContain('uk-dvsa');
+    expect(bulkRegistrySourcesFor(freight)).not.toContain('no-brreg');
+    expect(bulkRegistrySourcesFor(freight)).toContain('fmcsa-brokers');
     // The US sources are untouched.
     expect(bulkRegistrySourcesFor(homeservices)).toEqual(expect.arrayContaining(['nyc-dob', 'va-dpor', 'ar-clb']));
   });

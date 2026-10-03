@@ -123,7 +123,7 @@ export function toGithubLead(org: GithubOrg, ev: OrgEvidence): RaLead | { reject
   };
 }
 
-class Gh {
+export class Gh {
   constructor(private http: RaHttp, private token: string | null, private log: (m: string) => void) {}
   async get<T>(path: string, spacingMs: number): Promise<{ data: T | null; error: string | null }> {
     const headers: Record<string, string> = { Accept: 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28' };
