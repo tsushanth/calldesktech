@@ -11,11 +11,17 @@ export default function TierPicker({
   value,
   onChange,
   advanced,
+  lowerQualityAccepted = false,
+  onLowerQualityAcceptedChange,
 }: {
   value: TierId | '';
   onChange: (tier: TierId | '') => void;
   advanced?: ReactNode;
+  /** Whether the customer has accepted the voice-quality tradeoff of a lowerQuality tier (the cheapest voice). */
+  lowerQualityAccepted?: boolean;
+  onLowerQualityAcceptedChange?: (accepted: boolean) => void;
 }) {
+  const selectedTier = PRICING_TIERS.find((t) => t.id === value);
   const showCarrierNote = PRICING_TIERS.some((t) => t.carrierMode === 'byo');
   return (
     <div className="space-y-2" data-testid="tier-picker">
@@ -69,6 +75,19 @@ export default function TierPicker({
         <p id="tier-picker-note" className="text-[11.5px] leading-[1.45] text-gray-400">
           {CARRIER_NOTE} Not choosing a plan keeps this agent on its current per-minute price.
         </p>
+      )}
+      {selectedTier?.lowerQuality && (
+        <label className="flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 p-3 text-[12px] leading-[1.45] text-amber-900" data-testid="lower-quality-accept">
+          <input
+            type="checkbox"
+            checked={lowerQualityAccepted}
+            onChange={(e) => onLowerQualityAcceptedChange?.(e.target.checked)}
+            className="mt-0.5"
+          />
+          <span>
+            {selectedTier.name} uses our lowest-cost voice. It is noticeably lower quality than Standard. I understand and accept that tradeoff for the lower price.
+          </span>
+        </label>
       )}
       {value && (
         <button type="button" onClick={() => onChange('')} className="text-[12px] font-medium text-blue-600 hover:text-blue-700">

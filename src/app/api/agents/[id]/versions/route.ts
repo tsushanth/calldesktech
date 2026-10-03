@@ -118,6 +118,7 @@ export async function POST(
     ttsModel: requestedTtsModel,
     tier: requestedTier,
     tierOverrides: requestedTierOverrides,
+    acceptLowerQuality,
     wizardConfig,
   } = body as {
     flowName: string;
@@ -133,6 +134,7 @@ export async function POST(
     ttsModel?: string;
     tier?: unknown;
     tierOverrides?: unknown;
+    acceptLowerQuality?: boolean;
     wizardConfig?: Record<string, unknown>;
   };
 
@@ -160,7 +162,7 @@ export async function POST(
   // Optional pricing tier (src/lib/pricingTiers.ts): validated here (an unknown tier, or Lite while it is coming soon, is a 400) and
   // turned into the models the engine should use. Anything the caller set explicitly wins and is recorded in tier_overrides.
   // With no tier this is a pass-through, so the request behaves exactly as it did before tiers existed.
-  const tierResult = resolveTierForPublish({ tier: requestedTier, voiceEngine, llmModel: requestedLlmModel, ttsModel: requestedTtsModel, ttsBackend: requestedTtsBackend });
+  const tierResult = resolveTierForPublish({ tier: requestedTier, voiceEngine, llmModel: requestedLlmModel, ttsModel: requestedTtsModel, ttsBackend: requestedTtsBackend, acceptLowerQuality });
   if (!tierResult.ok) return NextResponse.json({ error: tierResult.error }, { status: 400 });
   const { llmModel, ttsModel, ttsBackend, tier } = tierResult;
   // A version rebuilt from an older one (restore, Copilot accept) passes the original's tier_overrides, which replace the ones derived

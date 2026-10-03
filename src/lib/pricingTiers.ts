@@ -47,6 +47,8 @@ export type PricingTier = {
   carrierMode: CarrierMode;
   availability: TierAvailability;
   stack: TierStack;
+  /** The voice is noticeably lower quality than Standard. Choosing this tier must be a conscious, explicit decision (publish needs acceptLowerQuality: true). */
+  lowerQuality?: boolean;
 };
 
 export type AddOnId = 'sentiment_per_turn' | 'advanced_analytics' | 'premium_voice' | 'long_prompts';
@@ -71,10 +73,11 @@ export const PRICING_TIERS: PricingTier[] = [
     pricePerMinuteCents: 2,
     tagline: 'The lowest price for simple, high-volume calls.',
     whoItsFor: 'Straightforward calls such as confirmations and quick questions, where cost matters most.',
-    includes: [...INCLUDED_ON_ALL, 'Fast responses on a standard CallDeskTech voice'],
+    includes: [...INCLUDED_ON_ALL, 'Fast responses on our lowest-cost voice, with noticeably lower voice quality than Standard'],
     carrierMode: 'byo',
     availability: 'coming_soon',
-    stack: { llmModel: LITE_LLM_MODEL, ttsBackend: 'kokoro', ttsModel: null },
+    stack: { llmModel: LITE_LLM_MODEL, ttsBackend: 'piper', ttsModel: null },
+    lowerQuality: true,
   },
   {
     id: 'standard',
@@ -209,6 +212,8 @@ export type TierPublishInput = {
   llmModel?: string | null;
   ttsModel?: string | null;
   ttsBackend?: TtsBackend | null;
+  /** The customer has acknowledged the voice-quality tradeoff of a lowerQuality tier. */
+  acceptLowerQuality?: boolean;
 };
 
 export type TierPublishResult =
@@ -229,6 +234,9 @@ export function resolveTierForPublish(input: TierPublishInput): TierPublishResul
   if (!tier) return { ok: false, error: `Unknown tier "${String(rawTier)}". Valid: ${TIER_IDS.join(', ')}` };
   if (tier.availability !== 'live') return { ok: false, error: `The ${tier.name} tier is coming soon and cannot be selected yet. Choose ${PRICING_TIERS.filter((t) => t.availability === 'live').map((t) => t.id).join(' or ')}.` };
   if (voiceEngine !== 'poc') return { ok: false, error: 'tier applies only to agents on the in-house voice engine (voiceEngine "poc")' };
+  if (tier.lowerQuality && input.acceptLowerQuality !== true) {
+    return { ok: false, error: `The ${tier.name} tier uses our lowest-cost voice, which is noticeably lower quality than Standard. Pass acceptLowerQuality: true to confirm you accept that tradeoff, or choose Standard.`, };
+  }
 
   const stack = tier.stack;
   const overrides: Array<'llmModel' | 'ttsBackend' | 'ttsModel'> = [];

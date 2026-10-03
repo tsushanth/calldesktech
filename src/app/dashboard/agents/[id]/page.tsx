@@ -234,6 +234,9 @@ export default function AgentBuilderPage() {
   // Pricing tier (src/lib/pricingTiers.ts) plus the Advanced model overrides. '' for each = not chosen: no tier keeps the agent on its
   // current per-minute price, and with a tier the models come from the tier unless one of these is set.
   const [tier, setTier] = useState<TierId | ''>('');
+  // The cheapest tier's voice is noticeably lower quality, so picking it needs an explicit acknowledgement (also enforced by the API).
+  const [lowerQualityAccepted, setLowerQualityAccepted] = useState(false);
+  const needsLowerQualityAccept = !!tier && !!tierById(tier)?.lowerQuality && !lowerQualityAccepted;
   const [llmModel, setLlmModel] = useState('');
   const [ttsModel, setTtsModel] = useState('');
   const [retellAgentId, setRetellAgentId] = useState('');
@@ -898,6 +901,7 @@ export default function AgentBuilderPage() {
           voiceId: voiceId || undefined,
           ttsBackend: ttsBackend || undefined,
           ...(voiceEngine === 'poc' && tier ? { tier } : {}),
+          ...(voiceEngine === 'poc' && tier && tierById(tier)?.lowerQuality && lowerQualityAccepted ? { acceptLowerQuality: true } : {}),
           llmModel: (voiceEngine === 'poc' && llmModel) || undefined,
           ttsModel: (voiceEngine === 'poc' && ttsModel) || undefined,
           retellAgentId: retellAgentId || undefined,
@@ -1080,7 +1084,8 @@ export default function AgentBuilderPage() {
             </button>
             <button
               onClick={handleSave}
-              disabled={isSaving}
+              disabled={isSaving || needsLowerQualityAccept}
+              title={needsLowerQualityAccept ? 'Accept the voice-quality tradeoff for this plan first' : undefined}
               className="flex-none rounded-lg bg-blue-600 px-4 py-2 text-[13px] font-medium text-white transition hover:bg-blue-700 disabled:opacity-50"
             >
               {isSaving ? 'Publishing…' : 'Publish'}
@@ -1403,7 +1408,9 @@ export default function AgentBuilderPage() {
                       {channel === 'voice' && voiceEngine === 'poc' && (
                         <TierPicker
                           value={tier}
-                          onChange={(next) => { setTier(next); setLlmModel(''); setTtsModel(''); setTtsBackend(''); }}
+                          onChange={(next) => { setTier(next); setLowerQualityAccepted(false); setLlmModel(''); setTtsModel(''); setTtsBackend(''); }}
+                          lowerQualityAccepted={lowerQualityAccepted}
+                          onLowerQualityAcceptedChange={setLowerQualityAccepted}
                           advanced={
                             <>
                               <p className="text-[11.5px] leading-[1.45] text-gray-400">For API and MCP users. Anything you set here overrides the plan&apos;s choice; leave it alone and the plan chooses.</p>

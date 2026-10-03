@@ -38,7 +38,7 @@ describe('pricing tiers', () => {
   it('Standard runs Claude Haiku with ElevenLabs Flash; Pro uses the more expressive voice', () => {
     expect(stackForTier('standard')).toMatchObject({ llmModel: DEFAULT_LLM_MODEL, ttsBackend: 'elevenlabs', ttsModel: 'eleven_flash_v2_5' });
     expect(stackForTier('pro')).toMatchObject({ ttsBackend: 'elevenlabs', ttsModel: 'eleven_v4_turbo' });
-    expect(stackForTier('lite').ttsBackend).toBe('kokoro');
+    expect(stackForTier('lite').ttsBackend).toBe('piper');
   });
   it('stackForTier returns a copy and throws on an unknown tier', () => {
     const s = stackForTier('standard'); s.llmModel = 'x';
@@ -159,5 +159,28 @@ describe('customer-facing files stay free of internal costs', () => {
   it.each(['src/lib/pricingTiers.ts', 'src/components/flow-builder/TierPicker.tsx', 'src/app/pricing/page.tsx'])('%s has no cost or margin language', (f) => {
     const text = readFileSync(join(process.cwd(), f), 'utf8');
     expect(text).not.toMatch(/margin|wholesale|our cost|cost to serve|costs us|per million/i);
+  });
+});
+
+describe('lowerQuality tier acceptance', () => {
+  it('Lite runs on Piper and is flagged lower quality; Standard and Pro are not', () => {
+    expect(tierById('lite')?.lowerQuality).toBe(true);
+    expect(tierById('standard')?.lowerQuality).toBeFalsy();
+    expect(tierById('pro')?.lowerQuality).toBeFalsy();
+  });
+  it('refuses a lowerQuality tier unless the quality tradeoff was accepted (once it is on sale)', () => {
+    const lite = PRICING_TIERS.find((t) => t.id === 'lite')!;
+    const was = lite.availability;
+    lite.availability = 'live';
+    try {
+      const no = resolveTierForPublish({ tier: 'lite', voiceEngine: 'poc' });
+      expect(no.ok).toBe(false);
+      expect((no as { error: string }).error).toMatch(/acceptLowerQuality/);
+      const yes = resolveTierForPublish({ tier: 'lite', voiceEngine: 'poc', acceptLowerQuality: true });
+      expect(yes).toMatchObject({ ok: true, tier: 'lite', ttsBackend: 'piper' });
+      expect(resolveTierForPublish({ tier: 'standard', voiceEngine: 'poc' }).ok).toBe(true);
+    } finally {
+      lite.availability = was;
+    }
   });
 });
