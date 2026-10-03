@@ -61,6 +61,11 @@ const CAPABILITIES = [
     title: 'Phone numbers',
     body: 'Take a dedicated number or forward the one you already publish. Works internationally.',
   },
+  {
+    icon: 'sound' as IconName,
+    title: 'Sounds',
+    body: 'Give your agent a short jingle that plays when a call connects, and sound effects it can use at the right moment, such as a chime when a booking is confirmed. Create them from the dashboard, the API or MCP.',
+  },
 ];
 
 export function Capabilities() {
