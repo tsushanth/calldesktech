@@ -9,7 +9,7 @@ function ourIncluded(t: (typeof PRICING_TIERS)[number]): string {
   return t.carrierMode === 'managed' ? 'AI engine plus phone numbers and calling' : 'AI engine';
 }
 function ourSeparate(t: (typeof PRICING_TIERS)[number]): string {
-  return t.carrierMode === 'managed' ? 'Optional add-ons only' : 'Your phone carrier (bring your own); optional add-ons';
+  return t.carrierMode === 'managed' ? 'Nothing else today' : 'Your phone carrier (bring your own)';
 }
 
 export function PricingComparison({ competitor }: { competitor: CompetitorPricing }) {
@@ -18,7 +18,7 @@ export function PricingComparison({ competitor }: { competitor: CompetitorPricin
   return (
     <div data-testid="pricing-comparison">
       <p className="mt-5 max-w-[620px] text-[16px] leading-[1.6] text-gray-600">
-        The two price lists have a similar structure: a per-minute rate for the AI engine in three tiers, with optional add-ons on top. {HEADLINE_WITH_QUALIFIER}
+        The two price lists have a similar structure: a per-minute rate for the AI engine in three tiers, with optional add-ons planned for later. {HEADLINE_WITH_QUALIFIER}
       </p>
       <div className="mt-8 overflow-x-auto rounded-xl border border-gray-200 bg-white">
         <table className="w-full min-w-[720px] border-collapse text-left">

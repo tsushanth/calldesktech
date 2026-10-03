@@ -1,4 +1,4 @@
--- DRAFT, NOT APPLIED. Do not run until the metering work in docs/pricing-tier-migration-notes.md is agreed.
+-- Applied to production on 2026-10-02 (via the Supabase console); kept here for the record. Metering notes: docs/pricing-tier-migration-notes.md.
 -- (Numbered 064: 063 is already taken twice, by 063_outbound_recordings.sql and 063_outreach_leads_created_at_index.sql.)
 --
 -- Pricing tier chosen when a version was published (src/lib/pricingTiers.ts). NULL means the version was published without a tier: it

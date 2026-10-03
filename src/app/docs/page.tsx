@@ -159,7 +159,7 @@ export default function DocsPage() {
                 <ul className="mt-4 max-w-[640px] list-disc space-y-1 pl-5 text-[14px] leading-[1.5] text-gray-500">
                   <li>Included on every tier: call summary, transcript and structured field extraction.</li>
                   <li>{CARRIER_NOTE}</li>
-                  <li>Add-ons (proposed, amounts not final): {ADD_ONS.map((a) => a.label.toLowerCase()).join(', ')}. Caller sentiment is off unless you turn it on.</li>
+                  <li>Optional add-ons are coming soon and cannot be bought yet; amounts will be announced when they launch. Planned: {ADD_ONS.map((a) => a.label.toLowerCase()).join(', ')}.</li>
                   <li>Lite is coming soon: publishing with <code className="rounded bg-white px-1.5 py-0.5 text-[13px]">&quot;tier&quot;: &quot;lite&quot;</code> returns a 400 until it opens.</li>
                   <li>Agents published without a tier keep their current per-minute price. Choosing a tier is optional.</li>
                 </ul>

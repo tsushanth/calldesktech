@@ -40,7 +40,6 @@ export const LLM_MODELS: LlmModelOption[] = [
   { id: 'claude-haiku-4-5-20251001', label: 'Claude Haiku 4.5', provider: 'anthropic', default: true, status: 'tested', notes: 'The default. Fastest first response of the tested models (about 0.6 s) and the most reliable at recording fields and following the flow.' },
   { id: 'claude-sonnet-4-6', label: 'Claude Sonnet 4.6', provider: 'anthropic', status: 'tested', notes: 'Stronger reasoning for complex flows, costs more than Haiku and is slower.' },
   { id: 'gpt-6-luna', label: 'GPT-6 Luna', provider: 'openai', status: 'tested', notes: 'A much lower-cost option than Haiku. Passed our cooperative-caller benchmark 6 of 6, but responds slower (roughly 0.5 to 1.6 s) because turns that record a field need a second request. Not yet cleared on the stress tests (corrections, misheard numbers).' },
-  { id: 'gemini-2.5-flash-lite', label: 'Gemini 2.5 Flash-Lite', provider: 'gemini', status: 'preview', notes: 'Preview: wired in but not benchmarked on our flows. Used only if the voice engine has a Gemini key configured; otherwise the agent uses the default model.' },
 ];
 
 export const TTS_MODELS: TtsModelOption[] = [

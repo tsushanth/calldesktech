@@ -11,9 +11,11 @@ describe('model catalog', () => {
     expect(new Set(ids).size).toBe(ids.length);
     for (const m of LLM_MODELS) { expect(m.notes.length).toBeGreaterThan(10); }
   });
-  it('the preview model is marked preview and the tested ones are not', () => {
-    expect(LLM_MODELS.find((m) => m.id === 'gemini-2.5-flash-lite')!.status).toBe('preview');
+  it('the tested models are marked tested, and the retired gemini-2.5-flash-lite is not offered', () => {
     expect(LLM_MODELS.find((m) => m.id === 'gpt-6-luna')!.status).toBe('tested');
+    // Google no longer serves this model to new accounts (404), so it must not be selectable.
+    expect(LLM_MODELS.find((m) => m.id === 'gemini-2.5-flash-lite')).toBeUndefined();
+    expect(isValidLlmModel('gemini-2.5-flash-lite')).toBe(false);
   });
   it('mirrors the voice engine allowlist for ElevenLabs and Cartesia models', () => {
     // call-loop-poc/server.js VALID_TTS_MODELS
