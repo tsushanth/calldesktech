@@ -53,6 +53,12 @@ export async function POST(
     const body = await request.json();
 
     const { name, sourceType, sourceUrl, items } = body;
+    if (!name || typeof name !== 'string') {
+      return NextResponse.json({ error: 'name is required' }, { status: 400 });
+    }
+    if (!sourceType || !['website', 'pdf', 'manual'].includes(sourceType)) {
+      return NextResponse.json({ error: 'sourceType must be one of: website, pdf, manual' }, { status: 400 });
+    }
 
     // Create knowledge base in Retell
     let retellKbId: string | null = null;
