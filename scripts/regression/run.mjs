@@ -17,6 +17,8 @@ const args = process.argv.slice(2);
 const flag = (n) => args.includes(`--${n}`);
 const val = (n, dflt) => { const i = args.indexOf(`--${n}`); return i >= 0 ? args[i + 1] : dflt; };
 const place = flag('place-calls');
+if (val('tier', '')) process.env.REGRESSION_TIER = val('tier'); // e.g. --tier lite: publish versions on that pricing tier
+if (val('voice', '')) process.env.REGRESSION_VOICE = val('voice'); // e.g. --voice custom:en-us-warm-f
 const maxCalls = Number(val('max-calls', 8));
 const wanted = val('scenario', '') ? val('scenario').split(',').map((s) => s.trim()).filter(Boolean) : [];
 

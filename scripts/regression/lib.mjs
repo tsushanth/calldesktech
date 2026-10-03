@@ -85,9 +85,13 @@ export async function ensureFixtures(env, d, api) {
   return { tenantId: tenant.id, agentId: agent.id, agentBId: agentB.id, numberId: numRow.id, number, extra };
 }
 
+// REGRESSION_TIER (set by run.mjs --tier) publishes every version on that tier; 'lite' also needs acceptLowerQuality.
 export async function publishVersion(api, fx, scenario, { agentId = fx.agentId, version = scenario.version, name = `reg-${scenario.id}` } = {}) {
+  const tier = process.env.REGRESSION_TIER;
   const res = await api('POST', `/api/agents/${agentId}/versions`, {
     flowName: name, startNodeId: version.startNodeId, nodes: version.nodes, voiceEngine: 'poc', globalSettings: version.globalSettings || {},
+    ...(process.env.REGRESSION_VOICE ? { voiceId: process.env.REGRESSION_VOICE } : {}),
+    ...(tier ? { tier, ...(tier === 'lite' ? { acceptLowerQuality: true } : {}) } : {}),
   });
   return res.version.id;
 }
