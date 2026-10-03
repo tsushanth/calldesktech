@@ -422,7 +422,7 @@ function lead(over: Partial<RaLead> = {}): RaLead {
 describe('readaloud import: dedupe, merge, idempotence', () => {
   it('builds rows tagged for readaloud in the shared table, with a valid signal_source', () => {
     const row = readaloudLeadRow(lead(), readaloud, '2026-09-25T00:00:00Z');
-    expect(row).toMatchObject({ product: 'readaloud', signal_source: 'directory', source_key: 'readaloud:yc:acme', domain: 'acme.ai', region_blocked: false });
+    expect(row).toMatchObject({ product: 'readaloud:api', signal_source: 'directory', source_key: 'readaloud:yc:acme', domain: 'acme.ai', region_blocked: false });
     expect(['job_posting', 'review_site', 'tech_fingerprint', 'manual', 'directory', 'search']).toContain(row.signal_source);
     expect(row.signals.readaloud.sources['ra-yc-voice'].adjust).toBe(10);
     expect(row.score).toBe(50 + 10 + 10 + 10); // realtime + voice agent vocabulary + source adjust
@@ -509,10 +509,10 @@ describe('readaloud import: dedupe, merge, idempotence', () => {
     const http = fakeHttp([[/yc-oss/, { text: JSON.stringify(YC) }]]);
     const sum = await importReadaloudSource(db, 'ra-yc-voice', { http });
     expect(sum).toMatchObject({ inserted: 2, merged: 1, toInsert: 2, toMerge: 1 });
-    expect(ops.find((o) => o.op === 'eq' && o.table === 'calldesk_outreach_leads')?.eq).toEqual([['product', 'readaloud']]);
+    expect(ops.find((o) => o.op === 'eq' && o.table === 'calldesk_outreach_leads')?.eq).toEqual([['product', 'readaloud:api']]);
     const ins = ops.find((o) => o.op === 'insert')!;
     expect(ins.table).toBe('calldesk_outreach_leads');
-    expect((ins.payload as { product: string }[]).every((r) => r.product === 'readaloud')).toBe(true);
+    expect((ins.payload as { product: string }[]).every((r) => r.product === 'readaloud:api')).toBe(true);
     expect(ops.find((o) => o.op === 'update')).toMatchObject({ table: 'calldesk_outreach_leads', eq: [['id', 'e1']] });
   });
 });
