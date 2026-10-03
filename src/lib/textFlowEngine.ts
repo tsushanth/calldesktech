@@ -22,6 +22,7 @@
 // session row between HTTP requests.
 
 import { safeFetch } from '@/lib/safeFetch';
+import { runCodeNode } from '@/lib/flowCodeSandbox';
 import type { FlowNode, StructuredCondition } from '@/types';
 
 const ANTHROPIC_API_URL = 'https://api.anthropic.com/v1/messages';
@@ -35,9 +36,18 @@ const LLM_MODEL =
 // the visitor to type something first — mirrors AUTO_ADVANCE_TYPES in
 // server.js exactly. logic_split included since it never waits either — it
 // evaluates and jumps in the same hop, same as server.js's version.
-const AUTO_ADVANCE_TYPES = new Set(['function', 'knowledge_base', 'goodbye', 'transfer', 'logic_split']);
+const AUTO_ADVANCE_TYPES = new Set([
+  'function', 'knowledge_base', 'goodbye', 'transfer', 'logic_split',
+  'code', 'extract_variable', 'subflow_ref', 'mcp', 'sms', 'press_digit', 'payment', 'agent_transfer',
+]);
 // Terminal node types: once their turn is delivered, the chat session is over.
-const TERMINAL_TYPES = new Set(['goodbye', 'transfer']);
+// agent_transfer hands the live call to another agent in voice; there is nothing to hand to here, so it ends the
+// session like transfer does.
+const TERMINAL_TYPES = new Set(['goodbye', 'transfer', 'agent_transfer']);
+// Nodes whose real effect can't (or must not) happen in a text session: texting a number, sending DTMF tones, charging
+// a card, calling an MCP server. They run as a no-op and tell the model so, then speak their turn as in voice, so a flow
+// can be exercised end to end without side effects.
+const STUBBED_EFFECT_TYPES = new Set(['sms', 'press_digit', 'payment', 'mcp']);
 // Guards against a malformed flow (e.g. a cycle of auto-advance nodes) pinning
 // a single HTTP request open forever.
 const MAX_AUTO_ADVANCE_HOPS = 8;
@@ -264,6 +274,73 @@ export async function executeFunctionNode(node: FlowNode, collectedData: Record<
   }
 }
 
+// Runs a 'code' node's JavaScript in the QuickJS sandbox (see flowCodeSandbox.ts) and folds the result into history,
+// merging a plain-object return value into collectedData. Port of _executeCodeNode.
+export async function executeCodeNode(node: FlowNode, collectedData: Record<string, string>, history: EngineMessage[]) {
+  const result = await runCodeNode(node.params?.code || '', collectedData);
+  if (!result.ok) {
+    if (result.error === 'no code') return;
+    history.push({
+      role: 'user',
+      content: `[System note: the code step failed (${result.error}) — let the visitor know something went wrong and offer to have someone follow up]`,
+    });
+    return;
+  }
+  history.push({ role: 'user', content: `[System note: code step returned ${result.serialized}]` });
+  const value = result.value;
+  if (value && typeof value === 'object' && !Array.isArray(value)) {
+    for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
+      collectedData[k] = typeof v === 'string' ? v : JSON.stringify(v);
+    }
+  }
+}
+
+// Reads named values out of the conversation so far into collectedData; never talks. Port of _executeExtractVariable.
+// node.extract maps field name -> 'string' | 'number' | 'boolean'.
+export async function executeExtractVariable(node: FlowNode, collectedData: Record<string, string>, history: EngineMessage[]) {
+  const apiKey = process.env.ANTHROPIC_API_KEY;
+  const fields = Object.entries(node.extract || {}).filter(([k]) => k && k.trim());
+  if (!apiKey || fields.length === 0) return;
+  const properties: Record<string, unknown> = {};
+  for (const [name, type] of fields) {
+    properties[name] = { type: [type === 'number' || type === 'boolean' ? type : 'string', 'null'] };
+  }
+  const text = history
+    .filter((m) => typeof m.content === 'string' && !m.content.startsWith('[System note'))
+    .map((m) => `${m.role === 'user' ? 'Visitor' : 'Agent'}: ${m.content}`)
+    .join('\n');
+  try {
+    const res = await fetch(ANTHROPIC_API_URL, {
+      method: 'POST',
+      headers: { 'x-api-key': apiKey, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
+      body: JSON.stringify({
+        model: LLM_MODEL,
+        max_tokens: 400,
+        system:
+          'You extract named values from a conversation so far. Return a value for every field, or null when the conversation does not clearly state it. Never guess.' +
+          (typeof node.prompt === 'string' && node.prompt.trim() ? `\nGuidance: ${node.prompt.trim()}` : ''),
+        tools: [{
+          name: 'record_variables',
+          description: 'Record the extracted values',
+          input_schema: { type: 'object', properties, required: fields.map(([k]) => k) },
+        }],
+        tool_choice: { type: 'tool', name: 'record_variables' },
+        messages: [{ role: 'user', content: `Conversation so far:\n"""\n${text || '(nothing said yet)'}\n"""` }],
+      }),
+      signal: AbortSignal.timeout(30000),
+    });
+    if (!res.ok) return;
+    const body = (await res.json()) as { content?: Array<{ type: string; input?: Record<string, unknown> }> };
+    const block = body.content?.find((b) => b.type === 'tool_use');
+    for (const [name] of fields) {
+      const v = block?.input?.[name];
+      if (v !== undefined && v !== null && String(v).trim() !== '') collectedData[name] = String(v);
+    }
+  } catch {
+    // Extraction is best-effort, same as voice: the flow carries on with whatever was collected.
+  }
+}
+
 // Real knowledge-base lookup for a knowledge_base node — port of
 // _executeKnowledgeBaseNode. The KB id is stamped onto the node's params by
 // resolveTenantChatFlow (mirroring tenantLookup.js's attachKnowledgeBaseIds).
@@ -305,7 +382,7 @@ async function generateNodeTurn(
   // Safety net for a terminal node that returned no text — mirrors the voice
   // engine's fallback to the node's own prompt text so the visitor's last
   // message is never dead air.
-  if (!turn.text && node && (node.type === 'goodbye' || node.type === 'transfer')) {
+  if (!turn.text && node && (node.type === 'goodbye' || node.type === 'transfer' || node.type === 'agent_transfer')) {
     turn.text = node.prompt || '';
   }
   return turn;
@@ -321,7 +398,7 @@ function seedIfNeeded(history: EngineMessage[], node: FlowNode) {
     const label =
       node.type === 'goodbye'
         ? '[The visitor is done — wrap up and say goodbye.]'
-        : node.type === 'transfer'
+        : node.type === 'transfer' || node.type === 'agent_transfer'
           ? '[Hand the visitor off to a team member.]'
           : '[Continue the flow.]';
     history.push({ role: 'user', content: label });
@@ -365,8 +442,29 @@ async function autoAdvance(
       return { currentNodeId: target, ended: false };
     }
 
+    // extract_variable and subflow_ref never talk: do their work (subflow_ref isn't expanded in text sessions, so it
+    // just passes through to its first edge) and jump, hopping on if the target is itself auto-advance.
+    if (node.type === 'extract_variable' || node.type === 'subflow_ref') {
+      if (node.type === 'extract_variable') await executeExtractVariable(node, collectedData, history);
+      const target = node.edges?.[0]?.target;
+      const targetNode = target ? byId.get(target) : undefined;
+      if (!targetNode) return { currentNodeId: nodeId, ended: false };
+      if (AUTO_ADVANCE_TYPES.has(targetNode.type)) {
+        nodeId = target as string;
+        continue;
+      }
+      return { currentNodeId: targetNode.id, ended: false };
+    }
+
     // Node entry side effects (once per entry), then generate the node's turn.
     if (node.type === 'function') await executeFunctionNode(node, collectedData, history);
+    if (node.type === 'code') await executeCodeNode(node, collectedData, history);
+    if (STUBBED_EFFECT_TYPES.has(node.type)) {
+      history.push({
+        role: 'user',
+        content: `[System note: this "${node.type}" step is simulated in the text chat, so nothing was actually done (no SMS sent, no tones dialed, no charge made, no MCP call). Carry on as if it succeeded.]`,
+      });
+    }
     if (node.type === 'knowledge_base' && opts.fetchKnowledgeItems) {
       await executeKnowledgeBaseNode(node, history, opts.fetchKnowledgeItems);
     }

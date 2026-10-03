@@ -27,6 +27,12 @@ const nextConfig: NextConfig = {
   async rewrites() {
     return [{ source: '/api/v1/:path*', destination: '/api/:path*' }];
   },
+  // The text simulator's code node loads QuickJS (and its WASM variant) with a dynamic import that static tracing can't
+  // see, so without this the standalone image ships without it and every code node fails.
+  outputFileTracingIncludes: {
+    '/api/chat/**': ['./node_modules/quickjs-emscripten/**/*', './node_modules/quickjs-emscripten-core/**/*', './node_modules/@jitl/**/*'],
+    '/api/agents/**': ['./node_modules/quickjs-emscripten/**/*', './node_modules/quickjs-emscripten-core/**/*', './node_modules/@jitl/**/*'],
+  },
   serverExternalPackages: ['pdf-parse', 'pdfjs-dist', 'playwright-core'],
   // The landing page's footage and photos are static files that change at most
   // when scripts/hero-ingest.mjs is re-run. Next serves public/ files with
