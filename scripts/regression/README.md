@@ -10,7 +10,7 @@ version through the real API with one distinctive setting, routes a dedicated te
 
 - **Costs money.** About $0.20 per call (two AI sessions plus two Twilio legs). The default is a dry run. A run refuses
   to start if it wants more calls than `--max-calls` (default 8), and every real call is counted in
-  `out/.regression-calls-used` against a lifetime cap (`TOTAL_CALL_CAP` in `lib.mjs`; raise it on purpose).
+  `~/.calldesk-regression-calls-used` (outside any worktree) against a lifetime cap (`TOTAL_CALL_CAP` in `lib.mjs`; raise it on purpose).
 - **Setup:** `.env` needs `REGRESSION_NUMBER` (a Twilio number bought through the call engine's `/purchase-number`,
   about $1 a month), `CALL_LOOP_POC_BASE_URL`, `CALL_LOOP_POC_TEST_CALL_SECRET`, `NEXTAUTH_SECRET`,
   `NEXT_PUBLIC_SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`. Secret values are never printed. Don't commit `.env`.
@@ -22,6 +22,7 @@ version through the real API with one distinctive setting, routes a dedicated te
 - **Adding a scenario:** copy one in `scenarios.mjs`. Set ONE setting, make the caller persona short and
   deterministic, assert on a distinctive string or on duration. Run it once for real and read the transcript before
   trusting a pass (a check that matches too loosely passes for the wrong reason).
-- **Not covered yet:** transfer, DTMF, voicemail, webhook/MCP tools, language switching and silence hang-up need
-  extra test endpoints (a second number that answers, a recording webhook receiver). Scenarios for these are
-  worth adding once those exist.
+- **Known limits of the AI shopper:** it cannot stay silent (it says "Silence." out loud), so the silence hang-up
+  scenario is skipped until a scripted TwiML caller exists. Skipped scenarios run only when named with `--scenario`.
+- **Known issues are scenarios too:** `knownIssue` marks a check that fails today (it is expected to); the run reports
+  "FIXED" when it starts passing. Currently: `language-switch` (an English agent never hears a Spanish caller).

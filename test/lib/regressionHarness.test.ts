@@ -31,15 +31,27 @@ describe('scenarios', () => {
       expect(ids.has(s.id)).toBe(false); ids.add(s.id);
       expect(s.persona.length).toBeGreaterThan(20);
       expect(typeof s.assert).toBe('function');
-      expect(s.version.nodes.some((n: { id: string }) => n.id === s.version.startNodeId)).toBe(true);
+      // A scenario with `prepare` builds its real version at run time; otherwise the static one must be valid.
+      if (!s.prepare) expect(s.version.nodes.some((n: { id: string }) => n.id === s.version.startNodeId)).toBe(true);
+      if (s.skip) expect(s.skip.length).toBeGreaterThan(10);
     }
+  });
+  it('pick leaves skipped scenarios out unless asked for by id', () => {
+    expect(pick([]).some((s: { skip?: string }) => !!s.skip)).toBe(false);
+    expect(pick(['silence-hangup'])).toHaveLength(1);
+  });
+  it('the silence check-in needs the reminder right after the greeting, not just any two agent lines', () => {
+    const sc = SCENARIOS.find((s) => s.id === 'silence-checkin')!;
+    const mk = (rows: [string, string][]) => ({ transcript: rows.map(([role, content]) => ({ role, content })) });
+    expect(sc.assert(mk([['user', '[Call connected]'], ['assistant', 'Hello, welcome.'], ['assistant', 'Are you still there?']]))).toEqual([]);
+    expect(sc.assert(mk([['user', '[Call connected]'], ['assistant', 'Hello, welcome.'], ['user', 'I need a haircut'], ['assistant', 'Sure, what day?']]))).not.toEqual([]);
   });
   it('pick rejects unknown ids', () => {
     expect(() => pick(['nope'])).toThrow(/unknown scenario/);
     expect(pick(['handbook-secret'])).toHaveLength(1);
   });
   it('assertions catch the failure they are about and pass the good case', () => {
-    const by = (id: string) => SCENARIOS.find((s: { id: string }) => s.id === id)!;
+    const by = (id: string) => SCENARIOS.find((s) => s.id === id)!;
     expect(by('handbook-secret').assert(log(['The code is ZEBRA-42.']))).toEqual([]);
     expect(by('handbook-secret').assert(log(['No idea.']))).not.toEqual([]);
     expect(by('exact-greeting').assert(log(['Welcome to Quillbert Hardware, this call is recorded for quality.']))).toEqual([]);

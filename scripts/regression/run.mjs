@@ -10,7 +10,7 @@
 // NEXT_PUBLIC_SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY. Secret values are never printed. Results go to out/regression/.
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { loadEnv, requireEnv, db, apiClient, ensureFixtures, publishVersion, routeNumber, checkSpend, recordCall, callsUsed, TOTAL_CALL_CAP, placeShopperCall, waitForCallEnd, fetchTenantCallLog, lines } from './lib.mjs';
+import { loadEnv, requireEnv, db, apiClient, ensureFixtures, publishVersion, routeNumber, checkSpend, recordCall, callsUsed, TOTAL_CALL_CAP, placeShopperCall, waitForCallEnd, fetchTenantCallLog, fetchTenantLogsSince, lines } from './lib.mjs';
 import { pick } from './scenarios.mjs';
 
 const args = process.argv.slice(2);
@@ -23,6 +23,9 @@ const wanted = val('scenario', '') ? val('scenario').split(',').map((s) => s.tri
 const env = loadEnv();
 requireEnv(env, ['REGRESSION_NUMBER', 'CALL_LOOP_POC_BASE_URL', 'CALL_LOOP_POC_TEST_CALL_SECRET', 'NEXTAUTH_SECRET', 'NEXT_PUBLIC_SUPABASE_URL', 'SUPABASE_SERVICE_ROLE_KEY']);
 const scenarios = pick(wanted);
+const skipped = scenarios.filter((s) => s.skip);
+for (const s of skipped) console.log(`  skipped ${s.id}: ${s.skip}`);
+scenarios.splice(0, scenarios.length, ...scenarios.filter((s) => !s.skip));
 const spend = checkSpend({ wanted: scenarios.length, maxCalls });
 
 console.log(`Scenarios (${scenarios.length}): ${scenarios.map((s) => s.id).join(', ')}`);
@@ -40,18 +43,23 @@ for (const sc of scenarios) {
   const t0 = Date.now();
   let res = { id: sc.id, title: sc.title, status: 'error', failures: [], knownIssue: sc.knownIssue || null };
   try {
-    const versionId = await publishVersion(api, fx, sc);
-    await routeNumber(api, fx, versionId);
+    // `prepare` may publish helper versions (a transfer target, another agent) and return the version under test.
+    const ctx = { env, d, api, fx, publish: (opts) => publishVersion(api, fx, sc, opts), route: (numberId, versionId, direction) => routeNumber(api, numberId, versionId, direction) };
+    const prepared = sc.prepare ? await sc.prepare(ctx) : null;
+    const versionId = await publishVersion(api, fx, sc, prepared ? { version: prepared } : {});
+    await routeNumber(api, fx.numberId, versionId);
     const since = new Date(Date.now() - 5000).toISOString();
-    const sid = await placeShopperCall(env, { number: fx.number, persona: sc.persona });
+    const sid = await placeShopperCall(env, { number: fx.number, persona: sc.persona, language: sc.shopperLanguage, speakFirst: sc.speakFirst });
     recordCall();
     await waitForCallEnd(env, sid);
-    const log = await fetchTenantCallLog(d, fx.tenantId, since);
+    const logs = sc.needsAllLogs ? await fetchTenantLogsSince(d, fx.tenantId, since) : null;
+    const log = sc.needsAllLogs ? logs.find((l) => l.direction !== 'outbound') || logs[0] : await fetchTenantCallLog(d, fx.tenantId, since);
     if (!log) { res.failures = ['no call log appeared for the test tenant (did the call reach the engine?)']; }
     else {
-      res.failures = sc.assert(log);
+      res.failures = sc.assert(log, { logs, ctx });
       res.durationSeconds = log.duration_seconds;
       res.transcript = lines(log).slice(0, 40);
+      if (logs) res.otherCalls = logs.filter((l) => l.id !== log.id).map((l) => ({ to: l.to_number, direction: l.direction, durationSeconds: l.duration_seconds, transcript: lines(l).slice(0, 12) }));
     }
     res.status = res.failures.length === 0 ? 'pass' : 'fail';
   } catch (e) {

@@ -4,13 +4,15 @@
 // demo_e2e_regression, whose id starts with demo_ so every report treats it as internal.
 import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
+import { homedir } from 'node:os';
 import { encode } from 'next-auth/jwt';
 
 export const REG_USER_ID = 'demo_e2e_regression';
 export const REG_TENANT_NAME = 'Regression tenant (do not use)';
 export const REG_AGENT_NAME = 'Regression agent';
+export const REG_AGENT_B_NAME = 'Regression agent B';
 export const COST_PER_CALL_USD = 0.2; // rough: two AI sessions plus two Twilio legs for about 1.5 minutes
-export const TOTAL_CALL_CAP = 60;     // lifetime cap tracked in out/.regression-calls-used; raise it on purpose
+export const TOTAL_CALL_CAP = 60;     // lifetime cap tracked in ~/.calldesk-regression-calls-used; raise it on purpose
 
 export function loadEnv(file = resolve(process.cwd(), '.env')) {
   const env = { ...process.env };
@@ -65,23 +67,36 @@ export async function ensureFixtures(env, d, api) {
   let numRow = (await d.select(`calldesk_phone_numbers?number=eq.${encodeURIComponent(number)}&select=id,tenant_id`))[0];
   if (!numRow) numRow = (await d.insert('calldesk_phone_numbers', { tenant_id: tenant.id, number, source: 'purchased', label: 'Regression test number' }))[0];
   if (numRow.tenant_id !== tenant.id) throw new Error('the regression number belongs to a different tenant; refusing to re-route it');
-  return { tenantId: tenant.id, agentId: agent.id, numberId: numRow.id, number };
+  // A second agent in the same tenant: the target of agent-to-agent transfers.
+  let agentB = (await d.select(`calldesk_agents?tenant_id=eq.${tenant.id}&name=eq.${encodeURIComponent(REG_AGENT_B_NAME)}&select=id`))[0];
+  if (!agentB) agentB = (await api('POST', `/api/tenants/${tenant.id}/agents`, { name: REG_AGENT_B_NAME })).agent;
+  // Optional extra numbers (REGRESSION_NUMBER_B ...), registered to the same tenant, for transfer / outbound targets.
+  const extra = {};
+  for (const [key, label] of [['REGRESSION_NUMBER_B', 'Regression transfer target'], ['REGRESSION_NUMBER_C', 'Regression receiver number']]) {
+    const n = env[key];
+    if (!n) continue;
+    let row = (await d.select(`calldesk_phone_numbers?number=eq.${encodeURIComponent(n)}&select=id,tenant_id`))[0];
+    if (!row) row = (await d.insert('calldesk_phone_numbers', { tenant_id: tenant.id, number: n, source: 'purchased', label }))[0];
+    if (row.tenant_id !== tenant.id) throw new Error(`${key} belongs to a different tenant; refusing to re-route it`);
+    extra[key] = { id: row.id, number: n };
+  }
+  return { tenantId: tenant.id, agentId: agent.id, agentBId: agentB.id, numberId: numRow.id, number, extra };
 }
 
-export async function publishVersion(api, fx, scenario) {
-  const v = scenario.version;
-  const res = await api('POST', `/api/agents/${fx.agentId}/versions`, {
-    flowName: `reg-${scenario.id}`, startNodeId: v.startNodeId, nodes: v.nodes, voiceEngine: 'poc', globalSettings: v.globalSettings || {},
+export async function publishVersion(api, fx, scenario, { agentId = fx.agentId, version = scenario.version, name = `reg-${scenario.id}` } = {}) {
+  const res = await api('POST', `/api/agents/${agentId}/versions`, {
+    flowName: name, startNodeId: version.startNodeId, nodes: version.nodes, voiceEngine: 'poc', globalSettings: version.globalSettings || {},
   });
   return res.version.id;
 }
 
-export async function routeNumber(api, fx, versionId) {
-  await api('POST', `/api/phone-numbers/${fx.numberId}/routing`, { direction: 'inbound', agentVersionId: versionId });
+export async function routeNumber(api, numberId, versionId, direction = 'inbound') {
+  await api('POST', `/api/phone-numbers/${numberId}/routing`, { direction, agentVersionId: versionId });
 }
 
-// Spend gate: every real call is counted in out/.regression-calls-used and refused past the caps.
-const COUNTER = resolve(process.cwd(), 'out/.regression-calls-used');
+// Spend gate: every real call is counted in ~/.calldesk-regression-calls-used (outside any worktree, so it survives
+// checkouts) and refused past the caps. REGRESSION_COUNTER_FILE overrides the location.
+const COUNTER = process.env.REGRESSION_COUNTER_FILE || resolve(homedir(), '.calldesk-regression-calls-used');
 export function callsUsed() { try { return Number(readFileSync(COUNTER, 'utf8').trim()) || 0; } catch { return 0; } }
 export function recordCall() { mkdirSync(dirname(COUNTER), { recursive: true }); writeFileSync(COUNTER, String(callsUsed() + 1)); }
 export function checkSpend({ wanted, maxCalls, used = callsUsed(), total = TOTAL_CALL_CAP }) {
@@ -90,11 +105,11 @@ export function checkSpend({ wanted, maxCalls, used = callsUsed(), total = TOTAL
   return { ok: true, estimateUsd: Math.round(wanted * COST_PER_CALL_USD * 100) / 100 };
 }
 
-export async function placeShopperCall(env, { number, persona }) {
+export async function placeShopperCall(env, { number, persona, language, speakFirst }) {
   const base = env.CALL_LOOP_POC_BASE_URL;
   const res = await fetch(`${base}/place-test-call`, {
     method: 'POST', headers: { Authorization: `Bearer ${env.CALL_LOOP_POC_TEST_CALL_SECRET}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ toNumber: number, shopper: true, record: false, persona }),
+    body: JSON.stringify({ toNumber: number, shopper: true, record: false, persona, ...(language ? { language } : {}), ...(speakFirst ? { speakFirst: true } : {}) }),
   });
   const j = await res.json().catch(() => ({}));
   if (!res.ok || !j.sid) throw new Error(`place-test-call failed (HTTP ${res.status}): ${JSON.stringify(j).slice(0, 200)}`);
@@ -121,6 +136,13 @@ export async function fetchTenantCallLog(d, tenantId, sinceIso, { waitMs = 90000
     await new Promise((r) => setTimeout(r, 5000));
   }
   return null;
+}
+
+// Every call the tenant logged since `sinceIso` (oldest first). Used when one scenario produces several calls
+// (for example a transfer: the original call plus the leg that reaches the target).
+export async function fetchTenantLogsSince(d, tenantId, sinceIso, { settleMs = 25000 } = {}) {
+  await new Promise((r) => setTimeout(r, settleMs));
+  return d.select(`calldesk_call_logs?tenant_id=eq.${tenantId}&created_at=gte.${encodeURIComponent(sinceIso)}&select=id,transcript,duration_seconds,outcome,extracted_data,analysis,direction,to_number,created_at&order=created_at.asc&limit=10`);
 }
 
 // Normalise the stored transcript into [{speaker:'agent'|'caller', text}]. For the callee's own log, 'assistant' is the agent.

@@ -8,6 +8,7 @@ const node = (id, type, prompt, extra = {}) => ({ id, type, prompt, edges: [], .
 const single = (prompt, extra = {}) => ({ startNodeId: 'main', nodes: [node('main', 'greeting', prompt, extra.node)], globalSettings: extra.globalSettings || {} });
 const KEEP_IT_SHORT = ' Keep every reply to one short sentence. When your question is answered, say thanks and goodbye.';
 
+/** @type {Array<Record<string, any>>} */
 export const SCENARIOS = [
   {
     id: 'handbook-secret',
@@ -75,8 +76,80 @@ export const SCENARIOS = [
   },
 ];
 
+const SPANISH_RE = /\b(hola|gracias|ayuda|puedo|puede|cómo|como puedo|buenos|buenas|por favor|qué|usted|cafe|café|con gusto|claro)\b/i;
+
+SCENARIOS.push(
+  {
+    id: 'silence-hangup',
+    title: 'End call after silence hangs up on a silent caller',
+    skip: 'needs a scripted silent caller (TwiML <Pause>); the AI shopper cannot stay silent, it says "Silence." out loud',
+    version: single('You are the receptionist for Alder Clinic. Greet the caller and ask how you can help.', { globalSettings: { endCallAfterSilenceSec: 8 } }),
+    persona: 'You are a caller who never says a single word. Stay completely silent for the entire call, even if asked a question.',
+    assert: (log) => {
+      const f = []; const d = log.duration_seconds;
+      if (lines(log).some((l) => l.speaker === 'caller' && !/^\[/.test(l.text))) f.push('the shopper spoke, so silence was not tested');
+      if (!(d >= 8 && d <= 40)) f.push(`the call lasted ${d}s; expected a hang-up roughly 8s after the greeting`);
+      return f;
+    },
+  },
+  {
+    id: 'silence-checkin',
+    title: 'Check in after silence prompts a silent caller',
+    version: { startNodeId: 'main', nodes: [node('main', 'greeting', 'You are the receptionist for Alder Clinic. Greet the caller and ask how you can help.', { params: { reminderMessageFrequencySec: 5 } })], globalSettings: { endCallAfterSilenceSec: 24 } },
+    persona: 'You are a caller who never says a single word. Stay completely silent for the entire call, even if asked a question.',
+    assert: (log) => {
+      // The reminder fires 5s after the greeting with nothing from the caller in between, so the first two real lines are both the agent.
+      const real = lines(log).filter((l) => !/^\[/.test(l.text));
+      return real[0]?.speaker === 'agent' && real[1]?.speaker === 'agent' && /still there|are you there|still on the line|hello/i.test(real[1].text) ? [] : ['the agent did not check in with a "still there?" line right after the greeting'];
+    },
+  },
+  {
+    id: 'language-switch',
+    title: 'Mid-call language switching follows a Spanish-speaking caller',
+    knownIssue: 'while the agent is configured for English, a Spanish caller is not transcribed at all (the agent heard nothing for the whole call), so the switch never triggers. Control: language-es-agent passes with the same caller.',
+    version: single('You are the receptionist for Sol Cafe. Answer briefly and reply in the language the caller is speaking.', { globalSettings: { allowLanguageSwitching: true, switchableLanguages: ['es'] } }),
+    persona: 'Eres una persona que llama a una cafetería. Hablas solo en español. Pregunta a qué hora cierran y despídete.',
+    shopperLanguage: 'es',
+    assert: (log) => {
+      const agent = lines(log).filter((l) => l.speaker === 'agent');
+      const later = agent.slice(1).map((l) => l.text).join(' ');
+      return SPANISH_RE.test(later) ? [] : ['no agent reply after the first turn was in Spanish'];
+    },
+  },
+  {
+    id: 'language-es-agent',
+    title: 'An agent set to Spanish hears and answers a Spanish-speaking caller',
+    version: single('Eres la recepcionista de Sol Cafe. Responde brevemente.', { globalSettings: { language: 'es' } }),
+    persona: 'Eres una persona que llama a una cafetería. Hablas solo en español. Pregunta a qué hora cierran y despídete.',
+    shopperLanguage: 'es',
+    assert: (log) => {
+      const t = lines(log).filter((l) => l.speaker === 'agent').map((l) => l.text).join(' ');
+      return SPANISH_RE.test(t) && lines(log).some((l) => l.speaker === 'caller' && !/^\[/.test(l.text)) ? [] : ['the agent did not hear a Spanish caller or did not answer in Spanish'];
+    },
+  },
+  {
+    id: 'agent-transfer',
+    title: 'Hand the call to another agent continues the call as that agent',
+    prepare: async ({ publish, fx }) => {
+      await publish({ agentId: fx.agentBId, name: 'reg-agent-b', version: single('You are Agent B at Larch Insurance. Say "Agent B here, Larch Insurance." then ask how you can help with the policy.') });
+      return {
+        startNodeId: 'greeting',
+        nodes: [
+          node('greeting', 'greeting', 'You are the front desk at Larch Insurance. Greet the caller briefly. If they ask about their policy or billing, hand them over.', { edges: [{ id: 'e1', target: 'handoff', condition: 'caller asks about their policy or billing' }] }),
+          node('handoff', 'agent_transfer', 'Hand over to the policy specialist.', { params: { targetAgentId: fx.agentBId } }),
+        ],
+        globalSettings: {},
+      };
+    },
+    version: { startNodeId: 'x', nodes: [], globalSettings: {} },
+    persona: 'You are a caller with a question about your insurance policy billing. Say so right away.' + KEEP_IT_SHORT,
+    assert: (log) => (/agent b here/i.test(agentText(log)) ? [] : ['the call never continued as Agent B ("Agent B here, Larch Insurance.")']),
+  },
+);
+
 export function pick(ids) {
-  if (!ids || !ids.length) return SCENARIOS;
+  // Skipped scenarios run only when asked for by id.
+  if (!ids || !ids.length) return SCENARIOS.filter((s) => !s.skip);
   const out = ids.map((id) => SCENARIOS.find((s) => s.id === id)).filter(Boolean);
   const unknown = ids.filter((id) => !SCENARIOS.some((s) => s.id === id));
   if (unknown.length) throw new Error(`unknown scenario(s): ${unknown.join(', ')}. Known: ${SCENARIOS.map((s) => s.id).join(', ')}`);
