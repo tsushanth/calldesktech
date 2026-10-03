@@ -518,8 +518,8 @@ export default function SettingsPage() {
             <div className="mt-5">
               <label className="mb-2 block text-[12.5px] font-medium text-gray-500">TTS Backend</label>
               <div className="grid max-w-2xl grid-cols-2 gap-2.5 md:grid-cols-4">
-                <OptionCard selected={ttsBackend === 'kokoro'} onClick={() => { setTtsBackend('kokoro'); setBackendTouched(true); }} title="CallDeskTech" description="Lowest cost. Noticeably lower voice quality" />
-                <OptionCard selected={ttsBackend === 'piper'} onClick={() => { setTtsBackend('piper'); setBackendTouched(true); }} title="Piper" description="Lowest cost. Noticeably lower voice quality (coming soon)" />
+                <OptionCard selected={ttsBackend === 'kokoro'} onClick={() => { setTtsBackend('kokoro'); setBackendTouched(true); }} title="CallDeskTech" description="Lowest cost. Efficient voice, less expressive than Standard" />
+                <OptionCard selected={ttsBackend === 'piper'} onClick={() => { setTtsBackend('piper'); setBackendTouched(true); }} title="Piper" description="Lowest cost. Efficient voice, less expressive than Standard (coming soon)" />
                 <OptionCard selected={ttsBackend === 'elevenlabs'} onClick={() => { setTtsBackend('elevenlabs'); setBackendTouched(true); }} title="ElevenLabs" description="Standard. Our recommended, natural-sounding voice" />
                 <OptionCard selected={ttsBackend === 'cartesia'} onClick={() => { setTtsBackend('cartesia'); setBackendTouched(true); }} title="Cartesia" description="Low-latency streaming" />
                 <OptionCard selected={ttsBackend === 'minimax'} onClick={() => { setTtsBackend('minimax'); setBackendTouched(true); }} title="MiniMax" description="Higher cost; $0.16/min on the existing flat price" />

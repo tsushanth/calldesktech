@@ -160,7 +160,7 @@ export default function DocsPage() {
                   <li>Included on every tier: call summary, transcript and structured field extraction.</li>
                   <li>{CARRIER_NOTE}</li>
                   <li>Optional add-ons are coming soon and cannot be bought yet; amounts will be announced when they launch. Planned: {ADD_ONS.map((a) => a.label.toLowerCase()).join(', ')}.</li>
-                  <li>Lite uses our lowest-cost voice, which is noticeably lower quality than Standard. Publishing with <code className="rounded bg-white px-1.5 py-0.5 text-[13px]">&quot;tier&quot;: &quot;lite&quot;</code> needs <code className="rounded bg-white px-1.5 py-0.5 text-[13px]">&quot;acceptLowerQuality&quot;: true</code> to confirm you accept that tradeoff.</li>
+                  <li>Lite uses our efficient voice, built for fast, high-volume calls. Publishing with <code className="rounded bg-white px-1.5 py-0.5 text-[13px]">&quot;tier&quot;: &quot;lite&quot;</code> needs <code className="rounded bg-white px-1.5 py-0.5 text-[13px]">&quot;acceptLowerQuality&quot;: true</code> to confirm you are choosing the Lite voice for the lower price.</li>
                   <li>Agents published without a tier keep their current per-minute price. Choosing a tier is optional.</li>
                 </ul>
                 <div className="mt-4"><Code label="Publish a version on the Standard tier">{`curl -X POST ${base}/agents/$AGENT/versions \\

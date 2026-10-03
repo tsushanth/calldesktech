@@ -235,7 +235,7 @@ export default function AgentBuilderPage() {
   // Pricing tier (src/lib/pricingTiers.ts) plus the Advanced model overrides. '' for each = not chosen: no tier keeps the agent on its
   // current per-minute price, and with a tier the models come from the tier unless one of these is set.
   const [tier, setTier] = useState<TierId | ''>('');
-  // The cheapest tier's voice is noticeably lower quality, so picking it needs an explicit acknowledgement (also enforced by the API).
+  // The cheapest tier's voice is less expressive than Standard's, so picking it needs an explicit acknowledgement (also enforced by the API).
   const [lowerQualityAccepted, setLowerQualityAccepted] = useState(false);
   const needsLowerQualityAccept = !!tier && !!tierById(tier)?.lowerQuality && !lowerQualityAccepted;
   const [llmModel, setLlmModel] = useState('');

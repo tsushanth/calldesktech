@@ -66,7 +66,7 @@ export function PricingContent({ cta, planCta }: { cta: ReactNode; planCta?: (pl
         </div>
 
         <p className="mx-auto mt-6 max-w-3xl text-center text-[14px] leading-[1.55] text-gray-600" data-testid="voice-quality-note">
-          The difference between the plans is mostly the voice. Standard and Pro use premium, natural-sounding voices. Lite uses our lowest-cost voice, which is noticeably less natural, and you confirm that tradeoff when you choose it.
+          The plans differ mostly in the voice. Standard and Pro use our most natural, expressive voices. Lite uses our efficient voice, built for fast, high-volume calls at the lowest price.
         </p>
         <p className="mx-auto mt-3 max-w-3xl text-center text-[13px] leading-[1.5] text-gray-500">*{CARRIER_NOTE}</p>
 

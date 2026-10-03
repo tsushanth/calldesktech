@@ -106,13 +106,13 @@ describe('decks', () => {
   it('customer deck pricing slide states the tiers, not the flat price', () => {
     const t = strip(DECK_SLIDES.find((s) => s.includes('id="pricing"'))!);
     expect(t).toContain('2 to 10 cents a minute');
-    expect(t).toContain('Lite is 2 cents on our lowest-cost voice');
+    expect(t).toContain('Lite is 2 cents with our efficient voice');
     expect(t).not.toContain('$0.10 per minute');
   });
   it('investor deck price slide leads with the tiers and qualifies Lite', () => {
     const t = strip(buildInvestorSlides().join(' '));
     expect(t).toContain('6 cents Standard');
-    expect(t).toContain('Lite 2 cents (lowest-cost voice)');
+    expect(t).toContain('Lite 2 cents (efficient voice)');
     expect(t).not.toContain('$0.10 default, to $0.16 premium voices');
   });
 });

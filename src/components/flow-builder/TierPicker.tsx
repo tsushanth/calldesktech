@@ -85,7 +85,7 @@ export default function TierPicker({
             className="mt-0.5"
           />
           <span>
-            {selectedTier.name} uses our lowest-cost voice. It is noticeably lower quality than Standard. I understand and accept that tradeoff for the lower price.
+            {selectedTier.name} uses our efficient voice, tuned for speed and cost. It is less expressive than the Standard and Pro voices. I understand and want {selectedTier.name} for the lower price.
           </span>
         </label>
       )}

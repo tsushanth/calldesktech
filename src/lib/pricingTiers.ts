@@ -49,7 +49,7 @@ export type PricingTier = {
   carrierMode: CarrierMode;
   availability: TierAvailability;
   stack: TierStack;
-  /** The voice is noticeably lower quality than Standard. Choosing this tier must be a conscious, explicit decision (publish needs acceptLowerQuality: true). */
+  /** The voice is our efficient one, less expressive than Standard's. Choosing this tier must be a conscious, explicit decision (publish needs acceptLowerQuality: true). */
   lowerQuality?: boolean;
 };
 
@@ -75,7 +75,7 @@ export const PRICING_TIERS: PricingTier[] = [
     pricePerMinuteCents: 2,
     tagline: 'The lowest price for simple, high-volume calls.',
     whoItsFor: 'Straightforward calls such as confirmations and quick questions, where cost matters most.',
-    includes: [...INCLUDED_ON_ALL, 'Fast responses on our lowest-cost voice, with noticeably lower voice quality than Standard'],
+    includes: [...INCLUDED_ON_ALL, 'Fast, clear voice built for high-volume calls'],
     carrierMode: 'byo',
     availability: 'live',
     // The Kokoro-distilled voice (owner-accepted provenance, 2026-10-03): explicit so Lite never falls back to the engine's global Piper default.
@@ -238,7 +238,7 @@ export function resolveTierForPublish(input: TierPublishInput): TierPublishResul
   if (tier.availability !== 'live') return { ok: false, error: `The ${tier.name} tier is coming soon and cannot be selected yet. Choose ${PRICING_TIERS.filter((t) => t.availability === 'live').map((t) => t.id).join(' or ')}.` };
   if (voiceEngine !== 'poc') return { ok: false, error: 'tier applies only to agents on the in-house voice engine (voiceEngine "poc")' };
   if (tier.lowerQuality && input.acceptLowerQuality !== true) {
-    return { ok: false, error: `The ${tier.name} tier uses our lowest-cost voice, which is noticeably lower quality than Standard. Pass acceptLowerQuality: true to confirm you accept that tradeoff, or choose Standard.`, };
+    return { ok: false, error: `The ${tier.name} tier uses our efficient voice, which is less expressive than the Standard voice. Pass acceptLowerQuality: true to confirm you are choosing it for the lower price, or choose Standard.`, };
   }
 
   const stack = tier.stack;

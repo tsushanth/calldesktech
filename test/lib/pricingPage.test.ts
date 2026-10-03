@@ -23,7 +23,7 @@ describe('/pricing server-rendered content (no session, no JS)', () => {
     expect(text).not.toMatch(/Lite[^.]{0,30}coming soon/i);
     expect(text).toContain('Most popular');
     expect(html).toContain('data-testid="voice-quality-note"');
-    expect(text).toContain('noticeably less natural');
+    expect(text).toContain('built for fast, high-volume calls');
   });
   it('has the carrier note, the add-on list and the ThunderPhone line', () => {
     expect(text).toContain(CARRIER_NOTE);
