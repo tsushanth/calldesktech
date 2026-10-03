@@ -59,11 +59,21 @@ async function main() {
   const db = getSupabaseAdmin();
   console.log(`Batch date ${DATE} | callers ${CALLERS.join(', ')} | ${PER} each | products ${PRODUCTS.join(' > ')} | states ${STATES.join(',') || 'all'} | ${COMMIT ? 'COMMIT' : 'dry run'}`);
 
-  const dnc = new Set<string>(((await db.from('calldesk_do_not_call').select('phone')).data ?? []).map((r: { phone: string }) => r.phone));
+  // PostgREST returns at most 1000 rows per request, so read the big tables page by page.
+  async function readAll<R>(table: string, cols: string): Promise<R[]> {
+    const out: R[] = [];
+    for (let off = 0; ; off += 1000) {
+      const { data, error } = await db.from(table).select(cols).order('phone').range(off, off + 999);
+      if (error) return out.length ? out : [];
+      out.push(...((data ?? []) as unknown as R[]));
+      if (!data || data.length < 1000) break;
+    }
+    return out;
+  }
+  const dnc = new Set<string>((await readAll<{ phone: string }>('calldesk_do_not_call', 'phone')).map((r) => r.phone));
   // Carrier lookups (scripts/lookup-line-types.mjs): numbers the carrier says are not valid are never batched.
-  const lk = await db.from('calldesk_phone_lookups').select('phone, line_type, valid');
   const lookups = new Map<string, { line_type: string | null; valid: boolean | null }>(
-    ((lk.error ? [] : lk.data) ?? []).map((r: { phone: string; line_type: string | null; valid: boolean | null }) => [r.phone, r]),
+    (await readAll<{ phone: string; line_type: string | null; valid: boolean | null }>('calldesk_phone_lookups', 'phone, line_type, valid')).map((r) => [r.phone, r]),
   );
   // Phones already given to a caller on an earlier day. (If migration 062 is not applied yet this is empty.)
   const prior = await db.from('calldesk_call_batches').select('phone').lt('batch_date', DATE);
