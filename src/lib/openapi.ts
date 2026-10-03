@@ -12,6 +12,8 @@ interface Op {
   body?: Record<string, string>;
   bodyRequired?: string[];
   returns?: string;
+  /** No credentials needed: documented without the 401 response and with no security requirement. */
+  public?: boolean;
 }
 
 const T = '{tenantId}';
@@ -32,10 +34,11 @@ const ops: Record<string, Partial<Record<Method, Op>>> = {
     post: {
       tag: 'Agents', summary: 'Publish a new version',
       description: 'Versions are immutable. Set `globalSettings.language` (en default; es, fr, pt-BR, it, nl, hi, de, pl, id, ar) for a non-English agent: the engine switches speech recognition, the reply language and the voice, and a non-English poc agent is pinned to the ElevenLabs voice (billed at the ElevenLabs rate). `nodes` is the conversation-flow graph; `subflow_ref` nodes are embedded as snapshots at publish time.',
-      body: { flowName: 'string', startNodeId: 'string', nodes: 'FlowNode[]', globalSettings: 'object', voiceEngine: "'poc' | 'retell'", voiceId: 'string', ttsBackend: "'kokoro' | 'elevenlabs' | 'cartesia' | 'minimax'", llmModel: "string (optional; poc engine only; see GET /models; default claude-haiku-4-5-20251001)", ttsModel: "string (optional; elevenlabs or cartesia only; see GET /models)" },
+      body: { flowName: 'string', startNodeId: 'string', nodes: 'FlowNode[]', globalSettings: 'object', voiceEngine: "'poc' | 'retell'", voiceId: 'string', tier: "'standard' | 'pro' (optional; poc engine only; see GET /pricing; 'lite' is coming soon and returns 400; the tier picks the language model and voice for you; omit to keep the flat per-minute price of the voice backend)", ttsBackend: "'kokoro' | 'elevenlabs' | 'cartesia' | 'minimax' (advanced)", llmModel: "string (advanced, optional; poc engine only; overrides the tier; see GET /models; default claude-haiku-4-5-20251001)", ttsModel: "string (advanced, optional; elevenlabs or cartesia only; overrides the tier; see GET /models)" },
       bodyRequired: ['flowName', 'startNodeId', 'nodes', 'voiceEngine'], returns: '{ version, flow }',
     },
   },
+  '/pricing': { get: { tag: 'Agents', summary: 'List pricing tiers', public: true, description: 'The pricing tiers (Lite, Standard, Pro) and optional add-ons, with price per minute, what each includes and whether your own phone carrier is billed separately. No authentication needed. Pass a tier id as `tier` when publishing a version. Lite is `coming_soon` and cannot be selected yet. Agents published without a tier keep the flat per-minute price of their voice backend. Add-on amounts are proposals and may be null.', returns: '{ currency, unit, tiers: { id, name, pricePerMinuteCents, pricePerMinuteDollars, tagline, whoItsFor, includes, carrierMode: \'byo\' | \'managed\', availability: \'live\' | \'coming_soon\' }[], addOns: { id, label, description, centsPerMinute | null, proposed, defaultOn }[], includedOnAllTiers, carrierNote, notes }' } },
   '/models': { get: { tag: 'Agents', summary: 'List model options', description: 'The language models (`llmModel`) and voice models (`ttsModel`) you can choose when publishing a version, each with its provider price, a `tested` or `preview` status and notes on speed and reliability. If the voice engine cannot use the chosen model, or the provider fails before the agent speaks, the default model answers, so a call never fails because of this setting. A flow node can override the language model with `params.model`.', returns: '{ defaults: { llmModel }, llmModels: { id, label, provider, price: { in, out } (USD per million tokens), default?, status, notes }[], ttsModels: { id, backend, label, pricePer1kChars, default?, notes }[], notes: string[] }' } },
   '/agent-templates': { get: { tag: 'Agents', summary: 'List agent templates', description: 'Built-in templates (receptionist, medical receptionist, payment collection, IVR navigation and more) that can be installed as an agent.', returns: '{ templates: { id, label, description, category, defaultVariables: {name: value}, variables: string[] (the {{placeholders}} you can set on install) }[] }' } },
   [`/tenants/${T}/agents/from-template`]: {
@@ -186,9 +189,10 @@ export function buildOpenApi(serverUrl: string) {
             } } },
           },
         } : {}),
+        ...(op.public ? { security: [] } : {}),
         responses: {
           '200': { description: op.returns ? `Returns ${op.returns}` : 'OK' },
-          '401': { description: 'Missing or invalid credentials' },
+          ...(op.public ? {} : { '401': { description: 'Missing or invalid credentials' } }),
           '404': { description: 'Not found, or not in your workspace' },
           '429': { description: 'Rate limited' },
         },

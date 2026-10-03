@@ -56,7 +56,7 @@ Built-in templates use {{business_name}} and {{agent_name}}; set them via create
 
 ## Workflow
 1) create_agent  2) (optional) create_knowledge_base with agent_id + add_knowledge_items, create_subflow
-3) publish_agent_version (versions are immutable; optional llmModel/ttsModel, see list_model_options)  4) set_number_routing to point a number at the new version's id,
+3) publish_agent_version (versions are immutable; optional tier (see list_pricing_tiers), or advanced llmModel/ttsModel, see list_model_options)  4) set_number_routing to point a number at the new version's id,
    or to an environment (staging/production) so later promotions take effect with no further routing call
 5) place_call to test.
 
@@ -88,10 +88,12 @@ server.registerTool('publish_agent_version', {
     globalSettings: z.record(z.any()).optional(),
     voiceId: z.string().optional(),
     ttsBackend: z.enum(['kokoro', 'elevenlabs', 'cartesia', 'minimax']).optional(),
-    llmModel: z.string().optional().describe('Language model that runs the agent (voiceEngine poc only). Call list_model_options for valid ids. Omit for the default, claude-haiku-4-5-20251001.'),
-    ttsModel: z.string().optional().describe('Voice model within ttsBackend (elevenlabs or cartesia only). Call list_model_options for valid ids. Omit for the backend default.'),
+    tier: z.enum(['lite', 'standard', 'pro']).optional().describe('Pricing tier (voiceEngine poc only). Call list_pricing_tiers. The tier picks the models and voice for you. "lite" is coming soon and is rejected for now. Omit to keep the flat per-minute price of the voice backend.'),
+    llmModel: z.string().optional().describe('Advanced: overrides the tier. Language model that runs the agent (voiceEngine poc only). Call list_model_options for valid ids. Omit to let the tier (or the default, claude-haiku-4-5-20251001) choose.'),
+    ttsModel: z.string().optional().describe('Advanced: overrides the tier. Voice model within ttsBackend (elevenlabs or cartesia only). Call list_model_options for valid ids. Omit for the backend default.'),
   },
 }, run(({ agentId, ...body }: any) => api('POST', `/agents/${agentId}/versions`, body)));
+server.registerTool('list_pricing_tiers', { description: 'List the pricing tiers (Lite, Standard, Pro) with their price per minute, what each includes, whether the customer’s own phone carrier is billed separately, which are available now, and the optional add-ons. Pass a tier id to publish_agent_version. Agents published without a tier keep their current per-minute price.', annotations: READ, inputSchema: {} }, run(() => api('GET', '/pricing')));
 server.registerTool('list_model_options', { description: 'List the language models (llmModel) and voice models (ttsModel) an agent version can use, with provider prices, status (tested or preview) and notes on speed and reliability. Pass the ids to publish_agent_version. If the engine cannot use a chosen model the default answers, so a call never fails because of this setting.', annotations: READ, inputSchema: {} }, run(() => api('GET', '/models')));
 
 // ---- subflows

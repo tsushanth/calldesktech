@@ -16,7 +16,7 @@ export const MCP_TOOL_GROUPS: McpToolGroup[] = [
       { name: 'rename_agent', summary: 'Rename an agent.' },
       { name: 'delete_agent', summary: 'Permanently delete an agent and its versions, subflows and knowledge bases.' },
       { name: 'list_agent_versions', summary: 'List an agent’s immutable versions, newest first.' },
-      { name: 'publish_agent_version', summary: 'Publish a new immutable version from a conversation-flow graph. Optional llmModel and ttsModel choose the language and voice models.' },
+      { name: 'publish_agent_version', summary: 'Publish a new immutable version from a conversation-flow graph. Optional tier (standard or pro) picks the models for you; advanced llmModel and ttsModel override them.' },
       { name: 'list_agent_templates', summary: 'List the built-in agent templates.' },
       { name: 'create_agent_from_template', summary: 'Create a ready-to-call agent from a template and publish its first version.' },
       { name: 'list_agent_environments', summary: 'List an agent’s staging and production environments and the version each points to.' },
@@ -24,7 +24,13 @@ export const MCP_TOOL_GROUPS: McpToolGroup[] = [
       { name: 'analyze_agent_copilot', summary: 'Analyze recent real calls for recurring problems and propose flow edits grounded in specific transcripts.' },
     ],
   },
-  { group: 'Models', tools: [{ name: 'list_model_options', summary: 'List the language models (llmModel) and voice models (ttsModel) a version can use, with prices, status and notes.' }] },
+  {
+    group: 'Pricing and models',
+    tools: [
+      { name: 'list_pricing_tiers', summary: 'List the pricing tiers (Lite, Standard, Pro) with price per minute, what each includes, carrier billing and add-ons.' },
+      { name: 'list_model_options', summary: 'List the language models (llmModel) and voice models (ttsModel) a version can use, with prices, status and notes (advanced).' },
+    ],
+  },
   {
     group: 'Subflows and knowledge',
     tools: [

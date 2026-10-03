@@ -3,7 +3,8 @@ import Stripe from 'stripe';
 import { getStripe } from '@/lib/stripe';
 import { getSupabaseAdmin } from '@/lib/supabase';
 import { requireTenantRole } from '@/lib/authz';
-import { getTenantUsageSince } from '@/lib/usage';
+import { getTenantUsageSince, getTenantUsageByTierSince, type TierUsageRow } from '@/lib/usage';
+import { USAGE_PRICES } from '@/lib/constants';
 
 // GET /api/tenants/[id]/billing — server-side (service-role Supabase +
 // Stripe SDK). Returns the tenant's current plan, this-period usage,
@@ -33,6 +34,8 @@ type BillingResponse = {
     currentPeriodEnd: number | null;
   } | null;
   usage: UsageBreakdown;
+  /** This period's voice minutes and charge grouped by pricing tier; the null tier is the account's legacy flat rate. */
+  usageByTier: TierUsageRow[];
   upcomingInvoice: {
     amountDue: number;
     currency: string;
@@ -89,6 +92,7 @@ export async function GET(
       hasSubscription: false,
       plan: null,
       usage: emptyUsage,
+      usageByTier: [],
       upcomingInvoice: null,
       paymentMethod: null,
       invoices: [],
@@ -125,8 +129,17 @@ export async function GET(
     // actually recorded, and independent of meter-event delivery). Mirrors
     // the metered dimensions: voice minutes + completed actions.
     let usage = emptyUsage;
+    let usageByTier: TierUsageRow[] = [];
     if (periodStart) {
       usage = await getTenantUsageSince(supabase, tenantId, new Date(periodStart * 1000));
+      // Legacy calls are billed at the subscription's voice line. Read its rate as cents per minute (the meter counts seconds, so the
+      // price is per second, or per N seconds when it divides the quantity); null when it cannot be read, and the page then shows minutes only.
+      const voiceIds: string[] = Object.values(USAGE_PRICES.voice);
+      const voiceItem = subscription.items.data.find((i) => voiceIds.includes(i.price.id));
+      const unit = voiceItem?.price.unit_amount_decimal ? Number(voiceItem.price.unit_amount_decimal) : NaN;
+      const per = voiceItem?.price.transform_quantity?.divide_by || 1;
+      const legacyCentsPerMinute = Number.isFinite(unit) ? Math.round((unit * 60 * 1000) / per) / 1000 : null;
+      usageByTier = await getTenantUsageByTierSince(supabase, tenantId, new Date(periodStart * 1000), legacyCentsPerMinute);
     }
 
     // Upcoming invoice estimate — authoritative dollar figure, aggregated by
@@ -206,6 +219,7 @@ export async function GET(
         currentPeriodEnd: periodEnd,
       },
       usage,
+      usageByTier,
       upcomingInvoice,
       paymentMethod,
       invoices,

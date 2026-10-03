@@ -6,7 +6,8 @@ import type { TtsBackend } from '@/types';
 // falls back to the default one, so an agent never fails to answer because of this setting.
 //
 // Prices are USD from each provider's own pricing page (retrieved 2026-10-02); they describe provider cost, not what customers are
-// billed (customers pay per minute by voice backend, see /pricing).
+// billed. Customers pay per minute by pricing tier (src/lib/pricingTiers.ts, see /pricing); agents that predate the tiers keep their
+// per-voice-backend flat price. Choosing models directly is an Advanced override; each tier picks its own models from this catalog.
 
 export type LlmModelOption = {
   id: string;
@@ -31,6 +32,13 @@ export type TtsModelOption = {
 };
 
 export const DEFAULT_LLM_MODEL = 'claude-haiku-4-5-20251001';
+
+// Ids the pricing tiers (src/lib/pricingTiers.ts) build their stacks from. Named here so a tier can never point at a model that is
+// not in the lists below (test/lib/pricingTiers.test.ts checks every tier stack against validateModelChoice).
+export const LITE_LLM_MODEL = 'gpt-6-luna';
+export const PRO_LLM_MODEL = DEFAULT_LLM_MODEL;
+export const ELEVEN_FLASH_TTS_MODEL = 'eleven_flash_v2_5';
+export const ELEVEN_V4_TURBO_TTS_MODEL = 'eleven_v4_turbo';
 
 export const LLM_MODELS: LlmModelOption[] = [
   { id: 'claude-haiku-4-5-20251001', label: 'Claude Haiku 4.5', provider: 'anthropic', price: { in: 1, out: 5 }, default: true, status: 'tested', notes: 'The default. Fastest first response of the tested models (about 0.6 s) and the most reliable at recording fields and following the flow.' },
@@ -57,6 +65,7 @@ export function getModelCatalog() {
       'llmModel applies to agents on the in-house voice engine (voiceEngine "poc"). If the engine cannot use the chosen model (for example its provider key is not configured) or the provider fails before the agent speaks, the default model answers, so the call still works.',
       'ttsModel must belong to the agent’s voice backend (ttsBackend). The kokoro and minimax backends have no model choice.',
       'Individual flow nodes can override the model with params.model.',
+      'Most people never need this list: publish with a pricing tier (tier "standard" or "pro", see GET /pricing) and the right models are chosen for you. Models you set explicitly override the tier’s choice.',
     ],
   };
 }

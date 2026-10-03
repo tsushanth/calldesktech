@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getStripe } from '@/lib/stripe';
+import { getStripe, ensureTierItemsInUseForTenant } from '@/lib/stripe';
 import { getSupabaseAdmin } from '@/lib/supabase';
 import Stripe from 'stripe';
 
@@ -70,6 +70,9 @@ export async function POST(request: NextRequest) {
             console.error('Failed to upsert business on checkout:', upsertError);
           }
 
+          // Tiered agents published before checkout have no tier line to bill on yet: add them (best effort, logged on failure).
+          await ensureTierItemsInUseForTenant(tenantId);
+
           // Point the user at their billing record. default_business_id is an
           // FK to calldesk_businesses(id), so it must be the row's real id —
           // not the tenant id (the old code stored the tenant id here, which
@@ -125,6 +128,7 @@ export async function POST(request: NextRequest) {
                   },
                   { onConflict: 'tenant_id' }
                 );
+              await ensureTierItemsInUseForTenant(sibling.id);
             }
           }
         }

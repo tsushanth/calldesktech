@@ -1,6 +1,8 @@
 import type Stripe from 'stripe';
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { getTenantUsageSince } from './usage';
+import { getTenantUsageSplitSince } from './usage';
+import { tierBillingConfigured, TIER_PRICE_ENV } from './tierBilling';
+import type { TierId } from './pricingTiers';
 
 // Reports metered usage (voice seconds + booking/transfer/message events) to
 // Stripe via the Billing Meters API (stripe.billing.meterEvents.create).
@@ -35,6 +37,16 @@ const METER_EVENT_NAMES = {
   transfer: 'calldesktech_transfer_events',
   message: 'calldesktech_message_events',
 } as const;
+
+// Pricing tiers (docs/tiered-billing.md): one meter per tier, same shape as the legacy voice meter (seconds, sum, customer mapped by
+// stripe_customer_id). This cron is the only thing that reports usage to them. A call is reported exactly once: tier null (or an unknown
+// tier id) on the legacy meters above, a known tier on that tier's meter below; tiered calls include booking/transfer/message events in
+// the per-minute price, so no event counts are reported for them.
+export const TIER_METER_EVENT_NAMES: Record<TierId, string> = {
+  lite: 'calldesktech_voice_seconds_lite',
+  standard: 'calldesktech_voice_seconds_standard',
+  pro: 'calldesktech_voice_seconds_pro',
+};
 
 export type TenantUsageReportResult =
   | { tenantId: string; status: 'skipped_no_customer' }
@@ -99,19 +111,32 @@ export async function reportTenantUsageToStripe(
     return { tenantId, status: 'skipped_zero_usage', since: since.toISOString(), until: until.toISOString() };
   }
 
-  let usage;
+  let split;
   try {
-    usage = await getTenantUsageSince(supabase, tenantId, since, until);
+    split = await getTenantUsageSplitSince(supabase, tenantId, since, until);
   } catch (err) {
     return { tenantId, status: 'error', error: err instanceof Error ? err.message : String(err) };
   }
+  const usage = split.legacy;
 
-  type Dimension = { dimension: keyof typeof METER_EVENT_NAMES; value: number };
+  // Fail loudly, before reporting anything, if a tier with calls in this window cannot be billed: reporting the rest and advancing the
+  // watermark would leave those calls unbilled forever. The watermark stays put, so the next run retries the whole window.
+  const unconfigured = split.byTier.filter((t) => !tierBillingConfigured(t.tier));
+  if (unconfigured.length > 0) {
+    return {
+      tenantId,
+      status: 'error',
+      error: `Calls on the ${unconfigured.map((t) => t.tier).join(', ')} tier(s) cannot be reported: ${unconfigured.map((t) => TIER_PRICE_ENV[t.tier]).join(', ')} is not set. Nothing was reported or advanced for this tenant.`,
+    };
+  }
+
+  type Dimension = { dimension: string; eventName: string; value: number };
   const allDimensions: Dimension[] = [
-    { dimension: 'voice', value: usage.seconds },
-    { dimension: 'booking', value: usage.bookings },
-    { dimension: 'transfer', value: usage.transfers },
-    { dimension: 'message', value: usage.messages },
+    { dimension: 'voice', eventName: METER_EVENT_NAMES.voice, value: usage.seconds },
+    { dimension: 'booking', eventName: METER_EVENT_NAMES.booking, value: usage.bookings },
+    { dimension: 'transfer', eventName: METER_EVENT_NAMES.transfer, value: usage.transfers },
+    { dimension: 'message', eventName: METER_EVENT_NAMES.message, value: usage.messages },
+    ...split.byTier.map((t) => ({ dimension: `voice_${t.tier}`, eventName: TIER_METER_EVENT_NAMES[t.tier], value: t.seconds })),
   ];
   const dimensions = allDimensions.filter((d) => d.value > 0);
 
@@ -124,7 +149,7 @@ export async function reportTenantUsageToStripe(
 
   try {
     for (const dim of dimensions) {
-      const eventName = METER_EVENT_NAMES[dim.dimension];
+      const eventName = dim.eventName;
       // Identifier doubles as Stripe's idempotency key for meter events (a
       // duplicate `identifier` within the ~24h dedup window is dropped
       // server-side), scoped per tenant/dimension/window so a retry within

@@ -19,6 +19,9 @@ import VersionCompareModal from './VersionCompareModal';
 import TestCallModal from './TestCallModal';
 import { initialLiveCallState, nextLiveCallState, type LiveCallState } from '@/lib/liveCall';
 import CopilotPanel from '@/components/flow-builder/CopilotPanel';
+import TierPicker from '@/components/flow-builder/TierPicker';
+import { tierById, type TierId } from '@/lib/pricingTiers';
+import { LLM_MODELS, ttsModelsFor, DEFAULT_LLM_MODEL } from '@/lib/modelCatalog';
 
 type DraftNode = FlowNode & { _key: string };
 
@@ -225,6 +228,11 @@ export default function AgentBuilderPage() {
   const [voiceEngine, setVoiceEngine] = useState<'retell' | 'poc'>('poc');
   const [voiceId, setVoiceId] = useState('');
   const [ttsBackend, setTtsBackend] = useState<'' | TtsBackend>('');
+  // Pricing tier (src/lib/pricingTiers.ts) plus the Advanced model overrides. '' for each = not chosen: no tier keeps the agent on its
+  // current per-minute price, and with a tier the models come from the tier unless one of these is set.
+  const [tier, setTier] = useState<TierId | ''>('');
+  const [llmModel, setLlmModel] = useState('');
+  const [ttsModel, setTtsModel] = useState('');
   const [retellAgentId, setRetellAgentId] = useState('');
   const [retellLlmId, setRetellLlmId] = useState('');
   const [nodes, setNodes] = useState<DraftNode[]>([]);
@@ -256,7 +264,14 @@ export default function AgentBuilderPage() {
     setStartNodeId(gs.startNodeId || loadedNodes[0].id);
     setVoiceEngine(latest.voice_engine);
     setVoiceId(latest.voice_id || '');
-    setTtsBackend((latest.tts_backend as TtsBackend) || '');
+    // A tiered version loads only the models its publisher set explicitly (tier_overrides); the rest come from the tier again on publish,
+    // so switching tier later is not blocked by the old tier's models.
+    const tierLoaded = latest.tier && tierById(latest.tier) ? latest.tier : '';
+    const overrides = new Set(latest.tier_overrides || []);
+    setTier(tierLoaded);
+    setTtsBackend(!tierLoaded || overrides.has('ttsBackend') ? ((latest.tts_backend as TtsBackend) || '') : '');
+    setLlmModel(!tierLoaded || overrides.has('llmModel') ? latest.llm_model || '' : '');
+    setTtsModel(!tierLoaded || overrides.has('ttsModel') ? latest.tts_model || '' : '');
     setRetellAgentId(latest.retell_agent_id || '');
     setRetellLlmId(latest.retell_llm_id || '');
     setLanguage(AGENT_LANGUAGES.some((l) => l.code === gs.language) ? gs.language : '');
@@ -705,6 +720,9 @@ export default function AgentBuilderPage() {
           voiceEngine: v.voice_engine,
           voiceId: v.voice_id || undefined,
           ttsBackend: v.tts_backend || undefined,
+          ...(v.tier ? { tier: v.tier } : {}),
+          llmModel: v.llm_model || undefined,
+          ttsModel: v.tts_model || undefined,
           retellAgentId: v.retell_agent_id || undefined,
           retellLlmId: v.retell_llm_id || undefined,
           wizardConfig: v.wizard_config || undefined,
@@ -875,6 +893,9 @@ export default function AgentBuilderPage() {
           voiceEngine,
           voiceId: voiceId || undefined,
           ttsBackend: ttsBackend || undefined,
+          ...(voiceEngine === 'poc' && tier ? { tier } : {}),
+          llmModel: (voiceEngine === 'poc' && llmModel) || undefined,
+          ttsModel: (voiceEngine === 'poc' && ttsModel) || undefined,
           retellAgentId: retellAgentId || undefined,
           retellLlmId: retellLlmId || undefined,
           globalSettings: {
@@ -1208,10 +1229,18 @@ export default function AgentBuilderPage() {
                   <p className="px-1 text-[11px] font-medium uppercase tracking-wide text-gray-400">Agent details</p>
                   {voiceEngine === 'poc' ? (
                     <>
+                      {tier && (
+                        <div className="flex items-center justify-between px-1 text-[12.5px]">
+                          <span className="text-gray-500">Price</span>
+                          <span className="font-medium text-[#1a1d29]">${((tierById(tier)?.pricePerMinuteCents ?? 0) / 100).toFixed(2)}/min</span>
+                        </div>
+                      )}
+                      {!tier && (
                       <div className="flex items-center justify-between px-1 text-[12.5px]">
                         <span className="text-gray-500">Cost</span>
                         <span className="font-medium text-[#1a1d29]">${estimatePocCallCost(ttsBackend || (languageForcesPremiumVoice(language) ? 'elevenlabs' : 'kokoro')).costPerMin.toFixed(3)}/min</span>
                       </div>
+                      )}
                       <div className="flex items-center justify-between px-1 text-[12.5px]">
                         <span className="text-gray-500">Latency</span>
                         <span className="font-medium text-[#1a1d29]">
@@ -1366,6 +1395,48 @@ export default function AgentBuilderPage() {
                             <option value="retell">Retell</option>
                           </select>
                         </div>
+                      )}
+                      {channel === 'voice' && voiceEngine === 'poc' && (
+                        <TierPicker
+                          value={tier}
+                          onChange={(next) => { setTier(next); setLlmModel(''); setTtsModel(''); setTtsBackend(''); }}
+                          advanced={
+                            <>
+                              <p className="text-[11.5px] leading-[1.45] text-gray-400">For API and MCP users. Anything you set here overrides the plan&apos;s choice; leave it alone and the plan chooses.</p>
+                              <div>
+                                <label htmlFor="adv-llm-model" className="mb-1 block text-[12.5px] font-medium text-gray-500">Language model</label>
+                                <select id="adv-llm-model" value={llmModel} onChange={(e) => setLlmModel(e.target.value)} className="w-full rounded-lg border border-gray-200 bg-white px-3.5 py-2.5 text-[13.5px] focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100">
+                                  <option value="">{tier ? 'Chosen by your plan' : `Default (${LLM_MODELS.find((m) => m.id === DEFAULT_LLM_MODEL)?.label})`}</option>
+                                  {LLM_MODELS.map((m) => <option key={m.id} value={m.id}>{m.label}{m.status === 'preview' ? ' (preview)' : ''}</option>)}
+                                </select>
+                              </div>
+                              <div>
+                                <label htmlFor="adv-tts-backend" className="mb-1 block text-[12.5px] font-medium text-gray-500">Voice provider</label>
+                                <select
+                                  id="adv-tts-backend"
+                                  value={ttsBackend}
+                                  onChange={(e) => { setTtsBackend(e.target.value as '' | TtsBackend); setTtsModel(''); }}
+                                  className="w-full rounded-lg border border-gray-200 bg-white px-3.5 py-2.5 text-[13.5px] focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100"
+                                >
+                                  <option value="">{tier ? 'Chosen by your plan' : 'Default (CallDeskTech)'}</option>
+                                  <option value="kokoro">CallDeskTech</option>
+                                  <option value="elevenlabs">ElevenLabs</option>
+                                  <option value="cartesia">Cartesia</option>
+                                  <option value="minimax">MiniMax</option>
+                                </select>
+                              </div>
+                              {ttsModelsFor(ttsBackend || (tier ? tierById(tier)?.stack.ttsBackend : undefined)).length > 0 && (
+                                <div>
+                                  <label htmlFor="adv-tts-model" className="mb-1 block text-[12.5px] font-medium text-gray-500">Voice model</label>
+                                  <select id="adv-tts-model" value={ttsModel} onChange={(e) => setTtsModel(e.target.value)} className="w-full rounded-lg border border-gray-200 bg-white px-3.5 py-2.5 text-[13.5px] focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100">
+                                    <option value="">{tier ? 'Chosen by your plan' : 'Default for this provider'}</option>
+                                    {ttsModelsFor(ttsBackend || (tier ? tierById(tier)?.stack.ttsBackend : undefined)).map((m) => <option key={m.id} value={m.id}>{m.label}</option>)}
+                                  </select>
+                                </div>
+                              )}
+                            </>
+                          }
+                        />
                       )}
                       {channel === 'voice' && voiceEngine === 'poc' && (
                         <div>
@@ -1577,22 +1648,7 @@ export default function AgentBuilderPage() {
                           </div>
                         ))}
                       </div>
-                      {channel === 'voice' && (voiceEngine === 'poc' ? (
-                        <div>
-                          <label className="mb-1 block text-[12.5px] font-medium text-gray-500">TTS backend</label>
-                          <select
-                            value={ttsBackend}
-                            onChange={(e) => setTtsBackend(e.target.value as '' | TtsBackend)}
-                            className="w-full rounded-lg border border-gray-200 bg-white px-3.5 py-2.5 text-[13.5px] focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100"
-                          >
-                            <option value="">Default (CallDeskTech)</option>
-                            <option value="kokoro">CallDeskTech</option>
-                            <option value="elevenlabs">ElevenLabs</option>
-                            <option value="cartesia">Cartesia</option>
-                            <option value="minimax">MiniMax</option>
-                          </select>
-                        </div>
-                      ) : (
+                      {channel === 'voice' && (voiceEngine === 'poc' ? null : (
                         <>
                           <div>
                             <label className="mb-1 block text-[12.5px] font-medium text-gray-500">Retell agent ID</label>

@@ -1,10 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/supabase';
-import { syncVoicePriceForTenant } from '@/lib/stripe';
+import { syncVoicePriceForTenant, ensureTierItemForTenant } from '@/lib/stripe';
+import { tierBillingConfigured } from '@/lib/tierBilling';
 import type { FlowNode, TtsBackend } from '@/types';
 import { authorizeResource } from '@/lib/authz';
 import { normalizeLanguage, LANGUAGE_VALUES } from '@/lib/languages';
 import { validateModelChoice } from '@/lib/modelCatalog';
+import { resolveTierForPublish } from '@/lib/pricingTiers';
 
 // For every 'subflow_ref' node, snapshot the referenced subflow's current
 // nodes straight into that node's own params — server.js executes purely
@@ -110,9 +112,10 @@ export async function POST(
     retellAgentId,
     retellLlmId,
     voiceId,
-    ttsBackend,
-    llmModel,
-    ttsModel,
+    ttsBackend: requestedTtsBackend,
+    llmModel: requestedLlmModel,
+    ttsModel: requestedTtsModel,
+    tier: requestedTier,
     wizardConfig,
   } = body as {
     flowName: string;
@@ -126,6 +129,7 @@ export async function POST(
     ttsBackend?: TtsBackend;
     llmModel?: string;
     ttsModel?: string;
+    tier?: unknown;
     wizardConfig?: Record<string, unknown>;
   };
 
@@ -148,6 +152,21 @@ export async function POST(
         );
       }
     }
+  }
+
+  // Optional pricing tier (src/lib/pricingTiers.ts): validated here (an unknown tier, or Lite while it is coming soon, is a 400) and
+  // turned into the models the engine should use. Anything the caller set explicitly wins and is recorded in tier_overrides.
+  // With no tier this is a pass-through, so the request behaves exactly as it did before tiers existed.
+  const tierResult = resolveTierForPublish({ tier: requestedTier, voiceEngine, llmModel: requestedLlmModel, ttsModel: requestedTtsModel, ttsBackend: requestedTtsBackend });
+  if (!tierResult.ok) return NextResponse.json({ error: tierResult.error }, { status: 400 });
+  const { llmModel, ttsModel, ttsBackend, tier, overrides: tierOverrides } = tierResult;
+
+  // A tiered agent must never run unbilled: if this tier's Stripe price is not configured, refuse before anything is written.
+  if (tier && !tierBillingConfigured(tier)) {
+    return NextResponse.json(
+      { error: `Billing for the ${tier} tier is not yet available, so a version cannot be published on it. Publish without a tier, or try again later.`, code: 'tier_billing_not_configured' },
+      { status: 503 }
+    );
   }
 
   // Language (globalSettings.language): validate, and pin the voice backend a non-English language
@@ -177,6 +196,21 @@ export async function POST(
     .single();
   if (agentError || !agent) {
     return NextResponse.json({ error: agentError?.message || 'Agent not found' }, { status: 404 });
+  }
+
+  // Tiered publish: make sure the subscription has a line for the tier's price BEFORE saving anything. The add is idempotent and a metered
+  // line with no usage costs nothing, so this order makes a failure cleanly retryable: no version exists until the line does, and
+  // publishing again simply repeats the call. (Tenants with no subscription yet are skipped, as the voice sync skips them.)
+  if (tier) {
+    try {
+      await ensureTierItemForTenant(agent.tenant_id, tier);
+    } catch (err) {
+      console.error('Failed to ensure tier subscription item', { tenantId: agent.tenant_id, tier }, err);
+      return NextResponse.json(
+        { error: `Could not set up billing for the ${tier} tier, so nothing was saved. No charge was made; publishing again is safe.`, code: 'tier_billing_failed', retryable: true },
+        { status: 502 }
+      );
+    }
   }
 
   const { nodes: embeddedNodes, error: embedError } = await embedSubflowSnapshots(nodes, agent.tenant_id);
@@ -218,13 +252,18 @@ export async function POST(
       tts_backend: effectiveTtsBackend || null,
       llm_model: llmModel || null,
       tts_model: ttsModel || null,
+      // Only sent when a tier was chosen, so publishing without one never touches the (migration 064) tier columns and keeps working
+      // on a database where that migration has not been applied yet.
+      ...(tier ? { tier, tier_overrides: tierOverrides.length ? tierOverrides : null } : {}),
       wizard_config: wizardConfig || null,
     })
     .select()
     .single();
   if (versionError) return NextResponse.json({ error: versionError.message }, { status: 500 });
 
-  if (voiceEngine === 'poc' && effectiveTtsBackend) {
+  // A version published with a tier does not touch the subscription's voice price: the tier's voice backend is an engine detail, and
+  // syncing it would bill the legacy voice rate for it. Billing by tier is separate work (docs/pricing-tier-migration-notes.md).
+  if (voiceEngine === 'poc' && effectiveTtsBackend && !tier) {
     // Best-effort — a Stripe hiccup here shouldn't fail creating the agent
     // version itself, just leave the subscription's voice price as-is.
     await syncVoicePriceForTenant(agent.tenant_id, effectiveTtsBackend).catch((err) =>

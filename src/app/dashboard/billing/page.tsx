@@ -11,6 +11,16 @@ type UsageBreakdown = {
   messages: number;
 };
 
+type TierUsageRow = {
+  tier: 'lite' | 'standard' | 'pro' | null;
+  label: string;
+  calls: number;
+  minutes: number;
+  centsPerMinute: number | null;
+  chargeCents: number | null;
+  eventsIncluded: boolean;
+};
+
 type BillingData = {
   hasSubscription: boolean;
   plan: {
@@ -20,6 +30,7 @@ type BillingData = {
     currentPeriodEnd: number | null;
   } | null;
   usage: UsageBreakdown;
+  usageByTier?: TierUsageRow[];
   upcomingInvoice: {
     amountDue: number;
     currency: string;
@@ -238,6 +249,34 @@ export default function BillingPage() {
               <UsageStat label="Messages" value={data.usage.messages} />
             </div>
           </BillingSection>
+
+          {/* Voice minutes and charge by pricing tier. Calls from agents published without a tier are the account's flat voice rate. */}
+          {data.usageByTier && data.usageByTier.length > 0 && (
+            <BillingSection title="Voice Minutes by Tier" icon={<IconChart />}>
+              <div className="divide-y divide-gray-100">
+                {data.usageByTier.map((row) => (
+                  <div key={row.tier ?? 'legacy'} className="flex items-center justify-between py-2.5">
+                    <div>
+                      <p className="text-[13px] font-medium text-[#1a1d29]">{row.label}</p>
+                      <p className="text-[12px] text-gray-400">
+                        {row.minutes.toLocaleString()} min · {row.calls.toLocaleString()} call{row.calls === 1 ? '' : 's'}
+                        {row.centsPerMinute !== null && ` · ${formatCurrency(row.centsPerMinute, 'usd')}/min`}
+                        {row.eventsIncluded && ' · bookings, transfers and messages included'}
+                      </p>
+                    </div>
+                    <span className="text-[13px] font-medium text-[#1a1d29]">
+                      {row.chargeCents !== null ? formatCurrency(row.chargeCents, 'usd') : '—'}
+                    </span>
+                  </div>
+                ))}
+              </div>
+              <p className="mt-3 text-[12px] text-gray-400">
+                Charges are minutes at each tier&apos;s rate so far this period. &quot;Standard rate (legacy)&quot; is calls from agents published
+                without a tier, billed at your account&apos;s flat voice price; their bookings, transfers and messages are billed separately. The
+                upcoming invoice below is the authoritative total.
+              </p>
+            </BillingSection>
+          )}
 
           {/* Upcoming Invoice */}
           <BillingSection title="Upcoming Invoice" icon={<IconReceipt />}>
