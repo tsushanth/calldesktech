@@ -265,7 +265,7 @@ export function publicPricing() {
     includedOnAllTiers: INCLUDED_ON_ALL,
     carrierNote: CARRIER_NOTE,
     notes: [
-      'Add-on amounts are proposals and not final; an add-on with no amount is not billed.',
+      'Add-ons are coming soon and cannot be bought yet; amounts will be announced when they launch. Nothing is billed for them.',
       'Agents created before pricing tiers keep their current per-minute price. Choosing a tier is optional.',
     ],
   };

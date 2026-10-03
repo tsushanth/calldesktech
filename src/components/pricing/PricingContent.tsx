@@ -67,8 +67,8 @@ export function PricingContent({ cta }: { cta: ReactNode }) {
 
         {/* Add-ons */}
         <section aria-labelledby="addons-heading" className="mx-auto mt-14 max-w-3xl">
-          <h2 id="addons-heading" className="text-[24px] font-semibold tracking-[-0.02em] text-[#00122e]">Optional add-ons</h2>
-          <p className="mt-2 text-[14px] leading-[1.5] text-gray-500">Included on every plan: call summary, transcript and structured field extraction. These are extra and always your choice.</p>
+          <h2 id="addons-heading" className="text-[24px] font-semibold tracking-[-0.02em] text-[#00122e]">Optional add-ons, coming soon</h2>
+          <p className="mt-2 text-[14px] leading-[1.5] text-gray-500">Included on every plan: call summary, transcript and structured field extraction. The add-ons below are planned extras that cannot be bought yet; amounts will be announced when they launch.</p>
           <ul className="mt-4 divide-y divide-gray-100 rounded-xl border border-gray-200">
             {ADD_ONS.map((a) => (
               <li key={a.id} className="flex flex-col gap-1 p-4 sm:flex-row sm:items-start sm:justify-between sm:gap-6">
@@ -76,7 +76,7 @@ export function PricingContent({ cta }: { cta: ReactNode }) {
                   <p className="text-[15px] font-medium text-[#00122e]">{a.label}{!a.defaultOn && <span className="ml-2 text-[12px] font-normal text-gray-400">off by default</span>}</p>
                   <p className="mt-0.5 text-[13px] leading-[1.45] text-gray-500">{a.description}</p>
                 </div>
-                <p className="flex-none text-[13px] text-gray-500">{a.centsPerMinute === null ? 'Price to be announced' : `+$${(a.centsPerMinute / 100).toFixed(3)} per minute`}</p>
+                <p className="flex-none text-[13px] text-gray-500">Coming soon</p>
               </li>
             ))}
           </ul>

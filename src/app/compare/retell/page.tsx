@@ -68,7 +68,7 @@ export default function RetellComparePage() {
           </div>
         </div>
         <p className="mt-4 text-[12.5px] leading-[1.5] text-gray-400">
-          {HEADLINE_WITH_QUALIFIER} Add-ons are optional and priced per minute; see the pricing page for amounts. The Retell range comes from an actual account’s billing dashboard, combining their separate voice, LLM, telephony, and speech charges — not a published rate card.
+          {HEADLINE_WITH_QUALIFIER} Our optional add-ons are coming soon and cannot be bought yet. The Retell range comes from an actual account’s billing dashboard, combining their separate voice, LLM, telephony, and speech charges — not a published rate card.
         </p>
       </Container>
 

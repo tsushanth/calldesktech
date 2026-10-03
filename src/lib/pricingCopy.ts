@@ -6,7 +6,7 @@ import { PRICING_TIERS, tierById, type TierId } from '@/lib/pricingTiers';
 //
 // Rules this file enforces:
 //  - The lowest advertised price (Lite) is never shown without saying it is coming soon.
-//  - Add-on amounts are not stated here (they are proposals); pages point to /pricing for them.
+//  - Add-ons are not billable yet: copy says they are coming soon, with no amounts, until add-on billing exists.
 //  - Customer-facing prices only: no cost, margin or vendor-rate figures.
 
 function tier(id: TierId) {
@@ -49,7 +49,7 @@ export const QUALIFIER = (() => {
 /** One line for a "pricing" sentence on any public page. */
 export const HEADLINE_WITH_QUALIFIER = `${HEADLINE}. ${QUALIFIER}.`;
 
-export const ADD_ONS_LINE = 'Add-ons are optional and priced per minute; amounts are on the pricing page.';
+export const ADD_ONS_LINE = 'Optional add-ons are coming soon and cannot be bought yet; amounts will be announced when they launch.';
 
 /** Carrier explanation shared by compare copy. */
 export const CARRIER_SHORT = 'carrier billed separately on Lite and Standard';
