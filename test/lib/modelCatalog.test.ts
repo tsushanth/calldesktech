@@ -6,10 +6,10 @@ describe('model catalog', () => {
     expect(LLM_MODELS.filter((m) => m.default).map((m) => m.id)).toEqual([DEFAULT_LLM_MODEL]);
     expect(DEFAULT_LLM_MODEL).toBe('claude-haiku-4-5-20251001');
   });
-  it('every model has an id, price and notes, and ids are unique', () => {
+  it('every model has an id and notes, and ids are unique', () => {
     const ids = [...LLM_MODELS.map((m) => m.id), ...TTS_MODELS.map((m) => m.backend + '/' + m.id)];
     expect(new Set(ids).size).toBe(ids.length);
-    for (const m of LLM_MODELS) { expect(m.price.in).toBeGreaterThan(0); expect(m.notes.length).toBeGreaterThan(10); }
+    for (const m of LLM_MODELS) { expect(m.notes.length).toBeGreaterThan(10); }
   });
   it('the preview model is marked preview and the tested ones are not', () => {
     expect(LLM_MODELS.find((m) => m.id === 'gemini-2.5-flash-lite')!.status).toBe('preview');

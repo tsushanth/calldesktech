@@ -28,7 +28,7 @@ export const MCP_TOOL_GROUPS: McpToolGroup[] = [
     group: 'Pricing and models',
     tools: [
       { name: 'list_pricing_tiers', summary: 'List the pricing tiers (Lite, Standard, Pro) with price per minute, what each includes, carrier billing and add-ons.' },
-      { name: 'list_model_options', summary: 'List the language models (llmModel) and voice models (ttsModel) a version can use, with prices, status and notes (advanced).' },
+      { name: 'list_model_options', summary: 'List the language models (llmModel) and voice models (ttsModel) a version can use, with status and notes (advanced).' },
     ],
   },
   {

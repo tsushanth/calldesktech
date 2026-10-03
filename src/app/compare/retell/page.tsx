@@ -4,7 +4,7 @@ import { HEADLINE_WITH_QUALIFIER, LIVE_RANGE, CARRIER_SHORT } from '@/lib/pricin
 
 export const metadata: Metadata = {
   title: 'CallDeskTech vs Retell | CallDeskTech',
-  description: 'A feature-by-feature comparison with Retell: the builder, pricing, unit economics, and what live test calls actually showed.',
+  description: 'A feature-by-feature comparison with Retell: the builder, pricing, and what live test calls actually showed.',
 };
 
 type Verdict = 'Ahead' | 'Have' | 'Partial' | 'Gap' | 'Neither';
@@ -53,7 +53,7 @@ export default function RetellComparePage() {
       </Container>
 
       <Container className="pb-16">
-        <div className="grid gap-4 sm:grid-cols-3">
+        <div className="grid gap-4 sm:grid-cols-2">
           <div className="rounded-xl border border-gray-200 p-6">
             <p className="text-[13px] font-medium text-gray-400">Our price, available now (Standard to Pro)</p>
             <p className="mt-2 text-[32px] font-normal tracking-[-0.03em] text-[#00122e]">{LIVE_RANGE}<span className="text-[15px] text-gray-400">/min</span></p>

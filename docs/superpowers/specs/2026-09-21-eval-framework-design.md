@@ -47,7 +47,7 @@ All three triggers are **non-blocking**: they report, they never stop or roll ba
 | Trigger | on-deploy, on-demand (default) | weekly cron, on-demand with `--vs-retell` |
 | Case count | ~3 (from `eval-cases.json`, `tier: "fast"`) | full case set (`tier: "full"`, or all cases) |
 | Compares against | our own last run for that case (baseline) | our own last run **and** Retell (real calls both sides) |
-| Approx cost | ~$0.20–0.30/run | proportional to case count × ~$0.70/pair (ours + Retell) |
+| Approx cost | small (one real call per case) | scales with case count (a pair of real calls per case: ours + Retell) |
 | Approx time | under a minute of call time | minutes, scales with case count, run sequentially |
 
 On-demand runs can force either tier and can force `--vs-retell` regardless of tier, so a Retell

@@ -117,16 +117,6 @@ What it does:
 3. Run `trial-sms-onboarding.js` in a screen/tmux session or as a systemd service
 4. In your cold outreach texts, include: *"Reply START to +1XXX-XXX-XXXX to set up your free AI receptionist in 2 mins"*
 
-### Cost per Trial
-| Item | Cost |
-|------|------|
-| SMS (2-4 messages) | ~$0.02 |
-| Phone number (monthly) | ~$1.00 |
-| Agent creation | Free |
-| Voice calls during trial | ~$0.03/min |
-
-At ~50 trials/month: ~$50-60 total. Almost entirely the phone number rental.
-
 ### Scaling Out
 - Short term (< 500 trials/month): Buy one number per trial. Fine.
 - Medium term: Number pooling — when a trial expires, transfer the number to a new prospect.
@@ -139,7 +129,6 @@ At ~50 trials/month: ~$50-60 total. Almost entirely the phone number rental.
 | Metric | Group A (human calls) | Group B (text + AI callback) | Group C (text → instant trial) |
 |--------|----------------------|------------------------------|-------------------------------|
 | Human hours per 100 leads | ~10 hrs | ~0.5 hrs | 0 hrs |
-| Cost per lead | ~$0.30 | ~$0.02 | ~$0.02 + $1 number |
 | Conversion → trial | 5-10% | 2-5% | 10-20% (self-serve) |
 | Time from interest → live AI | 1-3 days | Minutes (AI call) | 2 minutes |
 | Scalable | No (needs callers) | Partial (expensive AI calls) | Yes (fully automated) |

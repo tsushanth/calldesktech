@@ -6,10 +6,10 @@ describe('investor deck', () => {
   const text = slides.join(' ').replace(/<[^>]+>/g, ' ');
 
   it('has the planned slides, each a 1920x1080-style section with a unique id and page number', () => {
-    expect(slides.length).toBe(15);
+    expect(slides.length).toBe(14);
     const ids = slides.map((s) => /id="([^"]+)"/.exec(s)?.[1]);
     expect(new Set(ids).size).toBe(slides.length);
-    expect(ids).toEqual(expect.arrayContaining(['problem', 'price', 'human', 'cost', 'compete', 'roadmap', 'data', 'behind', 'distribution', 'team', 'ask']));
+    expect(ids).toEqual(expect.arrayContaining(['problem', 'price', 'human', 'compete', 'roadmap', 'data', 'behind', 'distribution', 'team', 'ask']));
   });
   it('is dated and attributes its prices', () => {
     expect(PRICING_AS_OF).toMatch(/2026/);
@@ -18,7 +18,6 @@ describe('investor deck', () => {
   it('makes no traction claim and states the arithmetic assumptions', () => {
     expect(text).not.toMatch(/paying customers|ARR|MRR|revenue of|customers worldwide/i);
     expect(text).toContain('Assumes a 2-minute call');
-    expect(text).toContain('small sample');
   });
   it('uses no em dashes or other non-ASCII punctuation in the copy (entities are fine)', () => {
     expect(text).not.toMatch(/[—–‘’“”]/);

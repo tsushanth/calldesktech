@@ -98,8 +98,7 @@ describe('row + args', () => {
     expect(() => lib.parseArgs(['--publish', '11111111-1111-1111-1111-111111111111', '--upload'])).toThrow();
     expect(lib.parseArgs(['--publish', '11111111-1111-1111-1111-111111111111']).publish).toBeTruthy();
   });
-  it('estimateCostUsd and isE164', () => {
-    expect(lib.estimateCostUsd(60)).toBeCloseTo(0.116, 3);
+  it('isE164', () => {
     expect(lib.isE164('+15551234567')).toBe(true);
     expect(lib.isE164('5551234567')).toBe(false);
   });

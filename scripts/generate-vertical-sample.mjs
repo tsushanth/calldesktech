@@ -25,12 +25,12 @@ import { execFileSync } from 'node:child_process';
 import { resolve, join, dirname } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { buildPlaceCallRequest } from './lib/sample-audio.mjs';
-// ElevenLabs model for BOTH call legs. v4 Turbo is the default (more expressive; $0.011/1k chars promo until 2026-10-12, then $0.04 like Flash).
+// ElevenLabs model for BOTH call legs. v4 Turbo is the default (more expressive).
 // SAMPLE_TTS_MODEL=default leaves the process-wide model (multilingual_v2) in force.
 const SAMPLE_TTS_MODEL = process.env.SAMPLE_TTS_MODEL === 'default' ? null : (process.env.SAMPLE_TTS_MODEL || 'eleven_v4_turbo');
 import { detectBadTake, uploadBlockedReason, tailIsSpeech } from './lib/sample-quality.mjs';
 import {
-  validateScenarios, normalizeTranscript, buildSampleRow, estimateCostUsd, parseArgs, isE164,
+  validateScenarios, normalizeTranscript, buildSampleRow, parseArgs, isE164,
   MAX_REAL_CALLS, parseCounter, checkCallGate, validatePublishable,
 } from './lib/sample-lib.mjs';
 
@@ -139,7 +139,6 @@ export async function generate(args, env, sc, outDir, counterFile = COUNTER_FILE
   console.log(`callee number:   ${callee || '(unset)'}`);
   console.log(`poc:             ${base || '(unset)'}   env file: ${env.exists ? env.path : '(none)'}`);
   console.log(`output dir:      ${outDir}`);
-  console.log(`est. cost:       ~$${estimateCostUsd(sc.targetSeconds[1])} at ${sc.targetSeconds[1]}s (estimate)`);
   console.log(`disclosure:      ${sc.disclosure}`);
   console.log(`call audio:      ${sc.audio ? `jingle${sc.audio.jingle ? '' : ' (off)'} + effect ${(sc.audio.effects || []).map((e) => `${e.name} [${e.sound}]`).join(', ') || '(none)'}${plan ? '' : '  <- shared sounds NOT generated'}` : 'none (this vertical has no jingle/effects)'}`);
   console.log(`real calls used: ${used}/${MAX_REAL_CALLS}`);
@@ -251,7 +250,7 @@ function finishLocal(outDir, sc, raw, meta) {
   const row = buildSampleRow({ scenario: sc, transcript, audioPath: null, durationSec: meta.duration });
   writeFileSync(join(outDir, 'transcript.json'), JSON.stringify(transcript, null, 2));
   writeFileSync(join(outDir, 'sample-row.json'), JSON.stringify(row, null, 2));
-  writeFileSync(join(outDir, 'call-meta.json'), JSON.stringify({ ...meta, vertical: sc.id, estimatedCostUsd: estimateCostUsd(meta.duration), generatedAt: new Date().toISOString() }, null, 2));
+  writeFileSync(join(outDir, 'call-meta.json'), JSON.stringify({ ...meta, vertical: sc.id, generatedAt: new Date().toISOString() }, null, 2));
   // Objective verdict on the take (character-break, cut off by the cap, jingle/effect missing or too late), so a bad take is
   // flagged here and refused by --upload, not discovered by listening.
   // The raw Twilio recording keeps both channels separate (the processed mp3 is folded to mono): analyse that one.

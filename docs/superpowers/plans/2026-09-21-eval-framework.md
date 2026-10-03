@@ -312,7 +312,7 @@ r = run_eval.place_and_wait_call(cases[0], None)
 print(r['status'], r['duration_s'], len(r['transcript']))
 "`
 Expected: `completed <nonzero> <nonzero turn count>` — a real call actually happened and produced a
-transcript. This costs real money (~$0.07-0.10, one real call) — that's expected and acceptable per
+transcript. This costs real money (one real call) — that's expected and acceptable per
 the spec's fast-tier budget.
 
 - [ ] **Step 3: Verify cleanup happened**
@@ -580,8 +580,7 @@ standalone first.)
 - [ ] **Step 2: Run a real fast-tier run end to end**
 
 Run: `cd /Users/sushanthtiruvaipati/Documents/github/calldesktech/bench && python3 run_eval.py --tier fast --trigger on-demand`
-Expected: 3 lines of per-case output, then the run completing. This places 3 real calls (~$0.20-0.30
-total, matching the spec's fast-tier budget) — expected cost, not a bug.
+Expected: 3 lines of per-case output, then the run completing. This places 3 real calls (matching the spec's fast-tier budget) — expected cost, not a bug.
 
 - [ ] **Step 3: Verify storage**
 
