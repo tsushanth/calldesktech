@@ -42,14 +42,23 @@ type CallLogRow = { duration_seconds: number | null; outcome: string | null; tie
 
 // calldesk_call_logs.tier (migration 065) is written by the engine for calls served by a tiered agent version. Before that migration is
 // applied the column does not exist; selecting it then fails with Postgres "undefined column" (42703), and every call is a legacy call.
+// calldesk_call_logs.is_internal_test (migration 024) flags our own demo and mystery-shopper calls. They are never billed or counted as usage;
+// `.neq(..., true)` rather than `.eq(..., false)` so a NULL row stays billable. If the column is missing the filter is dropped.
 async function fetchCallLogs(supabase: SupabaseClient, tenantId: string, since: Date | null, until: Date): Promise<CallLogRow[]> {
-  const run = async (columns: string) => {
+  const run = async (columns: string, excludeInternal: boolean) => {
     let query = supabase.from('calldesk_call_logs').select(columns).eq('tenant_id', tenantId).lt('created_at', until.toISOString());
+    if (excludeInternal) query = query.neq('is_internal_test', true);
     if (since) query = query.gte('created_at', since.toISOString());
     return query;
   };
-  let res = await run('duration_seconds, outcome, tier');
-  if (res.error && (res.error.code === '42703' || /\btier\b/.test(res.error.message || ''))) res = await run('duration_seconds, outcome');
+  let columns = 'duration_seconds, outcome, tier';
+  let excludeInternal = true;
+  let res = await run(columns, excludeInternal);
+  if (res.error && /is_internal_test/.test(res.error.message || '')) { excludeInternal = false; res = await run(columns, excludeInternal); }
+  if (res.error && (res.error.code === '42703' || /\btier\b/.test(res.error.message || ''))) {
+    columns = 'duration_seconds, outcome';
+    res = await run(columns, excludeInternal);
+  }
   if (res.error) throw res.error;
   return (res.data ?? []) as unknown as CallLogRow[];
 }

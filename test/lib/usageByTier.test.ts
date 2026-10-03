@@ -33,17 +33,21 @@ describe('summarizeCallLogsByTier', () => {
   });
 });
 
-function fakeSupabase(rows: unknown[], opts: { noTierColumn?: boolean } = {}) {
+function fakeSupabase(rows: unknown[], opts: { noTierColumn?: boolean; noInternalColumn?: boolean } = {}) {
   const selects: string[] = [];
+  const neqs: Array<[string, unknown]> = [];
   return {
     selects,
+    neqs,
     client: {
       from: () => {
         let columns = '';
         const b: Record<string, unknown> = {};
         b.select = (c: string) => { columns = c; selects.push(c); return b; };
         b.eq = () => b; b.lt = () => b; b.gte = () => b;
+        b.neq = (col: string, val: unknown) => { neqs.push([col, val]); return b; };
         b.then = (resolve: (v: unknown) => void) => {
+          if (opts.noInternalColumn && neqs.length > 0 && !(b.__retried)) { neqs.length = 0; resolve({ data: null, error: { code: '42703', message: 'column calldesk_call_logs.is_internal_test does not exist' } }); return; }
           if (opts.noTierColumn && columns.includes('tier')) resolve({ data: null, error: { code: '42703', message: 'column "tier" does not exist' } });
           else resolve({ data: rows, error: null });
         };
@@ -68,6 +72,16 @@ describe('getTenantUsageSince with tiers', () => {
     const r = await getTenantUsageSince(f.client, 't1', null, new Date(), { legacyOnly: true });
     expect(r).toMatchObject({ calls: 1, seconds: 600 });
     expect(f.selects).toEqual(['duration_seconds, outcome, tier', 'duration_seconds, outcome']);
+  });
+  it('excludes internal test calls (demo, shopper) from usage, keeping NULL rows billable', async () => {
+    const f = fakeSupabase(rows);
+    await getTenantUsageSince(f.client, 't1', null, new Date());
+    expect(f.neqs).toEqual([['is_internal_test', true]]);
+  });
+  it('before migration 024 (no is_internal_test column) the filter is dropped and nothing breaks', async () => {
+    const f = fakeSupabase(rows, { noInternalColumn: true });
+    const r = await getTenantUsageSince(f.client, 't1', null, new Date());
+    expect(r).toMatchObject({ calls: 3, seconds: 1860 });
   });
   it('getTenantUsageByTierSince wires the query to the grouping', async () => {
     const out = await getTenantUsageByTierSince(fakeSupabase(rows).client, 't1', null, 10);

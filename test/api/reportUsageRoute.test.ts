@@ -21,6 +21,7 @@ vi.mock('@/lib/supabase', () => ({
       b.select = () => b;
       b.eq = (col: string, val: unknown) => { state.eqFilters[col] = val; return b; };
       b.gte = (_col: string, val: string) => { state.gte = val; return b; };
+      b.neq = () => b;
       b.lt = (_col: string, val: string) => { state.lt = val; return b; };
       b.in = (_col: string, vals: string[]) => { state.inIds = vals; return b; };
       b.not = (col: string) => { state.notNull = col; return b; };

@@ -8,7 +8,7 @@ const updates: string[] = [];
 const supabase = {
   from(table: string) {
     const b: Record<string, unknown> = {};
-    b.select = () => b; b.eq = () => b; b.lt = () => b; b.gte = () => b;
+    b.select = () => b; b.eq = () => b; b.lt = () => b; b.neq = () => b; b.gte = () => b;
     b.update = (patch: { last_usage_reported_at: string }) => ({ eq: () => { updates.push(patch.last_usage_reported_at); return Promise.resolve({ error: null }); } });
     b.then = (res: (v: unknown) => unknown) => Promise.resolve({ data: table === 'calldesk_call_logs' ? logs : [], error: null }).then(res);
     return b;
