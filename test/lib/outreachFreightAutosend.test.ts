@@ -82,3 +82,33 @@ describe('autosend: follow-up priority and daily cap', () => {
     expect((await runAutosend(db as never, { lanes: ['calldesk'], now: T0, dry: true })).calldesk).toEqual({ action: 'would_send', messageId: 'f1' });
   });
 });
+
+describe('autosend: OUTREACH_PRIORITY_PRODUCTS', () => {
+  const dental = (id: string, createdAt: string) => ({ ...m(id, 1, NO), product: 'calldesk:dental', created_at: createdAt });
+  it('sends a priority product ahead of older approved messages from other products', async () => {
+    process.env.OUTREACH_PRIORITY_PRODUCTS = 'calldesk:freight';
+    const db = makeDb({ calldesk_outreach_messages: [dental('d1', '2026-09-20T00:00:00Z'), m('f1', 1)] });
+    expect((await runAutosend(db as never, { lanes: ['calldesk'], now: T0, dry: true })).calldesk).toEqual({ action: 'would_send', messageId: 'f1' });
+    delete process.env.OUTREACH_PRIORITY_PRODUCTS;
+  });
+  it('falls back to oldest-first when the priority product has nothing approved', async () => {
+    process.env.OUTREACH_PRIORITY_PRODUCTS = 'calldesk:freight';
+    const db = makeDb({ calldesk_outreach_messages: [dental('d1', '2026-09-20T00:00:00Z'), dental('d2', '2026-09-21T00:00:00Z')] });
+    expect((await runAutosend(db as never, { lanes: ['calldesk'], now: T0, dry: true })).calldesk).toEqual({ action: 'would_send', messageId: 'd1' });
+    delete process.env.OUTREACH_PRIORITY_PRODUCTS;
+  });
+  it('still fails non-US freight and moves on within the priority product', async () => {
+    process.env.OUTREACH_PRIORITY_PRODUCTS = 'calldesk:freight';
+    const db = makeDb({ calldesk_outreach_messages: [m('n1', 1, NO), dental('d1', '2026-09-20T00:00:00Z'), m('u2', 1)] });
+    const send = sender(db, () => T0);
+    expect((await runAutosend(db as never, { lanes: ['calldesk'], now: T0, send })).calldesk).toEqual({ action: 'sent', messageId: 'u2' });
+    expect(db.tables.calldesk_outreach_messages.find((r) => r.id === 'n1')).toMatchObject({ status: 'failed' });
+    delete process.env.OUTREACH_PRIORITY_PRODUCTS;
+  });
+  it('does not apply in a different lane', async () => {
+    process.env.OUTREACH_PRIORITY_PRODUCTS = 'calldesk:freight';
+    const db = makeDb({ calldesk_outreach_messages: [{ id: 'r1', status: 'approved', step: 1, product: 'readaloud:api', lead: US, created_at: '2026-09-20T00:00:00Z' }] });
+    expect((await runAutosend(db as never, { lanes: ['readaloud'], now: T0, dry: true })).readaloud).toEqual({ action: 'would_send', messageId: 'r1' });
+    delete process.env.OUTREACH_PRIORITY_PRODUCTS;
+  });
+});

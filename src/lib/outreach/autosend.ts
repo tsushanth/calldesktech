@@ -35,6 +35,11 @@ export function localParts(now: Date, tz = process.env.OUTREACH_TZ || 'America/L
   return { hour: Number(parts.find((p) => p.type === 'hour')?.value) % 24, weekday: String(parts.find((p) => p.type === 'weekday')?.value) };
 }
 
+// A priority product only applies inside its own lane (e.g. "calldesk:freight" in the calldesk lane).
+function lanePrioOk(product: string, laneProducts: string): boolean {
+  return laneProducts.split(',').some((f) => (f.startsWith('product.eq.') ? product === f.slice(11) : f.startsWith('product.like.') && product.startsWith(f.slice(13).replace(/%$/, ''))));
+}
+
 export function sendWindow(): { start: number; end: number } {
   const m = /^(\d{1,2})-(\d{1,2})$/.exec(process.env.OUTREACH_SEND_HOURS || '9-16');
   const start = m ? Number(m[1]) : 9;
@@ -116,11 +121,12 @@ async function runLane(
         .eq('status', 'sent').or(products).gt('step', 1).gte('sent_at', startOfDayInTz(now).toISOString());
       followUpsLeft = followUpDailyCap(cap) - (fuSent ?? 0);
     }
-    const pick = async (followUpsOnly: boolean) => {
+    const pick = async (followUpsOnly: boolean, onlyProduct?: string) => {
       let q = supabase
         .from('calldesk_outreach_messages')
         .select('id, product, lead:calldesk_outreach_leads(replied_at, region_blocked, source_key, location, domain, contact_email, signals)')
         .eq('status', 'approved').or(products);
+      if (onlyProduct) q = q.eq('product', onlyProduct);
       if (followUpsOnly) q = q.gt('step', 1);
       else if (followUpsLeft <= 0) q = q.lte('step', 1);
       const { data: candidates } = await q.order('step', { ascending: true }).order('created_at', { ascending: true }).limit(20);
@@ -138,7 +144,16 @@ async function runLane(
       }
       return undefined;
     };
-    const next = (followUpsLeft > 0 && followUpsLeft !== Infinity ? await pick(true) : undefined) ?? await pick(false);
+    const wantFollowUps = followUpsLeft > 0 && followUpsLeft !== Infinity;
+    // OUTREACH_PRIORITY_PRODUCTS (comma list, e.g. "calldesk:freight"): those products are served first, in order, with the
+    // same follow-up pacing and per-lane daily cap; when none has an approved message the normal oldest-first order applies.
+    let next: Awaited<ReturnType<typeof pick>>;
+    for (const prio of (process.env.OUTREACH_PRIORITY_PRODUCTS || '').split(',').map((x) => x.trim()).filter(Boolean)) {
+      if (!lanePrioOk(prio, products)) continue;
+      next = (wantFollowUps ? await pick(true, prio) : undefined) ?? await pick(false, prio);
+      if (next) break;
+    }
+    next = next ?? (wantFollowUps ? await pick(true) : undefined) ?? await pick(false);
     if (!next) return { action: 'nothing_approved' };
     if (opts.dry) return { action: 'would_send', messageId: next.id };
 
