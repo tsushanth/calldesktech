@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/supabase';
 import { authorizeTenant } from '@/lib/authz';
+import { isPilotBlockedCall } from '@/lib/pilotBlockShared';
 
 // GET /api/tenants/[id]/stats — see tenants/[id]/route.ts for why this
 // replaces a direct (RLS-blocked) client-side Supabase call (Overview's
@@ -17,12 +18,14 @@ export async function GET(
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
-  const [{ count: totalCalls }, { count: todayCalls }, { count: totalBookings }, { data: durationData }] = await Promise.all([
-    supabase.from('calldesk_call_logs').select('*', { count: 'exact', head: true }).eq('tenant_id', tenantId),
-    supabase.from('calldesk_call_logs').select('*', { count: 'exact', head: true }).eq('tenant_id', tenantId).gte('created_at', today.toISOString()),
+  const [{ count: totalBookings }, { data: callRows }] = await Promise.all([
     supabase.from('calldesk_bookings').select('*', { count: 'exact', head: true }).eq('tenant_id', tenantId),
-    supabase.from('calldesk_call_logs').select('duration_seconds').eq('tenant_id', tenantId),
+    supabase.from('calldesk_call_logs').select('created_at, duration_seconds, analysis').eq('tenant_id', tenantId),
   ]);
+  // Calls the engine turned away for a blocked pilot (analysis.blocked === 'pilot') are not customer calls.
+  const durationData = (callRows || []).filter((r) => !isPilotBlockedCall(r));
+  const totalCalls = durationData.length;
+  const todayCalls = durationData.filter((r) => new Date(r.created_at) >= today).length;
 
   const avgDuration =
     durationData && durationData.length > 0

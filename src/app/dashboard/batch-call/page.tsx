@@ -3,6 +3,7 @@
 import { Fragment, useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useOnboarding } from '@/context/OnboardingContext';
 import type { Agent, AgentVersion, BatchCall, BatchCallTarget } from '@/types';
+import { apiErrorText } from '@/lib/pilotBlockShared';
 
 const DAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const PHONE_COLUMN_NAMES = new Set(['phone', 'phone_number', 'to', 'to_number', 'number']);
@@ -137,7 +138,7 @@ export default function BatchCallPage() {
     try {
       const res = await fetch(`/api/batch-calls/${batchId}/run`, { method: 'POST' });
       const body = await res.json();
-      if (!res.ok) throw new Error(body.error);
+      if (!res.ok) throw new Error(apiErrorText(body, 'Failed to place batch call'));
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to place batch call');
     } finally {

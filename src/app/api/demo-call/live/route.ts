@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/supabase';
 import { authorizeTenant } from '@/lib/authz';
+import { pilotBlockResponse } from '@/lib/pilotBlock';
 import { buildWizardFlow, DEFAULT_WIZARD_BLOCKS, type WizardBlocks } from '@/lib/flowBuilder';
 
 // POST /api/demo-call/live — real phone call from our voice engine to the
@@ -32,6 +33,9 @@ export async function POST(request: NextRequest) {
   if (!auth.ok) return auth.response;
   const { data: tenant } = await getSupabaseAdmin().from('calldesk_tenants').select('id, name').eq('id', tenantId).maybeSingle();
   if (!tenant) return NextResponse.json({ error: 'Workspace not found' }, { status: 404 });
+
+  const blocked = await pilotBlockResponse(getSupabaseAdmin(), tenantId);
+  if (blocked) return blocked;
 
   const blocks: WizardBlocks = { ...DEFAULT_WIZARD_BLOCKS, ...(body.blocks || {}) };
   const transferTo = typeof body.transfer_to === 'string' ? body.transfer_to : undefined;

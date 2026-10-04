@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useOnboarding } from '@/context/OnboardingContext';
 import { api, type CallLog } from '@/lib/api';
 import { formatPhoneDisplay, formatDuration, formatRelativeTime } from '@/lib/utils';
+import { isPilotBlockedCall } from '@/lib/pilotBlockShared';
 
 export default function DashboardPage() {
   const { tenantId, isHydrated } = useOnboarding();
@@ -74,7 +75,7 @@ export default function DashboardPage() {
                 </div>
                 <div className="flex items-center gap-3">
                   <span className="text-[12.5px] text-gray-500">{formatDuration(call.duration_seconds)}</span>
-                  <OutcomeBadge outcome={call.outcome} />
+                  <OutcomeBadge outcome={call.outcome} blocked={isPilotBlockedCall(call)} />
                 </div>
               </Link>
             ))}
@@ -119,7 +120,8 @@ function StatCard({ label, value, trend }: { label: string; value: string; trend
   );
 }
 
-function OutcomeBadge({ outcome }: { outcome: string }) {
+function OutcomeBadge({ outcome, blocked }: { outcome: string; blocked?: boolean }) {
+  if (blocked) return <span className="rounded-full bg-gray-100 px-2.5 py-0.5 text-[11.5px] font-medium text-gray-600">Blocked</span>;
   const colors: Record<string, string> = {
     booked: 'bg-green-50 text-green-700',
     answered: 'bg-blue-50 text-blue-700',

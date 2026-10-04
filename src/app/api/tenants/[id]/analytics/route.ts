@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/supabase';
 import { authorizeTenant } from '@/lib/authz';
+import { isPilotBlockedCall } from '@/lib/pilotBlockShared';
 
 // GET /api/tenants/[id]/analytics — server-side aggregation of
 // calldesk_call_logs for the Analytics dashboard. Mirrors the stats route:
@@ -37,14 +38,15 @@ export async function GET(
 
   const { data, error } = await supabase
     .from('calldesk_call_logs')
-    .select('created_at, outcome, duration_seconds')
+    .select('created_at, outcome, duration_seconds, analysis')
     .eq('tenant_id', tenantId)
     .gte('created_at', windowStart.toISOString())
     .order('created_at', { ascending: true });
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-  const rows = data || [];
+  // Calls the engine turned away for a blocked pilot (analysis.blocked === 'pilot') are not customer calls: keep them out of every figure here.
+  const rows = (data || []).filter((r) => !isPilotBlockedCall(r));
 
   // Pre-seed every day bucket in the window so the line/area charts are
   // continuous even on days with zero calls.

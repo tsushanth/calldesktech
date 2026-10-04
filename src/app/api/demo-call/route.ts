@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/supabase';
 import { authorizeTenant } from '@/lib/authz';
+import { pilotBlockResponse } from '@/lib/pilotBlock';
 import { tryAcquireToken, RETELL_TENANT, DEMO_CALL_GLOBAL, DEMO_CALL_IP } from '@/lib/rateLimiter';
 
 const RETELL_API_URL = 'https://api.retellai.com';
@@ -42,6 +43,8 @@ export async function POST(request: NextRequest) {
     if (tenant_id) {
       const auth = await authorizeTenant(request, tenant_id);
       if (!auth.ok) return auth.response;
+      const blocked = await pilotBlockResponse(getSupabaseAdmin(), tenant_id);
+      if (blocked) return blocked;
       if (!(await tryAcquireToken(`retell-tenant-${tenant_id}`, RETELL_TENANT))) {
         return NextResponse.json({ error: 'Too many calls placed too quickly — retry shortly' }, { status: 429 });
       }

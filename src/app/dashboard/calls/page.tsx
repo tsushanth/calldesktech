@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useOnboarding } from '@/context/OnboardingContext';
 import { api, type CallLog } from '@/lib/api';
+import { isPilotBlockedCall } from '@/lib/pilotBlockShared';
 import { formatPhoneDisplay, formatDuration, formatRelativeTime } from '@/lib/utils';
 
 export default function CallsPage() {
@@ -37,9 +38,18 @@ export default function CallsPage() {
   }, [tenantId, isHydrated]);
 
   const visibleCalls = hideInternal ? calls.filter((call) => !call.is_internal_test) : calls;
-  const filteredCalls = filter === 'all' ? visibleCalls : visibleCalls.filter((call) => call.outcome === filter);
+  // Calls the engine turned away for a blocked pilot stay in the list (filter: Blocked) but never count toward the outcome mix below.
+  const filteredCalls =
+    filter === 'all'
+      ? visibleCalls
+      : filter === 'blocked'
+        ? visibleCalls.filter((call) => isPilotBlockedCall(call))
+        : visibleCalls.filter((call) => call.outcome === filter && !isPilotBlockedCall(call));
+  const countedCalls = visibleCalls.filter((call) => !isPilotBlockedCall(call));
+  const blockedCount = visibleCalls.length - countedCalls.length;
   const internalCount = calls.filter((call) => call.is_internal_test).length;
   const outcomes = ['all', 'booked', 'answered', 'transferred', 'voicemail', 'abandoned'];
+  const filterOptions = blockedCount > 0 ? [...outcomes, 'blocked'] : outcomes;
 
   return (
     <>
@@ -53,7 +63,7 @@ export default function CallsPage() {
             </label>
           )}
           <div className="flex flex-wrap gap-1.5">
-          {outcomes.map((outcome) => (
+          {filterOptions.map((outcome) => (
             <button
               key={outcome}
               onClick={() => setFilter(outcome)}
@@ -105,7 +115,7 @@ export default function CallsPage() {
                     <td className="px-5 py-3.5 text-gray-500">{formatRelativeTime(call.created_at)}</td>
                     <td className="px-5 py-3.5 font-mono text-gray-600">{formatDuration(call.duration_seconds)}</td>
                     <td className="px-5 py-3.5">
-                      <OutcomeBadge outcome={call.outcome} />
+                      <OutcomeBadge outcome={call.outcome} blocked={isPilotBlockedCall(call)} />
                     </td>
                     <td className="px-5 py-3.5">
                       <SentimentBadge sentiment={call.qa_sentiment} />
@@ -124,13 +134,13 @@ export default function CallsPage() {
       </div>
 
       {/* Summary Stats */}
-      {!isLoading && visibleCalls.length > 0 && (
+      {!isLoading && countedCalls.length > 0 && (
         <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-5">
           {outcomes
             .filter((o) => o !== 'all')
             .map((outcome) => {
-              const count = visibleCalls.filter((c) => c.outcome === outcome).length;
-              const percentage = Math.round((count / visibleCalls.length) * 100);
+              const count = countedCalls.filter((c) => c.outcome === outcome).length;
+              const percentage = Math.round((count / countedCalls.length) * 100);
               return (
                 <div key={outcome} className="rounded-xl border border-gray-200 bg-white p-4">
                   <p className="text-[12px] capitalize text-gray-500">{outcome}</p>
@@ -156,7 +166,9 @@ function SentimentBadge({ sentiment }: { sentiment: string | null }) {
   return <span className={`rounded-full px-2.5 py-0.5 text-[11.5px] font-medium ${colors[sentiment] || colors.neutral}`}>{sentiment}</span>;
 }
 
-function OutcomeBadge({ outcome }: { outcome: string }) {
+function OutcomeBadge({ outcome, blocked }: { outcome: string; blocked?: boolean }) {
+  // Neutral, not the red 'abandoned': the line was switched off, no caller was lost to the agent.
+  if (blocked) return <span className="rounded-full bg-gray-100 px-2.5 py-0.5 text-[11.5px] font-medium text-gray-600">Blocked</span>;
   const colors: Record<string, string> = {
     booked: 'bg-green-50 text-green-700',
     answered: 'bg-blue-50 text-blue-700',

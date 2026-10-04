@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/supabase';
 import { authorizeTenant } from '@/lib/authz';
+import { isPilotBlockedCall } from '@/lib/pilotBlockShared';
 
 // GET /api/tenants/[id]/qa/overview?days=30 — the QA "Overview" dashboard
 // (trend charts + resolution rate + date range), matching Retell's own
@@ -42,13 +43,14 @@ export async function GET(
 
   const { data, error } = await supabase
     .from('calldesk_call_logs')
-    .select('created_at, outcome, qa_status, qa_score, transfer_status, transfer_wait_ms')
+    .select('created_at, outcome, qa_status, qa_score, transfer_status, transfer_wait_ms, analysis')
     .eq('tenant_id', tenantId)
     .gte('created_at', windowStart.toISOString())
     .order('created_at', { ascending: true });
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-  const rows = data || [];
+  // Pilot-blocked calls (analysis.blocked === 'pilot') are 'abandoned' by construction: they must not count as unresolved.
+  const rows = (data || []).filter((r) => !isPilotBlockedCall(r));
 
   // Pre-seed every day so the trend charts are continuous even on
   // zero-call days, same convention as the Analytics route.

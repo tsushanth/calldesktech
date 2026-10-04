@@ -4,6 +4,7 @@
 import { getSupabase } from './supabase';
 import type { Database } from '@/types/database';
 import type { RetellVoice } from './retell';
+import { apiErrorText } from '@/lib/pilotBlockShared';
 
 // A tenant's own voice — the calldesk_voices row shape (see
 // supabase/migrations/046_mcp_parity.sql). Distinct from RetellVoice, which
@@ -492,7 +493,7 @@ class ApiClient {
 
     if (!response.ok) {
       const error = await response.json();
-      throw new ApiError(error.error || 'Failed to initiate call');
+      throw new ApiError(apiErrorText(error, 'Failed to initiate call'));
     }
 
     return response.json();

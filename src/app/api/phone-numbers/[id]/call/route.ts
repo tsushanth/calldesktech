@@ -3,6 +3,7 @@ import { getSupabaseAdmin } from '@/lib/supabase';
 import { getRetellClient } from '@/lib/retell';
 import { authorizeResource } from '@/lib/authz';
 import { tryAcquireToken, TWILIO_TENANT } from '@/lib/rateLimiter';
+import { pilotBlockResponse } from '@/lib/pilotBlock';
 
 // POST /api/phone-numbers/[id]/call — places a real outbound call FROM this
 // number, to test what its own outbound_agent_version_id actually says.
@@ -42,12 +43,15 @@ export async function POST(
   const supabase = getSupabaseAdmin();
   const { data: phoneNumber, error } = await supabase
     .from('calldesk_phone_numbers')
-    .select('number, outbound_agent_version_id')
+    .select('number, outbound_agent_version_id, tenant_id')
     .eq('id', phoneNumberId)
     .single();
   if (error || !phoneNumber) {
     return NextResponse.json({ error: 'Phone number not found' }, { status: 404 });
   }
+  // A pilot-blocked tenant places no outbound calls: refuse before any Retell or engine request.
+  const blocked = await pilotBlockResponse(supabase, phoneNumber.tenant_id);
+  if (blocked) return blocked;
   if (!phoneNumber.outbound_agent_version_id) {
     return NextResponse.json(
       { error: 'This number has no Outbound Call Agent configured — set one before testing.' },

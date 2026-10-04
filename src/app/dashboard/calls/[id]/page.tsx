@@ -5,6 +5,7 @@ import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { api, type CallLog } from '@/lib/api';
 import { formatPhoneDisplay, formatDuration, formatRelativeTime } from '@/lib/utils';
+import { isPilotBlockedCall } from '@/lib/pilotBlockShared';
 
 interface TranscriptEntry {
   role: string;
@@ -86,7 +87,7 @@ export default function CallDetailPage() {
           <h1 className="text-[20px] font-semibold text-[#1a1d29]">{formatPhoneDisplay(call.caller_phone)}</h1>
           <p className="text-[12.5px] text-gray-400">{formatRelativeTime(call.created_at)}</p>
         </div>
-        <OutcomeBadge outcome={call.outcome} />
+        <OutcomeBadge outcome={call.outcome} blocked={isPilotBlockedCall(call)} />
         {call.qa_sentiment && (
           <span className={`rounded-full px-2.5 py-1 text-[12px] font-medium ${
             call.qa_sentiment === 'positive' ? 'bg-green-50 text-green-700' :
@@ -110,7 +111,7 @@ export default function CallDetailPage() {
             <div className="space-y-3">
               <InfoRow label="Caller" value={formatPhoneDisplay(call.caller_phone)} />
               <InfoRow label="Duration" value={formatDuration(call.duration_seconds)} />
-              <InfoRow label="Outcome" value={call.outcome} />
+              <InfoRow label="Outcome" value={isPilotBlockedCall(call) ? 'Blocked' : call.outcome} />
               <InfoRow label="Sentiment" value={call.qa_sentiment ?? '—'} />
               <InfoRow label="Date" value={new Date(call.created_at).toLocaleDateString()} />
               <InfoRow label="Time" value={new Date(call.created_at).toLocaleTimeString()} />
@@ -242,7 +243,8 @@ function CallAnalysisCard({ analysis }: { analysis: Record<string, unknown> }) {
   );
 }
 
-function OutcomeBadge({ outcome }: { outcome: string }) {
+function OutcomeBadge({ outcome, blocked }: { outcome: string; blocked?: boolean }) {
+  if (blocked) return <span className="rounded-full bg-gray-100 px-2.5 py-1 text-[12px] font-medium text-gray-600">Blocked</span>;
   const colors: Record<string, string> = {
     booked: 'bg-green-50 text-green-700',
     answered: 'bg-blue-50 text-blue-700',

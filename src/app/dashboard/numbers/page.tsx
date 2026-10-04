@@ -6,6 +6,7 @@ import { useOnboarding } from '@/context/OnboardingContext';
 import { track } from '@/components/Analytics';
 import { notifyPhoneNumbersChanged } from '@/lib/events';
 import type { PhoneNumber, Agent, AgentVersion, AgentEnvironment } from '@/types';
+import { apiErrorText } from '@/lib/pilotBlockShared';
 
 const ENV_PREFIX = 'env:';
 
@@ -269,7 +270,7 @@ export default function PhoneNumbersPage() {
         body: JSON.stringify({ toNumber: callToNumber.trim() }),
       });
       const body = await res.json();
-      if (!res.ok) throw new Error(body.error || 'Failed to place call');
+      if (!res.ok) throw new Error(apiErrorText(body, 'Failed to place call'));
       setCallResult({ sid: body.call.sid, to: body.call.to });
     } catch (err) {
       setCallError(err instanceof Error ? err.message : 'Failed to place call');

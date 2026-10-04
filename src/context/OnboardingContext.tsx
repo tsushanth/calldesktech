@@ -7,6 +7,7 @@ import { api, type TranscriptResponse } from '@/lib/api';
 import { formatPhoneE164 } from '@/lib/utils';
 import { type DemoProfileId, CAPABILITY_DEMOS } from '@/lib/constants';
 import { getVoiceEngine, isPocEngine } from '@/lib/voiceEngine';
+import { apiErrorText } from '@/lib/pilotBlockShared';
 import { buildWizardFlow, buildSingleBlockDemoFlow, DEFAULT_WIZARD_BLOCKS, type WizardBlocks } from '@/lib/flowBuilder';
 import type { FlowNode } from '@/types';
 
@@ -383,7 +384,7 @@ export function OnboardingProvider({ children }: { children: React.ReactNode }) 
       body: JSON.stringify({ tenant_id: tid, phone_number: formatPhoneE164(ownerPhone), blocks: wizardBlocks, transfer_to: transferToNumber || undefined }),
     });
     const body = await res.json().catch(() => ({}));
-    if (!res.ok) throw Object.assign(new Error(body.error || 'Could not place the call'), { status: res.status });
+    if (!res.ok) throw Object.assign(new Error(apiErrorText(body, 'Could not place the call')), { status: res.status });
     return body as { call_id: string; status: string };
   }, [ownerPhone, wizardBlocks, transferToNumber]);
 

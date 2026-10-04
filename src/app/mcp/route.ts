@@ -1,3 +1,4 @@
+import { apiFailureDetail } from '@/lib/pilotBlockShared';
 import { NextRequest } from 'next/server';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { WebStandardStreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js';
@@ -35,7 +36,7 @@ export async function POST(req: NextRequest) {
     const text = await res.text();
     let data: any; // eslint-disable-line @typescript-eslint/no-explicit-any
     try { data = text ? JSON.parse(text) : {}; } catch { data = { raw: text.slice(0, 500) }; }
-    if (!res.ok) throw new Error(`${method} ${path} failed (${res.status}): ${data?.error || `HTTP ${res.status}`}`);
+    if (!res.ok) throw new Error(`${method} ${path} failed (${res.status}): ${apiFailureDetail(data, res.status)}`);
     return data;
   };
   let tenantId: Promise<string> | undefined;

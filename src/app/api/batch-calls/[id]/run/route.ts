@@ -4,6 +4,7 @@ import { isCronRequest } from '@/lib/outreach/adminAuth';
 import { getSupabaseAdmin } from '@/lib/supabase';
 import { getRetellClient } from '@/lib/retell';
 import { acquireTokenBlocking, RETELL_GLOBAL, RETELL_TENANT, TWILIO_TENANT } from '@/lib/rateLimiter';
+import { pilotBlockResponse } from '@/lib/pilotBlock';
 import { isWithinCallWindow, type CallTimeWindow } from '@/lib/batchCallSchedule';
 
 // POST /api/batch-calls/[id]/run — actually places the batch. Walks the
@@ -61,6 +62,10 @@ export async function POST(
       { status: 409 }
     );
   }
+
+  // A pilot-blocked tenant places no outbound calls. The batch is left 'pending' (not failed) so it can run if the block is lifted.
+  const blocked = await pilotBlockResponse(supabase, batch.tenant_id);
+  if (blocked) return blocked;
 
   // Scheduled for later and not yet due — a manual Run click before the
   // scheduled time is a no-op (not a failure); the cron will trigger it once
