@@ -1,6 +1,8 @@
 import type Stripe from 'stripe';
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { getTenantUsageSplitSince } from './usage';
+import { getTenantUsageSplitSince, getTenantNumberInboundUsageSince } from './usage';
+import { NUMBER_INBOUND_METER_EVENT, NUMBER_PRICE_ENV, numberPriceIds } from './numberAddOn';
+import { tenantNumberPlan } from './numberAddOnBilling';
 import { tierBillingConfigured, TIER_PRICE_ENV } from './tierBilling';
 import type { TierId } from './pricingTiers';
 
@@ -141,6 +143,24 @@ export async function reportTenantUsageToStripe(
     };
   }
 
+  // Premium number add-on: inbound seconds to numbers bought under the add-on, on a separate meter per carrier. Pro tenants are never
+  // reported (numbers included). A billed number whose inbound price is not configured fails the tenant loudly, like an unconfigured tier.
+  let numberInbound: Awaited<ReturnType<typeof getTenantNumberInboundUsageSince>> = [];
+  try {
+    numberInbound = await getTenantNumberInboundUsageSince(supabase, tenantId, since, until);
+    if (numberInbound.length > 0 && (await tenantNumberPlan(supabase, tenantId)).kind === 'included') numberInbound = [];
+  } catch (err) {
+    return { tenantId, status: 'error', error: err instanceof Error ? err.message : String(err) };
+  }
+  const unconfiguredNumbers = numberInbound.filter((n) => !numberPriceIds(n.carrier));
+  if (unconfiguredNumbers.length > 0) {
+    return {
+      tenantId,
+      status: 'error',
+      error: `Inbound calls to purchased numbers cannot be reported: ${unconfiguredNumbers.map((n) => NUMBER_PRICE_ENV[n.carrier].inbound).join(', ')} is not set. Nothing was reported or advanced for this tenant.`,
+    };
+  }
+
   type Dimension = { dimension: string; eventName: string; value: number };
   const allDimensions: Dimension[] = [
     { dimension: 'voice', eventName: METER_EVENT_NAMES.voice, value: usage.seconds },
@@ -148,6 +168,7 @@ export async function reportTenantUsageToStripe(
     { dimension: 'transfer', eventName: METER_EVENT_NAMES.transfer, value: usage.transfers },
     { dimension: 'message', eventName: METER_EVENT_NAMES.message, value: usage.messages },
     ...split.byTier.map((t) => ({ dimension: `voice_${t.tier}`, eventName: TIER_METER_EVENT_NAMES[t.tier], value: t.seconds })),
+    ...numberInbound.map((n) => ({ dimension: `number_inbound_${n.carrier}`, eventName: NUMBER_INBOUND_METER_EVENT[n.carrier], value: n.seconds })),
   ];
   const dimensions = allDimensions.filter((d) => d.value > 0);
 

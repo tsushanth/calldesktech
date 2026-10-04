@@ -4,6 +4,16 @@ import { getRetellClient, RetellApiError } from '@/lib/retell';
 import { checkPaymentMethodOnFile } from '@/lib/paymentMethodGate';
 import { isPocEngine } from '@/lib/voiceEngine';
 import { authorizeTenant } from '@/lib/authz';
+import {
+  DEFAULT_NUMBER_CARRIER,
+  NUMBER_ADDON_PRICES,
+  NumberAddOnNotConfiguredError,
+  isNumberCarrier,
+  numberAddOnTerms,
+  requireNumberPriceIds,
+  NUMBER_CARRIERS,
+} from '@/lib/numberAddOn';
+import { billedNumberCount, setNumberAddOnCount, tenantNumberPlan } from '@/lib/numberAddOnBilling';
 
 // Populous US area codes essentially guaranteed to have inventory — used as
 // retry candidates when the requested/inferred area code comes back empty,
@@ -43,7 +53,9 @@ async function purchaseViaPoc(areaCode: string | undefined): Promise<{ phoneNumb
 }
 
 // POST /api/tenants/[id]/phone-numbers/purchase — buy a real number and wire
-// it up to actually receive calls. Distinct from POST
+// it up to actually receive calls. Lite and Standard tenants buy it as the premium number add-on (src/lib/numberAddOn.ts): the body must
+// carry acceptNumberAddOn: true, the Stripe items are attached BEFORE the purchase and rolled back if it fails, and the route fails closed
+// when the add-on's Stripe prices are not configured. Pro and legacy tenants: unchanged, numbers included and never charged. Distinct from POST
 // /api/tenants/[id]/phone-numbers, which only registers a number the caller
 // already owns and never spends money.
 export async function POST(
@@ -84,11 +96,82 @@ export async function POST(
   const requestedAreaCode: string | undefined = body.areaCode;
   const settings = (tenant.settings ?? {}) as { phone?: string; address?: string; voice_engine?: string };
 
+  const carrier = body.carrier ?? DEFAULT_NUMBER_CARRIER;
+  if (!isNumberCarrier(carrier)) {
+    return NextResponse.json({ error: `Unknown carrier "${String(carrier)}". Valid: ${NUMBER_CARRIERS.join(', ')}` }, { status: 400 });
+  }
+
+  let plan;
+  try {
+    plan = await tenantNumberPlan(supabase, tenantId);
+  } catch (err) {
+    // Cannot tell whether this tenant pays: do not buy a number that might go unbilled.
+    console.error('Could not determine number add-on plan', { tenantId }, err);
+    return NextResponse.json({ error: 'Could not check your plan, so no number was bought. Try again.', code: 'number_plan_check_failed' }, { status: 503 });
+  }
+
+  let billedBefore: number | null = null; // set once the add-on's Stripe items are attached
+  if (plan.kind === 'addon') {
+    if (body.acceptNumberAddOn !== true) {
+      const price = NUMBER_ADDON_PRICES[carrier];
+      return NextResponse.json(
+        {
+          error: `Buying a phone number from us is a paid add-on: ${numberAddOnTerms(carrier)} Pass acceptNumberAddOn: true to confirm, or bring your own number instead.`,
+          code: 'number_addon_acceptance_required',
+          terms: numberAddOnTerms(carrier),
+          carrier,
+          monthlyCents: price.monthlyCents,
+          inboundCentsPerMinute: price.inboundCentsPerMinute,
+        },
+        { status: 400 }
+      );
+    }
+    if (!isPocEngine(settings)) {
+      return NextResponse.json({ error: 'Premium phone numbers are available on the in-house voice engine only.', code: 'number_addon_engine_unsupported' }, { status: 400 });
+    }
+    try {
+      requireNumberPriceIds(carrier);
+    } catch (err) {
+      if (err instanceof NumberAddOnNotConfiguredError) {
+        console.error('Number add-on billing not configured', err.missing);
+        return NextResponse.json({ error: 'Premium phone numbers are not available yet. No number was bought and nothing was charged.', code: 'number_addon_not_configured' }, { status: 503 });
+      }
+      throw err;
+    }
+    try {
+      billedBefore = await billedNumberCount(supabase, tenantId, carrier);
+      const attached = await setNumberAddOnCount(supabase, tenantId, carrier, billedBefore + 1);
+      if (attached.status === 'no_subscription') {
+        return NextResponse.json(
+          { error: 'Start your subscription before buying a phone number.', action: 'checkout' },
+          { status: 402 }
+        );
+      }
+    } catch (err) {
+      console.error('Failed to attach number add-on billing', { tenantId, carrier }, err);
+      return NextResponse.json(
+        { error: 'Could not set up billing for the phone number, so none was bought. No charge was made; trying again is safe.', code: 'number_addon_billing_failed', retryable: true },
+        { status: 502 }
+      );
+    }
+  }
+
+  // Undoes the Stripe change when the purchase itself fails (idempotent: sets the absolute count from before).
+  const rollbackBilling = async () => {
+    if (billedBefore === null) return;
+    try {
+      await setNumberAddOnCount(supabase, tenantId, carrier, billedBefore);
+    } catch (err) {
+      console.error('FAILED to roll back number add-on billing after a failed purchase; reconcile by hand', { tenantId, carrier, billedBefore }, err);
+    }
+  };
+
   let phoneNumber: string | null = null;
 
   if (isPocEngine(settings)) {
     const result = await purchaseViaPoc(requestedAreaCode || inferAreaCode(settings.phone) || DEFAULT_AREA_CODE);
     if ('error' in result) {
+      await rollbackBilling();
       return NextResponse.json({ error: result.error }, { status: result.status });
     }
     phoneNumber = result.phoneNumber;
@@ -149,7 +232,11 @@ export async function POST(
 
   const { data: numberRow, error: insertError } = await supabase
     .from('calldesk_phone_numbers')
-    .insert({ tenant_id: tenantId, number: phoneNumber })
+    .insert({
+      tenant_id: tenantId,
+      number: phoneNumber,
+      ...(plan.kind === 'addon' ? { source: 'purchased', carrier, addon_billed: true } : {}),
+    })
     .select()
     .single();
 
@@ -164,6 +251,15 @@ export async function POST(
   }
 
   await supabase.from('calldesk_tenants').update({ phone_number: phoneNumber }).eq('id', tenantId);
+
+  // Two purchases at once each computed their target from the same count; settle on the real count now (best effort, idempotent).
+  if (billedBefore !== null) {
+    try {
+      await setNumberAddOnCount(supabase, tenantId, carrier, await billedNumberCount(supabase, tenantId, carrier));
+    } catch (err) {
+      console.error('Number add-on billing reconcile failed after purchase', { tenantId, carrier }, err);
+    }
+  }
 
   return NextResponse.json({ phoneNumber: numberRow }, { status: 201 });
 }

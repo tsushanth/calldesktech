@@ -40,6 +40,9 @@ export default function PhoneNumbersPage() {
   const [error, setError] = useState<string | null>(null);
   const [isBuying, setIsBuying] = useState(false);
   const [buyAreaCode, setBuyAreaCode] = useState('');
+  // Set when the server says buying a number is a paid add-on (Lite/Standard): shows the terms and needs a checkbox before buying.
+  const [addonTerms, setAddonTerms] = useState<string | null>(null);
+  const [addonAccepted, setAddonAccepted] = useState(false);
   const [billingPrompt, setBillingPrompt] = useState<{ message: string; action: 'checkout' | 'billing_portal' } | null>(null);
   const [showCallModal, setShowCallModal] = useState(false);
   const [callToNumber, setCallToNumber] = useState('');
@@ -191,7 +194,7 @@ export default function PhoneNumbersPage() {
     }
   };
 
-  const handleBuyNumber = async () => {
+  const handleBuyNumber = async (acceptNumberAddOn = false) => {
     if (!tenantId) return;
     setIsBuying(true);
     setError(null);
@@ -200,9 +203,14 @@ export default function PhoneNumbersPage() {
       const res = await fetch(`/api/tenants/${tenantId}/phone-numbers/purchase`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ areaCode: buyAreaCode.trim() || undefined }),
+        body: JSON.stringify({ areaCode: buyAreaCode.trim() || undefined, ...(acceptNumberAddOn ? { acceptNumberAddOn: true } : {}) }),
       });
       const body = await res.json();
+      if (res.status === 400 && body.code === 'number_addon_acceptance_required') {
+        setAddonTerms(body.terms);
+        setAddonAccepted(false);
+        return;
+      }
       if (res.status === 402) {
         setBillingPrompt({ message: body.error, action: body.action });
         return;
@@ -211,6 +219,8 @@ export default function PhoneNumbersPage() {
       setNumbers((prev) => [body.phoneNumber, ...prev]);
       setSelectedId(body.phoneNumber.id);
       setBuyAreaCode('');
+      setAddonTerms(null);
+      setAddonAccepted(false);
       notifyPhoneNumbersChanged();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to buy a number');
@@ -392,16 +402,30 @@ export default function PhoneNumbersPage() {
                 inputMode="numeric"
                 maxLength={3}
                 className="w-16 flex-none rounded-lg border border-gray-200 px-2.5 py-1.5 text-center font-mono text-[13px] focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100"
-                onKeyDown={(e) => e.key === 'Enter' && handleBuyNumber()}
+                onKeyDown={(e) => e.key === 'Enter' && handleBuyNumber(addonTerms !== null && addonAccepted)}
               />
               <button
-                onClick={handleBuyNumber}
-                disabled={isBuying}
+                onClick={() => handleBuyNumber(addonTerms !== null && addonAccepted)}
+                disabled={isBuying || (addonTerms !== null && !addonAccepted)}
                 className="min-w-0 flex-1 rounded-lg bg-blue-600 px-3 py-1.5 text-[13px] font-medium text-white transition hover:bg-blue-700 disabled:opacity-40"
               >
                 {isBuying ? 'Buying…' : 'Buy a number'}
               </button>
             </div>
+            {addonTerms && (
+              <label className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 p-2.5 text-[12.5px] leading-snug text-amber-900">
+                <input
+                  type="checkbox"
+                  checked={addonAccepted}
+                  onChange={(e) => setAddonAccepted(e.target.checked)}
+                  className="mt-0.5 flex-none"
+                />
+                <span>
+                  <span className="font-medium">Premium phone number (Twilio carrier).</span> {addonTerms} Or register a number you already own, at no charge.
+                  <span className="mt-1 block">I understand and accept these charges.</span>
+                </span>
+              </label>
+            )}
             {showRegister ? (
               <div className="flex gap-2">
                 <input

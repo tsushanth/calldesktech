@@ -118,7 +118,8 @@ export const ADD_ONS: AddOn[] = [
   { id: 'long_prompts', label: 'Long prompts', description: 'Room for very long instructions and reference text in one agent.', centsPerMinute: null, proposed: true, defaultOn: false },
 ];
 
-export const CARRIER_NOTE = 'Carrier billed separately: on Lite and Standard you bring your own phone carrier and pay it directly. Pro includes phone service.';
+// The add-on amounts below are the constants in src/lib/numberAddOn.ts (a test keeps the two in step; they are not imported here to avoid a cycle).
+export const CARRIER_NOTE = 'Carrier billed separately: on Lite and Standard you bring your own phone carrier and pay it directly, or buy a premium Twilio-carrier number from us for $2.00 per month per number plus 1.5 cents per minute of inbound calls. Pro includes phone service.';
 
 export function tierById(id: unknown): PricingTier | undefined {
   return typeof id === 'string' ? PRICING_TIERS.find((t) => t.id === id) : undefined;

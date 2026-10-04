@@ -1,5 +1,6 @@
 import { SupabaseClient } from '@supabase/supabase-js';
 import { PRICING_TIERS, isTierId, type TierId } from '@/lib/pricingTiers';
+import { carrierOfRow, type NumberCarrier } from '@/lib/numberAddOn';
 
 // Shared usage-computation helpers. Both the billing page (billing/route.ts)
 // and the usage page (usage/route.ts) independently re-derive "minutes this
@@ -163,4 +164,64 @@ export async function getTenantUsageSplitSince(
     if (sum.calls > 0) byTier.push({ tier: t.id, calls: sum.calls, seconds: sum.seconds });
   }
   return { legacy, byTier };
+}
+
+export type NumberInboundUsage = Array<{ carrier: NumberCarrier; calls: number; seconds: number }>;
+
+/**
+ * INBOUND seconds in [since, until) to the numbers the tenant bought under the premium number add-on (calldesk_phone_numbers.addon_billed),
+ * per carrier. These feed the separate number inbound meters (src/lib/numberAddOn.ts); the call's voice seconds are still billed on the
+ * legacy or tier meters, so nothing here replaces or double counts them. Our own demo and mystery-shopper calls (is_internal_test) are
+ * excluded, as everywhere else. Outbound calls are never counted: they use the customer's own carrier. Returns [] without touching the call
+ * logs when the tenant has no billed numbers (and when the addon_billed column is not migrated yet).
+ */
+export async function getTenantNumberInboundUsageSince(
+  supabase: SupabaseClient,
+  tenantId: string,
+  since: Date | null,
+  until: Date = new Date()
+): Promise<NumberInboundUsage> {
+  const numbers = await supabase
+    .from('calldesk_phone_numbers')
+    .select('number, carrier')
+    .eq('tenant_id', tenantId)
+    .eq('source', 'purchased')
+    .eq('addon_billed', true);
+  if (numbers.error) {
+    if (numbers.error.code === '42703' || /addon_billed/.test(numbers.error.message || '')) return [];
+    throw numbers.error;
+  }
+  const carrierByNumber = new Map<string, NumberCarrier>();
+  for (const n of (numbers.data ?? []) as Array<{ number: string; carrier: string | null }>) {
+    const c = carrierOfRow(n.carrier);
+    if (c) carrierByNumber.set(n.number, c);
+  }
+  if (carrierByNumber.size === 0) return [];
+
+  const run = async (excludeInternal: boolean) => {
+    let query = supabase
+      .from('calldesk_call_logs')
+      .select('to_number, duration_seconds')
+      .eq('tenant_id', tenantId)
+      .eq('direction', 'inbound')
+      .in('to_number', [...carrierByNumber.keys()])
+      .lt('created_at', until.toISOString());
+    if (excludeInternal) query = query.neq('is_internal_test', true);
+    if (since) query = query.gte('created_at', since.toISOString());
+    return query;
+  };
+  let res = await run(true);
+  if (res.error && /is_internal_test/.test(res.error.message || '')) res = await run(false);
+  if (res.error) throw res.error;
+
+  const totals = new Map<NumberCarrier, { calls: number; seconds: number }>();
+  for (const r of (res.data ?? []) as unknown as Array<{ to_number: string | null; duration_seconds: number | null }>) {
+    const carrier = r.to_number ? carrierByNumber.get(r.to_number) : undefined;
+    if (!carrier) continue;
+    const t = totals.get(carrier) ?? { calls: 0, seconds: 0 };
+    t.calls += 1;
+    t.seconds += r.duration_seconds ?? 0;
+    totals.set(carrier, t);
+  }
+  return [...totals.entries()].map(([carrier, t]) => ({ carrier, ...t })).filter((t) => t.seconds > 0);
 }

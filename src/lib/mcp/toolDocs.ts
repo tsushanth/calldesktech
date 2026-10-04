@@ -56,7 +56,7 @@ export const MCP_TOOL_GROUPS: McpToolGroup[] = [
   {
     group: 'Numbers and calls',
     tools: [
-      { name: 'list_phone_numbers', summary: 'List phone numbers and the agent versions they route to.' },
+      { name: 'list_phone_numbers', summary: 'List phone numbers and the agent versions they route to. Numbers bought from us on Lite and Standard are a paid extra ($2.00 per month per number plus 1.5 cents per minute of inbound calls); Pro includes numbers.' },
       { name: 'set_number_routing', summary: 'Route a number’s inbound or outbound calls to a version or an environment.' },
       { name: 'place_call', summary: 'Place a real outbound call from one of your numbers (costs money).' },
       { name: 'list_calls', summary: 'List recent calls.' },
