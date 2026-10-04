@@ -335,6 +335,7 @@ describe('contact extraction', () => {
     expect(extractEmails('<a href="mailto:%20info@acme.com">x</a>', 'acme.com')).toEqual(['info@acme.com']);
     expect(extractEmails('info@acme.com and %20%20sales@acme.com', 'acme.com').sort()).toEqual(['info@acme.com', 'sales@acme.com']);
     expect(extractEmails('{"t":"\\u003esupport@acme.com\\u003c"}', 'acme.com')).toEqual(['support@acme.com']);
+    expect(extractEmails('contact u00470@acme.com today', 'acme.com')).toEqual(['u00470@acme.com']);
   });
   it('normalizes a www. mail host to the bare domain instead of storing it', () => {
     // customerservice@www.epshawaii.com passed the own-domain check but was unroutable.
