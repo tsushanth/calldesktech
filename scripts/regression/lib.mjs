@@ -13,7 +13,7 @@ export const REG_TENANT_NAME = 'Regression tenant (do not use)';
 export const REG_AGENT_NAME = 'Regression agent';
 export const REG_AGENT_B_NAME = 'Regression agent B';
 export const COST_PER_CALL_USD = 0.2; // rough: two AI sessions plus two Twilio legs for about 1.5 minutes
-export const TOTAL_CALL_CAP = 80;     // lifetime cap tracked in ~/.calldesk-regression-calls-used; raise it on purpose
+export const TOTAL_CALL_CAP = 110;    // lifetime cap tracked in ~/.calldesk-regression-calls-used; raise it on purpose
 
 export function loadEnv(file = resolve(process.cwd(), '.env')) {
   const env = { ...process.env };
