@@ -6,13 +6,12 @@ import { billedNumberCount, setNumberAddOnCount } from '@/lib/numberAddOnBilling
 
 // TODO(engine): call-loop-poc has no number-release endpoint yet (only POST /purchase-number). Needed there, same admin-secret guard as
 // /purchase-number (Authorization: Bearer CALL_LOOP_POC_TEST_CALL_SECRET):
-//   POST /release-number  { "phone_number": "+14155550123" }
-//   -> looks the number up in IncomingPhoneNumbers on the engine's own Twilio account and DELETEs it.
-//   -> 200 { "released": true } on success, and 200 { "released": true, "already_gone": true } when Twilio has no such number (idempotent).
-//   -> 4xx/5xx with { "error": string } otherwise. Must refuse numbers the engine does not own.
-// Until it exists the web app answers 501 for purchased numbers and changes nothing: the number is still held on the carrier, so billing
-// must not stop either.
-async function releaseViaEngine(phoneNumber: string): Promise<{ ok: true } | { ok: false; status: number; error: string; unsupported?: boolean }> {
+//   POST /release-number  { "number": "+14155550123", "carrier": "twilio" | "telnyx" }
+//   -> looks the number up on that carrier's account (exact E.164 match) and releases it.
+//   -> 200 on success (also when already released: idempotent); 404 { "error" } when not found; 4xx/5xx { "error": string } otherwise.
+// The engine endpoint exists on branch telnyx-numbers of realtime-tts. Until it is deployed the web app answers 501 for purchased numbers
+// and changes nothing: the number is still held on the carrier, so billing must not stop either.
+async function releaseViaEngine(phoneNumber: string, carrier: string): Promise<{ ok: true } | { ok: false; status: number; error: string; unsupported?: boolean }> {
   const baseUrl = process.env.CALL_LOOP_POC_BASE_URL;
   const secret = process.env.CALL_LOOP_POC_TEST_CALL_SECRET;
   if (!baseUrl || !secret) return { ok: false, status: 500, error: 'CALL_LOOP_POC_BASE_URL/CALL_LOOP_POC_TEST_CALL_SECRET not configured' };
@@ -20,7 +19,7 @@ async function releaseViaEngine(phoneNumber: string): Promise<{ ok: true } | { o
     const res = await fetch(`${baseUrl}/release-number`, {
       method: 'POST',
       headers: { Authorization: `Bearer ${secret}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ phone_number: phoneNumber }),
+      body: JSON.stringify({ number: phoneNumber, carrier }),
     });
     if (res.ok) return { ok: true };
     const body = await res.json().catch(() => ({}));
@@ -50,7 +49,7 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
   if (!row) return NextResponse.json({ error: 'Phone number not found' }, { status: 404 });
 
   if (row.source === 'purchased') {
-    const released = await releaseViaEngine(row.number);
+    const released = await releaseViaEngine(row.number, carrierOfRow(row.carrier) ?? 'twilio');
     if (!released.ok) {
       return NextResponse.json({ error: released.error, code: released.unsupported ? 'number_release_unavailable' : 'number_release_failed' }, { status: released.status });
     }

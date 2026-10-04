@@ -33,11 +33,13 @@ it('releases on the engine, deletes the row and drops the monthly quantity from 
   const { stripe, calls } = makeFakeStripe([{ id: 'si_m', price: { id: MONTHLY }, quantity: 2 }, { id: 'si_i', price: { id: INBOUND } }]);
   vi.mocked(getSupabaseAdmin).mockReturnValue(db as never);
   vi.mocked(getStripe).mockReturnValue(stripe as never);
-  const fetchMock = vi.fn(async (_u: string) => new Response(JSON.stringify({ released: true }), { status: 200 }));
+  const fetchMock = vi.fn(async (_u: string, _init?: RequestInit) => new Response(JSON.stringify({ released: true }), { status: 200 }));
   vi.stubGlobal('fetch', fetchMock);
   const res = await del('n1');
   expect(res.status).toBe(200);
   expect(String(fetchMock.mock.calls[0][0])).toBe('https://engine.test/release-number');
+  // The engine contract (realtime-tts /release-number): the E.164 number and the carrier, never an implicit carrier.
+  expect(JSON.parse(String(fetchMock.mock.calls[0][1]?.body))).toEqual({ number: '+14155550100', carrier: 'twilio' });
   expect(db.tables.calldesk_phone_numbers.map((r) => r.id)).toEqual(['n2']);
   expect(calls.find((c) => c.op === 'update')!.args).toEqual(['si_m', { quantity: 1, proration_behavior: 'create_prorations' }]);
   expect(calls.filter((c) => c.op === 'del')).toHaveLength(0);
