@@ -158,7 +158,8 @@ export function extractEmails(html: string, domain: string): string[] {
   const found = new Set<string>();
   for (const m of decoded.match(EMAIL_RE) || []) {
     // mailto:%20info@x.com matches the regex with its percent-encoded space attached; strip it.
-    const email = m.toLowerCase().replace(/^mailto:/, '').replace(/^(%[0-9a-f]{2})+/, '');
+    // JSON-embedded HTML escapes ">" as \u003e, and the regex swallows the "u003e" into the local part.
+    const email = m.toLowerCase().replace(/^mailto:/, '').replace(/^(%[0-9a-f]{2})+/, '').replace(/^(u00[0-9a-f]{2})+/, '');
     if (IMAGE_EXT.test(email)) continue;
     const [local, host] = email.split('@');
     if (!local || !host || JUNK_DOMAINS.some((d) => host.endsWith(d))) continue;

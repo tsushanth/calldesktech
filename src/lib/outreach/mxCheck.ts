@@ -16,15 +16,12 @@ async function has(fn: () => Promise<unknown[]>): Promise<boolean | 'unknown'> {
   }
 }
 
-// False only when DNS definitively says the domain cannot receive mail (no MX and no A/AAAA).
+// False only when DNS definitively says the domain has no MX record. The RFC fallback to an A/AAAA
+// record is deliberately NOT honored: 3 of the first 13 real bounces were domains with an A record but
+// no MX (website hosting, no mail), while only 1 of 189 delivered domains relied on the fallback.
 // Timeouts and server failures return true: a flaky lookup must never block a legitimate send.
 export async function domainCanReceiveMail(email: string, resolver: Resolver = dns): Promise<boolean> {
   const domain = email.split('@')[1]?.trim().toLowerCase();
   if (!domain) return false;
-  const mx = await has(() => resolver.resolveMx(domain));
-  if (mx !== false) return true;
-  const a = await has(() => resolver.resolve4(domain));
-  if (a !== false) return true;
-  const aaaa = await has(() => resolver.resolve6(domain));
-  return aaaa !== false;
+  return (await has(() => resolver.resolveMx(domain))) !== false;
 }

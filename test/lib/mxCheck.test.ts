@@ -15,8 +15,8 @@ describe('domainCanReceiveMail', () => {
   it('true when the domain has an MX record', async () => {
     expect(await domainCanReceiveMail('a@x.com', resolver({ mx: [{ exchange: 'm', priority: 1 }] }))).toBe(true);
   });
-  it('true via implicit MX (A record) when there is no MX', async () => {
-    expect(await domainCanReceiveMail('a@x.com', resolver({ a: ['1.2.3.4'] }))).toBe(true);
+  it('false when there is only an A record and no MX (web host, not a mail server)', async () => {
+    expect(await domainCanReceiveMail('a@x.com', resolver({ a: ['1.2.3.4'] }))).toBe(false);
   });
   it('false when the domain does not exist', async () => {
     expect(await domainCanReceiveMail('a@nope.invalid', resolver({ mx: 'ENOTFOUND', a: 'ENOTFOUND', aaaa: 'ENOTFOUND' }))).toBe(false);
