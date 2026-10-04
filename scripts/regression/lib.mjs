@@ -5,6 +5,7 @@
 import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { homedir } from 'node:os';
+import { execFileSync } from 'node:child_process';
 import { encode } from 'next-auth/jwt';
 
 export const REG_USER_ID = 'demo_e2e_regression';
@@ -203,3 +204,25 @@ export function makeReceiver(env, runId) {
   };
 }
 export const newRunId = () => `r-${Math.random().toString(36).slice(2, 10)}${Date.now().toString(36)}`.slice(0, 40);
+
+
+// The engine's current Fly release (e.g. "v214"), or null when flyctl is missing or fails. A deploy or secret change replaces the machine and
+// drops calls in flight, so a run that sees the release change is inconclusive, not a product failure (2026-10-03: language-switch "failed" 3 s
+// after release v211).
+export function engineRelease(app = process.env.REGRESSION_ENGINE_APP || 'call-loop-poc') {
+  try {
+    const out = execFileSync('flyctl', ['releases', '-a', app, '--json'], { encoding: 'utf8', timeout: 20000, stdio: ['ignore', 'pipe', 'ignore'] });
+    const rel = JSON.parse(out);
+    const v = Array.isArray(rel) ? rel[0]?.Version ?? rel[0]?.version : null;
+    return v == null ? null : `v${v}`;
+  } catch { return null; }
+}
+
+// Called when no call log with a transcript appeared. A row that exists but is shorter than 5 s with no transcript means the call was cut
+// off mid-flight (engine restart or deploy), which is worth a retry; no row at all means the call never reached the engine.
+export async function diagnoseMissingLog(d, tenantId, sinceIso) {
+  const rows = await d.select(`calldesk_call_logs?tenant_id=eq.${tenantId}&created_at=gte.${encodeURIComponent(sinceIso)}&select=duration_seconds,transcript&limit=10`);
+  const cutOff = rows.some((r) => (r.duration_seconds ?? 0) < 5 && !(r.transcript?.length));
+  if (cutOff) return { retryable: true, message: 'call ended in under 5 s with no transcript (engine restart or deploy mid-call?)' };
+  return { retryable: false, message: 'no call log appeared for the test tenant (did the call reach the engine?)' };
+}

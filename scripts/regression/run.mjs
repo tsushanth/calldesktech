@@ -10,7 +10,7 @@
 // NEXT_PUBLIC_SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY. Secret values are never printed. Results go to out/regression/.
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { loadEnv, requireEnv, db, apiClient, ensureFixtures, publishVersion, routeNumber, checkSpend, recordCall, callsUsed, TOTAL_CALL_CAP, placeShopperCall, placeOutboundCall, waitForCallEnd, fetchTenantCallLog, fetchTenantLogsSince, lines, makeReceiver, newRunId } from './lib.mjs';
+import { loadEnv, requireEnv, db, apiClient, ensureFixtures, publishVersion, routeNumber, checkSpend, recordCall, callsUsed, TOTAL_CALL_CAP, engineRelease, diagnoseMissingLog, placeShopperCall, placeOutboundCall, waitForCallEnd, fetchTenantCallLog, fetchTenantLogsSince, lines, makeReceiver, newRunId } from './lib.mjs';
 import { pick } from './scenarios.mjs';
 
 const args = process.argv.slice(2);
@@ -43,14 +43,21 @@ mkdirSync(resolve(process.cwd(), 'out/regression'), { recursive: true });
 
 for (const sc of scenarios) {
   const t0 = Date.now();
-  let res = { id: sc.id, title: sc.title, status: 'error', failures: [], knownIssue: sc.knownIssue || null };
+  let res;
+  // One automatic retry when the failure looks like infrastructure (engine release changed during the run, or the call was cut off with no
+  // transcript), never for a plain assertion failure. The retry is one more real call and is refused past the lifetime cap.
+  for (let attempt = 1; ; attempt++) {
+  const releaseBefore = engineRelease();
+  let since = new Date().toISOString();
+  let retryable = null;
+  res = { id: sc.id, title: sc.title, status: 'error', failures: [], knownIssue: sc.knownIssue || null };
   try {
     // `prepare` may publish helper versions (a transfer target, another agent) and return the version under test.
     const receiver = sc.needsReceiver ? makeReceiver(env, newRunId()) : null;
     const ctx = { env, d, api, fx, receiver, publish: (opts) => publishVersion(api, fx, sc, opts), route: (numberId, versionId, direction) => routeNumber(api, numberId, versionId, direction) };
     const prepared = sc.prepare ? await sc.prepare(ctx) : null;
     const versionId = await publishVersion(api, fx, sc, prepared ? { version: prepared } : {});
-    const since = new Date(Date.now() - 5000).toISOString();
+    since = new Date(Date.now() - 5000).toISOString();
     let sid, logs = null, log;
     if (sc.outbound) {
       // Outbound: this tenant's number calls the scripted receiver number, answering as its OUTBOUND version.
@@ -73,7 +80,7 @@ for (const sc of scenarios) {
       // For a multi-call scenario the main log is the first one that reached the number under test.
       log = sc.needsAllLogs ? logs.find((l) => l.to_number === fx.number) || logs[0] : await fetchTenantCallLog(d, fx.tenantId, since, { excludeSid: sid });
     }
-    if (!log) { res.failures = ['no call log appeared for the test tenant (did the call reach the engine?)']; }
+    if (!log) { const dg = await diagnoseMissingLog(d, fx.tenantId, since); res.failures = [dg.message]; retryable = dg.retryable; }
     else {
       const events = receiver ? await receiver.events() : null;
       res.failures = sc.assert(log, { logs, ctx, events });
@@ -85,6 +92,16 @@ for (const sc of scenarios) {
     res.status = res.failures.length === 0 ? 'pass' : 'fail';
   } catch (e) {
     res.failures = [e instanceof Error ? e.message : String(e)];
+  }
+  const releaseAfter = engineRelease();
+  const releaseChanged = !!(releaseBefore && releaseAfter && releaseBefore !== releaseAfter);
+  if (releaseChanged) res.releaseChanged = `${releaseBefore} -> ${releaseAfter}`;
+  if (res.status !== 'pass' && (releaseChanged || retryable) && attempt === 1 && callsUsed() + 1 <= TOTAL_CALL_CAP) {
+    console.log(`  retrying ${sc.id} once: ${releaseChanged ? `engine release changed during the run (${res.releaseChanged})` : res.failures[0]}`);
+    continue;
+  }
+  if (res.status !== 'pass' && releaseChanged) res.failures.push(`inconclusive: engine release changed during the run (${res.releaseChanged})`);
+  break;
   }
   res.seconds = Math.round((Date.now() - t0) / 1000);
   if (sc.needsReceiver && res.receiverEvents !== undefined) { /* events already captured above */ }
