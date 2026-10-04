@@ -197,14 +197,14 @@ export type LegacyPlan = {
  */
 export function tierForLegacyConfig(ttsBackend?: TtsBackend | string | null): LegacyPlan {
   const rates = PRICING.usage.voicePerMinute as Record<string, number>;
-  const backend = ttsBackend && ttsBackend in rates ? ttsBackend : 'kokoro';
+  const backend = ttsBackend && ttsBackend in rates ? ttsBackend : 'piper';
   const centsPerMinute = Math.round(rates[backend] * 100);
   const pro = PRICING_TIERS.find((t) => t.id === 'pro')!;
   return {
     legacy: true,
     centsPerMinute,
     equivalentTier: centsPerMinute === pro.pricePerMinuteCents ? 'pro' : null,
-    label: backend === 'kokoro' ? 'Current flat price (default voice)' : 'Current flat price (premium voice)',
+    label: backend === 'kokoro' || backend === 'piper' ? 'Current flat price (default voice)' : 'Current flat price (premium voice)',
     explanation: `Existing agents keep their current price: ${dollars(centsPerMinute)} per minute with phone service included. Choosing a tier is optional.`,
   };
 }

@@ -55,7 +55,8 @@ export async function POST(request: NextRequest) {
     // (see PRICING/USAGE_PRICES in constants.ts, 2026-08-26 pricing switch).
     // Metered-price line items take no quantity; Stripe bills them from
     // meter events reported by call-loop-poc (see stripeMeter.js there).
-    // Voice defaults to the kokoro price — the tenant's agent version can
+    // Voice defaults to the piper price (Kokoro was retired as the default voice 2026-10-03; piper and kokoro share the same
+    // Stripe price, $0.10/min) — the tenant's agent version can
     // only pick elevenlabs after the agent exists, which happens after this
     // checkout completes; switching an active subscription's voice price to
     // match a later elevenlabs choice is a real follow-up, not done yet.
@@ -70,7 +71,7 @@ export async function POST(request: NextRequest) {
       // still requires a card and is tracked/capped by Stripe itself.
       allow_promotion_codes: true,
       line_items: [
-        { price: USAGE_PRICES.voice.kokoro },
+        { price: USAGE_PRICES.voice.piper },
         { price: USAGE_PRICES.booking },
         { price: USAGE_PRICES.transfer },
         { price: USAGE_PRICES.message },

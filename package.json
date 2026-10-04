@@ -10,7 +10,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "e2e:builder": "node e2e/builder-smoke.mjs",
-    "regression:builder": "node scripts/regression/run.mjs"
+    "regression:builder": "node scripts/regression/run.mjs",
+    "e2e:plan": "node e2e/plan-flow-smoke.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.124.0",

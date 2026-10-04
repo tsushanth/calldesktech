@@ -19,7 +19,7 @@ export function PricingCard({ onSubscribe, loading }: PricingCardProps) {
           <span className="text-gray-500"> base — pay only for usage</span>
         </div>
         <p className="mt-2 text-sm text-gray-500">
-          ${PRICING.usage.voicePerMinute.kokoro.toFixed(2)}/min talk time, plus a small fee only when the call actually books, transfers, or takes a message
+          ${PRICING.usage.voicePerMinute.piper.toFixed(2)}/min talk time, plus a small fee only when the call actually books, transfers, or takes a message
         </p>
       </div>
 

@@ -19,3 +19,10 @@ Run it against a local production build (it needs `.env` with Supabase and `NEXT
 - Chrome is found at the standard macOS path; set `E2E_CHROME` to use another binary, `E2E_HEADED=1` to watch.
 - To add a check, follow the pattern in `builder-smoke.mjs`: type a distinctive value, then assert it in the
   saved flow and again after a reload. Sanity-check a new assertion by running it against a wrong expectation.
+
+## Plan flow (`plan-flow-smoke.mjs`)
+
+`npm run e2e:plan` (or `BASE_URL=https://calldesk.tech node e2e/plan-flow-smoke.mjs`) checks the per-plan buttons on /pricing and the
+handoff into the builder: three "Start with" buttons, `?plan=` remembered (junk ignored), a signed-in new agent opens with Lite preselected,
+the voice-quality checkbox UNTICKED and Publish disabled until it is ticked, and the published version is tier lite on Piper with the Lite voice.
+Same rules as the builder smoke test: throwaway user `demo_e2e_smoke`, everything deleted at the end, no checkout and no calls.
