@@ -43,12 +43,11 @@ describe('pilotBlockResponse', () => {
     expect(body.message).toMatch(/paused/i);
   });
 
-  it('503 (fail closed) when the check itself errors', async () => {
+  it('allows the call (fail open, logged) when the check itself errors; the engine enforces the block too', async () => {
     vi.spyOn(console, 'error').mockImplementation(() => {});
     const broken = { from: () => ({ select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: null, error: { code: '08006', message: 'connection failure' } }) }) }) }) } as unknown as Db;
     const res = await pilotBlockResponse(broken, 'a');
-    expect(res!.status).toBe(503);
-    expect((await res!.json()).code).toBe('pilot_check_failed');
+    expect(res).toBeNull();
     vi.restoreAllMocks();
   });
 });

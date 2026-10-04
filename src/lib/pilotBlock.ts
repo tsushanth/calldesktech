@@ -13,8 +13,8 @@ function isMissingBlockColumn(e: { code?: string; message?: string } | null | un
 }
 
 /**
- * True when the tenant is pilot-blocked. Fails open ONLY when the column does not exist (migration not applied, nobody can be blocked).
- * Any other database error throws: a blocked tenant must never slip through because the check could not run.
+ * True when the tenant is pilot-blocked. Returns false when the column does not exist (migration not applied, nobody can be blocked).
+ * Any other database error throws; pilotBlockResponse decides what to do with it.
  */
 export async function isTenantPilotBlocked(supabase: SupabaseClient, tenantId: string): Promise<boolean> {
   const { data, error } = await supabase.from('calldesk_tenants').select('pilot_blocked').eq('id', tenantId).maybeSingle();
@@ -27,7 +27,8 @@ export async function isTenantPilotBlocked(supabase: SupabaseClient, tenantId: s
 
 /**
  * Route guard: null when the tenant may place outbound calls, otherwise the response to return before any provider/engine request.
- * 403 pilot_blocked when blocked; 503 when the check itself failed (fail closed).
+ * 403 pilot_blocked when blocked. If the check itself fails (transient database error) the call is allowed and the error is logged: the voice
+ * engine independently refuses calls for blocked tenants, and failing closed here would stop paying customers from calling during a blip.
  */
 export async function pilotBlockResponse(supabase: SupabaseClient, tenantId: string | null | undefined): Promise<NextResponse | null> {
   if (!tenantId) return null;
@@ -35,8 +36,8 @@ export async function pilotBlockResponse(supabase: SupabaseClient, tenantId: str
     if (await isTenantPilotBlocked(supabase, tenantId)) return NextResponse.json(pilotBlockedBody(), { status: 403 });
     return null;
   } catch (err) {
-    console.error('[pilotBlock]', err instanceof Error ? err.message : err);
-    return NextResponse.json({ error: 'pilot_check_failed', code: 'pilot_check_failed', message: 'Could not verify this workspace is allowed to place calls. Try again shortly.' }, { status: 503 });
+    console.error('[pilotBlock] check failed, allowing the call (the engine enforces the block too):', err instanceof Error ? err.message : err);
+    return null;
   }
 }
 
