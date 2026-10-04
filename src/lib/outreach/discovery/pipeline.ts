@@ -1,3 +1,4 @@
+import { preDraftEmailCheck } from '../emailTypo';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { sendEmail } from '@/lib/email';
 import { adminEmails } from '../config';
@@ -1520,7 +1521,18 @@ export async function stageDraft(db: Db, summary: RunSummary, dryRun: boolean, l
   let made = 0;
   for (let i = 0; made < limit && i < queued.length && !stop(); i += concurrency) {
     const batch = queued.slice(i, i + Math.min(concurrency, limit - made));
-    const settled = await Promise.allSettled(batch.map(async (lead) => {
+    const settled = await Promise.allSettled(batch.map(async (lead): Promise<'drafted' | 'skipped'> => {
+      // Cheap address check before the model call: fix an obvious provider typo, skip a dead domain.
+      const check = await preDraftEmailCheck(lead.contact_email ?? '');
+      if (!check.ok) {
+        await db.from(leadsTable(product)).update({ contact_status: 'none', updated_at: new Date().toISOString() }).eq('id', lead.id);
+        summary.errors.push(`skip ${lead.company_name}: ${check.reason} (${check.email})`);
+        return 'skipped';
+      }
+      if (check.corrected) {
+        await db.from(leadsTable(product)).update({ contact_email: check.email, updated_at: new Date().toISOString() }).eq('id', lead.id);
+        lead.contact_email = check.email;
+      }
       // Experiment arm (freight only, OUTREACH_FREIGHT_EXPERIMENT=on): stored in experiment_arm, NOT in
       // `variant`, which already means plain/sample for the sample-call A/B (see migration 067).
       const arm = armForLead(product.id, lead.id);
@@ -1539,9 +1551,11 @@ export async function stageDraft(db: Db, summary: RunSummary, dryRun: boolean, l
       // unattributed email under an arm-specific offer.
       if (error) throw new Error(arm && /experiment_arm/i.test(error.message) ? `experiment_arm column missing: apply migration 067 or unset OUTREACH_FREIGHT_EXPERIMENT (${error.message})` : error.message);
       await db.from(leadsTable(product)).update({ status: 'report_generated', updated_at: new Date().toISOString() }).eq('id', lead.id);
+      return 'drafted';
     }));
     for (let j = 0; j < batch.length; j++) {
       const outcome = settled[j];
+      if (outcome.status === 'fulfilled' && outcome.value === 'skipped') continue;
       if (outcome.status === 'fulfilled') { made++; summary.draftsCreated++; }
       else summary.errors.push(`draft ${batch[j].company_name}: ${outcome.reason instanceof Error ? outcome.reason.message : String(outcome.reason)}`);
     }
