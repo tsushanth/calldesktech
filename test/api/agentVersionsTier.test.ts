@@ -180,3 +180,27 @@ it('tierOverrides are ignored without a tier', async () => {
   expect(res.status).toBe(201);
   expect(inserted).not.toHaveProperty('tier_overrides');
 });
+
+it('lite cannot publish a non-English language: its voice is English only (400, nothing written)', async () => {
+  process.env.STRIPE_TIER_LITE_PRICE = 'price_test_lite';
+  const res = await post({ tier: 'lite', acceptLowerQuality: true, globalSettings: { language: 'es' } });
+  expect(res.status).toBe(400);
+  const body = await res.json();
+  expect(body.code).toBe('language_needs_multilingual_voice');
+  expect(body.error).toMatch(/Standard or Pro/);
+  expect(inserted).toBeNull();
+  expect(ensureTierItemForTenant).not.toHaveBeenCalled();
+});
+
+it('lite in English still publishes, and standard and pro keep accepting other languages', async () => {
+  process.env.STRIPE_TIER_LITE_PRICE = 'price_test_lite';
+  expect((await post({ tier: 'lite', acceptLowerQuality: true, globalSettings: { language: 'en' } })).status).toBe(201);
+  expect((await post({ tier: 'standard', globalSettings: { language: 'fr' } })).status).toBe(201);
+  expect((await post({ tier: 'pro', globalSettings: { language: 'de' } })).status).toBe(201);
+});
+
+it('choosing the Piper voice directly with a non-English language is also refused', async () => {
+  const res = await post({ ttsBackend: 'piper', globalSettings: { language: 'es' } });
+  expect(res.status).toBe(400);
+  expect((await res.json()).code).toBe('language_needs_multilingual_voice');
+});

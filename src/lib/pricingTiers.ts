@@ -157,6 +157,12 @@ export const ADD_ONS: AddOn[] = [
 // (not imported here to avoid a cycle).
 export const CARRIER_NOTE = 'Bring your own carrier on every plan, or add phone numbers from us.';
 
+/** True when the tier's voice speaks English only (Lite runs on Piper). Non-English agents need a multilingual voice, which costs more than Lite's price. */
+export function tierVoiceIsEnglishOnly(id: unknown): boolean {
+  const t = tierById(id);
+  return !!t && t.stack.ttsBackend === 'piper';
+}
+
 export function tierById(id: unknown): PricingTier | undefined {
   return typeof id === 'string' ? PRICING_TIERS.find((t) => t.id === id) : undefined;
 }

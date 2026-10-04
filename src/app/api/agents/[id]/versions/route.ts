@@ -4,7 +4,8 @@ import { syncVoicePriceForTenant, ensureTierItemForTenant } from '@/lib/stripe';
 import { tierBillingConfigured } from '@/lib/tierBilling';
 import type { FlowNode, TtsBackend } from '@/types';
 import { authorizeResource } from '@/lib/authz';
-import { normalizeLanguage, LANGUAGE_VALUES } from '@/lib/languages';
+import { normalizeLanguage, LANGUAGE_VALUES, AGENT_LANGUAGES } from '@/lib/languages';
+import { tierVoiceIsEnglishOnly } from '@/lib/pricingTiers';
 import { validateModelChoice } from '@/lib/modelCatalog';
 import { resolveTierForPublish } from '@/lib/pricingTiers';
 import { TIER_OVERRIDE_FIELDS } from '@/lib/versionCarryOver';
@@ -191,6 +192,16 @@ export async function POST(
     if (lang === 'en') delete globalSettings.language;
     else {
       globalSettings.language = lang;
+      // An English-only voice (Lite's Piper voice, or Piper chosen directly) cannot speak another language: the agent would listen in that
+      // language and answer in an English voice. A multilingual voice costs more per minute than Lite sells for, so Lite does not switch
+      // voices silently; the caller is told to pick Standard or Pro instead.
+      if (voiceEngine === 'poc' && ((tier && tierVoiceIsEnglishOnly(tier)) || effectiveTtsBackend === 'piper')) {
+        const label = AGENT_LANGUAGES.find((a) => a.code === lang)?.label ?? lang;
+        return NextResponse.json(
+          { error: `${label} needs a multilingual voice. ${tier && tierVoiceIsEnglishOnly(tier) ? 'Lite uses an English-only voice, so choose Standard or Pro for this language.' : 'The Piper voice is English only, so choose another voice backend for this language.'}`, code: 'language_needs_multilingual_voice' },
+          { status: 400 }
+        );
+      }
       if (voiceEngine === 'poc' && (!effectiveTtsBackend || effectiveTtsBackend === 'kokoro')) effectiveTtsBackend = 'elevenlabs';
     }
   }

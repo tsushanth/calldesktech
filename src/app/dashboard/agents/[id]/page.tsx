@@ -4,6 +4,7 @@ import { Fragment, useEffect, useState, useCallback, useRef } from 'react';
 import { useParams, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { AGENT_LANGUAGES, languageForcesPremiumVoice } from '@/lib/languages';
+import { tierVoiceIsEnglishOnly } from '@/lib/pricingTiers';
 import { api } from '@/lib/api';
 import { track } from '@/components/Analytics';
 import { trackBuilder, errorProps } from '@/lib/builderTelemetry';
@@ -1418,7 +1419,7 @@ export default function AgentBuilderPage() {
                       {channel === 'voice' && voiceEngine === 'poc' && (
                         <TierPicker
                           value={tier}
-                          onChange={(next) => { setTier(next); if (!next) clearStoredPlan(); setLowerQualityAccepted(false); setLlmModel(''); setTtsModel(''); setTtsBackend(''); }}
+                          onChange={(next) => { setTier(next); if (tierVoiceIsEnglishOnly(next)) setLanguage(''); if (!next) clearStoredPlan(); setLowerQualityAccepted(false); setLlmModel(''); setTtsModel(''); setTtsBackend(''); }}
                           lowerQualityAccepted={lowerQualityAccepted}
                           onLowerQualityAcceptedChange={setLowerQualityAccepted}
                           advanced={
@@ -1470,10 +1471,15 @@ export default function AgentBuilderPage() {
                           >
                             <option value="">English (default)</option>
                             {AGENT_LANGUAGES.map((l) => (
-                              <option key={l.code} value={l.code}>{l.label}</option>
+                              <option key={l.code} value={l.code} disabled={tierVoiceIsEnglishOnly(tier)}>{l.label}</option>
                             ))}
                           </select>
-                          {languageForcesPremiumVoice(language) && (
+                          {tierVoiceIsEnglishOnly(tier) && (
+                            <p className="mt-1 text-[12px] text-amber-700">
+                              Lite uses an English-only voice. Choose Standard or Pro to run this agent in another language.
+                            </p>
+                          )}
+                          {!tierVoiceIsEnglishOnly(tier) && languageForcesPremiumVoice(language) && (
                             <p className="mt-1 text-[12px] text-amber-700">
                               {AGENT_LANGUAGES.find((l) => l.code === language)?.label} uses a premium multilingual voice (ElevenLabs), billed at the ElevenLabs voice rate instead of the default voice rate.
                             </p>
