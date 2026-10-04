@@ -87,6 +87,7 @@ export async function ensureFixtures(env, d, api) {
 }
 
 // REGRESSION_TIER (set by run.mjs --tier) publishes every version on that tier; 'lite' also needs acceptLowerQuality.
+// REGRESSION_ROUTING (set by run.mjs --routing expert_backup) publishes with routingMode and the required acceptExpertBackup.
 export async function publishVersion(api, fx, scenario, { agentId = fx.agentId, version = scenario.version, name = `reg-${scenario.id}` } = {}) {
   const tier = process.env.REGRESSION_TIER;
   const res = await api('POST', `/api/agents/${agentId}/versions`, {
@@ -94,6 +95,7 @@ export async function publishVersion(api, fx, scenario, { agentId = fx.agentId, 
     ...(process.env.REGRESSION_VOICE ? { voiceId: process.env.REGRESSION_VOICE } : {}),
     ...(process.env.REGRESSION_LLM ? { llmModel: process.env.REGRESSION_LLM } : {}),
     ...(tier ? { tier, ...(tier === 'lite' ? { acceptLowerQuality: true } : {}) } : {}),
+    ...(process.env.REGRESSION_ROUTING === 'expert_backup' ? { routingMode: 'expert_backup', acceptExpertBackup: true } : {}),
   });
   return res.version.id;
 }

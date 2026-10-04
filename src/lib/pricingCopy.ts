@@ -1,4 +1,5 @@
 import { PRICING_TIERS, INCLUDED_ON_ALL, ratingsForStack, tierById, type TierId } from '@/lib/pricingTiers';
+import { EXPERT_BACKUP, expertBackupAllowedTierNames, expertBackupPriceText } from '@/lib/expertBackup';
 import { NUMBER_ADDON_PRICES, NUMBER_CARRIERS, type NumberCarrier } from '@/lib/numberAddOn';
 
 // Customer-facing price copy for the public marketing pages, derived from src/lib/pricingTiers.ts so the wording cannot drift from
@@ -109,6 +110,9 @@ export const BRING_YOUR_OWN_LINE = 'Bring your own number or carrier: free';
 /** Phone numbers extra as one sentence, for plain-text surfaces. */
 export const PHONE_NUMBERS_LINE = `Phone numbers from us, on any plan: ${PHONE_NUMBER_OPTIONS.map((o) => `${o.name}${o.carrier === 'twilio' ? ' (premium carrier: supports payments and our existing SMS setup)' : ''} ${o.monthly} plus ${o.inbound}`).join('; ')}. ${BRING_YOUR_OWN_LINE}.`;
 
+/** Expert backup (src/lib/expertBackup.ts) is a live, priced extra on Lite and Standard; the amount comes from the constant, never typed here. */
+export const EXPERT_BACKUP_LINE = `${EXPERT_BACKUP.label} on ${expertBackupAllowedTierNames()}: ${expertBackupPriceText().replace(/ per minute$/, '')} more per minute while it is on, for better accuracy on hard turns.`;
+
 /** The worked example: computed from the tier price and the phone number constants so it cannot drift. */
 export function workedExample(opts: { tier?: TierId; carrier?: NumberCarrier; inboundMinutes?: number } = {}): { text: string; totalCents: number } {
   const t = tier(opts.tier ?? 'standard');
@@ -133,6 +137,7 @@ export function pricingPlainText(): string {
     `- ${HEADLINE_WITH_QUALIFIER}`,
     `- ${CARRIER_NOTE_LINE}`,
     `- ${PHONE_NUMBERS_LINE}`,
+    `- ${EXPERT_BACKUP_LINE}`,
     `- ${workedExample().text}.`,
     `- ${ADD_ONS_LINE}`,
   ].join('\n');

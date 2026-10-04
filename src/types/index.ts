@@ -148,6 +148,8 @@ export interface AgentVersion {
   /** Pricing tier chosen at publish time (src/lib/pricingTiers.ts); null/absent = legacy flat per-minute price. */
   tier?: 'lite' | 'standard' | 'pro' | null;
   tier_overrides?: string[] | null;
+  /** null/absent = standard routing; 'expert_backup' = uncertain turns go to a stronger model (src/lib/expertBackup.ts, migration 071). */
+  routing_mode?: 'expert_backup' | null;
   wizard_config: Record<string, unknown> | null;
   created_at: string;
 }
@@ -239,6 +241,8 @@ export interface CallLog {
   durationSeconds: number;
   transcript?: CallTranscript[];
   extractedData?: Record<string, unknown>;
+  /** 'expert_backup' on calls where expert backup was active (migration 071); analysis.expert_backup = { escalations, expert_model }. */
+  routingMode?: 'expert_backup' | null;
   createdAt: Date;
 }
 

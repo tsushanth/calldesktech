@@ -16,7 +16,7 @@ export const MCP_TOOL_GROUPS: McpToolGroup[] = [
       { name: 'rename_agent', summary: 'Rename an agent.' },
       { name: 'delete_agent', summary: 'Permanently delete an agent and its versions, subflows and knowledge bases.' },
       { name: 'list_agent_versions', summary: 'List an agent’s immutable versions, newest first.' },
-      { name: 'publish_agent_version', summary: 'Publish a new immutable version from a conversation-flow graph. Optional tier (standard or pro) picks the models for you; advanced llmModel and ttsModel override them.' },
+      { name: 'publish_agent_version', summary: 'Publish a new immutable version from a conversation-flow graph. Optional tier (standard or pro) picks the models for you; optional routingMode expert_backup (with acceptExpertBackup, Lite or Standard) adds the paid expert backup extra; advanced llmModel and ttsModel override them.' },
       { name: 'list_agent_templates', summary: 'List the built-in agent templates.' },
       { name: 'create_agent_from_template', summary: 'Create a ready-to-call agent from a template and publish its first version.' },
       { name: 'list_agent_environments', summary: 'List an agent’s staging and production environments and the version each points to.' },

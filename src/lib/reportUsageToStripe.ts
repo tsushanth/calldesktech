@@ -1,6 +1,7 @@
 import type Stripe from 'stripe';
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { getTenantUsageSplitSince, getTenantNumberInboundUsageSince } from './usage';
+import { getTenantUsageSplitSince, getTenantNumberInboundUsageSince, getTenantExpertBackupUsageSince } from './usage';
+import { EXPERT_BACKUP_METER_EVENT, EXPERT_BACKUP_PRICE_ENV, expertBackupBillingConfigured } from './expertBackup';
 import { NUMBER_INBOUND_METER_EVENT, NUMBER_PRICE_ENV, numberPriceIds } from './numberAddOn';
 import { tenantNumberPlan } from './numberAddOnBilling';
 import { tierBillingConfigured, TIER_PRICE_ENV } from './tierBilling';
@@ -161,6 +162,23 @@ export async function reportTenantUsageToStripe(
     };
   }
 
+  // Expert backup: whole seconds of calls the engine marked routing_mode = 'expert_backup', on its own meter, once per call, internal test calls
+  // excluded. Their tier voice seconds are still reported above. If such calls exist and the price is not configured, fail the tenant loudly
+  // (watermark stays) rather than let them go unbilled.
+  let expertBackup = { calls: 0, seconds: 0 };
+  try {
+    expertBackup = await getTenantExpertBackupUsageSince(supabase, tenantId, since, until);
+  } catch (err) {
+    return { tenantId, status: 'error', error: err instanceof Error ? err.message : String(err) };
+  }
+  if (expertBackup.seconds > 0 && !expertBackupBillingConfigured()) {
+    return {
+      tenantId,
+      status: 'error',
+      error: `Expert backup calls cannot be reported: ${EXPERT_BACKUP_PRICE_ENV} is not set. Nothing was reported or advanced for this tenant.`,
+    };
+  }
+
   type Dimension = { dimension: string; eventName: string; value: number };
   const allDimensions: Dimension[] = [
     { dimension: 'voice', eventName: METER_EVENT_NAMES.voice, value: usage.seconds },
@@ -168,6 +186,7 @@ export async function reportTenantUsageToStripe(
     { dimension: 'transfer', eventName: METER_EVENT_NAMES.transfer, value: usage.transfers },
     { dimension: 'message', eventName: METER_EVENT_NAMES.message, value: usage.messages },
     ...split.byTier.map((t) => ({ dimension: `voice_${t.tier}`, eventName: TIER_METER_EVENT_NAMES[t.tier], value: t.seconds })),
+    { dimension: 'expert_backup', eventName: EXPERT_BACKUP_METER_EVENT, value: expertBackup.seconds },
     ...numberInbound.map((n) => ({ dimension: `number_inbound_${n.carrier}`, eventName: NUMBER_INBOUND_METER_EVENT[n.carrier], value: n.seconds })),
   ];
   const dimensions = allDimensions.filter((d) => d.value > 0);

@@ -1,4 +1,5 @@
 import { ADD_ONS, INCLUDED_ON_ALL, ratingsForStack, type PricingTier } from '@/lib/pricingTiers';
+import { EXPERT_BACKUP, expertBackupAllowedTierNames, expertBackupPriceShort } from '@/lib/expertBackup';
 import { ADD_ONS_LINE, BRING_YOUR_OWN_LINE, PHONE_NUMBER_OPTIONS, workedExample } from '@/lib/pricingCopy';
 
 // Shared, server-renderable pieces of the tier structure (pricing page, docs page, home summary): the three rating rows per tier, the one
@@ -66,6 +67,16 @@ export function ExtrasSection() {
           </li>
         </ul>
         <p className="mt-3 text-[13px] leading-[1.5] text-gray-600" data-testid="worked-example">{workedExample().text}</p>
+      </div>
+
+      <div className="mt-4 rounded-xl border border-gray-200 p-4" data-testid="extras-expert-backup">
+        <div className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between sm:gap-6">
+          <div className="min-w-0">
+            <p className="text-[15px] font-medium text-[#00122e]">{EXPERT_BACKUP.label}<span className="ml-2 text-[12px] font-normal text-gray-400">off by default</span></p>
+            <p className="mt-0.5 text-[13px] leading-[1.45] text-gray-500">{EXPERT_BACKUP.description} Available on {expertBackupAllowedTierNames()}.</p>
+          </div>
+          <p className="flex-none text-[14px] text-[#00122e]">{expertBackupPriceShort()}</p>
+        </div>
       </div>
 
       <h3 className="mt-6 text-[15px] font-semibold text-[#00122e]">Optional add-ons, coming soon</h3>

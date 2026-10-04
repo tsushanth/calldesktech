@@ -121,6 +121,41 @@ export async function ensureTierItemForTenant(tenantId: string, tier: import('./
   }
 }
 
+// Expert backup (src/lib/expertBackup.ts): a separate metered line at STRIPE_PRICE_EXPERT_BACKUP, added once per subscription and
+// reported by the daily usage cron. Same shape as ensureTierItemForTenant: idempotent, add-only. It is never removed on publish: a metered
+// line with no usage costs nothing, and removing it could drop unreported seconds or strand calls still running an older version.
+export async function ensureExpertBackupItemForTenant(tenantId: string): Promise<EnsureTierItemResult> {
+  const { expertBackupPriceId, ExpertBackupNotConfiguredError } = await import('./expertBackup');
+  const { getSupabaseAdmin } = await import('./supabase');
+  const priceId = expertBackupPriceId();
+  if (!priceId) throw new ExpertBackupNotConfiguredError();
+
+  const supabase = getSupabaseAdmin();
+  const { data: business } = await supabase
+    .from('calldesk_businesses')
+    .select('stripe_subscription_id')
+    .eq('tenant_id', tenantId)
+    .maybeSingle();
+  if (!business?.stripe_subscription_id) return { status: 'no_subscription' };
+
+  const stripe = getStripe();
+  const subscription = await stripe.subscriptions.retrieve(business.stripe_subscription_id);
+  if (subscription.status === 'canceled' || subscription.status === 'incomplete_expired') return { status: 'no_subscription' };
+
+  const existing = subscription.items.data.find((i) => i.price.id === priceId);
+  if (existing) return { status: 'already_present', itemId: existing.id };
+
+  try {
+    const item = await stripe.subscriptionItems.create({ subscription: subscription.id, price: priceId, proration_behavior: 'none' });
+    return { status: 'added', itemId: item.id };
+  } catch (err) {
+    const again = await stripe.subscriptions.retrieve(subscription.id).catch(() => null);
+    const raced = again?.items.data.find((i) => i.price.id === priceId);
+    if (raced) return { status: 'already_present', itemId: raced.id };
+    throw err;
+  }
+}
+
 // Checkout only attaches the legacy voice and event prices. A tenant that published tiered versions while still on a trial (no
 // subscription, so ensureTierItemForTenant did nothing) would otherwise run tiered calls with no tier line to bill them on. The Stripe
 // webhook calls this after checkout to add a line for every tier the tenant's agents already use. Returns the tiers that failed; never throws.
@@ -136,6 +171,22 @@ export async function ensureTierItemsInUseForTenant(tenantId: string): Promise<{
     if (agentIds.length === 0) return { ensured, failed };
     const { data: versions } = await supabase.from('calldesk_agent_versions').select('tier').in('agent_id', agentIds).not('tier', 'is', null);
     const tiers = [...new Set((versions ?? []).map((v: { tier: string | null }) => v.tier))].filter(isTierId);
+    // Expert backup versions published before checkout need their metered line too. A database without the routing_mode column (migration 071
+    // not applied) errors here, which simply means no version uses the mode.
+    try {
+      const { data: expert, error: expertError } = await supabase.from('calldesk_agent_versions').select('routing_mode').in('agent_id', agentIds).not('routing_mode', 'is', null);
+      if (!expertError && ((expert ?? []) as Array<{ routing_mode?: string | null }>).some((v) => v.routing_mode === 'expert_backup')) {
+        try {
+          await ensureExpertBackupItemForTenant(tenantId);
+          ensured.push('expert_backup');
+        } catch (err) {
+          console.error('Failed to add expert backup item after checkout', { tenantId }, err);
+          failed.push('expert_backup');
+        }
+      }
+    } catch (err) {
+      console.error('Expert backup backfill after checkout failed', { tenantId }, err);
+    }
     for (const tier of tiers) {
       try {
         await ensureTierItemForTenant(tenantId, tier);

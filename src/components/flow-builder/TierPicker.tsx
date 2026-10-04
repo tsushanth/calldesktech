@@ -11,12 +11,15 @@ export default function TierPicker({
   value,
   onChange,
   advanced,
+  below,
   lowerQualityAccepted = false,
   onLowerQualityAcceptedChange,
 }: {
   value: TierId | '';
   onChange: (tier: TierId | '') => void;
   advanced?: ReactNode;
+  /** Extras shown directly under the plan cards (the Expert backup toggle). */
+  below?: ReactNode;
   /** Whether the customer has accepted the voice-quality tradeoff of a lowerQuality tier (the cheapest voice). */
   lowerQualityAccepted?: boolean;
   onLowerQualityAcceptedChange?: (accepted: boolean) => void;
@@ -94,6 +97,7 @@ export default function TierPicker({
           Clear plan
         </button>
       )}
+      {below}
       {advanced && (
         <details className="rounded-xl border border-gray-200 bg-white" data-testid="tier-advanced">
           <summary className="cursor-pointer select-none rounded-xl px-3 py-2 text-[12.5px] font-medium text-gray-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-300">

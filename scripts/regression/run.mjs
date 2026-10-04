@@ -5,6 +5,7 @@
 //   node scripts/regression/run.mjs                                   # dry run: lists scenarios, checks config, shows the spend
 //   node scripts/regression/run.mjs --scenario handbook-secret --place-calls
 //   node scripts/regression/run.mjs --place-calls --max-calls 6       # run every scenario (refuses if it would exceed the cap)
+//   node scripts/regression/run.mjs --tier standard --routing expert_backup --place-calls   # publish with the Expert backup extra (+1.5 cents a minute)
 //
 // Needs in .env: REGRESSION_NUMBER, CALL_LOOP_POC_BASE_URL, CALL_LOOP_POC_TEST_CALL_SECRET, NEXTAUTH_SECRET,
 // NEXT_PUBLIC_SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY. Secret values are never printed. Results go to out/regression/.
@@ -20,6 +21,12 @@ const place = flag('place-calls');
 if (val('tier', '')) process.env.REGRESSION_TIER = val('tier'); // e.g. --tier lite: publish versions on that pricing tier
 if (val('voice', '')) process.env.REGRESSION_VOICE = val('voice'); // e.g. --voice custom:en-us-warm-f
 if (val('llm', '')) process.env.REGRESSION_LLM = val('llm'); // e.g. --llm gemini-3.1-flash-lite: publish versions with that language model
+if (val('routing', '')) {
+  // e.g. --routing expert_backup: publish versions with the paid Expert backup extra (needs --tier lite or standard; the API refuses it otherwise)
+  if (val('routing') !== 'expert_backup') { console.error(`Unknown --routing "${val('routing')}". Valid: expert_backup`); process.exit(1); }
+  if (!['lite', 'standard'].includes(val('tier', ''))) { console.error('--routing expert_backup needs --tier lite or --tier standard (Pro has the strongest model already).'); process.exit(1); }
+  process.env.REGRESSION_ROUTING = val('routing');
+}
 const maxCalls = Number(val('max-calls', 8));
 const wanted = val('scenario', '') ? val('scenario').split(',').map((s) => s.trim()).filter(Boolean) : [];
 

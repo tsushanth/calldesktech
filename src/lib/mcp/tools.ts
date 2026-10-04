@@ -8,6 +8,7 @@
 // which is what the disable below actually scopes, unlike `@ts-nocheck`'s effect on everything.)
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { z } from 'zod';
+import { EXPERT_BACKUP, EXPERT_BACKUP_ROUTING_MODE, expertBackupPriceText } from '@/lib/expertBackup';
 
 export function registerTools(server: any, api: any, tenant: any) {
 const ok = (data: any) => ({ content: [{ type: 'text', text: JSON.stringify(data, null, 2) }] });
@@ -56,7 +57,7 @@ Built-in templates use {{business_name}} and {{agent_name}}; set them via create
 
 ## Workflow
 1) create_agent  2) (optional) create_knowledge_base with agent_id + add_knowledge_items, create_subflow
-3) publish_agent_version (versions are immutable; optional tier (see list_pricing_tiers), or advanced llmModel/ttsModel, see list_model_options)  4) set_number_routing to point a number at the new version's id,
+3) publish_agent_version (versions are immutable; optional tier (see list_pricing_tiers), optional routingMode expert_backup (+acceptExpertBackup; Lite and Standard only), or advanced llmModel/ttsModel, see list_model_options)  4) set_number_routing to point a number at the new version's id,
    or to an environment (staging/production) so later promotions take effect with no further routing call
 5) place_call to test.
 
@@ -90,11 +91,13 @@ server.registerTool('publish_agent_version', {
     ttsBackend: z.enum(['kokoro', 'elevenlabs', 'cartesia', 'minimax', 'piper']).optional(),
     tier: z.enum(['lite', 'standard', 'pro']).optional().describe('Pricing tier (voiceEngine poc only). Call list_pricing_tiers. The tier picks the models and voice for you. "lite" uses our efficient, lower-cost voice and needs acceptLowerQuality: true. Omit to keep the flat per-minute price of the voice backend.'),
     acceptLowerQuality: z.boolean().optional().describe('Required (true) with tier "lite": confirms the customer is choosing Lite for the lower price, knowing its voice is less expressive than Standard. Only set it when they have said so.'),
+    routingMode: z.enum([EXPERT_BACKUP_ROUTING_MODE]).optional().describe(`Optional extra: "${EXPERT_BACKUP_ROUTING_MODE}" (${EXPERT_BACKUP.label}) hands the hard turns to a stronger model for better accuracy on hard turns. ${expertBackupPriceText()} extra while on; voiceEngine poc with tier lite or standard only (not Pro). Needs acceptExpertBackup: true. Omit for standard routing. See list_pricing_tiers (expertBackup).`),
+    acceptExpertBackup: z.boolean().optional().describe(`Required (true) with routingMode "${EXPERT_BACKUP_ROUTING_MODE}": confirms the customer accepts ${expertBackupPriceText()} extra on this version. Only set it when they have said so.`),
     llmModel: z.string().optional().describe('Advanced: overrides the tier. Language model that runs the agent (voiceEngine poc only). Call list_model_options for valid ids. Omit to let the tier (or the default, claude-haiku-4-5-20251001) choose.'),
     ttsModel: z.string().optional().describe('Advanced: overrides the tier. Voice model within ttsBackend (elevenlabs or cartesia only). Call list_model_options for valid ids. Omit for the backend default.'),
   },
 }, run(({ agentId, ...body }: any) => api('POST', `/agents/${agentId}/versions`, body)));
-server.registerTool('list_pricing_tiers', { description: 'List the pricing tiers (Lite, Standard, Pro) with their price per minute, the engine behind each (voice, response speed, reasoning), what every plan includes, the phone number extra (every plan is bring-your-own carrier), which are available now, and the planned optional add-ons (coming soon, not purchasable yet). Pass a tier id to publish_agent_version. Agents published without a tier keep their current per-minute price.', annotations: READ, inputSchema: {} }, run(() => api('GET', '/pricing')));
+server.registerTool('list_pricing_tiers', { description: 'List the pricing tiers (Lite, Standard, Pro) with their price per minute, the engine behind each (voice, response speed, reasoning), what every plan includes, the phone number extra and the expert backup extra (every plan is bring-your-own carrier), which are available now, and the planned optional add-ons (coming soon, not purchasable yet). Pass a tier id to publish_agent_version. Agents published without a tier keep their current per-minute price.', annotations: READ, inputSchema: {} }, run(() => api('GET', '/pricing')));
 server.registerTool('list_model_options', { description: 'List the language models (llmModel) and voice models (ttsModel) an agent version can use, with status (tested or preview) and notes on speed and reliability. Pass the ids to publish_agent_version. If the engine cannot use a chosen model the default answers, so a call never fails because of this setting.', annotations: READ, inputSchema: {} }, run(() => api('GET', '/models')));
 
 // ---- subflows

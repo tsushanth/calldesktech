@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/supabase';
-import { syncVoicePriceForTenant, ensureTierItemForTenant } from '@/lib/stripe';
+import { syncVoicePriceForTenant, ensureTierItemForTenant, ensureExpertBackupItemForTenant } from '@/lib/stripe';
 import { tierBillingConfigured } from '@/lib/tierBilling';
 import type { FlowNode, TtsBackend } from '@/types';
 import { authorizeResource } from '@/lib/authz';
@@ -9,6 +9,7 @@ import { tierVoiceIsEnglishOnly } from '@/lib/pricingTiers';
 import { validateModelChoice } from '@/lib/modelCatalog';
 import { resolveTierForPublish } from '@/lib/pricingTiers';
 import { TIER_OVERRIDE_FIELDS } from '@/lib/versionCarryOver';
+import { resolveExpertBackupForPublish, expertBackupBillingConfigured } from '@/lib/expertBackup';
 
 // For every 'subflow_ref' node, snapshot the referenced subflow's current
 // nodes straight into that node's own params — server.js executes purely
@@ -120,6 +121,8 @@ export async function POST(
     tier: requestedTier,
     tierOverrides: requestedTierOverrides,
     acceptLowerQuality,
+    routingMode: requestedRoutingMode,
+    acceptExpertBackup,
     wizardConfig,
   } = body as {
     flowName: string;
@@ -136,6 +139,8 @@ export async function POST(
     tier?: unknown;
     tierOverrides?: unknown;
     acceptLowerQuality?: boolean;
+    routingMode?: unknown;
+    acceptExpertBackup?: unknown;
     wizardConfig?: Record<string, unknown>;
   };
 
@@ -176,6 +181,19 @@ export async function POST(
   if (tier && !tierBillingConfigured(tier)) {
     return NextResponse.json(
       { error: `Billing for the ${tier} tier is not yet available, so a version cannot be published on it. Publish without a tier, or try again later.`, code: 'tier_billing_not_configured' },
+      { status: 503 }
+    );
+  }
+
+  // Optional routing mode (src/lib/expertBackup.ts): 'expert_backup' needs the poc engine, a Lite or Standard tier and explicit acceptance of its
+  // per-minute price. Absent or null is standard routing and touches nothing.
+  const routing = resolveExpertBackupForPublish({ routingMode: requestedRoutingMode, acceptExpertBackup, voiceEngine, tier });
+  if (!routing.ok) return NextResponse.json({ error: routing.error, code: routing.code, ...(routing.terms ? { terms: routing.terms } : {}) }, { status: routing.status });
+  const routingMode = routing.routingMode;
+  // Expert backup must never run unbilled: refuse before anything is written when its Stripe price is not configured.
+  if (routingMode && !expertBackupBillingConfigured()) {
+    return NextResponse.json(
+      { error: 'Expert backup is not available yet, so a version cannot be published with it. Publish without it, or try again later.', code: 'expert_backup_not_configured' },
       { status: 503 }
     );
   }
@@ -234,6 +252,19 @@ export async function POST(
     }
   }
 
+  // Expert backup: the same rule, its own metered line (added once per subscription, never removed on publish: see ensureExpertBackupItemForTenant).
+  if (routingMode) {
+    try {
+      await ensureExpertBackupItemForTenant(agent.tenant_id);
+    } catch (err) {
+      console.error('Failed to ensure expert backup subscription item', { tenantId: agent.tenant_id }, err);
+      return NextResponse.json(
+        { error: 'Could not set up billing for expert backup, so nothing was saved. No charge was made; publishing again is safe.', code: 'expert_backup_billing_failed', retryable: true },
+        { status: 502 }
+      );
+    }
+  }
+
   const { nodes: embeddedNodes, error: embedError } = await embedSubflowSnapshots(nodes, agent.tenant_id);
   if (embedError) return NextResponse.json({ error: embedError }, { status: 500 });
 
@@ -276,11 +307,19 @@ export async function POST(
       // Only sent when a tier was chosen, so publishing without one never touches the (migration 064) tier columns and keeps working
       // on a database where that migration has not been applied yet.
       ...(tier ? { tier, tier_overrides: tierOverrides.length ? tierOverrides : null } : {}),
+      // Same for the (migration 071) routing_mode column: only written when expert backup is on.
+      ...(routingMode ? { routing_mode: routingMode } : {}),
       wizard_config: wizardConfig || null,
     })
     .select()
     .single();
-  if (versionError) return NextResponse.json({ error: versionError.message }, { status: 500 });
+  if (versionError) {
+    // Migration 071 not applied yet: only a publish with expert backup touches the column, so say so plainly instead of a raw database error.
+    if (routingMode && (versionError.code === '42703' || /routing_mode/.test(versionError.message || ''))) {
+      return NextResponse.json({ error: 'Expert backup is not available yet, so this version was not saved.', code: 'expert_backup_not_configured' }, { status: 503 });
+    }
+    return NextResponse.json({ error: versionError.message }, { status: 500 });
+  }
 
   // A version published with a tier does not touch the subscription's voice price: the tier's voice backend is an engine detail, and
   // syncing it would bill the legacy voice rate for it. Billing by tier is separate work (docs/pricing-tier-migration-notes.md).

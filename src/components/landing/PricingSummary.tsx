@@ -1,7 +1,7 @@
 import { Eyebrow, PrimaryButton, SecondaryButton, Section, SectionTitle } from './primitives';
 import { Reveal } from './Reveal';
 import { PRICING_TIERS } from '@/lib/pricingTiers';
-import { ADD_ONS_LINE, HEADLINE, PHONE_NUMBERS_LINE, QUALIFIER, centsLabel } from '@/lib/pricingCopy';
+import { EXPERT_BACKUP_LINE, ADD_ONS_LINE, HEADLINE, PHONE_NUMBERS_LINE, QUALIFIER, centsLabel } from '@/lib/pricingCopy';
 import { INCLUDED_ON_ALL } from '@/lib/pricingTiers';
 import { TierRatingRows } from '@/components/pricing/PricingParts';
 
@@ -35,7 +35,7 @@ export function PricingSummary() {
           ))}
         </div>
         <p className="mt-5 max-w-[680px] text-[13.5px] leading-[1.5] text-gray-500">
-          Included on every plan: {INCLUDED_ON_ALL.join('; ')}. No per-booking or per-transfer fees. {PHONE_NUMBERS_LINE} {ADD_ONS_LINE}
+          Included on every plan: {INCLUDED_ON_ALL.join('; ')}. No per-booking or per-transfer fees. {PHONE_NUMBERS_LINE} {EXPERT_BACKUP_LINE} {ADD_ONS_LINE}
         </p>
         <div className="mt-6 flex flex-wrap gap-3">
           <PrimaryButton href="/pricing" size="lg">See full pricing</PrimaryButton>

@@ -33,6 +33,7 @@ Local service businesses that take phone calls for appointments and customer que
 - Phone agents from 2 cents a minute. Lite 2 cents, Standard 5 cents and Pro 9 cents per minute, all available now.
 - Every plan is bring-your-own carrier.
 - Phone numbers from us, on any plan: Telnyx number $1.00 per month plus 1 cent per inbound minute; Twilio number (premium carrier: supports payments and our existing SMS setup) $2.00 per month plus 1.5 cents per inbound minute. Bring your own number or carrier: free.
+- Expert backup on Lite and Standard: 1.5 cents more per minute while it is on, for better accuracy on hard turns.
 - Standard with one Telnyx number and 500 inbound minutes a month: 500 x 5c + $1.00 + 500 x 1c = $31.00.
 - Optional add-ons are coming soon and cannot be bought yet; amounts will be announced when they launch.
 - Customers on an earlier flat per-minute price keep it.

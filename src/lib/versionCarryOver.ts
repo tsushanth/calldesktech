@@ -1,5 +1,6 @@
 import { validateModelChoice } from '@/lib/modelCatalog';
 import { tierById } from '@/lib/pricingTiers';
+import { expertBackupAllowedOnTier, isRoutingMode } from '@/lib/expertBackup';
 import type { TtsBackend } from '@/types';
 
 // Versions are immutable, so "restore as new version" and "accept a Copilot suggestion" publish a NEW version built from an old one. The
@@ -16,6 +17,7 @@ export type CarryOverSource = {
   tts_model?: string | null;
   tier?: string | null;
   tier_overrides?: string[] | null;
+  routing_mode?: string | null;
 };
 
 export const TIER_OVERRIDE_FIELDS = ['llmModel', 'ttsBackend', 'ttsModel'] as const;
@@ -30,6 +32,9 @@ export type CarryOverBody = {
   tierOverrides?: string[];
   /** Set for a lowerQuality tier (Lite): the original publisher already accepted that tradeoff, so the rebuilt version carries it. */
   acceptLowerQuality?: true;
+  /** Expert backup (src/lib/expertBackup.ts): carried over with its acceptance, which the original publisher already gave. */
+  routingMode?: 'expert_backup';
+  acceptExpertBackup?: true;
 };
 
 export function carryOverFromVersion(v: CarryOverSource): { body: CarryOverBody; dropped: string[] } {
@@ -59,8 +64,15 @@ export function carryOverFromVersion(v: CarryOverSource): { body: CarryOverBody;
     if (kept.length) tierOverrides = kept;
   }
 
+  // Expert backup survives only where it is still sellable (poc engine, Lite or Standard that survived above); otherwise it is dropped and named.
+  let routingMode: CarryOverBody['routingMode'];
+  if (isRoutingMode(v.routing_mode)) {
+    if (engine === 'poc' && tier && expertBackupAllowedOnTier(tier)) routingMode = v.routing_mode;
+    else dropped.push('routingMode');
+  }
+
   return {
-    body: { voiceId: v.voice_id || undefined, ttsBackend, llmModel, ttsModel, tier, tierOverrides, acceptLowerQuality: tier && tierById(tier)?.lowerQuality ? true : undefined },
+    body: { routingMode, acceptExpertBackup: routingMode ? true : undefined, voiceId: v.voice_id || undefined, ttsBackend, llmModel, ttsModel, tier, tierOverrides, acceptLowerQuality: tier && tierById(tier)?.lowerQuality ? true : undefined },
     dropped,
   };
 }

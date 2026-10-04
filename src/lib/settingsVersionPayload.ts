@@ -47,6 +47,8 @@ export function buildSettingsVersionPayload(i: SettingsPublishInput): Record<str
     llmModel: body.llmModel,
     ttsModel: body.ttsModel,
     tier: body.tier,
+    routingMode: body.routingMode,
+    acceptExpertBackup: body.acceptExpertBackup,
     // The server replaces its derived overrides with these, so after a change let it re-derive them against the tier's stack instead.
     tierOverrides: changed ? undefined : body.tierOverrides,
   };

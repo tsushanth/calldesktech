@@ -207,6 +207,7 @@ export interface Database {
           transfer_status: string | null
           transfer_wait_ms: number | null
           analysis: Json | null
+          routing_mode: 'expert_backup' | null
         }
         Insert: {
           id?: string
@@ -233,6 +234,7 @@ export interface Database {
           transfer_status?: string | null
           transfer_wait_ms?: number | null
           analysis?: Json | null
+          routing_mode?: 'expert_backup' | null
         }
         Update: {
           id?: string
@@ -259,6 +261,7 @@ export interface Database {
           transfer_status?: string | null
           transfer_wait_ms?: number | null
           analysis?: Json | null
+          routing_mode?: 'expert_backup' | null
         }
       }
       bookings: {

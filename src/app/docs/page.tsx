@@ -1,8 +1,9 @@
 import { buildOpenApi } from '@/lib/openapi';
 import { MCP_TOOL_GROUPS } from '@/lib/mcp/toolDocs';
 import { getModelCatalog } from '@/lib/modelCatalog';
+import { EXPERT_BACKUP_ROUTING_MODE } from '@/lib/expertBackup';
 import { PRICING_TIERS, ADD_ONS, CARRIER_NOTE, INCLUDED_ON_ALL } from '@/lib/pricingTiers';
-import { PHONE_NUMBERS_LINE, workedExample } from '@/lib/pricingCopy';
+import { EXPERT_BACKUP_LINE, PHONE_NUMBERS_LINE, workedExample } from '@/lib/pricingCopy';
 import { TierRatingRows } from '@/components/pricing/PricingParts';
 import { SiteHeader } from '@/components/landing/SiteHeader';
 import { SiteFooter } from '@/components/landing/Closing';
@@ -162,6 +163,7 @@ export default function DocsPage() {
                   <li>Included on every plan: {INCLUDED_ON_ALL.join('; ')}.</li>
                   <li>{CARRIER_NOTE} {PHONE_NUMBERS_LINE}</li>
                   <li>{workedExample().text}.</li>
+                  <li>{EXPERT_BACKUP_LINE} Publish with <code className="rounded bg-white px-1.5 py-0.5 text-[13px]">&quot;routingMode&quot;: &quot;{EXPERT_BACKUP_ROUTING_MODE}&quot;</code> and <code className="rounded bg-white px-1.5 py-0.5 text-[13px]">&quot;acceptExpertBackup&quot;: true</code> (voiceEngine poc, tier lite or standard).</li>
                   <li>Optional add-ons are coming soon and cannot be bought yet; amounts will be announced when they launch. Planned: {ADD_ONS.map((a) => a.label.toLowerCase()).join(', ')}.</li>
                   <li>Lite uses our efficient voice, built for fast, high-volume calls. Publishing with <code className="rounded bg-white px-1.5 py-0.5 text-[13px]">&quot;tier&quot;: &quot;lite&quot;</code> needs <code className="rounded bg-white px-1.5 py-0.5 text-[13px]">&quot;acceptLowerQuality&quot;: true</code> to confirm you are choosing the Lite voice for the lower price.</li>
                   <li>Agents published without a tier keep their current per-minute price. Choosing a tier is optional.</li>

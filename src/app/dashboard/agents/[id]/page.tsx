@@ -22,6 +22,8 @@ import TestCallModal from './TestCallModal';
 import { initialLiveCallState, nextLiveCallState, type LiveCallState } from '@/lib/liveCall';
 import CopilotPanel from '@/components/flow-builder/CopilotPanel';
 import TierPicker from '@/components/flow-builder/TierPicker';
+import ExpertBackupToggle, { expertBackupEligible } from '@/components/flow-builder/ExpertBackupToggle';
+import { EXPERT_BACKUP, isRoutingMode } from '@/lib/expertBackup';
 import { tierById, type TierId } from '@/lib/pricingTiers';
 import { initialTierForBuilder, readStoredPlan, clearStoredPlan } from '@/lib/planSelection';
 import { LLM_MODELS, ttsModelsFor, DEFAULT_LLM_MODEL } from '@/lib/modelCatalog';
@@ -239,6 +241,12 @@ export default function AgentBuilderPage() {
   // The cheapest tier's voice is less expressive than Standard's, so picking it needs an explicit acknowledgement (also enforced by the API).
   const [lowerQualityAccepted, setLowerQualityAccepted] = useState(false);
   const needsLowerQualityAccept = !!tier && !!tierById(tier)?.lowerQuality && !lowerQualityAccepted;
+  // Expert backup (src/lib/expertBackup.ts): a paid extra on Lite and Standard, off by default. Only counts while eligible (poc engine, Lite or
+  // Standard); switching to Pro, no plan or another engine drops it at publish even if the box was ticked earlier.
+  const [expertBackupOn, setExpertBackupOn] = useState(false);
+  const [expertBackupAccepted, setExpertBackupAccepted] = useState(false);
+  const expertBackupActive = expertBackupOn && expertBackupEligible(voiceEngine, tier);
+  const needsExpertBackupAccept = expertBackupActive && !expertBackupAccepted;
   const [llmModel, setLlmModel] = useState('');
   const [ttsModel, setTtsModel] = useState('');
   const [retellAgentId, setRetellAgentId] = useState('');
@@ -277,6 +285,8 @@ export default function AgentBuilderPage() {
     const tierLoaded = latest.tier && tierById(latest.tier) ? latest.tier : '';
     const overrides = new Set(latest.tier_overrides || []);
     setTier(tierLoaded);
+    setExpertBackupOn(isRoutingMode(latest.routing_mode));
+    setExpertBackupAccepted(false);
     setTtsBackend(!tierLoaded || overrides.has('ttsBackend') ? ((latest.tts_backend as TtsBackend) || '') : '');
     setLlmModel(!tierLoaded || overrides.has('llmModel') ? latest.llm_model || '' : '');
     setTtsModel(!tierLoaded || overrides.has('ttsModel') ? latest.tts_model || '' : '');
@@ -912,6 +922,7 @@ export default function AgentBuilderPage() {
           ttsBackend: ttsBackend || undefined,
           ...(voiceEngine === 'poc' && tier ? { tier } : {}),
           ...(voiceEngine === 'poc' && tier && tierById(tier)?.lowerQuality && lowerQualityAccepted ? { acceptLowerQuality: true } : {}),
+          ...(expertBackupActive && expertBackupAccepted ? { routingMode: EXPERT_BACKUP.id, acceptExpertBackup: true } : {}),
           llmModel: (voiceEngine === 'poc' && llmModel) || undefined,
           ttsModel: (voiceEngine === 'poc' && ttsModel) || undefined,
           retellAgentId: retellAgentId || undefined,
@@ -1041,6 +1052,7 @@ export default function AgentBuilderPage() {
                       versions.map((v) => (
                         <div key={v.id} className="flex items-center justify-between gap-2 px-3.5 py-2 text-[12.5px] hover:bg-gray-50">
                           <span className="font-mono text-[#1a1d29]">V{v.version_number}</span>
+                          {isRoutingMode(v.routing_mode) && <span className="rounded bg-blue-50 px-1.5 py-0.5 text-[10.5px] font-medium text-blue-700" title={`${EXPERT_BACKUP.label} was on for this version`}>{EXPERT_BACKUP.label}</span>}
                           <span className="flex-1 text-gray-400">{new Date(v.created_at).toLocaleDateString()}</span>
                           <div className="flex items-center gap-2">
                             <button
@@ -1095,8 +1107,8 @@ export default function AgentBuilderPage() {
             </button>
             <button
               onClick={handleSave}
-              disabled={isSaving || needsLowerQualityAccept}
-              title={needsLowerQualityAccept ? 'Accept the voice-quality tradeoff for this plan first' : undefined}
+              disabled={isSaving || needsLowerQualityAccept || needsExpertBackupAccept}
+              title={needsLowerQualityAccept ? 'Accept the voice-quality tradeoff for this plan first' : needsExpertBackupAccept ? 'Accept the expert backup price first' : undefined}
               className="flex-none rounded-lg bg-blue-600 px-4 py-2 text-[13px] font-medium text-white transition hover:bg-blue-700 disabled:opacity-50"
             >
               {isSaving ? 'Publishing…' : 'Publish'}
@@ -1419,9 +1431,10 @@ export default function AgentBuilderPage() {
                       {channel === 'voice' && voiceEngine === 'poc' && (
                         <TierPicker
                           value={tier}
-                          onChange={(next) => { setTier(next); if (tierVoiceIsEnglishOnly(next)) setLanguage(''); if (!next) clearStoredPlan(); setLowerQualityAccepted(false); setLlmModel(''); setTtsModel(''); setTtsBackend(''); }}
+                          onChange={(next) => { setTier(next); if (tierVoiceIsEnglishOnly(next)) setLanguage(''); if (!next) clearStoredPlan(); setLowerQualityAccepted(false); if (!expertBackupEligible(voiceEngine, next)) { setExpertBackupOn(false); setExpertBackupAccepted(false); } setLlmModel(''); setTtsModel(''); setTtsBackend(''); }}
                           lowerQualityAccepted={lowerQualityAccepted}
                           onLowerQualityAcceptedChange={setLowerQualityAccepted}
+                          below={<ExpertBackupToggle voiceEngine={voiceEngine} tier={tier} enabled={expertBackupOn} accepted={expertBackupAccepted} onEnabledChange={setExpertBackupOn} onAcceptedChange={setExpertBackupAccepted} />}
                           advanced={
                             <>
                               <p className="text-[11.5px] leading-[1.45] text-gray-400">For API and MCP users. Anything you set here overrides the plan&apos;s choice; leave it alone and the plan chooses.</p>

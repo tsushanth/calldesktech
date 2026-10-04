@@ -227,3 +227,47 @@ export async function getTenantNumberInboundUsageSince(
   }
   return [...totals.entries()].map(([carrier, t]) => ({ carrier, ...t })).filter((t) => t.seconds > 0);
 }
+
+export type ExpertBackupUsage = { calls: number; seconds: number };
+
+/**
+ * Whole SECONDS in [since, until) of calls whose call-log routing_mode is 'expert_backup' (written by the engine only on calls where the
+ * feature was actually active). Feeds the separate expert backup meter (src/lib/expertBackup.ts); the same calls' voice seconds are still
+ * billed on their tier meter, so nothing here replaces or double counts them. Each call counts once, floored to whole seconds, and our own
+ * demo and mystery-shopper calls (is_internal_test) are excluded, as everywhere else. Returns zero when the routing_mode column is not
+ * migrated yet (071), so the cron keeps working before the migration.
+ */
+export async function getTenantExpertBackupUsageSince(
+  supabase: SupabaseClient,
+  tenantId: string,
+  since: Date | null,
+  until: Date = new Date()
+): Promise<ExpertBackupUsage> {
+  const run = async (excludeInternal: boolean) => {
+    let query = supabase
+      .from('calldesk_call_logs')
+      .select('duration_seconds, routing_mode')
+      .eq('tenant_id', tenantId)
+      .eq('routing_mode', 'expert_backup')
+      .lt('created_at', until.toISOString());
+    if (excludeInternal) query = query.neq('is_internal_test', true);
+    if (since) query = query.gte('created_at', since.toISOString());
+    return query;
+  };
+  let res = await run(true);
+  if (res.error && /is_internal_test/.test(res.error.message || '')) res = await run(false);
+  if (res.error) {
+    if (res.error.code === '42703' || /routing_mode/.test(res.error.message || '')) return { calls: 0, seconds: 0 };
+    throw res.error;
+  }
+  let calls = 0;
+  let seconds = 0;
+  for (const r of (res.data ?? []) as unknown as Array<{ duration_seconds: number | null; routing_mode?: string | null }>) {
+    if (r.routing_mode !== 'expert_backup') continue; // the filter above already did this; checked again so a row can never be billed by accident
+    const s = Math.floor(Number(r.duration_seconds ?? 0));
+    if (!Number.isFinite(s) || s <= 0) continue;
+    calls += 1;
+    seconds += s;
+  }
+  return { calls, seconds };
+}
