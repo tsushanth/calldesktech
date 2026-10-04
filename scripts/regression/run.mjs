@@ -19,6 +19,7 @@ const val = (n, dflt) => { const i = args.indexOf(`--${n}`); return i >= 0 ? arg
 const place = flag('place-calls');
 if (val('tier', '')) process.env.REGRESSION_TIER = val('tier'); // e.g. --tier lite: publish versions on that pricing tier
 if (val('voice', '')) process.env.REGRESSION_VOICE = val('voice'); // e.g. --voice custom:en-us-warm-f
+if (val('llm', '')) process.env.REGRESSION_LLM = val('llm'); // e.g. --llm gemini-3.1-flash-lite: publish versions with that language model
 const maxCalls = Number(val('max-calls', 8));
 const wanted = val('scenario', '') ? val('scenario').split(',').map((s) => s.trim()).filter(Boolean) : [];
 

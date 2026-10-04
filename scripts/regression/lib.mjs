@@ -92,6 +92,7 @@ export async function publishVersion(api, fx, scenario, { agentId = fx.agentId, 
   const res = await api('POST', `/api/agents/${agentId}/versions`, {
     flowName: name, startNodeId: version.startNodeId, nodes: version.nodes, voiceEngine: 'poc', globalSettings: version.globalSettings || {},
     ...(process.env.REGRESSION_VOICE ? { voiceId: process.env.REGRESSION_VOICE } : {}),
+    ...(process.env.REGRESSION_LLM ? { llmModel: process.env.REGRESSION_LLM } : {}),
     ...(tier ? { tier, ...(tier === 'lite' ? { acceptLowerQuality: true } : {}) } : {}),
   });
   return res.version.id;
