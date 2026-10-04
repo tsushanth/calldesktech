@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { PILOT_BLOCKED_CODE, pilotBlockedBody } from '@/lib/pilotBlockShared';
+import { pilotBlockedBody } from '@/lib/pilotBlockShared';
 
 export * from '@/lib/pilotBlockShared';
 
