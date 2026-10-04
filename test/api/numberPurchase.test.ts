@@ -15,9 +15,12 @@ const MONTHLY = 'price_test_number_monthly';
 const INBOUND = 'price_test_number_inbound';
 const env = { engine: process.env.CALL_LOOP_POC_BASE_URL, secret: process.env.CALL_LOOP_POC_TEST_CALL_SECRET };
 
-function seed(tier: string | null, extra: Record<string, unknown[]> = {}) {
+const OLD_TENANT = '2026-08-01T00:00:00.000Z'; // before the tiers launched
+const NEW_TENANT = '2026-10-05T00:00:00.000Z'; // after
+
+function seed(tier: string | null, extra: Record<string, unknown[]> = {}, createdAt = NEW_TENANT) {
   return {
-    calldesk_tenants: [{ id: 't1', retell_agent_id: null, settings: { voice_engine: 'poc', phone: '+14155550000' } }],
+    calldesk_tenants: [{ id: 't1', created_at: createdAt, retell_agent_id: null, settings: { voice_engine: 'poc', phone: '+14155550000' } }],
     calldesk_agents: [{ id: 'a1', tenant_id: 't1' }],
     calldesk_agent_versions: tier === undefined ? [] : [{ agent_id: 'a1', version_number: 1, tier }],
     calldesk_businesses: [{ tenant_id: 't1', stripe_subscription_id: 'sub_1', stripe_customer_id: 'cus_1' }],
@@ -194,8 +197,8 @@ it('Pro is unchanged: no acceptance needed, no Stripe items, row not billed', as
   expect(db.tables.calldesk_phone_numbers[0]).toMatchObject({ number: '+14155550123', addon_billed: false });
 });
 
-it('legacy tenants (no tier) are unchanged and not blocked', async () => {
-  const db = makeNumberDb(seed(null));
+it('genuine legacy tenants (no tier, created before the tiers launched) are unchanged and not blocked', async () => {
+  const db = makeNumberDb(seed(null, {}, OLD_TENANT));
   const { stripe, calls } = makeFakeStripe([]);
   vi.mocked(getSupabaseAdmin).mockReturnValue(db as never);
   vi.mocked(getStripe).mockReturnValue(stripe as never);
@@ -203,6 +206,43 @@ it('legacy tenants (no tier) are unchanged and not blocked', async () => {
   const res = await post({});
   expect(res.status).toBe(201);
   expect(calls).toHaveLength(0);
+  expect(db.tables.calldesk_phone_numbers[0]).toMatchObject({ addon_billed: false });
+});
+
+it('a NEW tenant with no tiered version is charged the add-on: terms required, items attached, row billed', async () => {
+  const db = makeNumberDb(seed(null));
+  const { stripe, calls } = makeFakeStripe([]);
+  vi.mocked(getSupabaseAdmin).mockReturnValue(db as never);
+  vi.mocked(getStripe).mockReturnValue(stripe as never);
+  engineBuys();
+  const refused = await post({});
+  expect(refused.status).toBe(400);
+  expect((await refused.json()).code).toBe('number_addon_acceptance_required');
+  expect(fetchMock).not.toHaveBeenCalled();
+  const res = await post({ acceptNumberAddOn: true });
+  expect(res.status).toBe(201);
+  expect(calls.filter((c) => c.op === 'create')).toHaveLength(2);
+  expect(db.tables.calldesk_phone_numbers[0]).toMatchObject({ source: 'purchased', addon_billed: true });
+});
+
+it('a new tenant with no agents at all is charged too, and still needs a subscription', async () => {
+  const s = seed(null);
+  s.calldesk_agents = [];
+  s.calldesk_businesses = [{ tenant_id: 't1', stripe_subscription_id: null, stripe_customer_id: 'cus_1' }];
+  vi.mocked(getSupabaseAdmin).mockReturnValue(makeNumberDb(s) as never);
+  vi.mocked(getStripe).mockReturnValue(makeFakeStripe([]).stripe as never);
+  engineBuys();
+  const res = await post({ acceptNumberAddOn: true });
+  expect(res.status).toBe(402);
+  expect(fetchMock).not.toHaveBeenCalled();
+});
+
+it('a legacy tenant that mixes in a tiered agent pays', async () => {
+  const s = seed('standard', {}, OLD_TENANT);
+  vi.mocked(getSupabaseAdmin).mockReturnValue(makeNumberDb(s) as never);
+  vi.mocked(getStripe).mockReturnValue(makeFakeStripe([]).stripe as never);
+  engineBuys();
+  expect((await post({})).status).toBe(400);
 });
 
 it('rejects an unknown carrier', async () => {

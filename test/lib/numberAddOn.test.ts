@@ -5,7 +5,9 @@ import {
   NUMBER_INBOUND_METER_EVENT,
   NUMBER_PRICE_ENV,
   NumberAddOnNotConfiguredError,
+  TIERS_LAUNCHED_AT,
   carrierOfRow,
+  createdBeforeTiers,
   numberAddOnTerms,
   numberPlanForTiers,
   numberPriceIds,
@@ -81,13 +83,37 @@ describe('numberPlanForTiers', () => {
     expect(numberPlanForTiers(['standard', 'pro']).kind).toBe('included');
     expect(numberPlanForTiers(['lite', 'pro', null]).kind).toBe('included');
   });
-  it('legacy and no-tier tenants are included (never charged, never blocked)', () => {
-    expect(numberPlanForTiers([]).kind).toBe('included');
-    expect(numberPlanForTiers([null, null]).kind).toBe('included');
-    expect(numberPlanForTiers(['bogus']).kind).toBe('included');
+  it('a genuine legacy flat-rate tenant (untiered, created before the tiers launched) is included', () => {
+    expect(numberPlanForTiers([], { legacyFlatRate: true }).kind).toBe('included');
+    expect(numberPlanForTiers([null, null], { legacyFlatRate: true }).kind).toBe('included');
+    expect(numberPlanForTiers(['bogus'], { legacyFlatRate: true }).kind).toBe('included');
+  });
+  it('a new tenant with no tiered agent pays the add-on (not free)', () => {
+    expect(numberPlanForTiers([]).kind).toBe('addon');
+    expect(numberPlanForTiers([null, null]).kind).toBe('addon');
+    expect(numberPlanForTiers([null], { legacyFlatRate: false }).kind).toBe('addon');
+  });
+  it('legacy status never overrides a tiered agent: Lite/Standard still pay, Pro stays included', () => {
+    expect(numberPlanForTiers(['standard'], { legacyFlatRate: true }).kind).toBe('addon');
+    expect(numberPlanForTiers(['pro'], { legacyFlatRate: false }).kind).toBe('included');
   });
   it('a tenant mixing a tiered and a legacy agent pays the add-on', () => {
     expect(numberPlanForTiers([null, 'standard']).kind).toBe('addon');
+  });
+});
+
+describe('createdBeforeTiers', () => {
+  it('uses the launch day as the cutoff', () => {
+    expect(TIERS_LAUNCHED_AT).toBe('2026-10-02T00:00:00.000Z');
+    expect(createdBeforeTiers('2026-09-30T10:00:00Z')).toBe(true);
+    expect(createdBeforeTiers('2026-10-01T23:59:59Z')).toBe(true);
+    expect(createdBeforeTiers('2026-10-02T00:00:00Z')).toBe(false);
+    expect(createdBeforeTiers('2026-10-03T00:00:00Z')).toBe(false);
+  });
+  it('a missing or unparsable date is not legacy (fails toward charging)', () => {
+    expect(createdBeforeTiers(undefined)).toBe(false);
+    expect(createdBeforeTiers(null)).toBe(false);
+    expect(createdBeforeTiers('garbage')).toBe(false);
   });
 });
 

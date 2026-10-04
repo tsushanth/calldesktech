@@ -160,6 +160,9 @@ export interface PhoneNumber {
   outbound_agent_version_id: string | null;
   inbound_environment_id: string | null;
   outbound_environment_id: string | null;
+  source?: string | null;
+  /** Set when the owning subscription was cancelled: the number is released on this date unless the tenant resubscribes. */
+  release_after?: string | null;
   created_at: string;
   updated_at: string;
 }

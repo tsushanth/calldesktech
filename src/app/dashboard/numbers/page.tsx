@@ -512,6 +512,11 @@ export default function PhoneNumbersPage() {
           </div>
         ) : (
           <div className="space-y-5">
+            {selected.release_after && (
+              <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-[13px] text-amber-900" role="status">
+                This number will be released on {new Date(selected.release_after).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' })} unless you resubscribe.
+              </div>
+            )}
             <div className="rounded-xl border border-gray-200 bg-white p-5">
               <div className="flex items-center justify-between">
                 <div>

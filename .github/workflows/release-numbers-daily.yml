@@ -1,0 +1,38 @@
+name: Release numbers of cancelled tenants (daily)
+
+# Releases the purchased phone numbers of tenants whose subscription was cancelled and whose grace period has passed
+# (src/lib/numberRelease.ts). Dry run by hand: workflow_dispatch with dry = true, or POST the URL with ?dry=1.
+#
+# Repo secrets (this workflow does nothing until RELEASE_NUMBERS_URL is set):
+#   RELEASE_NUMBERS_URL  e.g. https://calldesk.tech/api/cron/release-numbers
+#   CRON_SECRET          same value as the CRON_SECRET secret on the Fly app
+
+on:
+  schedule:
+    - cron: '41 8 * * *' # daily, 08:41 UTC
+  workflow_dispatch:
+    inputs:
+      dry:
+        description: 'Dry run (releases nothing)'
+        type: boolean
+        default: true
+
+jobs:
+  release-numbers:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Release due numbers
+        env:
+          URL: ${{ secrets.RELEASE_NUMBERS_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          DRY: ${{ github.event.inputs.dry }}
+        run: |
+          set -euo pipefail
+          if [ -z "$URL" ] || [ -z "$CRON_SECRET" ]; then
+            echo "RELEASE_NUMBERS_URL / CRON_SECRET not set: number release is not enabled, nothing to do."
+            exit 0
+          fi
+          if [ "$DRY" = "true" ]; then URL="${URL}?dry=1"; fi
+          curl -sS --fail-with-body --max-time 300 -X POST "$URL" \
+            -H "Authorization: Bearer $CRON_SECRET"

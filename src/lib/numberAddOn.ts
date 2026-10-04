@@ -6,7 +6,7 @@ import { isTierId } from '@/lib/pricingTiers';
 // INBOUND calls to those numbers (the carrier surcharge, on top of the plan's per-minute price). Outbound stays
 // bring-your-own carrier: it is neither provided nor billed here.
 //
-// Pro includes phone service, so Pro is never charged for a number (see numberPlanForTiers).
+// Pro includes phone service, so Pro is never charged for a number; neither is a legacy flat-rate tenant (see numberPlanForTiers).
 //
 // Two carriers: Twilio (premium, $2.00 + 1.5 cents) and Telnyx (value, $1.00 + 1 cent). Each has its own Stripe prices and inbound meter,
 // so a customer holding numbers on both is billed each correctly. To add a carrier, extend NumberCarrier and fill in NUMBER_ADDON_PRICES,
@@ -72,18 +72,36 @@ export function numberAddOnTerms(carrier: NumberCarrier = DEFAULT_NUMBER_CARRIER
 export type NumberPlan = { kind: 'included' } | { kind: 'addon' };
 
 /**
- * Whether a tenant pays for a purchased number, from the tiers of its agents' latest versions (null = a version published without a tier).
+ * Tenants created before this instant are "legacy flat-rate" candidates: they signed up when the only price was the flat per-minute rate
+ * that includes phone service (see the ADDITIVE, NOT A REPRICING note in pricingTiers.ts), so charging them for a number would be a repricing.
+ * The date is the day the tiers launched: commit 7bc6949 (2026-10-02, "Add pricing tiers") introduced migration 064_agent_version_tier.sql,
+ * which was applied to production that day, and the first tiered agent version in the database is dated 2026-10-03. Midnight UTC at the start
+ * of 2026-10-02 is used on purpose: the exact apply time is not recorded, and a tenant created on the launch day itself is treated as new
+ * (charged) rather than risk giving numbers away. Do not move this date later; it is a historical fact, not a knob.
+ */
+export const TIERS_LAUNCHED_AT = '2026-10-02T00:00:00.000Z';
+
+/** True when a tenant row's created_at is before the tiers launched. A missing or unparsable date is NOT legacy (fails toward charging). */
+export function createdBeforeTiers(createdAt: unknown): boolean {
+  if (typeof createdAt !== 'string') return false;
+  const t = Date.parse(createdAt);
+  return Number.isFinite(t) && t < Date.parse(TIERS_LAUNCHED_AT);
+}
+
+/**
+ * Whether a tenant pays for a purchased number, from the tiers of its agents' latest versions (null = a version published without a tier)
+ * and whether the tenant is a legacy flat-rate customer (existed before the tiers launched, see TIERS_LAUNCHED_AT).
  *   - Any Pro agent: included. Pro is never charged, even next to Lite or Standard agents.
  *   - Otherwise any tier in NUMBER_ADDON_TIERS (Lite, Standard): add-on.
- *   - No tiered agent at all (new tenant, or legacy flat-price agents): included. Legacy plans already include phone service, so charging
- *     them would be a repricing, and blocking them would break existing behaviour. Conservative on purpose: never charges Pro, never blocks.
+ *   - No tiered agent at all: included ONLY for a genuine legacy flat-rate tenant (all versions untiered AND created before the tiers
+ *     launched), whose flat per-minute price already includes phone service. Any newer tenant, with or without agents, pays the add-on.
  * Mixed Standard/Lite and legacy agents count as add-on, and the customer must accept the terms explicitly before being charged.
  */
-export function numberPlanForTiers(tiers: Array<string | null | undefined>): NumberPlan {
+export function numberPlanForTiers(tiers: Array<string | null | undefined>, opts: { legacyFlatRate?: boolean } = {}): NumberPlan {
   const known = tiers.filter(isTierId);
   if (known.includes('pro')) return { kind: 'included' };
   if (known.some((t) => (NUMBER_ADDON_TIERS as readonly string[]).includes(t))) return { kind: 'addon' };
-  return { kind: 'included' };
+  return opts.legacyFlatRate === true ? { kind: 'included' } : { kind: 'addon' };
 }
 
 export class NumberAddOnNotConfiguredError extends Error {
@@ -122,6 +140,6 @@ export function publicNumberAddOn() {
       inboundCentsPerMinute: NUMBER_ADDON_PRICES[c].inboundCentsPerMinute,
       terms: numberAddOnTerms(c),
     })),
-    note: 'Pro includes phone numbers. On Lite and Standard you can bring your own number or buy one from us on the premium Twilio carrier or the lower-priced Telnyx carrier. Outbound calling uses your own carrier.',
+    note: 'Pro includes phone numbers. On Lite and Standard (and any new workspace without a Pro agent) you can bring your own number or buy one from us on the premium Twilio carrier or the lower-priced Telnyx carrier. Outbound calling uses your own carrier.',
   };
 }

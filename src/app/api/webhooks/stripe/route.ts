@@ -2,6 +2,16 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getStripe, ensureTierItemsInUseForTenant } from '@/lib/stripe';
 import { getSupabaseAdmin } from '@/lib/supabase';
 import Stripe from 'stripe';
+import { clearNumberRelease, scheduleNumberRelease, tenantIdsForSubscription } from '@/lib/numberRelease';
+
+// A failure here must never fail the webhook (Stripe would retry the status update); the daily job also re-checks the subscription.
+async function safely(label: string, fn: () => Promise<void>) {
+  try {
+    await fn();
+  } catch (err) {
+    console.error(`Webhook: ${label} failed:`, err);
+  }
+}
 
 const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
 
@@ -131,6 +141,13 @@ export async function POST(request: NextRequest) {
               await ensureTierItemsInUseForTenant(sibling.id);
             }
           }
+
+          // Subscribed (again): cancel any pending release of the numbers we sold this workspace and its siblings.
+          await safely('clear number release', async () => {
+            const { data: owned } = userId ? await supabase.from('calldesk_tenants').select('id').eq('user_id', userId) : { data: [] };
+            const ids = new Set<string>([tenantId, ...((owned ?? []) as Array<{ id: string }>).map((t) => t.id)]);
+            await clearNumberRelease(supabase, [...ids]);
+          });
         }
         break;
       }
@@ -151,6 +168,9 @@ export async function POST(request: NextRequest) {
           .from('calldesk_users')
           .update({ subscription_status: subscription.status, updated_at: new Date().toISOString() })
           .eq('stripe_subscription_id', subscription.id);
+        if (subscription.status === 'active' || subscription.status === 'trialing') {
+          await safely('clear number release', async () => clearNumberRelease(supabase, await tenantIdsForSubscription(supabase, subscription.id)));
+        }
         break;
       }
 
@@ -164,6 +184,8 @@ export async function POST(request: NextRequest) {
           .from('calldesk_users')
           .update({ subscription_status: 'canceled', updated_at: new Date().toISOString() })
           .eq('stripe_subscription_id', subscription.id);
+        // Numbers we sold these workspaces are released after a grace period unless they subscribe again (src/lib/numberRelease.ts).
+        await safely('schedule number release', async () => scheduleNumberRelease(supabase, await tenantIdsForSubscription(supabase, subscription.id)));
         break;
       }
     }

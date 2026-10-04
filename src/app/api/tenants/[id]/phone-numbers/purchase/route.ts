@@ -56,7 +56,7 @@ async function purchaseViaPoc(areaCode: string | undefined, carrier: NumberCarri
 // POST /api/tenants/[id]/phone-numbers/purchase — buy a real number and wire
 // it up to actually receive calls. Lite and Standard tenants buy it as the premium number add-on (src/lib/numberAddOn.ts): the body must
 // carry acceptNumberAddOn: true, the Stripe items are attached BEFORE the purchase and rolled back if it fails, and the route fails closed
-// when the add-on's Stripe prices are not configured. Pro and legacy tenants: unchanged, numbers included and never charged. Distinct from POST
+// when the add-on's Stripe prices are not configured. Pro and legacy flat-rate tenants (created before the tiers launched, no tiered agent): numbers included and never charged. Any other tenant, including a new one with no tiered agent yet, buys it as the add-on. Distinct from POST
 // /api/tenants/[id]/phone-numbers, which only registers a number the caller
 // already owns and never spends money.
 export async function POST(

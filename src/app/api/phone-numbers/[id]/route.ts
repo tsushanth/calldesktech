@@ -3,33 +3,7 @@ import { getSupabaseAdmin } from '@/lib/supabase';
 import { authorizeResource } from '@/lib/authz';
 import { carrierOfRow } from '@/lib/numberAddOn';
 import { billedNumberCount, setNumberAddOnCount } from '@/lib/numberAddOnBilling';
-
-// TODO(engine): call-loop-poc has no number-release endpoint yet (only POST /purchase-number). Needed there, same admin-secret guard as
-// /purchase-number (Authorization: Bearer CALL_LOOP_POC_TEST_CALL_SECRET):
-//   POST /release-number  { "number": "+14155550123", "carrier": "twilio" | "telnyx" }
-//   -> looks the number up on that carrier's account (exact E.164 match) and releases it.
-//   -> 200 on success (also when already released: idempotent); 404 { "error" } when not found; 4xx/5xx { "error": string } otherwise.
-// The engine endpoint exists on branch telnyx-numbers of realtime-tts. Until it is deployed the web app answers 501 for purchased numbers
-// and changes nothing: the number is still held on the carrier, so billing must not stop either.
-async function releaseViaEngine(phoneNumber: string, carrier: string): Promise<{ ok: true } | { ok: false; status: number; error: string; unsupported?: boolean }> {
-  const baseUrl = process.env.CALL_LOOP_POC_BASE_URL;
-  const secret = process.env.CALL_LOOP_POC_TEST_CALL_SECRET;
-  if (!baseUrl || !secret) return { ok: false, status: 500, error: 'CALL_LOOP_POC_BASE_URL/CALL_LOOP_POC_TEST_CALL_SECRET not configured' };
-  try {
-    const res = await fetch(`${baseUrl}/release-number`, {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${secret}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ number: phoneNumber, carrier }),
-    });
-    if (res.ok) return { ok: true };
-    const body = await res.json().catch(() => ({}));
-    // An engine without the endpoint answers 404 with no JSON error body (the app's own 404 for an unknown route).
-    if (res.status === 404 && !body?.error) return { ok: false, status: 501, error: 'Releasing purchased numbers is not available yet.', unsupported: true };
-    return { ok: false, status: res.status >= 400 ? res.status : 502, error: body?.error || 'The voice engine could not release the number' };
-  } catch (err) {
-    return { ok: false, status: 502, error: err instanceof Error ? err.message : 'Failed to reach the voice engine' };
-  }
-}
+import { releaseViaEngine } from '@/lib/numberRelease';
 
 // DELETE /api/phone-numbers/[id] — remove a number from the workspace. A ported (bring-your-own) number is only unregistered. A purchased
 // number is first released on its carrier through the engine, then removed, and if it was billed under the premium number add-on the
