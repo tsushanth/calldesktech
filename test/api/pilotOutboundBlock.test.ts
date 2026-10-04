@@ -39,7 +39,7 @@ function seed(blocked: boolean, opts = {}) {
 beforeEach(() => {
   process.env.CALL_LOOP_POC_BASE_URL = 'https://engine.test';
   process.env.CALL_LOOP_POC_TEST_CALL_SECRET = 'test-secret';
-  process.env.RETELL_API_KEY = 'k';
+  vi.stubEnv('RETELL_API_KEY', 'test-value');
   process.env.RETELL_DEMO_PHONE_NUMBER = '+14155550199';
   fetchMock = vi.fn(async () => new Response(JSON.stringify({ sid: 'CA1' }), { status: 200 }));
   vi.stubGlobal('fetch', fetchMock);
