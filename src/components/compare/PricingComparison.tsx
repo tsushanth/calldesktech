@@ -9,7 +9,7 @@ function ourIncluded(t: (typeof PRICING_TIERS)[number]): string {
   return t.carrierMode === 'managed' ? 'AI engine plus phone numbers and calling' : 'AI engine';
 }
 function ourSeparate(t: (typeof PRICING_TIERS)[number]): string {
-  return t.carrierMode === 'managed' ? 'Nothing else today' : 'Your phone carrier (bring your own)';
+  return t.carrierMode === 'managed' ? 'Nothing else today' : 'Your phone carrier (bring your own), or phone numbers from us as an extra';
 }
 
 export function PricingComparison({ competitor }: { competitor: CompetitorPricing }) {
@@ -62,7 +62,7 @@ export function PricingComparison({ competitor }: { competitor: CompetitorPricin
             {competitor.vendor}: {l}
           </li>
         ))}
-        <li>CallDeskTech: transfers, DTMF, testing and monitoring are included in the per-minute rate, with no per-booking or per-transfer fees on the tiers. Managed phone numbers are available for Lite and Standard.</li>
+        <li>CallDeskTech: transfers, DTMF, testing and monitoring are included in the per-minute rate, with no per-booking or per-transfer fees on the tiers. Phone numbers from us are a paid extra on every plan; bringing your own is free.</li>
         <li>{ADD_ONS_LINE} <a href="/pricing" className="underline underline-offset-4 hover:text-blue-600">See the pricing page</a>.</li>
       </ul>
       <p className="mt-4 text-[12.5px] leading-[1.5] text-gray-400" data-testid="pricing-source">

@@ -4,7 +4,8 @@ import path from 'node:path';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { PRICING_TIERS } from '@/lib/pricingTiers';
-import { HEADLINE, QUALIFIER, HEADLINE_WITH_QUALIFIER, US_RATE_LONG, LIVE_RANGE, twoMinuteCallRange, pricingPlainText } from '@/lib/pricingCopy';
+import { HEADLINE, QUALIFIER, HEADLINE_WITH_QUALIFIER, US_RATE_LONG, LIVE_RANGE, twoMinuteCallRange, pricingPlainText, workedExample, STANDARD_CENTS, PHONE_NUMBER_OPTIONS, PHONE_NUMBERS_LINE } from '@/lib/pricingCopy';
+import { NUMBER_ADDON_PRICES } from '@/lib/numberAddOn';
 import { COMPETITORS } from '@/lib/compareData';
 import { THUNDERPHONE_PRICING } from '@/lib/competitorPricing';
 import { PricingComparison } from '@/components/compare/PricingComparison';
@@ -16,21 +17,39 @@ const strip = (h: string) => h.replace(/<[^>]+>/g, ' ').replace(/&#x27;|&#39;/g,
 describe('pricing copy is derived from the tiers', () => {
   it('headline always appears with the qualifier that says what can be bought now', () => {
     expect(HEADLINE).toBe('Phone agents from 2 cents a minute');
-    expect(QUALIFIER).toBe('Lite 2 cents, Standard 6 cents and Pro 10 cents per minute, all available now');
+    expect(QUALIFIER).toBe('Lite 2 cents, Standard 5 cents and Pro 9 cents per minute, all available now');
     expect(HEADLINE_WITH_QUALIFIER).toContain(QUALIFIER);
   });
   it('matches the tier catalog', () => {
     const c = (id: string) => PRICING_TIERS.find((t) => t.id === id)!.pricePerMinuteCents;
-    expect([c('lite'), c('standard'), c('pro')]).toEqual([2, 6, 10]);
-    expect(LIVE_RANGE).toBe('2¢ to 10¢');
-    expect(twoMinuteCallRange()).toBe('$0.04 to $0.20');
-    expect(US_RATE_LONG).toContain('6¢/min Standard');
-    expect(US_RATE_LONG).toContain('10¢/min Pro with numbers included');
+    expect([c('lite'), c('standard'), c('pro')]).toEqual([2, 5, 9]);
+    expect(LIVE_RANGE).toBe('2¢ to 9¢');
+    expect(twoMinuteCallRange()).toBe('$0.04 to $0.18');
+    expect(US_RATE_LONG).toContain('5¢/min Standard');
+    expect(US_RATE_LONG).toContain('9¢/min Pro');
+    expect(US_RATE_LONG).not.toMatch(/numbers included/);
     expect(US_RATE_LONG).toContain('2¢/min Lite');
     expect(US_RATE_LONG).not.toMatch(/coming soon/i);
   });
-  it('states no add-on amounts', () => {
-    expect(pricingPlainText()).not.toMatch(/\+\s?\d/);
+  it('states no amounts for the coming-soon add-ons (phone numbers are the one live priced extra)', () => {
+    const add = pricingPlainText().split('\n').filter((l) => /add-ons/i.test(l)).join(' ');
+    expect(add).toMatch(/coming soon/);
+    expect(add).not.toMatch(/\$\d|\d\s?(cents|c\b)/);
+  });
+  it('the worked example is computed from the config constants, so it cannot drift', () => {
+    const w = workedExample();
+    expect(w.text).toBe('Standard with one Telnyx number and 500 inbound minutes a month: 500 x 5c + $1.00 + 500 x 1c = $31.00');
+    expect(w.totalCents).toBe(500 * STANDARD_CENTS + NUMBER_ADDON_PRICES.telnyx.monthlyCents + 500 * NUMBER_ADDON_PRICES.telnyx.inboundCentsPerMinute);
+    const t = workedExample({ tier: 'pro', carrier: 'twilio', inboundMinutes: 100 });
+    expect(t.totalCents).toBe(100 * 9 + 200 + 100 * 1.5);
+    expect(t.text).toBe('Pro with one Twilio number and 100 inbound minutes a month: 100 x 9c + $2.00 + 100 x 1.5c = $12.50');
+  });
+  it('lists the two phone-number options from the add-on config, Telnyx first, and bring-your-own as free', () => {
+    expect(PHONE_NUMBER_OPTIONS.map((o) => o.carrier)).toEqual(['telnyx', 'twilio']);
+    expect(PHONE_NUMBER_OPTIONS[0].line).toBe('Telnyx number: $1.00 per month + 1 cent per inbound minute');
+    expect(PHONE_NUMBER_OPTIONS[1].line).toBe('Twilio number: $2.00 per month + 1.5 cents per inbound minute');
+    expect(PHONE_NUMBER_OPTIONS[1].note).toMatch(/payments/);
+    expect(PHONE_NUMBERS_LINE).toContain('Bring your own number or carrier: free');
   });
 });
 
@@ -92,26 +111,31 @@ describe('page wiring', () => {
   });
   it('llms.txt states the three tiers with the qualified headline', () => {
     const t = read('public/llms.txt');
-    expect(t).toContain('Phone agents from 2 cents a minute. Lite 2 cents, Standard 6 cents and Pro 10 cents per minute, all available now.');
+    expect(t).toContain('Phone agents from 2 cents a minute. Lite 2 cents, Standard 5 cents and Pro 9 cents per minute, all available now.');
+    expect(t).toContain(pricingPlainText());
     expect(t).not.toMatch(/\$49|\$0\.10/);
   });
   it('the partner payout numbers are untouched', () => {
     const t = read('src/app/partners/page.tsx');
-    expect(t).toContain("$0.02 per minute");
     expect(t).toContain('20% for 12 months');
+    // The worked example follows the Pro price (20% of 9 cents), not a typed number.
+    expect(t).toContain('PRO_CENTS * PARTNER_SHARE');
   });
 });
 
 describe('decks', () => {
   it('customer deck pricing slide states the tiers, not the flat price', () => {
     const t = strip(DECK_SLIDES.find((s) => s.includes('id="pricing"'))!);
-    expect(t).toContain('2 to 10 cents a minute');
+    expect(t).toContain('2 to 9 cents a minute');
+    expect(t).toContain('Standard is 5 cents');
+    expect(t).toContain('Pro is 9 cents');
+    expect(t).not.toMatch(/phone numbers included/i);
     expect(t).toContain('Lite is 2 cents with our efficient voice');
     expect(t).not.toContain('$0.10 per minute');
   });
   it('investor deck price slide leads with the tiers and qualifies Lite', () => {
     const t = strip(buildInvestorSlides().join(' '));
-    expect(t).toContain('6 cents Standard');
+    expect(t).toContain('5 cents Standard');
     expect(t).toContain('Lite 2 cents (efficient voice)');
     expect(t).not.toContain('$0.10 default, to $0.16 premium voices');
   });

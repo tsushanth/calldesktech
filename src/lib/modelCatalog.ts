@@ -32,7 +32,8 @@ export const DEFAULT_LLM_MODEL = 'claude-haiku-4-5-20251001';
 // Ids the pricing tiers (src/lib/pricingTiers.ts) build their stacks from. Named here so a tier can never point at a model that is
 // not in the lists below (test/lib/pricingTiers.test.ts checks every tier stack against validateModelChoice).
 export const LITE_LLM_MODEL = 'gpt-6-luna';
-export const PRO_LLM_MODEL = DEFAULT_LLM_MODEL;
+export const STANDARD_LLM_MODEL = 'gemini-3.1-flash-lite';
+export const PRO_LLM_MODEL = 'claude-sonnet-4-6';
 export const ELEVEN_FLASH_TTS_MODEL = 'eleven_flash_v2_5';
 export const ELEVEN_V4_TURBO_TTS_MODEL = 'eleven_v4_turbo';
 

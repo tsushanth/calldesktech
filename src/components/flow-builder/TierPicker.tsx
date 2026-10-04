@@ -1,7 +1,7 @@
 'use client';
 
 import type { ReactNode } from 'react';
-import { PRICING_TIERS, CARRIER_NOTE, type TierId } from '@/lib/pricingTiers';
+import { PRICING_TIERS, CARRIER_NOTE, ratingsForStack, type TierId } from '@/lib/pricingTiers';
 
 // Three-card pricing tier picker for the agent version publish panel. The tier is the product: no model names or token talk here.
 // The existing model controls go in `advanced`, collapsed by default. Cards stack in one column so it fits the 400px settings
@@ -65,7 +65,7 @@ export default function TierPicker({
               </span>
               <span id={`tier-${t.id}-desc`} className="mt-1 block text-[12px] leading-[1.45] text-gray-500">
                 {t.tagline}
-                <span className="mt-0.5 block text-[11px] text-gray-400">{t.carrierMode === 'byo' ? 'Phone carrier billed separately' : 'Phone service included'}</span>
+                <span className="mt-0.5 block text-[11px] text-gray-400">{(() => { const r = ratingsForStack(t.stack); return `Voice: ${r.voice}. Response speed: ${r.responseSpeed}. Reasoning: ${r.reasoning}.`; })()}</span>
               </span>
             </label>
           );

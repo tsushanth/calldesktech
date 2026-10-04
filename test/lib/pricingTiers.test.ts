@@ -2,30 +2,36 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { PRICING } from '@/lib/constants';
-import { DEFAULT_LLM_MODEL } from '@/lib/modelCatalog';
+import { LITE_LLM_MODEL, STANDARD_LLM_MODEL, PRO_LLM_MODEL, validateModelChoice } from '@/lib/modelCatalog';
 import {
-  ADD_ONS, PRICING_TIERS, TIER_IDS, priceFor, publicPricing, resolveTierForPublish, stackErrors, stackForTier, tierById, tierForLegacyConfig,
+  ADD_ONS, INCLUDED_ON_ALL, PRICING_TIERS, TIER_IDS, priceFor, ratingsForStack, publicPricing, resolveTierForPublish, stackErrors, stackForTier, tierById, tierForLegacyConfig,
 } from '@/lib/pricingTiers';
 
 describe('pricing tiers', () => {
-  it('has exactly Lite, Standard and Pro at 2, 6 and 10 cents per minute', () => {
-    expect(PRICING_TIERS.map((t) => [t.id, t.pricePerMinuteCents])).toEqual([['lite', 2], ['standard', 6], ['pro', 10]]);
+  it('has exactly Lite, Standard and Pro at 2, 5 and 9 cents per minute', () => {
+    expect(PRICING_TIERS.map((t) => [t.id, t.pricePerMinuteCents])).toEqual([['lite', 2], ['standard', 5], ['pro', 9]]);
     expect([...TIER_IDS]).toEqual(['lite', 'standard', 'pro']);
   });
-  it('Lite and Standard bring your own carrier; Pro includes managed phone service', () => {
-    expect(tierById('lite')!.carrierMode).toBe('byo');
-    expect(tierById('standard')!.carrierMode).toBe('byo');
-    expect(tierById('pro')!.carrierMode).toBe('managed');
+  it('every tier is bring-your-own carrier', () => {
+    for (const t of PRICING_TIERS) expect(t.carrierMode).toBe('byo');
   });
   it('all three tiers are on sale', () => {
     expect(PRICING_TIERS.filter((t) => t.availability === 'coming_soon')).toEqual([]);
   });
-  it('every tier includes summary, transcript and structured extraction', () => {
-    for (const t of PRICING_TIERS) {
-      expect(t.includes.join(' ')).toMatch(/summary/i);
-      expect(t.includes.join(' ')).toMatch(/transcript/i);
-      expect(t.includes.join(' ')).toMatch(/extraction/i);
-    }
+  it('the platform features are stated once for every plan, not per tier', () => {
+    const all = INCLUDED_ON_ALL.join(' | ');
+    for (const re of [/summary/i, /transcript/i, /extraction/i, /transfers/i, /DTMF/, /knowledge base/i, /calendar booking/i, /testing and live call monitoring/i, /API and MCP/i, /40\+ languages/i]) expect(all).toMatch(re);
+    expect(all).toMatch(/Lite's voice is English only/);
+    expect(all).not.toMatch(/steer|proposed fix/i);
+    for (const t of PRICING_TIERS) expect(t).not.toHaveProperty('includes');
+  });
+  it('each tier has Voice / Response speed / Reasoning labels derived from its stack, with no numbers', () => {
+    expect(PRICING_TIERS.map((t) => ratingsForStack(t.stack))).toEqual([
+      { voice: 'Clear and efficient', responseSpeed: 'Good', reasoning: 'Good' },
+      { voice: 'Natural', responseSpeed: 'Fast', reasoning: 'Strong' },
+      { voice: 'Most expressive', responseSpeed: 'Fast', reasoning: 'Strongest' },
+    ]);
+    expect(() => ratingsForStack({ llmModel: 'unknown', ttsBackend: 'piper', ttsModel: null })).toThrow();
   });
   it('tierById rejects unknown and non-string ids', () => {
     expect(tierById('storm')).toBeUndefined();
@@ -34,15 +40,20 @@ describe('pricing tiers', () => {
   });
   it('every tier stack is accepted by the model catalog validation', () => {
     expect(stackErrors()).toEqual([]);
+    for (const t of PRICING_TIERS) {
+      expect(validateModelChoice({ voiceEngine: 'poc', llmModel: t.stack.llmModel, ttsModel: t.stack.ttsModel, ttsBackend: t.stack.ttsBackend })).toBeNull();
+    }
   });
-  it('Standard runs Claude Haiku with ElevenLabs Flash; Pro uses the more expressive voice', () => {
-    expect(stackForTier('standard')).toMatchObject({ llmModel: DEFAULT_LLM_MODEL, ttsBackend: 'elevenlabs', ttsModel: 'eleven_flash_v2_5' });
-    expect(stackForTier('pro')).toMatchObject({ ttsBackend: 'elevenlabs', ttsModel: 'eleven_v4_turbo' });
-    expect(stackForTier('lite').ttsBackend).toBe('piper');
+  it('Lite: gpt-6-luna + Piper; Standard: Gemini 3.1 Flash-Lite + ElevenLabs Flash; Pro: Claude Sonnet 4.6 + ElevenLabs v4 Turbo', () => {
+    expect(stackForTier('lite')).toMatchObject({ llmModel: LITE_LLM_MODEL, ttsBackend: 'piper', voiceId: 'custom:en-us-warm-f' });
+    expect(stackForTier('standard')).toMatchObject({ llmModel: STANDARD_LLM_MODEL, ttsBackend: 'elevenlabs', ttsModel: 'eleven_flash_v2_5' });
+    expect(stackForTier('pro')).toMatchObject({ llmModel: PRO_LLM_MODEL, ttsBackend: 'elevenlabs', ttsModel: 'eleven_v4_turbo' });
+    expect([LITE_LLM_MODEL, STANDARD_LLM_MODEL, PRO_LLM_MODEL]).toEqual(['gpt-6-luna', 'gemini-3.1-flash-lite', 'claude-sonnet-4-6']);
+    expect(tierById('pro')!.stack.ttsPromoNote).toMatch(/2026-10-12/);
   });
   it('stackForTier returns a copy and throws on an unknown tier', () => {
     const s = stackForTier('standard'); s.llmModel = 'x';
-    expect(stackForTier('standard').llmModel).toBe(DEFAULT_LLM_MODEL);
+    expect(stackForTier('standard').llmModel).toBe(STANDARD_LLM_MODEL);
     expect(() => stackForTier('storm')).toThrow(/Unknown tier/);
   });
 });
@@ -57,10 +68,10 @@ describe('add-ons', () => {
 describe('priceFor', () => {
   it('quotes the base price with a one-line explanation', () => {
     const q = priceFor({ tier: 'standard' });
-    expect(q.centsPerMinute).toBe(6);
+    expect(q.centsPerMinute).toBe(5);
     expect(q.purchasable).toBe(true);
-    expect(q.explanation).toBe('Standard is $0.06 per minute (phone carrier billed separately).');
-    expect(priceFor({ tier: 'pro' }).explanation).toBe('Pro is $0.10 per minute (phone service included).');
+    expect(q.explanation).toBe('Standard is $0.05 per minute (phone carrier billed separately).');
+    expect(priceFor({ tier: 'pro' }).explanation).toBe('Pro is $0.09 per minute (phone carrier billed separately).');
   });
   it('Lite is purchasable at 2 cents', () => {
     const q = priceFor({ tier: 'lite' });
@@ -70,7 +81,7 @@ describe('priceFor', () => {
   });
   it('an add-on with no amount set adds nothing and is reported as unpriced', () => {
     const q = priceFor({ tier: 'standard', addOns: ['sentiment_per_turn'] });
-    expect(q.centsPerMinute).toBe(6);
+    expect(q.centsPerMinute).toBe(5);
     expect(q.unpricedAddOns).toEqual(['sentiment_per_turn']);
     expect(q.explanation).toContain('price to be announced');
   });
@@ -79,9 +90,9 @@ describe('priceFor', () => {
     a.centsPerMinute = 1.5;
     try {
       const q = priceFor({ tier: 'standard', addOns: ['advanced_analytics', 'advanced_analytics'] });
-      expect(q.centsPerMinute).toBe(7.5);
+      expect(q.centsPerMinute).toBe(6.5);
       expect(q.unpricedAddOns).toEqual([]);
-      expect(q.explanation).toBe('Standard is $0.06 per minute plus Advanced analytics $0.015, $0.075 per minute in all (phone carrier billed separately).');
+      expect(q.explanation).toBe('Standard is $0.05 per minute plus Advanced analytics $0.015, $0.065 per minute in all (phone carrier billed separately).');
     } finally { a.centsPerMinute = null; }
   });
   it('throws on an unknown tier or add-on', () => {
@@ -100,8 +111,8 @@ describe('legacy agents keep their current price', () => {
     expect(tierForLegacyConfig('minimax').centsPerMinute).toBe(16);
     for (const [backend, dollars] of Object.entries(PRICING.usage.voicePerMinute)) expect(tierForLegacyConfig(backend).centsPerMinute).toBe(Math.round(dollars * 100));
   });
-  it('is flagged legacy; only the $0.10 default voice has an equivalent tier (Pro)', () => {
-    expect(tierForLegacyConfig('kokoro')).toMatchObject({ legacy: true, equivalentTier: 'pro' });
+  it('is flagged legacy; no tier is equivalent any more (every tier is bring-your-own carrier)', () => {
+    expect(tierForLegacyConfig('kokoro')).toMatchObject({ legacy: true, equivalentTier: null });
     expect(tierForLegacyConfig('elevenlabs').equivalentTier).toBeNull();
     expect(tierForLegacyConfig('minimax').equivalentTier).toBeNull();
   });
@@ -116,7 +127,7 @@ describe('resolveTierForPublish', () => {
     expect(resolveTierForPublish({ voiceEngine: 'retell' })).toMatchObject({ ok: true, tier: null });
   });
   it('derives the models from the tier when none are given', () => {
-    expect(resolveTierForPublish({ tier: 'standard', voiceEngine: 'poc' })).toEqual({ ok: true, tier: 'standard', llmModel: DEFAULT_LLM_MODEL, ttsBackend: 'elevenlabs', ttsModel: 'eleven_flash_v2_5', overrides: [] });
+    expect(resolveTierForPublish({ tier: 'standard', voiceEngine: 'poc' })).toEqual({ ok: true, tier: 'standard', llmModel: STANDARD_LLM_MODEL, ttsBackend: 'elevenlabs', ttsModel: 'eleven_flash_v2_5', overrides: [] });
   });
   it('refuses Lite without the quality acceptance, with a clear message', () => {
     const r = resolveTierForPublish({ tier: 'lite', voiceEngine: 'poc' });
@@ -137,7 +148,7 @@ describe('resolveTierForPublish', () => {
     expect(r).toMatchObject({ ok: true, ttsBackend: 'cartesia', ttsModel: undefined, overrides: ['ttsBackend'] });
   });
   it('explicit values equal to the tier stack are not overrides', () => {
-    const r = resolveTierForPublish({ tier: 'standard', voiceEngine: 'poc', llmModel: DEFAULT_LLM_MODEL, ttsBackend: 'elevenlabs', ttsModel: 'eleven_flash_v2_5' });
+    const r = resolveTierForPublish({ tier: 'standard', voiceEngine: 'poc', llmModel: STANDARD_LLM_MODEL, ttsBackend: 'elevenlabs', ttsModel: 'eleven_flash_v2_5' });
     expect(r).toMatchObject({ ok: true, overrides: [] });
   });
 });
@@ -145,9 +156,10 @@ describe('resolveTierForPublish', () => {
 describe('public pricing payload', () => {
   const p = publicPricing();
   it('lists the tiers and add-ons with prices in cents and dollars', () => {
-    expect(p.tiers.map((t) => [t.id, t.pricePerMinuteCents, t.pricePerMinuteDollars])).toEqual([['lite', 2, 0.02], ['standard', 6, 0.06], ['pro', 10, 0.1]]);
+    expect(p.tiers.map((t) => [t.id, t.pricePerMinuteCents, t.pricePerMinuteDollars])).toEqual([['lite', 2, 0.02], ['standard', 5, 0.05], ['pro', 9, 0.09]]);
     expect(p.addOns).toHaveLength(4);
-    expect(p.carrierNote).toMatch(/Carrier billed separately/);
+    expect(p.carrierNote).toBe('Bring your own carrier on every plan, or add phone numbers from us.');
+    expect(p.tiers.map((t) => t.ratings.voice)).toEqual(['Clear and efficient', 'Natural', 'Most expressive']);
   });
   it('never exposes model names, token talk or the engine stack', () => {
     const json = JSON.stringify(p);

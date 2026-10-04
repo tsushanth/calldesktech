@@ -16,10 +16,13 @@ const TERMS = [
   { k: 'Not eligible', v: 'Self-referrals, and usage you resell to your own clients at a markup.' },
 ];
 
+// The 20% share in TERMS below; the worked numbers follow the Pro price so they cannot drift from it.
+const PARTNER_SHARE = 0.2;
+
 const MATH = [
-  { k: 'Example: customer on Pro pays', v: `$${(PRO_CENTS / 100).toFixed(2)} per minute`, note: `phone numbers included; Standard is ${STANDARD_CENTS}¢` },
-  { k: 'You earn', v: '$0.02 per minute', note: '20% for 12 months' },
-  { k: '1,000 minutes a month', v: '$20 a month', note: 'per customer' },
+  { k: 'Example: customer on Pro pays', v: `$${(PRO_CENTS / 100).toFixed(2)} per minute`, note: `Standard is ${STANDARD_CENTS}¢` },
+  { k: 'You earn', v: `$${(PRO_CENTS * PARTNER_SHARE / 100).toFixed(3)} per minute`, note: '20% for 12 months' },
+  { k: '1,000 minutes a month', v: `$${(1000 * PRO_CENTS * PARTNER_SHARE / 100).toFixed(0)} a month`, note: 'per customer' },
 ];
 
 export default function PartnersPage() {

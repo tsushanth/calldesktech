@@ -85,7 +85,7 @@ export type EnsureTierItemResult =
 // Stripe webhook adds the items for tiers already in use when they check out. Throws TierBillingNotConfiguredError when the tier's price
 // env var is unset, and rethrows any Stripe error: the caller must treat both as "the tiered agent is not billable yet".
 export async function ensureTierItemForTenant(tenantId: string, tier: import('./pricingTiers').TierId): Promise<EnsureTierItemResult> {
-  const { tierPriceId, TierBillingNotConfiguredError } = await import('./tierBilling');
+  const { tierPriceId, findTierItem, TierBillingNotConfiguredError } = await import('./tierBilling');
   const { getSupabaseAdmin } = await import('./supabase');
   const priceId = tierPriceId(tier);
   if (!priceId) throw new TierBillingNotConfiguredError(tier);
@@ -102,7 +102,10 @@ export async function ensureTierItemForTenant(tenantId: string, tier: import('./
   const subscription = await stripe.subscriptions.retrieve(business.stripe_subscription_id);
   if (subscription.status === 'canceled' || subscription.status === 'incomplete_expired') return { status: 'no_subscription' };
 
-  const existing = subscription.items.data.find((item) => item.price.id === priceId);
+  // Grandfathering: an item for this tier at ANY price (an older price from before a repricing, or the current one) means the tenant is
+  // already billed for the tier. Never add a second item or swap the price: the tenant keeps the price it subscribed at. Only a tenant
+  // with no item for the tier gets one, at the current env price.
+  const existing = findTierItem(subscription.items.data, tier);
   if (existing) return { status: 'already_present', itemId: existing.id };
 
   // Metered price: no quantity. No idempotency key on purpose: Stripe replays a failed result for a repeated key, which would make a retry
@@ -112,7 +115,7 @@ export async function ensureTierItemForTenant(tenantId: string, tier: import('./
     return { status: 'added', itemId: item.id };
   } catch (err) {
     const again = await stripe.subscriptions.retrieve(subscription.id).catch(() => null);
-    const raced = again?.items.data.find((item) => item.price.id === priceId);
+    const raced = again ? findTierItem(again.items.data, tier) : undefined;
     if (raced) return { status: 'already_present', itemId: raced.id };
     throw err;
   }

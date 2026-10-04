@@ -1,7 +1,9 @@
 import { buildOpenApi } from '@/lib/openapi';
 import { MCP_TOOL_GROUPS } from '@/lib/mcp/toolDocs';
 import { getModelCatalog } from '@/lib/modelCatalog';
-import { PRICING_TIERS, ADD_ONS, CARRIER_NOTE } from '@/lib/pricingTiers';
+import { PRICING_TIERS, ADD_ONS, CARRIER_NOTE, INCLUDED_ON_ALL } from '@/lib/pricingTiers';
+import { PHONE_NUMBERS_LINE, workedExample } from '@/lib/pricingCopy';
+import { TierRatingRows } from '@/components/pricing/PricingParts';
 import { SiteHeader } from '@/components/landing/SiteHeader';
 import { SiteFooter } from '@/components/landing/Closing';
 import { Container, Eyebrow, PrimaryButton, SecondaryButton } from '@/components/landing/primitives';
@@ -141,7 +143,7 @@ export default function DocsPage() {
               <section id="pricing-tiers" className="mt-14 scroll-mt-[96px]">
                 <h2 className="text-[24px] font-semibold tracking-[-0.02em]">Pricing tiers</h2>
                 <p className="mt-2 max-w-[640px] text-[15px] leading-[1.55] text-gray-500">
-                  Pick a tier when you publish a version and we choose the right voice and intelligence for it. You never need to pick a model. Pass <code className="rounded bg-white px-1.5 py-0.5 text-[13px]">tier</code> to <code className="rounded bg-white px-1.5 py-0.5 text-[13px]">POST /agents/{'{agentId}'}/versions</code> or the <code className="rounded bg-white px-1.5 py-0.5 text-[13px]">publish_agent_version</code> tool, and read the list from <code className="rounded bg-white px-1.5 py-0.5 text-[13px]">GET /pricing</code> (no sign-in needed) or <code className="rounded bg-white px-1.5 py-0.5 text-[13px]">list_pricing_tiers</code>.
+                  The tier is the engine: pick one when you publish a version and we choose the right voice and intelligence for it. You never need to pick a model. Pass <code className="rounded bg-white px-1.5 py-0.5 text-[13px]">tier</code> to <code className="rounded bg-white px-1.5 py-0.5 text-[13px]">POST /agents/{'{agentId}'}/versions</code> or the <code className="rounded bg-white px-1.5 py-0.5 text-[13px]">publish_agent_version</code> tool, and read the list from <code className="rounded bg-white px-1.5 py-0.5 text-[13px]">GET /pricing</code> (no sign-in needed) or <code className="rounded bg-white px-1.5 py-0.5 text-[13px]">list_pricing_tiers</code>.
                 </p>
                 <div className="mt-5 grid gap-4 md:grid-cols-3">
                   {PRICING_TIERS.map((t) => (
@@ -152,13 +154,14 @@ export default function DocsPage() {
                       </div>
                       <p className="mt-1 text-[22px] font-normal tracking-[-0.03em] text-[#00122e]">${(t.pricePerMinuteCents / 100).toFixed(2)}<span className="text-[13px] text-gray-400"> / min</span></p>
                       <p className="mt-1 text-[13px] leading-[1.45] text-gray-500">{t.tagline}</p>
-                      <p className="mt-2 text-[12px] text-gray-400">{t.carrierMode === 'byo' ? 'Carrier billed separately' : 'Phone service included'}</p>
+                      <TierRatingRows tier={t} className="mt-3" />
                     </div>
                   ))}
                 </div>
                 <ul className="mt-4 max-w-[640px] list-disc space-y-1 pl-5 text-[14px] leading-[1.5] text-gray-500">
-                  <li>Included on every tier: call summary, transcript and structured field extraction.</li>
-                  <li>{CARRIER_NOTE}</li>
+                  <li>Included on every plan: {INCLUDED_ON_ALL.join('; ')}.</li>
+                  <li>{CARRIER_NOTE} {PHONE_NUMBERS_LINE}</li>
+                  <li>{workedExample().text}.</li>
                   <li>Optional add-ons are coming soon and cannot be bought yet; amounts will be announced when they launch. Planned: {ADD_ONS.map((a) => a.label.toLowerCase()).join(', ')}.</li>
                   <li>Lite uses our efficient voice, built for fast, high-volume calls. Publishing with <code className="rounded bg-white px-1.5 py-0.5 text-[13px]">&quot;tier&quot;: &quot;lite&quot;</code> needs <code className="rounded bg-white px-1.5 py-0.5 text-[13px]">&quot;acceptLowerQuality&quot;: true</code> to confirm you are choosing the Lite voice for the lower price.</li>
                   <li>Agents published without a tier keep their current per-minute price. Choosing a tier is optional.</li>

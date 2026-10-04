@@ -71,13 +71,13 @@ it('numbers that were not bought under the add-on (addon_billed false or ported)
   expect(usage).toEqual([]);
 });
 
-it('Pro tenants are excluded even if a number is marked billed', async () => {
+it('Pro tenants pay the add-on like every tier: their billed numbers report inbound seconds', async () => {
   const db = makeNumberDb(base([log({ tier: 'pro', duration_seconds: 300 })], 'pro'));
   const { stripe, create } = meterStripe();
   await reportTenantUsageToStripe(db as never, stripe, tenant, biz, NOW);
   const names = create.mock.calls.map((c) => c[0].event_name);
   expect(names).toContain('calldesktech_voice_seconds_pro');
-  expect(names).not.toContain('calldesktech_number_inbound_seconds_twilio');
+  expect(names).toContain('calldesktech_number_inbound_seconds_twilio');
 });
 
 it('a same-minute retry derives the same identifier (Stripe dedupes it)', async () => {

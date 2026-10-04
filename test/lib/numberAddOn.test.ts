@@ -15,6 +15,7 @@ import {
   requireNumberPriceIds,
 } from '@/lib/numberAddOn';
 import { CARRIER_NOTE, PRICING_TIERS } from '@/lib/pricingTiers';
+import { PHONE_NUMBERS_LINE } from '@/lib/pricingCopy';
 import { compactMinute, meterEventIdentifier } from '@/lib/reportUsageToStripe';
 
 describe('number add-on config', () => {
@@ -26,10 +27,10 @@ describe('number add-on config', () => {
     expect(numberAddOnTerms('twilio')).toMatch(/Outbound calls use your own carrier/);
   });
 
-  it('the shared carrier note quotes the same amounts as the config', () => {
-    expect(CARRIER_NOTE).toContain(`$${(NUMBER_ADDON_PRICES.twilio.monthlyCents / 100).toFixed(2)} per month per number`);
-    expect(CARRIER_NOTE).toContain(`${NUMBER_ADDON_PRICES.twilio.inboundCentsPerMinute} cents per minute of inbound`);
-    expect(CARRIER_NOTE).toContain(`$${(NUMBER_ADDON_PRICES.telnyx.monthlyCents / 100).toFixed(2)} per month plus ${NUMBER_ADDON_PRICES.telnyx.inboundCentsPerMinute} cent per minute of inbound`);
+  it('the carrier note says bring your own on every plan, and the displayed phone-number prices come from the config', () => {
+    expect(CARRIER_NOTE).toBe('Bring your own carrier on every plan, or add phone numbers from us.');
+    expect(PHONE_NUMBERS_LINE).toContain(`$${(NUMBER_ADDON_PRICES.twilio.monthlyCents / 100).toFixed(2)} per month plus ${NUMBER_ADDON_PRICES.twilio.inboundCentsPerMinute} cents per inbound minute`);
+    expect(PHONE_NUMBERS_LINE).toContain(`$${(NUMBER_ADDON_PRICES.telnyx.monthlyCents / 100).toFixed(2)} per month plus ${NUMBER_ADDON_PRICES.telnyx.inboundCentsPerMinute} cent per inbound minute`);
   });
 
   it('Telnyx (value) prices: $1.00 per month per number and 1 cent per inbound minute', () => {
@@ -47,12 +48,9 @@ describe('number add-on config', () => {
     expect(NUMBER_INBOUND_METER_EVENT.telnyx).toBe('calldesktech_number_inbound_seconds_telnyx');
   });
 
-  it('the add-on tiers are the bring-your-own tiers, never a managed (Pro) tier; Lite is NOT blocked', () => {
-    const byo = PRICING_TIERS.filter((t) => t.carrierMode === 'byo').map((t) => t.id);
-    expect([...NUMBER_ADDON_TIERS]).toEqual(byo);
-    expect(NUMBER_ADDON_TIERS).toContain('lite');
-    expect(NUMBER_ADDON_TIERS).toContain('standard');
-    expect(NUMBER_ADDON_TIERS).not.toContain('pro');
+  it('the add-on tiers are every tier (all are bring-your-own carrier), Pro included', () => {
+    expect([...NUMBER_ADDON_TIERS]).toEqual(PRICING_TIERS.map((t) => t.id));
+    expect(NUMBER_ADDON_TIERS).toContain('pro');
   });
 
   it('the public payload carries no cost or margin wording', () => {
@@ -73,15 +71,16 @@ describe('number add-on config', () => {
 });
 
 describe('numberPlanForTiers', () => {
-  it('Lite and Standard pay the add-on', () => {
+  it('Lite, Standard and Pro all pay the add-on', () => {
     expect(numberPlanForTiers(['lite']).kind).toBe('addon');
     expect(numberPlanForTiers(['standard']).kind).toBe('addon');
+    expect(numberPlanForTiers(['pro']).kind).toBe('addon');
     expect(numberPlanForTiers(['lite', 'standard']).kind).toBe('addon');
   });
-  it('Pro is included, even next to Lite or Standard agents', () => {
-    expect(numberPlanForTiers(['pro']).kind).toBe('included');
-    expect(numberPlanForTiers(['standard', 'pro']).kind).toBe('included');
-    expect(numberPlanForTiers(['lite', 'pro', null]).kind).toBe('included');
+  it('Pro pays even next to other agents, and a legacy flat-rate tenant that has a Pro agent pays too', () => {
+    expect(numberPlanForTiers(['standard', 'pro']).kind).toBe('addon');
+    expect(numberPlanForTiers(['lite', 'pro', null]).kind).toBe('addon');
+    expect(numberPlanForTiers(['pro'], { legacyFlatRate: true }).kind).toBe('addon');
   });
   it('a genuine legacy flat-rate tenant (untiered, created before the tiers launched) is included', () => {
     expect(numberPlanForTiers([], { legacyFlatRate: true }).kind).toBe('included');
@@ -93,9 +92,9 @@ describe('numberPlanForTiers', () => {
     expect(numberPlanForTiers([null, null]).kind).toBe('addon');
     expect(numberPlanForTiers([null], { legacyFlatRate: false }).kind).toBe('addon');
   });
-  it('legacy status never overrides a tiered agent: Lite/Standard still pay, Pro stays included', () => {
+  it('legacy status never overrides a tiered agent: every tier pays', () => {
     expect(numberPlanForTiers(['standard'], { legacyFlatRate: true }).kind).toBe('addon');
-    expect(numberPlanForTiers(['pro'], { legacyFlatRate: false }).kind).toBe('included');
+    expect(numberPlanForTiers(['pro'], { legacyFlatRate: false }).kind).toBe('addon');
   });
   it('a tenant mixing a tiered and a legacy agent pays the add-on', () => {
     expect(numberPlanForTiers([null, 'standard']).kind).toBe('addon');

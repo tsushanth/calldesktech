@@ -9,6 +9,7 @@ vi.mock('@/lib/stripe', () => ({ getStripe: vi.fn() }));
 
 import { getSupabaseAdmin } from '@/lib/supabase';
 import { getStripe } from '@/lib/stripe';
+import { tenantNumberPlan } from '@/lib/numberAddOnBilling';
 import { POST } from '@/app/api/tenants/[id]/phone-numbers/purchase/route';
 
 const MONTHLY = 'price_test_number_monthly';
@@ -62,7 +63,7 @@ afterEach(() => {
   if (env.secret === undefined) delete process.env.CALL_LOOP_POC_TEST_CALL_SECRET; else process.env.CALL_LOOP_POC_TEST_CALL_SECRET = env.secret;
 });
 
-for (const tier of ['lite', 'standard']) {
+for (const tier of ['lite', 'standard', 'pro']) {
   it(`${tier}: without acceptNumberAddOn the route answers 400 with the terms and buys nothing`, async () => {
     const db = makeNumberDb(seed(tier));
     const { stripe, calls } = makeFakeStripe([]);
@@ -184,17 +185,23 @@ it('no subscription: 402 to start billing, no purchase', async () => {
   expect(fetchMock).not.toHaveBeenCalled();
 });
 
-it('Pro is unchanged: no acceptance needed, no Stripe items, row not billed', async () => {
+it('Pro pays the add-on too: acceptance required, no number bought without it', async () => {
   const db = makeNumberDb(seed('pro'));
   const { stripe, calls } = makeFakeStripe([]);
   vi.mocked(getSupabaseAdmin).mockReturnValue(db as never);
   vi.mocked(getStripe).mockReturnValue(stripe as never);
-  delete process.env.STRIPE_PRICE_NUMBER_TWILIO_MONTHLY; // not even needed
   engineBuys();
   const res = await post({});
-  expect(res.status).toBe(201);
+  expect(res.status).toBe(400);
+  expect((await res.json()).code).toBe('number_addon_acceptance_required');
   expect(calls).toHaveLength(0);
-  expect(db.tables.calldesk_phone_numbers[0]).toMatchObject({ number: '+14155550123', addon_billed: false });
+  expect(db.tables.calldesk_phone_numbers).toHaveLength(0);
+});
+
+it('tenantNumberPlan: a Pro tenant (new or legacy-dated) is on the add-on; only an untiered pre-tiers tenant is included', async () => {
+  expect(await tenantNumberPlan(makeNumberDb(seed('pro')) as never, 't1')).toEqual({ kind: 'addon' });
+  expect(await tenantNumberPlan(makeNumberDb(seed('pro', {}, OLD_TENANT)) as never, 't1')).toEqual({ kind: 'addon' });
+  expect(await tenantNumberPlan(makeNumberDb(seed(null, {}, OLD_TENANT)) as never, 't1')).toEqual({ kind: 'included' });
 });
 
 it('genuine legacy tenants (no tier, created before the tiers launched) are unchanged and not blocked', async () => {

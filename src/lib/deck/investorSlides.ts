@@ -86,7 +86,7 @@ export function buildInvestorSlides(): string[] {
 
   s.push(section('price', false, `${h2('Price per minute: where we sit', false)}
     <div style="display:flex; flex-direction:column; gap:16px; margin-top:0">
-      ${bar('Calldesk', STANDARD_CENTS / 100, PRO_CENTS / 100, `${STANDARD_CENTS} cents Standard (phone line extra), ${PRO_CENTS} cents Pro (numbers included); Lite ${LITE_CENTS} cents (efficient voice)`, AMBER)}
+      ${bar('Calldesk', STANDARD_CENTS / 100, PRO_CENTS / 100, `${STANDARD_CENTS} cents Standard, ${PRO_CENTS} cents Pro (your own phone line, or numbers from us as an extra); Lite ${LITE_CENTS} cents (efficient voice)`, AMBER)}
       ${bar('Retell', 0.07, 0.31, '$0.07 to $0.31 (add-ons extra); its own example: $0.11', '#6C84AD')}
       ${bar('Vapi', 0.082, 0.129, 'about $0.08 to $0.13 all in', '#6C84AD')}
       ${bar('Bland', 0.12, 0.14, '$0.12 to $0.14 (plan fee $299 a month)', '#6C84AD')}
@@ -146,7 +146,7 @@ export function buildInvestorSlides(): string[] {
     ${row([
       card('Public licensing records', `We have built loaders for state and national registries and keep a database of 558,000+ businesses sourced from them: 41 US states with 100+ records each, 16 trades, and 7 other countries.`, true, 1.2),
       card('Phone first, email second', 'Many registries publish phone numbers and few publish email, so calling is the main channel, with email and website discovery filling in the rest. Personal and home lines are kept off call lists.', true, 1.2),
-      card('A simple offer', `Free two-week pilot on a forwarded number, then ${STANDARD_CENTS} cents a minute (Standard, phone line billed separately) or ${PRO_CENTS} cents (Pro, phone numbers included), with no minimum.`, true),
+      card('A simple offer', `Free two-week pilot on a forwarded number, then ${STANDARD_CENTS} cents a minute (Standard) or ${PRO_CENTS} cents (Pro), with no minimum. Bring your own phone line, or add phone numbers from us as an extra.`, true),
     ])}
     ${note('Counts are from our own lead database as of October 1, 2026. These are businesses we can reach, not customers.', true)}`));
 

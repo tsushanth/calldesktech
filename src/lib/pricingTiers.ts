@@ -1,22 +1,24 @@
 import type { TtsBackend } from '@/types';
 import { PRICING } from '@/lib/constants';
 import {
-  DEFAULT_LLM_MODEL,
   ELEVEN_FLASH_TTS_MODEL,
   ELEVEN_V4_TURBO_TTS_MODEL,
   LITE_LLM_MODEL,
   PRO_LLM_MODEL,
+  STANDARD_LLM_MODEL,
   validateModelChoice,
 } from '@/lib/modelCatalog';
 
 // The pricing tiers: the single source of truth for what a customer is sold. The API (GET /pricing, POST .../versions with `tier`),
 // the MCP server, the docs, the pricing page and the dashboard tier picker all read this file.
 //
-// The tier is the product. A customer never has to know a model name or what a token is: each tier maps to a stack (language model +
-// voice) that the engine uses, and choosing models directly stays an Advanced override for API and MCP users.
+// The tier is the engine and nothing else. A customer never has to know a model name or what a token is: each tier maps to a stack
+// (language model + voice) that the engine uses, and choosing models directly stays an Advanced override for API and MCP users.
+// Everything else (platform features, phone numbers, add-ons) is the same on every tier or a priced extra, never a reason to pick a tier.
+// Every tier is bring-your-own carrier; phone numbers from us are a paid extra on every plan (src/lib/numberAddOn.ts).
 //
 // ADDITIVE, NOT A REPRICING. Agents that predate the tiers keep the flat per-minute price their voice backend has today
-// ($0.10 default voice, $0.12 ElevenLabs/Cartesia, $0.16 MiniMax, all-in including phone service); see tierForLegacyConfig. Nothing in
+// ($0.10 default voice, $0.12 ElevenLabs/Cartesia, $0.16 MiniMax, all-in including phone numbers); see tierForLegacyConfig. Nothing in
 // this file changes what any existing agent or subscription is billed. Billing by tier needs the metering work listed in
 // docs/pricing-tier-migration-notes.md; until that ships the tier is recorded on the version but the subscription price is unchanged.
 //
@@ -43,15 +45,39 @@ export type PricingTier = {
   id: TierId;
   name: string;
   pricePerMinuteCents: number;
+  /** One line on the engine this tier runs. */
   tagline: string;
   whoItsFor: string;
-  includes: string[];
   carrierMode: CarrierMode;
   availability: TierAvailability;
   stack: TierStack;
   /** The voice is our efficient one, less expressive than Standard's. Choosing this tier must be a conscious, explicit decision (publish needs acceptLowerQuality: true). */
   lowerQuality?: boolean;
 };
+
+/** Short text labels a customer can compare at a glance. No numbers and no benchmark claims. */
+export type TierRatings = { voice: string; responseSpeed: string; reasoning: string };
+
+// Labels derived from a tier's stack (never typed per tier), so changing a stack forces a conscious change here. Keyed by the ids in
+// src/lib/modelCatalog.ts; test/lib/pricingTiers.test.ts fails if a tier's stack has no entry.
+const VOICE_LABELS: Record<string, string> = {
+  'piper:': 'Clear and efficient',
+  [`elevenlabs:${ELEVEN_FLASH_TTS_MODEL}`]: 'Natural',
+  [`elevenlabs:${ELEVEN_V4_TURBO_TTS_MODEL}`]: 'Most expressive',
+};
+const LLM_LABELS: Record<string, { responseSpeed: string; reasoning: string }> = {
+  [LITE_LLM_MODEL]: { responseSpeed: 'Good', reasoning: 'Good' },
+  [STANDARD_LLM_MODEL]: { responseSpeed: 'Fast', reasoning: 'Strong' },
+  [PRO_LLM_MODEL]: { responseSpeed: 'Fast', reasoning: 'Strongest' },
+};
+
+/** Voice / Response speed / Reasoning for a tier, from its stack. Throws when the stack has no label (caught by tests). */
+export function ratingsForStack(stack: TierStack): TierRatings {
+  const voice = VOICE_LABELS[`${stack.ttsBackend}:${stack.ttsModel ?? ''}`];
+  const llm = LLM_LABELS[stack.llmModel];
+  if (!voice || !llm) throw new Error(`No customer-facing labels for stack ${stack.llmModel} / ${stack.ttsBackend}:${stack.ttsModel ?? ''}`);
+  return { voice, ...llm };
+}
 
 export type AddOnId = 'sentiment_per_turn' | 'advanced_analytics' | 'premium_voice' | 'long_prompts';
 
@@ -66,16 +92,27 @@ export type AddOn = {
   defaultOn: boolean;
 };
 
-const INCLUDED_ON_ALL = ['Call summary', 'Full transcript', 'Structured field extraction (name, reason for the call, and anything else you ask for)'];
+/** The platform features every plan has. Stated once on every page (never per tier); each is backed by code (dashboard, API or MCP). */
+export const INCLUDED_ON_ALL = [
+  'Call summary',
+  'Full transcript',
+  'Structured field extraction (name, reason for the call, and anything else you ask for)',
+  'Call transfers',
+  'Keypad tones (DTMF)',
+  'Knowledge base',
+  'Calendar booking',
+  'Call testing and live call monitoring',
+  'API and MCP server',
+  "40+ languages (non-English languages need the Standard or Pro voice; Lite's voice is English only)",
+];
 
 export const PRICING_TIERS: PricingTier[] = [
   {
     id: 'lite',
     name: 'Lite',
     pricePerMinuteCents: 2,
-    tagline: 'The lowest price for simple, high-volume calls.',
+    tagline: 'An efficient engine with a clear, English-only voice.',
     whoItsFor: 'Straightforward calls such as confirmations and quick questions, where cost matters most.',
-    includes: [...INCLUDED_ON_ALL, 'Fast, clear voice built for high-volume calls'],
     carrierMode: 'byo',
     availability: 'live',
     // The Kokoro-distilled voice (owner-accepted provenance, 2026-10-03): explicit so Lite never falls back to the engine's global Piper default.
@@ -85,22 +122,20 @@ export const PRICING_TIERS: PricingTier[] = [
   {
     id: 'standard',
     name: 'Standard',
-    pricePerMinuteCents: 6,
-    tagline: 'A natural-sounding agent for everyday business calls.',
+    pricePerMinuteCents: 5,
+    tagline: 'A fast, strong engine with a natural voice.',
     whoItsFor: 'Most businesses: reception, booking, intake and after-hours coverage.',
-    includes: [...INCLUDED_ON_ALL, 'Natural, low-delay voice', 'Reliable multi-step conversations'],
     carrierMode: 'byo',
     availability: 'live',
-    stack: { llmModel: DEFAULT_LLM_MODEL, ttsBackend: 'elevenlabs', ttsModel: ELEVEN_FLASH_TTS_MODEL },
+    stack: { llmModel: STANDARD_LLM_MODEL, ttsBackend: 'elevenlabs', ttsModel: ELEVEN_FLASH_TTS_MODEL },
   },
   {
     id: 'pro',
     name: 'Pro',
-    pricePerMinuteCents: 10,
-    tagline: 'Our best voice, with phone service included.',
-    whoItsFor: 'Businesses that want it all in one price: phone numbers, calling and our most expressive voice.',
-    includes: [...INCLUDED_ON_ALL, 'Our most expressive voice', 'Phone numbers and calling included, no separate carrier bill'],
-    carrierMode: 'managed',
+    pricePerMinuteCents: 9,
+    tagline: 'Our strongest engine with our most expressive voice.',
+    whoItsFor: 'Complex or high-stakes calls where reasoning and tone matter most.',
+    carrierMode: 'byo',
     availability: 'live',
     stack: {
       llmModel: PRO_LLM_MODEL,
@@ -118,8 +153,9 @@ export const ADD_ONS: AddOn[] = [
   { id: 'long_prompts', label: 'Long prompts', description: 'Room for very long instructions and reference text in one agent.', centsPerMinute: null, proposed: true, defaultOn: false },
 ];
 
-// The add-on amounts below are the constants in src/lib/numberAddOn.ts (a test keeps the two in step; they are not imported here to avoid a cycle).
-export const CARRIER_NOTE = 'Carrier billed separately: on Lite and Standard you bring your own phone carrier and pay it directly, or buy a number from us: $2.00 per month per number plus 1.5 cents per minute of inbound calls on the premium Twilio carrier, or $1.00 per month plus 1 cent per minute of inbound calls on the Telnyx carrier. Pro includes phone service.';
+// Phone numbers are a live, priced extra on every plan; their amounts live in src/lib/numberAddOn.ts and are shown by src/lib/pricingCopy.ts
+// (not imported here to avoid a cycle).
+export const CARRIER_NOTE = 'Bring your own carrier on every plan, or add phone numbers from us.';
 
 export function tierById(id: unknown): PricingTier | undefined {
   return typeof id === 'string' ? PRICING_TIERS.find((t) => t.id === id) : undefined;
@@ -166,7 +202,7 @@ export function priceFor(opts: { tier: TierId | string; addOns?: Array<AddOnId |
   const parts = [`${tier.name} is ${dollars(tier.pricePerMinuteCents)} per minute`];
   if (priced.length) parts.push(`plus ${priced.map((a) => `${a.label} ${dollars(a.centsPerMinute as number)}`).join(', ')}`);
   let explanation = parts.join(' ') + (priced.length ? `, ${dollars(total)} per minute in all` : '');
-  explanation += tier.carrierMode === 'byo' ? ' (phone carrier billed separately).' : ' (phone service included).';
+  explanation += tier.carrierMode === 'byo' ? ' (phone carrier billed separately).' : ' (carrier included in the rate).';
   if (unpriced.length) explanation += ` ${unpriced.map((a) => a.label).join(', ')}: price to be announced.`;
   if (tier.availability === 'coming_soon') explanation += ' Coming soon.';
 
@@ -184,7 +220,7 @@ export type LegacyPlan = {
   legacy: true;
   /** The price this agent is billed today, in cents per minute, all-in including phone service. Never changed by the tiers. */
   centsPerMinute: number;
-  /** A tier that costs the same and covers the same things (managed phone service), or null when none does. Informational only. */
+  /** A tier that costs the same and covers the same things, or null when none does (always null today: no tier includes phone numbers). Informational only. */
   equivalentTier: TierId | null;
   label: string;
   explanation: string;
@@ -193,20 +229,19 @@ export type LegacyPlan = {
 /**
  * What an agent that predates the tiers pays: the flat per-minute price of its voice backend (the same numbers as PRICING in
  * src/lib/constants.ts, the figures on the existing pricing page). Existing agents stay on this price; the tier layer never reprices them.
- * Only the default voice at $0.10 matches a tier (Pro: the same price, phone service included); the $0.12 and $0.16 voices match none.
+ * No tier matches a legacy price: every tier is bring-your-own carrier, while the legacy flat price includes phone numbers.
  * Pass the version's tts_backend (null or undefined means the default voice).
  */
 export function tierForLegacyConfig(ttsBackend?: TtsBackend | string | null): LegacyPlan {
   const rates = PRICING.usage.voicePerMinute as Record<string, number>;
   const backend = ttsBackend && ttsBackend in rates ? ttsBackend : 'piper';
   const centsPerMinute = Math.round(rates[backend] * 100);
-  const pro = PRICING_TIERS.find((t) => t.id === 'pro')!;
   return {
     legacy: true,
     centsPerMinute,
-    equivalentTier: centsPerMinute === pro.pricePerMinuteCents ? 'pro' : null,
+    equivalentTier: null,
     label: backend === 'kokoro' || backend === 'piper' ? 'Current flat price (default voice)' : 'Current flat price (premium voice)',
-    explanation: `Existing agents keep their current price: ${dollars(centsPerMinute)} per minute with phone service included. Choosing a tier is optional.`,
+    explanation: `Existing agents keep their current price: ${dollars(centsPerMinute)} per minute, all-in with phone numbers built in. Choosing a tier is optional.`,
   };
 }
 
@@ -274,11 +309,12 @@ export function publicPricing() {
   return {
     currency: 'USD',
     unit: 'per minute of call time',
-    tiers: PRICING_TIERS.map(({ stack: _stack, ...t }) => { void _stack; return { ...t, pricePerMinuteDollars: t.pricePerMinuteCents / 100 }; }),
+    tiers: PRICING_TIERS.map(({ stack, ...t }) => ({ ...t, ratings: ratingsForStack(stack), pricePerMinuteDollars: t.pricePerMinuteCents / 100 })),
     addOns: ADD_ONS,
     includedOnAllTiers: INCLUDED_ON_ALL,
     carrierNote: CARRIER_NOTE,
     notes: [
+      'Phone numbers are a paid extra on every plan; bringing your own number or carrier is free. See phoneNumbers for the prices.',
       'Add-ons are coming soon and cannot be bought yet; amounts will be announced when they launch. Nothing is billed for them.',
       'Agents created before pricing tiers keep their current per-minute price. Choosing a tier is optional.',
     ],

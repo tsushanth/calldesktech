@@ -65,7 +65,7 @@ export function PricingCalculator() {
           );
         })}
       </dl>
-      <p className="mt-3 text-[12px] leading-[1.5] text-gray-500">Talk time only. On Lite and Standard your phone carrier bills its own charges. Pro includes phone service.</p>
+      <p className="mt-3 text-[12px] leading-[1.5] text-gray-500">Talk time only. Your phone carrier bills its own charges, or add phone numbers from us as an extra (see below).</p>
     </section>
   );
 }

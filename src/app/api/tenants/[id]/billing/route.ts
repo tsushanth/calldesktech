@@ -3,6 +3,7 @@ import Stripe from 'stripe';
 import { getStripe } from '@/lib/stripe';
 import { getSupabaseAdmin } from '@/lib/supabase';
 import { requireTenantRole } from '@/lib/authz';
+import { tierRatesFromItems } from '@/lib/tierBilling';
 import { getTenantUsageSince, getTenantUsageByTierSince, type TierUsageRow } from '@/lib/usage';
 import { USAGE_PRICES } from '@/lib/constants';
 
@@ -139,7 +140,8 @@ export async function GET(
       const unit = voiceItem?.price.unit_amount_decimal ? Number(voiceItem.price.unit_amount_decimal) : NaN;
       const per = voiceItem?.price.transform_quantity?.divide_by || 1;
       const legacyCentsPerMinute = Number.isFinite(unit) ? Math.round((unit * 60 * 1000) / per) / 1000 : null;
-      usageByTier = await getTenantUsageByTierSince(supabase, tenantId, new Date(periodStart * 1000), legacyCentsPerMinute);
+      // Tiers are billed at the price on the tenant's own tier items (grandfathered tenants keep an older price), not the current catalog price.
+      usageByTier = await getTenantUsageByTierSince(supabase, tenantId, new Date(periodStart * 1000), legacyCentsPerMinute, tierRatesFromItems(subscription.items.data));
     }
 
     // Upcoming invoice estimate — authoritative dollar figure, aggregated by

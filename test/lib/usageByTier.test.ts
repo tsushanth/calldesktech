@@ -10,8 +10,8 @@ describe('summarizeCallLogsByTier', () => {
       10
     );
     expect(rows.map((r) => r.tier)).toEqual(['standard', 'pro', null]);
-    expect(rows[0]).toMatchObject({ label: 'Standard', calls: 2, minutes: 30, centsPerMinute: 6, chargeCents: 180, eventsIncluded: true });
-    expect(rows[1]).toMatchObject({ label: 'Pro', calls: 1, minutes: 5, centsPerMinute: 10, chargeCents: 50 });
+    expect(rows[0]).toMatchObject({ label: 'Standard', calls: 2, minutes: 30, centsPerMinute: 5, chargeCents: 150, eventsIncluded: true });
+    expect(rows[1]).toMatchObject({ label: 'Pro', calls: 1, minutes: 5, centsPerMinute: 9, chargeCents: 45 });
     expect(rows[2]).toMatchObject({ label: LEGACY_TIER_LABEL, calls: 2, minutes: 11, centsPerMinute: 10, chargeCents: 110, eventsIncluded: false });
   });
   it('legacy charge is unknown (null) when the subscription rate could not be read, minutes still shown', () => {
@@ -29,7 +29,7 @@ describe('summarizeCallLogsByTier', () => {
   it('charges by seconds, not rounded minutes', () => {
     const [row] = summarizeCallLogsByTier([call('standard', 30), call('standard', 30), call('standard', 30)], 10);
     expect(row.minutes).toBe(2); // 90s rounds to 2 for display
-    expect(row.chargeCents).toBe(9); // 1.5 min x 6c
+    expect(row.chargeCents).toBe(8); // 1.5 min x 5c = 7.5, rounded
   });
 });
 

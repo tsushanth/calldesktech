@@ -1,12 +1,12 @@
 import type { TierId } from '@/lib/pricingTiers';
 import { isTierId } from '@/lib/pricingTiers';
 
-// Premium phone numbers: an add-on for the bring-your-own-carrier tiers. A Lite or Standard customer may buy a number from us instead of
+// Premium phone numbers: an add-on on every tier (all tiers are bring-your-own carrier). A Lite, Standard or Pro customer may buy a number from us instead of
 // bringing their own, on our Twilio ("premium") or Telnyx ("value") carrier, billed per month per number plus a per-minute amount for
 // INBOUND calls to those numbers (the carrier surcharge, on top of the plan's per-minute price). Outbound stays
 // bring-your-own carrier: it is neither provided nor billed here.
 //
-// Pro includes phone service, so Pro is never charged for a number; neither is a legacy flat-rate tenant (see numberPlanForTiers).
+// Bringing your own number or carrier is free. A legacy flat-rate tenant (no tiered agent, created before the tiers) keeps numbers included (see numberPlanForTiers).
 //
 // Two carriers: Twilio (premium, $2.00 + 1.5 cents) and Telnyx (value, $1.00 + 1 cent). Each has its own Stripe prices and inbound meter,
 // so a customer holding numbers on both is billed each correctly. To add a carrier, extend NumberCarrier and fill in NUMBER_ADDON_PRICES,
@@ -18,8 +18,8 @@ export type NumberCarrier = 'twilio' | 'telnyx';
 export const NUMBER_CARRIERS: readonly NumberCarrier[] = ['twilio', 'telnyx'];
 export const DEFAULT_NUMBER_CARRIER: NumberCarrier = 'twilio';
 
-/** The tiers that buy a number as a paid add-on. Pro is deliberately absent (numbers included). To make Pro pay too, add 'pro' here and nowhere else. */
-export const NUMBER_ADDON_TIERS: readonly TierId[] = ['lite', 'standard'];
+/** The tiers that buy a number as a paid add-on: every tier. */
+export const NUMBER_ADDON_TIERS: readonly TierId[] = ['lite', 'standard', 'pro'];
 
 export type NumberCarrierPrice = {
   /** Customer-facing label. */
@@ -91,15 +91,13 @@ export function createdBeforeTiers(createdAt: unknown): boolean {
 /**
  * Whether a tenant pays for a purchased number, from the tiers of its agents' latest versions (null = a version published without a tier)
  * and whether the tenant is a legacy flat-rate customer (existed before the tiers launched, see TIERS_LAUNCHED_AT).
- *   - Any Pro agent: included. Pro is never charged, even next to Lite or Standard agents.
- *   - Otherwise any tier in NUMBER_ADDON_TIERS (Lite, Standard): add-on.
+ *   - Any tiered agent (a tier in NUMBER_ADDON_TIERS: Lite, Standard or Pro): add-on.
  *   - No tiered agent at all: included ONLY for a genuine legacy flat-rate tenant (all versions untiered AND created before the tiers
  *     launched), whose flat per-minute price already includes phone service. Any newer tenant, with or without agents, pays the add-on.
- * Mixed Standard/Lite and legacy agents count as add-on, and the customer must accept the terms explicitly before being charged.
+ * Mixed tiered and legacy agents count as add-on, and the customer must accept the terms explicitly before being charged.
  */
 export function numberPlanForTiers(tiers: Array<string | null | undefined>, opts: { legacyFlatRate?: boolean } = {}): NumberPlan {
   const known = tiers.filter(isTierId);
-  if (known.includes('pro')) return { kind: 'included' };
   if (known.some((t) => (NUMBER_ADDON_TIERS as readonly string[]).includes(t))) return { kind: 'addon' };
   return opts.legacyFlatRate === true ? { kind: 'included' } : { kind: 'addon' };
 }
@@ -140,6 +138,6 @@ export function publicNumberAddOn() {
       inboundCentsPerMinute: NUMBER_ADDON_PRICES[c].inboundCentsPerMinute,
       terms: numberAddOnTerms(c),
     })),
-    note: 'Pro includes phone numbers. On Lite and Standard (and any new workspace without a Pro agent) you can bring your own number or buy one from us on the premium Twilio carrier or the lower-priced Telnyx carrier. Outbound calling uses your own carrier.',
+    note: 'Phone numbers are a paid extra on every plan. Bring your own number or carrier for free, or buy a number from us on the premium Twilio carrier or the lower-priced Telnyx carrier. Outbound calling uses your own carrier.',
   };
 }

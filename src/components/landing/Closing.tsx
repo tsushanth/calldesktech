@@ -10,7 +10,7 @@ import {
 import { MESH } from './gradient';
 import { Reveal } from './Reveal';
 import { DailyFootage } from './DailyFootage';
-import { HEADLINE_WITH_QUALIFIER, ADD_ONS_LINE } from '@/lib/pricingCopy';
+import { HEADLINE_WITH_QUALIFIER, ADD_ONS_LINE, PHONE_NUMBERS_LINE } from '@/lib/pricingCopy';
 
 /**
  * FAQ, final CTA and footer.
@@ -56,7 +56,7 @@ const FAQS = [
   },
   {
     q: 'How much does it cost?',
-    a: `${HEADLINE_WITH_QUALIFIER} On Lite and Standard you bring your own phone carrier and pay it directly; Pro includes phone numbers and calling. Transfers, DTMF, testing and monitoring are included, with no per-booking or per-transfer fees. ${ADD_ONS_LINE} Customers on an earlier flat per-minute price keep it.`,
+    a: `${HEADLINE_WITH_QUALIFIER} Every plan is bring-your-own carrier. ${PHONE_NUMBERS_LINE} Transfers, DTMF, testing and monitoring are included on every plan, with no per-booking or per-transfer fees. ${ADD_ONS_LINE} Customers on an earlier flat per-minute price keep it.`,
   },
   {
     q: 'Can I turn a capability off later?',

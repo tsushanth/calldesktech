@@ -9,7 +9,7 @@ import { carrierOfRow, createdBeforeTiers, numberPlanForTiers, requireNumberPric
 // a metered item added once per subscription and reported by the daily usage cron. Both are always set from the database count (an absolute
 // target), never "+1" or "-1", so a retry, a double click or a half-finished earlier attempt converges on the right quantity.
 // calldesk_phone_numbers.addon_billed marks the numbers that were bought under the add-on: numbers bought before it existed, and every
-// number a Pro tenant buys, stay unbilled.
+// number a legacy flat-rate tenant buys, stay unbilled.
 
 /** The add-on plan for a tenant, from the latest version of each of its agents and its creation date. Fails closed on query errors (throws). */
 export async function tenantNumberPlan(supabase: SupabaseClient, tenantId: string): Promise<NumberPlan> {

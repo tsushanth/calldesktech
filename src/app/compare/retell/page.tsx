@@ -29,7 +29,7 @@ const ROWS: { group: string; item: string; verdict: Verdict; note: string }[] = 
   { group: 'Tools & data', item: 'MCP server authentication', verdict: 'Ahead', note: 'Real OAuth 2.1 login for external MCP clients. Retell’s is unconfirmed beyond existing.' },
   { group: 'Tools & data', item: 'Knowledge base, custom functions, calendar booking', verdict: 'Have', note: 'Comparable depth on both sides.' },
   { group: 'After the call', item: 'Customizable dashboards', verdict: 'Gap', note: 'Retell shipped user-configurable dashboards; ours aren’t configurable yet.' },
-  { group: 'Pricing', item: 'Price per minute', verdict: 'Have', note: `${HEADLINE_WITH_QUALIFIER} Retell lists $0.07 to $0.31 per minute depending on configuration, and its own pricing-page example comes to about $0.11 per minute. The ranges overlap, so this is a comparison of structure rather than a win either way: our tiers bundle the language model and voice into one per-minute rate, and Pro adds phone numbers.` },
+  { group: 'Pricing', item: 'Price per minute', verdict: 'Have', note: `${HEADLINE_WITH_QUALIFIER} Retell lists $0.07 to $0.31 per minute depending on configuration, and its own pricing-page example comes to about $0.11 per minute. The ranges overlap, so this is a comparison of structure rather than a win either way: our tiers bundle the language model and voice into one per-minute rate, and phone numbers are a priced extra on every plan.` },
   { group: 'Pricing', item: 'Free tier', verdict: 'Gap', note: 'Retell gives new accounts $10 in credit and 20 free concurrent calls. We don’t have a free tier yet.' },
   { group: 'Team & access', item: 'White-labeling', verdict: 'Neither', note: 'Confirmed absent on both sides.' },
 ];
@@ -59,8 +59,8 @@ export default function RetellComparePage() {
             <p className="mt-2 text-[32px] font-normal tracking-[-0.03em] text-[#00122e]">{LIVE_RANGE}<span className="text-[15px] text-gray-400">/min</span></p>
           </div>
           <div className="rounded-xl border border-gray-200 p-6">
-            <p className="text-[13px] font-medium text-gray-400">Phone service</p>
-            <p className="mt-2 text-[20px] font-normal leading-[1.3] tracking-[-0.03em] text-[#00122e]">Included on Pro; {CARRIER_SHORT.replace(' on Lite and Standard', '')} on Lite and Standard</p>
+            <p className="text-[13px] font-medium text-gray-400">Phone numbers</p>
+            <p className="mt-2 text-[20px] font-normal leading-[1.3] tracking-[-0.03em] text-[#00122e]">{CARRIER_SHORT.charAt(0).toUpperCase() + CARRIER_SHORT.slice(1)}</p>
           </div>
           <div className="rounded-xl border border-gray-200 p-6">
             <p className="text-[13px] font-medium text-gray-400">Retell, published list price</p>

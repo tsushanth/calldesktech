@@ -1,8 +1,9 @@
 import type { ReactNode } from 'react';
 import Link from 'next/link';
-import { PRICING_TIERS, ADD_ONS, CARRIER_NOTE, type TierId } from '@/lib/pricingTiers';
+import { PRICING_TIERS, CARRIER_NOTE, type TierId } from '@/lib/pricingTiers';
 import { LITE_CENTS, centsLabel } from '@/lib/pricingCopy';
 import { PricingCalculator } from '@/components/pricing/PricingCalculator';
+import { ExtrasSection, IncludedOnEveryPlan, TierRatingRows } from '@/components/pricing/PricingParts';
 
 // Server-rendered body of /pricing. `cta` is the checkout button (a client island, see GetStartedButton) so everything else is plain HTML.
 export function PricingContent({ cta, planCta }: { cta: ReactNode; planCta?: (plan: TierId) => ReactNode }) {
@@ -19,7 +20,7 @@ export function PricingContent({ cta, planCta }: { cta: ReactNode; planCta?: (pl
               Three plans, one rule: you pay for talk time only. No monthly minimum and no per-booking or per-transfer fees.
             </p>
             <p className="mt-4 max-w-[34rem] text-[15px] leading-[1.55] text-gray-500">
-              The plans are priced the way other per-minute voice platforms such as ThunderPhone price theirs: a rate for the agent, with your phone carrier billed separately unless it is included.{' '}
+              The plans are priced the way other per-minute voice platforms such as ThunderPhone price theirs: a rate for the agent, with your phone carrier billed separately.{' '}
               <Link href="/compare/thunderphone" className="text-[#00122e] underline underline-offset-4 hover:text-blue-600">See the comparison</Link>.
             </p>
           </div>
@@ -45,19 +46,10 @@ export function PricingContent({ cta, planCta }: { cta: ReactNode; planCta?: (pl
                   <span className="text-5xl font-normal tracking-[-0.05em]">${(t.pricePerMinuteCents / 100).toFixed(2)}</span>
                   <span className="text-gray-500"> per minute</span>
                 </p>
-                <p className="mt-1 text-[13px] text-gray-500">{t.carrierMode === 'byo' ? 'Phone carrier billed separately*' : 'Phone numbers and calling included'}</p>
+                <p className="mt-1 text-[13px] text-gray-500">Phone carrier billed separately*</p>
                 <p className="mt-4 text-[15px] leading-[1.5] text-gray-700">{t.tagline}</p>
                 <p className="mt-2 text-[13px] leading-[1.5] text-gray-500">{t.whoItsFor}</p>
-                <ul className="mt-5 space-y-3">
-                  {t.includes.map((item) => (
-                    <li key={item} className="flex items-start gap-3 text-[14px] leading-[1.45] text-gray-700">
-                      <svg className="mt-0.5 h-4 w-4 flex-shrink-0 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                      </svg>
-                      <span>{item}</span>
-                    </li>
-                  ))}
-                </ul>
+                <TierRatingRows tier={t} className="mt-5" />
                 {soon && <p className="mt-auto pt-5 text-[13px] font-medium text-gray-500">Not available to start yet.</p>}
                 {!soon && planCta && <div className="mt-auto pt-6" data-testid={`plan-cta-${t.id}`}>{planCta(t.id)}</div>}
               </section>
@@ -66,26 +58,12 @@ export function PricingContent({ cta, planCta }: { cta: ReactNode; planCta?: (pl
         </div>
 
         <p className="mx-auto mt-6 max-w-3xl text-center text-[14px] leading-[1.55] text-gray-600" data-testid="voice-quality-note">
-          The plans differ mostly in the voice. Standard and Pro use our most natural, expressive voices. Lite uses our efficient voice, built for fast, high-volume calls at the lowest price.
+          The plans are the engine and nothing else: Lite uses our efficient voice, built for fast, high-volume calls at the lowest price; Standard and Pro use our natural and most expressive voices with stronger reasoning.
         </p>
         <p className="mx-auto mt-3 max-w-3xl text-center text-[13px] leading-[1.5] text-gray-500">*{CARRIER_NOTE}</p>
 
-        {/* Add-ons */}
-        <section aria-labelledby="addons-heading" className="mx-auto mt-14 max-w-3xl">
-          <h2 id="addons-heading" className="text-[24px] font-semibold tracking-[-0.02em] text-[#00122e]">Optional add-ons, coming soon</h2>
-          <p className="mt-2 text-[14px] leading-[1.5] text-gray-500">Included on every plan: call summary, transcript and structured field extraction. The add-ons below are planned extras that cannot be bought yet; amounts will be announced when they launch.</p>
-          <ul className="mt-4 divide-y divide-gray-100 rounded-xl border border-gray-200">
-            {ADD_ONS.map((a) => (
-              <li key={a.id} className="flex flex-col gap-1 p-4 sm:flex-row sm:items-start sm:justify-between sm:gap-6">
-                <div className="min-w-0">
-                  <p className="text-[15px] font-medium text-[#00122e]">{a.label}{!a.defaultOn && <span className="ml-2 text-[12px] font-normal text-gray-400">off by default</span>}</p>
-                  <p className="mt-0.5 text-[13px] leading-[1.45] text-gray-500">{a.description}</p>
-                </div>
-                <p className="flex-none text-[13px] text-gray-500">Coming soon</p>
-              </li>
-            ))}
-          </ul>
-        </section>
+        <IncludedOnEveryPlan />
+        <ExtrasSection />
 
         {/* Get started: unchanged checkout */}
         <div className="mt-12 flex flex-col items-center gap-3">

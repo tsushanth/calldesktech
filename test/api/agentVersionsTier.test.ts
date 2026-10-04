@@ -67,15 +67,15 @@ it('without a tier nothing changes: no tier columns written, voice price synced 
 it('tier standard derives the models, records the tier, and leaves the subscription voice price alone', async () => {
   const res = await post({ tier: 'standard' });
   expect(res.status).toBe(201);
-  expect(inserted).toMatchObject({ tier: 'standard', tier_overrides: null, llm_model: 'claude-haiku-4-5-20251001', tts_backend: 'elevenlabs', tts_model: 'eleven_flash_v2_5' });
+  expect(inserted).toMatchObject({ tier: 'standard', tier_overrides: null, llm_model: 'gemini-3.1-flash-lite', tts_backend: 'elevenlabs', tts_model: 'eleven_flash_v2_5' });
   expect(syncVoicePriceForTenant).not.toHaveBeenCalled();
   expect(ensureTierItemForTenant).toHaveBeenCalledWith('t1', 'standard');
 });
 
 it('explicit overrides win and are recorded', async () => {
-  const res = await post({ tier: 'pro', llmModel: 'claude-sonnet-4-6' });
+  const res = await post({ tier: 'pro', llmModel: 'claude-haiku-4-5-20251001' });
   expect(res.status).toBe(201);
-  expect(inserted).toMatchObject({ tier: 'pro', llm_model: 'claude-sonnet-4-6', tts_model: 'eleven_v4_turbo', tier_overrides: ['llmModel'] });
+  expect(inserted).toMatchObject({ tier: 'pro', llm_model: 'claude-haiku-4-5-20251001', tts_model: 'eleven_v4_turbo', tier_overrides: ['llmModel'] });
 });
 
 it('a non-English language still pins a voice backend with a tier', async () => {

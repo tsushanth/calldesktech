@@ -100,9 +100,9 @@ export const LEGACY_TIER_LABEL = 'Standard rate (legacy)';
 
 /**
  * Groups call logs by tier: one row per tier that has calls, tiers in catalog order, the legacy (no tier) row last. A call with a tier
- * id this code does not know is counted as legacy rather than dropped. `legacyCentsPerMinute` is the account's current flat voice rate.
+ * id this code does not know is counted as legacy rather than dropped. `legacyCentsPerMinute` is the account's current flat voice rate; `tierCentsPerMinute` is what the tenant's own tier items bill (see tierRatesFromItems), falling back to the catalog price for a tier with no item.
  */
-export function summarizeCallLogsByTier(rows: CallLogRow[], legacyCentsPerMinute: number | null): TierUsageRow[] {
+export function summarizeCallLogsByTier(rows: CallLogRow[], legacyCentsPerMinute: number | null, tierCentsPerMinute: Partial<Record<TierId, number>> = {}): TierUsageRow[] {
   const bucket = new Map<TierId | null, CallLogRow[]>();
   for (const r of rows) {
     const key: TierId | null = isTierId(r.tier) ? r.tier : null;
@@ -113,7 +113,8 @@ export function summarizeCallLogsByTier(rows: CallLogRow[], legacyCentsPerMinute
     const group = bucket.get(t);
     if (!group) continue;
     const sum = summarizeCallLogs(group);
-    const centsPerMinute = t ? PRICING_TIERS.find((p) => p.id === t)!.pricePerMinuteCents : legacyCentsPerMinute;
+    // A tenant's own tier item (the price it subscribed at) wins over the current catalog price, so a repricing never shows a grandfathered tenant a wrong charge.
+    const centsPerMinute = t ? (tierCentsPerMinute[t] ?? PRICING_TIERS.find((p) => p.id === t)!.pricePerMinuteCents) : legacyCentsPerMinute;
     out.push({
       tier: t,
       label: t ? PRICING_TIERS.find((p) => p.id === t)!.name : LEGACY_TIER_LABEL,
@@ -134,9 +135,10 @@ export async function getTenantUsageByTierSince(
   tenantId: string,
   since: Date | null,
   legacyCentsPerMinute: number | null,
+  tierCentsPerMinute: Partial<Record<TierId, number>> = {},
   until: Date = new Date()
 ): Promise<TierUsageRow[]> {
-  return summarizeCallLogsByTier(await fetchCallLogs(supabase, tenantId, since, until), legacyCentsPerMinute);
+  return summarizeCallLogsByTier(await fetchCallLogs(supabase, tenantId, since, until), legacyCentsPerMinute, tierCentsPerMinute);
 }
 
 export type UsageSplit = {

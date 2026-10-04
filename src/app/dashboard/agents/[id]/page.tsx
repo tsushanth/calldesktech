@@ -1250,7 +1250,7 @@ export default function AgentBuilderPage() {
                     <>
                       {tier && (
                         <div className="flex items-center justify-between px-1 text-[12.5px]">
-                          <span className="text-gray-500">Price</span>
+                          <span className="text-gray-500">List price</span>
                           <span className="font-medium text-[#1a1d29]">${((tierById(tier)?.pricePerMinuteCents ?? 0) / 100).toFixed(2)}/min</span>
                         </div>
                       )}

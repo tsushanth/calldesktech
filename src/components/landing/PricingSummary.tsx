@@ -1,7 +1,9 @@
 import { Eyebrow, PrimaryButton, SecondaryButton, Section, SectionTitle } from './primitives';
 import { Reveal } from './Reveal';
 import { PRICING_TIERS } from '@/lib/pricingTiers';
-import { ADD_ONS_LINE, HEADLINE, QUALIFIER, centsLabel } from '@/lib/pricingCopy';
+import { ADD_ONS_LINE, HEADLINE, PHONE_NUMBERS_LINE, QUALIFIER, centsLabel } from '@/lib/pricingCopy';
+import { INCLUDED_ON_ALL } from '@/lib/pricingTiers';
+import { TierRatingRows } from '@/components/pricing/PricingParts';
 
 // Home-page pricing summary. Every number comes from src/lib/pricingTiers.ts (via pricingCopy.ts); the full detail lives on /pricing.
 // The headline price is never shown without the "coming soon" qualifier.
@@ -28,12 +30,12 @@ export function PricingSummary() {
                 <span className="text-[14px] text-gray-400"> / min</span>
               </p>
               <p className="mt-2 text-[14px] leading-[1.45] text-gray-500">{t.tagline}</p>
-              <p className="mt-3 text-[12.5px] text-gray-400">{t.carrierMode === 'byo' ? 'Bring your own phone carrier, billed separately' : 'Phone numbers and calling included'}</p>
+              <TierRatingRows tier={t} className="mt-4" />
             </div>
           ))}
         </div>
         <p className="mt-5 max-w-[680px] text-[13.5px] leading-[1.5] text-gray-500">
-          Transfers, DTMF, testing and monitoring are included in the per-minute rate, with no per-booking or per-transfer fees. Managed phone numbers are available for Lite and Standard. {ADD_ONS_LINE}
+          Included on every plan: {INCLUDED_ON_ALL.join('; ')}. No per-booking or per-transfer fees. {PHONE_NUMBERS_LINE} {ADD_ONS_LINE}
         </p>
         <div className="mt-6 flex flex-wrap gap-3">
           <PrimaryButton href="/pricing" size="lg">See full pricing</PrimaryButton>

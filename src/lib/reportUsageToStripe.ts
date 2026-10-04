@@ -143,7 +143,7 @@ export async function reportTenantUsageToStripe(
     };
   }
 
-  // Premium number add-on: inbound seconds to numbers bought under the add-on, on a separate meter per carrier. Pro tenants are never
+  // Premium number add-on: inbound seconds to numbers bought under the add-on, on a separate meter per carrier. Legacy flat-rate tenants are never
   // reported (numbers included). A billed number whose inbound price is not configured fails the tenant loudly, like an unconfigured tier.
   let numberInbound: Awaited<ReturnType<typeof getTenantNumberInboundUsageSince>> = [];
   try {

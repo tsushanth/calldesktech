@@ -6,10 +6,10 @@ Status: investigation notes for the owner. Customer-facing prices only; no provi
 
 ## What the tier layer does today (this branch)
 
-- `src/lib/pricingTiers.ts` is the single source of truth for Lite 2c, Standard 6c, Pro 10c per minute and the proposed add-ons.
+- `src/lib/pricingTiers.ts` is the single source of truth for Lite 2c, Standard 5c, Pro 9c per minute and the proposed add-ons.
 - Publishing a version with `tier` records the tier on the version row and derives the language model and voice from it. Nothing is billed differently: **no Stripe price, meter, table or invoice line knows about tiers yet.**
-- A version published with a tier deliberately skips `syncVoicePriceForTenant`, because that function would swap the subscription's voice price to the legacy rate of the tier's voice backend (for Standard that is the $0.12 ElevenLabs line, double the advertised 6c). The subscription's voice price simply stays as it was.
-- Net effect until the work below is done: the pricing page and tier picker advertised prices that no invoice reflects (superseded by docs/tiered-billing.md, which wires billing). Do not deploy the pricing page or the picker before billing is wired, or customers will be shown 6c and billed whatever their subscription already says.
+- A version published with a tier deliberately skips `syncVoicePriceForTenant`, because that function would swap the subscription's voice price to the legacy rate of the tier's voice backend (for Standard that is the $0.12 ElevenLabs line, more than double the advertised Standard price). The subscription's voice price simply stays as it was.
+- Net effect until the work below is done: the pricing page and tier picker advertised prices that no invoice reflects (superseded by docs/tiered-billing.md, which wires billing). Do not deploy the pricing page or the picker before billing is wired, or customers will be shown the tier price and billed whatever their subscription already says.
 
 ## How usage is billed today
 
@@ -30,11 +30,11 @@ Database (draft migration `supabase/migrations/064_agent_version_tier.sql`, not 
 
 Stripe:
 
-- New metered prices on a per-minute basis for each purchasable tier: Standard 6c and Pro 10c now, Lite 2c when it opens. Prices are immutable in Stripe, so any later change is a new price.
+- New metered prices on a per-minute basis for each purchasable tier: Standard 5c and Pro 9c now (repriced from 6c and 10c; existing subscriptions keep their price, see docs/tiered-billing.md, Grandfathering), Lite 2c when it opens. Prices are immutable in Stripe, so any later change is a new price.
 - Either one meter per tier, or one meter with a tier dimension (Stripe meters support dimensions; confirm the meter's `dimension_payload_keys` before relying on it). The current voice meter is seconds-based, so keep the unit.
 - Per-tier prices need checkout and the subscription to hold more than one voice line at the same time if one account can run more than one tier. Today the code assumes exactly one voice line and swaps it.
 - Add-on prices and meters (or flat line items) once the owner sets amounts. All four add-ons are placeholders (`proposed: true`, no amount), and nothing is billed for them now.
-- Carrier: Lite and Standard are "bring your own carrier", Pro includes phone service. The existing platform sells phone numbers and has no way to connect a customer's own carrier (SIP trunking is listed as "not yet" in `src/lib/compareData.ts`; the numbers route only records a "ported" number that has to forward to one of ours). **Standard and Lite cannot honestly be sold as engine-only until a bring-your-own-carrier path exists**, otherwise those calls still run over our phone service at a price that does not cover it.
+- Carrier: every tier is "bring your own carrier" (Pro no longer includes phone service); phone numbers from us are a paid extra on every plan. The existing platform sells phone numbers and has no way to connect a customer's own carrier (SIP trunking is listed as "not yet" in `src/lib/compareData.ts`; the numbers route only records a "ported" number that has to forward to one of ours). **Standard and Lite cannot honestly be sold as engine-only until a bring-your-own-carrier path exists**, otherwise those calls still run over our phone service at a price that does not cover it.
 
 Code:
 
