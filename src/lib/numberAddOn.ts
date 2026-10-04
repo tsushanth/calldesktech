@@ -2,19 +2,20 @@ import type { TierId } from '@/lib/pricingTiers';
 import { isTierId } from '@/lib/pricingTiers';
 
 // Premium phone numbers: an add-on for the bring-your-own-carrier tiers. A Lite or Standard customer may buy a number from us instead of
-// bringing their own. The number is carried on our Twilio ("premium") carrier and billed as $2.00 per month per number plus 1.5 cents per
-// minute of INBOUND calls to those numbers (the Twilio carrier surcharge, on top of the plan's per-minute price). Outbound stays
+// bringing their own, on our Twilio ("premium") or Telnyx ("value") carrier, billed per month per number plus a per-minute amount for
+// INBOUND calls to those numbers (the carrier surcharge, on top of the plan's per-minute price). Outbound stays
 // bring-your-own carrier: it is neither provided nor billed here.
 //
 // Pro includes phone service, so Pro is never charged for a number (see numberPlanForTiers).
 //
-// Designed per carrier: a cheaper Telnyx option will be added later. To add it, extend NumberCarrier, then fill in NUMBER_ADDON_PRICES,
-// NUMBER_PRICE_ENV and NUMBER_INBOUND_METER_EVENT for it. Nothing else here assumes Twilio.
+// Two carriers: Twilio (premium, $2.00 + 1.5 cents) and Telnyx (value, $1.00 + 1 cent). Each has its own Stripe prices and inbound meter,
+// so a customer holding numbers on both is billed each correctly. To add a carrier, extend NumberCarrier and fill in NUMBER_ADDON_PRICES,
+// NUMBER_PRICE_ENV and NUMBER_INBOUND_METER_EVENT for it.
 //
 // Customer-facing prices only.
 
-export type NumberCarrier = 'twilio';
-export const NUMBER_CARRIERS: readonly NumberCarrier[] = ['twilio'];
+export type NumberCarrier = 'twilio' | 'telnyx';
+export const NUMBER_CARRIERS: readonly NumberCarrier[] = ['twilio', 'telnyx'];
 export const DEFAULT_NUMBER_CARRIER: NumberCarrier = 'twilio';
 
 /** The tiers that buy a number as a paid add-on. Pro is deliberately absent (numbers included). To make Pro pay too, add 'pro' here and nowhere else. */
@@ -31,16 +32,19 @@ export type NumberCarrierPrice = {
 
 export const NUMBER_ADDON_PRICES: Record<NumberCarrier, NumberCarrierPrice> = {
   twilio: { label: 'Twilio carrier (premium)', monthlyCents: 200, inboundCentsPerMinute: 1.5 },
+  telnyx: { label: 'Telnyx carrier (value)', monthlyCents: 100, inboundCentsPerMinute: 1 },
 };
 
 /** Stripe price env vars per carrier: a licensed monthly price (quantity = numbers) and a metered inbound price (reported in whole seconds). */
 export const NUMBER_PRICE_ENV: Record<NumberCarrier, { monthly: string; inbound: string }> = {
   twilio: { monthly: 'STRIPE_PRICE_NUMBER_TWILIO_MONTHLY', inbound: 'STRIPE_PRICE_NUMBER_TWILIO_INBOUND' },
+  telnyx: { monthly: 'STRIPE_PRICE_NUMBER_TELNYX_MONTHLY', inbound: 'STRIPE_PRICE_NUMBER_TELNYX_INBOUND' },
 };
 
 /** Stripe meter event name per carrier for inbound seconds. Same unit and customer mapping as the voice meters. */
 export const NUMBER_INBOUND_METER_EVENT: Record<NumberCarrier, string> = {
   twilio: 'calldesktech_number_inbound_seconds_twilio',
+  telnyx: 'calldesktech_number_inbound_seconds_telnyx',
 };
 
 export function isNumberCarrier(v: unknown): v is NumberCarrier {
@@ -62,7 +66,7 @@ function centsText(c: number): string {
 
 export function numberAddOnTerms(carrier: NumberCarrier = DEFAULT_NUMBER_CARRIER): string {
   const p = NUMBER_ADDON_PRICES[carrier];
-  return `${dollars(p.monthlyCents)} per month for each number, plus ${centsText(p.inboundCentsPerMinute)} per minute of inbound calls to your purchased numbers (${p.label} surcharge), added to your plan's per-minute price. Outbound calls use your own carrier and are not billed here.`;
+  return `${dollars(p.monthlyCents)} per month for each number, plus ${centsText(p.inboundCentsPerMinute)} per minute of inbound calls to your purchased numbers (${carrier === 'telnyx' ? 'Telnyx' : 'Twilio'} carrier charge), added to your plan's per-minute price. Outbound calls use your own carrier and are not billed here.`;
 }
 
 export type NumberPlan = { kind: 'included' } | { kind: 'addon' };
@@ -118,6 +122,6 @@ export function publicNumberAddOn() {
       inboundCentsPerMinute: NUMBER_ADDON_PRICES[c].inboundCentsPerMinute,
       terms: numberAddOnTerms(c),
     })),
-    note: 'Pro includes phone numbers. On Lite and Standard you can bring your own number or buy a premium Twilio-carrier number from us. Outbound calling uses your own carrier.',
+    note: 'Pro includes phone numbers. On Lite and Standard you can bring your own number or buy one from us on the premium Twilio carrier or the lower-priced Telnyx carrier. Outbound calling uses your own carrier.',
   };
 }

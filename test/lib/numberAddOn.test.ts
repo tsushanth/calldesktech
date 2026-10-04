@@ -27,11 +27,22 @@ describe('number add-on config', () => {
   it('the shared carrier note quotes the same amounts as the config', () => {
     expect(CARRIER_NOTE).toContain(`$${(NUMBER_ADDON_PRICES.twilio.monthlyCents / 100).toFixed(2)} per month per number`);
     expect(CARRIER_NOTE).toContain(`${NUMBER_ADDON_PRICES.twilio.inboundCentsPerMinute} cents per minute of inbound`);
+    expect(CARRIER_NOTE).toContain(`$${(NUMBER_ADDON_PRICES.telnyx.monthlyCents / 100).toFixed(2)} per month plus ${NUMBER_ADDON_PRICES.telnyx.inboundCentsPerMinute} cent per minute of inbound`);
+  });
+
+  it('Telnyx (value) prices: $1.00 per month per number and 1 cent per inbound minute', () => {
+    expect(NUMBER_ADDON_PRICES.telnyx.monthlyCents).toBe(100);
+    expect(NUMBER_ADDON_PRICES.telnyx.inboundCentsPerMinute).toBe(1);
+    expect(numberAddOnTerms('telnyx')).toMatch(/\$1\.00 per month for each number/);
+    expect(numberAddOnTerms('telnyx')).toMatch(/1 cent per minute of inbound/);
+    expect(numberAddOnTerms('telnyx')).not.toMatch(/1 cents/);
   });
 
   it('maps each carrier to its Stripe price env vars and meter event', () => {
     expect(NUMBER_PRICE_ENV.twilio).toEqual({ monthly: 'STRIPE_PRICE_NUMBER_TWILIO_MONTHLY', inbound: 'STRIPE_PRICE_NUMBER_TWILIO_INBOUND' });
     expect(NUMBER_INBOUND_METER_EVENT.twilio).toBe('calldesktech_number_inbound_seconds_twilio');
+    expect(NUMBER_PRICE_ENV.telnyx).toEqual({ monthly: 'STRIPE_PRICE_NUMBER_TELNYX_MONTHLY', inbound: 'STRIPE_PRICE_NUMBER_TELNYX_INBOUND' });
+    expect(NUMBER_INBOUND_METER_EVENT.telnyx).toBe('calldesktech_number_inbound_seconds_telnyx');
   });
 
   it('the add-on tiers are the bring-your-own tiers, never a managed (Pro) tier; Lite is NOT blocked', () => {
@@ -49,7 +60,8 @@ describe('number add-on config', () => {
   it('a null or empty stored carrier means twilio; an unknown carrier is not billable', () => {
     expect(carrierOfRow(null)).toBe('twilio');
     expect(carrierOfRow('twilio')).toBe('twilio');
-    expect(carrierOfRow('telnyx')).toBeNull();
+    expect(carrierOfRow('telnyx')).toBe('telnyx');
+    expect(carrierOfRow('vonage')).toBeNull();
   });
 
   it('inbound meter identifiers stay within 100 characters', () => {

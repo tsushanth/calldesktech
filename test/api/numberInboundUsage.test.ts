@@ -108,3 +108,29 @@ it('a tenant with no purchased numbers reports exactly what it did before', asyn
   await reportTenantUsageToStripe(makeNumberDb(seed) as never, stripe, tenant, biz, NOW);
   expect(create.mock.calls.map((c) => c[0].event_name)).toEqual(['calldesktech_voice_seconds_standard']);
 });
+
+it('numbers on both carriers report to their own meters', async () => {
+  process.env.STRIPE_PRICE_NUMBER_TELNYX_MONTHLY = 'price_tm';
+  process.env.STRIPE_PRICE_NUMBER_TELNYX_INBOUND = 'price_ti';
+  const N2 = '+14155550200';
+  const seedDb = base([log({ duration_seconds: 120 }), log({ duration_seconds: 60, to_number: N2 })]);
+  seedDb.calldesk_phone_numbers.push({ id: 'n2', tenant_id: 't1', number: N2, source: 'purchased', carrier: 'telnyx', addon_billed: true });
+  const db = makeNumberDb(seedDb);
+  const { stripe, create } = meterStripe();
+  const res = await reportTenantUsageToStripe(db as never, stripe, tenant, biz, NOW);
+  expect(res.status).toBe('reported');
+  const byName = Object.fromEntries(create.mock.calls.map((c) => [c[0].event_name, c[0]]));
+  expect(byName['calldesktech_number_inbound_seconds_twilio'].payload.value).toBe('120');
+  expect(byName['calldesktech_number_inbound_seconds_telnyx'].payload.value).toBe('60');
+  expect(byName['calldesktech_number_inbound_seconds_telnyx'].identifier).toMatch(/:number_inbound_telnyx:/);
+});
+
+it('Telnyx inbound calls with the Telnyx inbound price unset fail the tenant loudly', async () => {
+  delete process.env.STRIPE_PRICE_NUMBER_TELNYX_INBOUND;
+  const seedDb = base([log({ duration_seconds: 60, to_number: '+14155550200' })]);
+  seedDb.calldesk_phone_numbers = [{ id: 'n2', tenant_id: 't1', number: '+14155550200', source: 'purchased', carrier: 'telnyx', addon_billed: true }];
+  const { stripe, create } = meterStripe();
+  const res = await reportTenantUsageToStripe(makeNumberDb(seedDb) as never, stripe, tenant, biz, NOW);
+  expect(res.status).toBe('error');
+  expect(create).not.toHaveBeenCalled();
+});

@@ -208,6 +208,62 @@ it('legacy tenants (no tier) are unchanged and not blocked', async () => {
 it('rejects an unknown carrier', async () => {
   const db = makeNumberDb(seed('standard'));
   vi.mocked(getSupabaseAdmin).mockReturnValue(db as never);
-  const res = await post({ carrier: 'telnyx', acceptNumberAddOn: true });
+  const res = await post({ carrier: 'vonage', acceptNumberAddOn: true });
   expect(res.status).toBe(400);
+});
+
+const T_MONTHLY = 'price_test_telnyx_monthly';
+const T_INBOUND = 'price_test_telnyx_inbound';
+
+it('telnyx: the engine is asked for a telnyx number and the Telnyx prices (not Twilio) are attached', async () => {
+  process.env.STRIPE_PRICE_NUMBER_TELNYX_MONTHLY = T_MONTHLY;
+  process.env.STRIPE_PRICE_NUMBER_TELNYX_INBOUND = T_INBOUND;
+  const db = makeNumberDb(seed('lite'));
+  const { stripe, calls } = makeFakeStripe([]);
+  vi.mocked(getSupabaseAdmin).mockReturnValue(db as never);
+  vi.mocked(getStripe).mockReturnValue(stripe as never);
+  engineBuys();
+  const res = await post({ carrier: 'telnyx', acceptNumberAddOn: true });
+  expect(res.status).toBe(201);
+  expect(JSON.parse((fetchMock.mock.calls[0][1] as { body: string }).body)).toMatchObject({ carrier: 'telnyx' });
+  expect(calls.map((c) => (c.args[0] as { price: string }).price).sort()).toEqual([T_INBOUND, T_MONTHLY].sort());
+  expect(db.tables.calldesk_phone_numbers[0]).toMatchObject({ carrier: 'telnyx', source: 'purchased', addon_billed: true });
+});
+
+it('telnyx: without acceptance the 400 quotes the Telnyx terms', async () => {
+  const db = makeNumberDb(seed('standard'));
+  vi.mocked(getSupabaseAdmin).mockReturnValue(db as never);
+  const res = await post({ carrier: 'telnyx' });
+  const body = await res.json();
+  expect(res.status).toBe(400);
+  expect(body).toMatchObject({ code: 'number_addon_acceptance_required', carrier: 'telnyx', monthlyCents: 100, inboundCentsPerMinute: 1 });
+  expect(body.terms).toMatch(/\$1\.00 per month/);
+});
+
+it('telnyx: not configured fails closed (503) even though Twilio is configured, buying nothing', async () => {
+  delete process.env.STRIPE_PRICE_NUMBER_TELNYX_MONTHLY;
+  delete process.env.STRIPE_PRICE_NUMBER_TELNYX_INBOUND;
+  const db = makeNumberDb(seed('standard'));
+  const { stripe, calls } = makeFakeStripe([]);
+  vi.mocked(getSupabaseAdmin).mockReturnValue(db as never);
+  vi.mocked(getStripe).mockReturnValue(stripe as never);
+  engineBuys();
+  const res = await post({ carrier: 'telnyx', acceptNumberAddOn: true });
+  expect(res.status).toBe(503);
+  expect(calls).toHaveLength(0);
+  expect(fetchMock).not.toHaveBeenCalled();
+});
+
+it('a tenant holding a Twilio number buying a Telnyx one starts a separate quantity of 1 (counts are per carrier)', async () => {
+  process.env.STRIPE_PRICE_NUMBER_TELNYX_MONTHLY = T_MONTHLY;
+  process.env.STRIPE_PRICE_NUMBER_TELNYX_INBOUND = T_INBOUND;
+  const db = makeNumberDb(seed('standard', { calldesk_phone_numbers: [{ id: 'n1', tenant_id: 't1', number: '+14155550100', source: 'purchased', carrier: 'twilio', addon_billed: true }] }));
+  const { stripe, calls } = makeFakeStripe([{ id: 'si_m', price: { id: MONTHLY }, quantity: 1 }, { id: 'si_i', price: { id: INBOUND } }]);
+  vi.mocked(getSupabaseAdmin).mockReturnValue(db as never);
+  vi.mocked(getStripe).mockReturnValue(stripe as never);
+  engineBuys('+14155550125');
+  const res = await post({ carrier: 'telnyx', acceptNumberAddOn: true });
+  expect(res.status).toBe(201);
+  expect(calls.find((c) => (c.args[0] as { price: string }).price === T_MONTHLY)!.args[0]).toMatchObject({ quantity: 1 });
+  expect(calls.some((c) => c.op === 'update')).toBe(false); // the Twilio item is untouched
 });

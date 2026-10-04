@@ -42,6 +42,8 @@ export default function PhoneNumbersPage() {
   const [buyAreaCode, setBuyAreaCode] = useState('');
   // Set when the server says buying a number is a paid add-on (Lite/Standard): shows the terms and needs a checkbox before buying.
   const [addonTerms, setAddonTerms] = useState<string | null>(null);
+  // Carrier for a bought number: Twilio (premium, the default) or Telnyx (lower cost). Switching it re-shows the terms for that carrier.
+  const [buyCarrier, setBuyCarrier] = useState<'twilio' | 'telnyx'>('twilio');
   const [addonAccepted, setAddonAccepted] = useState(false);
   const [billingPrompt, setBillingPrompt] = useState<{ message: string; action: 'checkout' | 'billing_portal' } | null>(null);
   const [showCallModal, setShowCallModal] = useState(false);
@@ -203,7 +205,7 @@ export default function PhoneNumbersPage() {
       const res = await fetch(`/api/tenants/${tenantId}/phone-numbers/purchase`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ areaCode: buyAreaCode.trim() || undefined, ...(acceptNumberAddOn ? { acceptNumberAddOn: true } : {}) }),
+        body: JSON.stringify({ areaCode: buyAreaCode.trim() || undefined, carrier: buyCarrier, ...(acceptNumberAddOn ? { acceptNumberAddOn: true } : {}) }),
       });
       const body = await res.json();
       if (res.status === 400 && body.code === 'number_addon_acceptance_required') {
@@ -412,6 +414,19 @@ export default function PhoneNumbersPage() {
                 {isBuying ? 'Buying…' : 'Buy a number'}
               </button>
             </div>
+            <select
+              value={buyCarrier}
+              onChange={(e) => {
+                setBuyCarrier(e.target.value as 'twilio' | 'telnyx');
+                setAddonTerms(null);
+                setAddonAccepted(false);
+              }}
+              aria-label="Carrier for the new number"
+              className="w-full rounded-lg border border-gray-200 px-2.5 py-1.5 text-[13px] focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100"
+            >
+              <option value="twilio">Twilio carrier (premium)</option>
+              <option value="telnyx">Telnyx carrier (lower cost)</option>
+            </select>
             {addonTerms && (
               <label className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 p-2.5 text-[12.5px] leading-snug text-amber-900">
                 <input
@@ -421,7 +436,7 @@ export default function PhoneNumbersPage() {
                   className="mt-0.5 flex-none"
                 />
                 <span>
-                  <span className="font-medium">Premium phone number (Twilio carrier).</span> {addonTerms} Or register a number you already own, at no charge.
+                  <span className="font-medium">{buyCarrier === 'telnyx' ? 'Phone number (Telnyx carrier).' : 'Premium phone number (Twilio carrier).'}</span> {addonTerms} Or register a number you already own, at no charge.
                   <span className="mt-1 block">I understand and accept these charges.</span>
                 </span>
               </label>

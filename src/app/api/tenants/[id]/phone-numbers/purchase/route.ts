@@ -12,6 +12,7 @@ import {
   numberAddOnTerms,
   requireNumberPriceIds,
   NUMBER_CARRIERS,
+  type NumberCarrier,
 } from '@/lib/numberAddOn';
 import { billedNumberCount, setNumberAddOnCount, tenantNumberPlan } from '@/lib/numberAddOnBilling';
 
@@ -30,7 +31,7 @@ const DEFAULT_AREA_CODE = '415';
 // through Retell for every tenant, which meant a poc-engine tenant (the
 // default for every new workspace and every dashboard-created agent) could
 // never buy a number at all — every attempt 400'd with "no Retell agent".
-async function purchaseViaPoc(areaCode: string | undefined): Promise<{ phoneNumber: string } | { error: string; status: number }> {
+async function purchaseViaPoc(areaCode: string | undefined, carrier: NumberCarrier): Promise<{ phoneNumber: string } | { error: string; status: number }> {
   const baseUrl = process.env.CALL_LOOP_POC_BASE_URL;
   const secret = process.env.CALL_LOOP_POC_TEST_CALL_SECRET;
   if (!baseUrl || !secret) {
@@ -40,7 +41,7 @@ async function purchaseViaPoc(areaCode: string | undefined): Promise<{ phoneNumb
     const res = await fetch(`${baseUrl}/purchase-number`, {
       method: 'POST',
       headers: { Authorization: `Bearer ${secret}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ areaCode }),
+      body: JSON.stringify({ areaCode, carrier }),
     });
     const body = await res.json();
     if (!res.ok) {
@@ -169,7 +170,7 @@ export async function POST(
   let phoneNumber: string | null = null;
 
   if (isPocEngine(settings)) {
-    const result = await purchaseViaPoc(requestedAreaCode || inferAreaCode(settings.phone) || DEFAULT_AREA_CODE);
+    const result = await purchaseViaPoc(requestedAreaCode || inferAreaCode(settings.phone) || DEFAULT_AREA_CODE, carrier);
     if ('error' in result) {
       await rollbackBilling();
       return NextResponse.json({ error: result.error }, { status: result.status });
