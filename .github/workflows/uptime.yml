@@ -22,6 +22,9 @@ jobs:
             if [ "$code" != "200" ]; then echo "FAIL $1: HTTP $code in ${t}s"; fail=1; else echo "ok   $1: ${t}s"; fi
           }
           probe website https://calldesk.tech/ 10
-          probe engine https://call-loop-poc.fly.dev/ 10
+          probe engine https://call-loop-poc.fly.dev/health 10
+          # the engine also reports how full it is; fail loudly when it is nearly out of memory
+          mem=$(curl -sS --max-time 10 https://call-loop-poc.fly.dev/health | sed -n 's/.*"memPct":\([0-9]*\).*/\1/p')
+          if [ -n "$mem" ] && [ "$mem" -ge 85 ]; then echo "FAIL engine memory at ${mem}%"; fail=1; fi
           # a second try for slow starts: Twilio gives a webhook only a few seconds
           exit $fail
