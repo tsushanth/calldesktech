@@ -10,7 +10,7 @@ vi.mock('@/lib/stripe', () => ({ getStripe: () => ({
 }) }));
 vi.mock('@/lib/supabase', () => ({ getSupabaseAdmin: () => ({ from: (table: string) => {
   const rows = () => (state.tables[table] ??= []);
-  let filters: [string, unknown][] = [];
+  const filters: [string, unknown][] = [];
   const api = {
     select: () => api,
     eq: (c: string, v: unknown) => { filters.push([c, v]); return api; },
