@@ -80,6 +80,9 @@ export default function OutreachLeadsPage() {
         <Link href="/admin/outreach/samples" className="rounded-lg border border-gray-300 px-3 py-1.5 text-[13px] font-medium text-gray-700 hover:bg-gray-50">
           Sample results
         </Link>
+        <Link href="/admin/outreach/deliverability" className="rounded-lg border border-gray-300 px-3 py-1.5 text-[13px] font-medium text-gray-700 hover:bg-gray-50">
+          Deliverability
+        </Link>
         <Link href="/admin/outreach/queue" className="rounded-lg border border-gray-300 px-3 py-1.5 text-[13px] font-medium text-gray-700 hover:bg-gray-50">
           Review queue
         </Link>
