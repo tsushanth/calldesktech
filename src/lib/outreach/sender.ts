@@ -166,7 +166,10 @@ export async function buildOutreachEmail(
   if (variant === 'sample' && !emailSample) variant = 'plain';
   const deckUrl = brand.deckUrl && process.env.OUTREACH_DECK_LINK !== 'off'
     ? `${brand.deckUrl}?t=${encodeURIComponent(sampleTokenFor(String(msg.id)))}` : null;
-  const { html, text } = renderOutreachEmail({ bodyText: String(msg.body_text), footer, sample: emailSample, deckUrl, utm: { campaign: campaignFor(product), step: Number(msg.step) || 1 }, site: { label: brand.siteUrl, url: /^https?:\/\//.test(brand.siteUrl) ? brand.siteUrl : `https://${brand.siteUrl}` } });
+  const appBase = (process.env.NEXT_PUBLIC_APP_URL || 'https://calldesk.tech').replace(/\/$/, '');
+  // The trial-coupon form is a Calldesk offer: not for the app brands or ReadAloud. OUTREACH_TRY_LINK=off removes it everywhere.
+  const tryUrl = brand === CALLDESK_BRAND && process.env.OUTREACH_TRY_LINK !== 'off' ? `${appBase}/try?t=${encodeURIComponent(sampleTokenFor(String(msg.id)))}` : null;
+  const { html, text } = renderOutreachEmail({ bodyText: String(msg.body_text), footer, sample: emailSample, deckUrl, tryUrl, utm: { campaign: campaignFor(product), step: Number(msg.step) || 1 }, site: { label: brand.siteUrl, url: /^https?:\/\//.test(brand.siteUrl) ? brand.siteUrl : `https://${brand.siteUrl}` } });
   return { html, text, variant, sampleId };
 }
 

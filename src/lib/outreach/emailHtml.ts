@@ -23,6 +23,8 @@ export interface RenderInput {
   // Link to the product's hosted pitch deck. Shown even when there is no sample card
   // (sample.deckUrl still wins when both are set, so it stays inside the card).
   deckUrl?: string | null;
+  // Link to the /try trial-coupon form (signed per-message token). Optional; omitted for products without a coupon offer.
+  tryUrl?: string | null;
   // When set, every link above (sample, deck, site) is UTM-tagged by the one helper in utm.ts, in both the
   // HTML and the text alternative. The footer (unsubscribe) is never tagged. Unset = links untouched.
   utm?: UtmContext;
@@ -80,6 +82,7 @@ function tagLinks(input: RenderInput): RenderInput {
     ...input,
     sample: input.sample ? { ...input.sample, url: tag(input.sample.url), deckUrl: input.sample.deckUrl ? tag(input.sample.deckUrl) : input.sample.deckUrl } : input.sample,
     deckUrl: input.deckUrl ? tag(input.deckUrl) : input.deckUrl,
+    tryUrl: input.tryUrl ? tag(input.tryUrl) : input.tryUrl,
     site: input.site ? { ...input.site, url: tag(input.site.url) } : input.site,
   };
 }
@@ -97,8 +100,11 @@ export function renderOutreachEmail(rawInput: RenderInput): { html: string; text
   const deckHtml = standaloneDeckUrl
     ? `<p style="margin:0 0 14px;font-size:13px;color:#4b5563">Prefer to read? <a href="${escapeAttr(standaloneDeckUrl)}" style="color:#2563eb">See our short deck</a>.</p>`
     : '';
+  const tryHtml = input.tryUrl
+    ? `<p style="margin:0 0 14px;font-size:13px;color:#4b5563">Want to try it? <a href="${escapeAttr(input.tryUrl)}" style="color:#2563eb">Get a trial coupon</a>.</p>`
+    : '';
   const siteHtml = site ? `<p style="margin:0 0 18px"><a href="${escapeAttr(site.url)}" style="color:#2563eb;font-weight:600;text-decoration:none">${escapeHtml(site.label)}</a></p>` : '';
-  const html = `<div style="font-family:-apple-system,Segoe UI,sans-serif;font-size:15px;line-height:1.6;color:#1a1d29;max-width:560px">${siteHtml}${paragraphs}${card}${deckHtml}${footer.html}</div>`;
+  const html = `<div style="font-family:-apple-system,Segoe UI,sans-serif;font-size:15px;line-height:1.6;color:#1a1d29;max-width:560px">${siteHtml}${paragraphs}${card}${deckHtml}${tryHtml}${footer.html}</div>`;
 
   let textSample = '';
   const deckText = standaloneDeckUrl ? `\nShort deck: ${standaloneDeckUrl}\n` : '';
@@ -107,6 +113,7 @@ export function renderOutreachEmail(rawInput: RenderInput): { html: string; text
     const body = lines.map((l) => `${l.speaker === 'caller' ? 'Caller' : 'Agent'}: ${l.text}`).join('\n');
     textSample = `\n\n${head} - ${sample.title}\n${body}\nListen to the full sample call: ${sample.url}${sample.deckUrl ? `\nShort deck: ${sample.deckUrl}` : ''}\n${sample.disclosure}`;
   }
+  const tryText = input.tryUrl ? `\nTrial coupon: ${input.tryUrl}\n` : '';
   const siteText = site ? `${site.url}\n\n` : '';
-  return { html, text: `${siteText}${bodyText}${textSample}${deckText}${footer.text}` };
+  return { html, text: `${siteText}${bodyText}${textSample}${deckText}${tryText}${footer.text}` };
 }
