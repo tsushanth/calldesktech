@@ -25,7 +25,9 @@ function publicUrl(path: string): string {
 }
 
 export async function POST(request: NextRequest) {
-  const form = await request.formData();
+  // A body that is not a form is a bad request (400), not a server error: Twilio always sends a form, so this is only ever noise.
+  const form = await request.formData().catch(() => null);
+  if (!form) return new NextResponse('Bad Request', { status: 400 });
   const params: Record<string, string> = {};
   form.forEach((v, k) => { if (typeof v === 'string') params[k] = v; });
 
