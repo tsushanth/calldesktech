@@ -22,6 +22,13 @@ describe('integrationStatus', () => {
   });
 });
 
+describe('integrationStatus: built-in defaults', () => {
+  it('reports the failure reporter as on when its variables are unset, because the code has built-in defaults', () => {
+    expect(integrationStatus({}).find((x) => x.name === 'Failure reporter')).toMatchObject({ level: 'ok', detail: 'configured (built-in defaults)' });
+    expect(integrationStatus({ FAILURE_REPORTER_URL: 'u', FAILURE_REPORTER_KEY: 'k' }).find((x) => x.name === 'Failure reporter')).toMatchObject({ level: 'ok', detail: 'configured' });
+  });
+});
+
 const base: Overview = {
   ours: { calls30: 0, workspaces: 0 },
   totals: { users: 0, workspaces: 0, agents: 0, callsAllTime: 0 },

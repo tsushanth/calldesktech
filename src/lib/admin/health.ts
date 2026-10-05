@@ -24,23 +24,24 @@ async function ping(url: string): Promise<{ level: Level; detail: string }> {
 }
 
 // Whether an integration's credentials are present. Never reads or returns the values.
-export const INTEGRATIONS: { name: string; vars: string[] }[] = [
+// `builtin`: variables the code falls back to a built-in default for (src/lib/failureReporter.ts), so a missing one is not a gap.
+export const INTEGRATIONS: { name: string; vars: string[]; builtin?: string[] }[] = [
   { name: 'Twilio (calls, SMS)', vars: ['TWILIO_ACCOUNT_SID', 'TWILIO_AUTH_TOKEN'] },
   { name: 'Anthropic (agent brain)', vars: ['ANTHROPIC_API_KEY'] },
   { name: 'ElevenLabs (voices)', vars: ['ELEVENLABS_API_KEY'] },
   { name: 'Retell', vars: ['RETELL_API_KEY'] },
   { name: 'Stripe (billing)', vars: ['STRIPE_SECRET_KEY', 'STRIPE_WEBHOOK_SECRET'] },
   { name: 'Resend (email)', vars: ['RESEND_API_KEY'] },
-  { name: 'Failure reporter', vars: ['FAILURE_REPORTER_URL', 'FAILURE_REPORTER_KEY'] },
+  { name: 'Failure reporter', vars: ['FAILURE_REPORTER_URL', 'FAILURE_REPORTER_KEY'], builtin: ['FAILURE_REPORTER_URL', 'FAILURE_REPORTER_KEY'] },
   { name: 'PostHog read key (visitor list)', vars: ['POSTHOG_PERSONAL_API_KEY'] },
 ];
 
 export function integrationStatus(env: Record<string, string | undefined> = process.env): Check[] {
   return INTEGRATIONS.map((i) => {
-    const missing = i.vars.filter((v) => !env[v]);
-    return missing.length === 0
-      ? { name: i.name, level: 'ok' as Level, detail: 'configured' }
-      : { name: i.name, level: 'off' as Level, detail: `missing ${missing.join(', ')}` };
+    const missing = i.vars.filter((v) => !env[v] && !i.builtin?.includes(v));
+    if (missing.length) return { name: i.name, level: 'off' as Level, detail: `missing ${missing.join(', ')}` };
+    const defaulted = i.vars.filter((v) => !env[v]);
+    return { name: i.name, level: 'ok' as Level, detail: defaulted.length ? 'configured (built-in defaults)' : 'configured' };
   });
 }
 
