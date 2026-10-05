@@ -28,6 +28,7 @@ import { tierById, type TierId } from '@/lib/pricingTiers';
 import { initialTierForBuilder, readStoredPlan, clearStoredPlan } from '@/lib/planSelection';
 import { LLM_MODELS, ttsModelsFor, DEFAULT_LLM_MODEL } from '@/lib/modelCatalog';
 import { carryOverFromVersion } from '@/lib/versionCarryOver';
+import { detectBookingIntent, BOOKING_WITHOUT_CALENDAR_MESSAGE } from '@/lib/bookingIntent';
 
 type DraftNode = FlowNode & { _key: string };
 
@@ -257,6 +258,19 @@ export default function AgentBuilderPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showFeedback, setShowFeedback] = useState(false);
+  // Booking hint: the flow collects appointments but the workspace has no calendar connected. Warnings returned by a publish are shown too.
+  const [calendarConnected, setCalendarConnected] = useState<boolean | null>(null);
+  const [bookingHintDismissed, setBookingHintDismissed] = useState(false);
+  const [publishWarnings, setPublishWarnings] = useState<Array<{ code: string; message: string }>>([]);
+  useEffect(() => {
+    if (!agent?.tenant_id) return;
+    let cancelled = false;
+    fetch(`/api/tenants/${agent.tenant_id}/calendar`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((b) => { if (!cancelled && b && typeof b.connected === 'boolean') setCalendarConnected(b.connected); })
+      .catch(() => { /* hint only: stay silent */ });
+    return () => { cancelled = true; };
+  }, [agent?.tenant_id]);
   // Builder funnel telemetry: opened, and every error the builder shows (validation, save, restore, promote).
   useEffect(() => { trackBuilder('builder_opened', { agent_id: agentId }); }, [agentId]);
   useEffect(() => { if (error) trackBuilder('builder_error', errorProps(error)); }, [error]);
@@ -909,6 +923,7 @@ export default function AgentBuilderPage() {
     if (!flowName.trim()) return setError('Give this version a name (Global Settings tab).');
 
     setIsSaving(true);
+    setPublishWarnings([]);
     try {
       const res = await fetch(`/api/agents/${agentId}/versions`, {
         method: 'POST',
@@ -946,6 +961,7 @@ export default function AgentBuilderPage() {
       track('agent_version_created', { voice_engine: voiceEngine });
       trackBuilder('version_published', { voice_engine: voiceEngine, node_count: cleanNodes.length, version_number: body.version.version_number });
       setShowFeedback(true);
+      setPublishWarnings(Array.isArray(body.warnings) ? body.warnings : []);
       setBasedOnVersionNumber(body.version.version_number);
       setFlowName(`v${body.version.version_number + 1}`);
       loadAgent();
@@ -1132,6 +1148,19 @@ export default function AgentBuilderPage() {
 
         {error && (
           <div className="flex-none border-b border-red-100 bg-red-50 px-5 py-2.5 text-[13px] text-red-700">{error}</div>
+        )}
+
+        {publishWarnings.map((w) => (
+          <div key={w.code} className="flex flex-none items-start justify-between gap-3 border-b border-amber-200 bg-amber-50 px-5 py-2.5 text-[13px] text-amber-800">
+            <span>Published. {w.message} <Link href="/dashboard/integrations" className="font-medium underline">Integrations</Link></span>
+            <button onClick={() => setPublishWarnings((cur) => cur.filter((x) => x.code !== w.code))} className="flex-none text-amber-700 hover:text-amber-900" aria-label="Dismiss">&times;</button>
+          </div>
+        ))}
+        {publishWarnings.length === 0 && !bookingHintDismissed && calendarConnected === false && detectBookingIntent(nodes).intends && (
+          <div className="flex flex-none items-start justify-between gap-3 border-b border-amber-200 bg-amber-50 px-5 py-2.5 text-[13px] text-amber-800">
+            <span>{BOOKING_WITHOUT_CALENDAR_MESSAGE} <Link href="/dashboard/integrations" className="font-medium underline">Open Integrations</Link></span>
+            <button onClick={() => setBookingHintDismissed(true)} className="flex-none text-amber-700 hover:text-amber-900" aria-label="Dismiss">&times;</button>
+          </div>
         )}
 
         {/* Body */}

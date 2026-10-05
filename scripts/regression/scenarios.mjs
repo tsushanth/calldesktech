@@ -292,6 +292,44 @@ SCENARIOS.push(
   },
 );
 
+// Booking intent with no calendar: the regression tenant has no calendar connection, so the engine adds its "you do not have a
+// calendar" guard and withholds check_availability/book_appointment. The agent must take the request, not pretend to book.
+const BOOKED_CLAIM = /\bis booked\b|\byou(?:'re| are) booked\b|\bconfirmed your appointment\b|\ball set for\b/i;
+const OUTRIGHT_REFUSAL = /\b(can(?:not|'t)|unable to|not able to)\s+(book|schedule|make an appointment)\b/i;
+const fieldCollected = (log, keyRe, valueRe) => {
+  // extracted_data shape is not pinned down, so accept either a matching key with a value or the agent echoing the value back.
+  const ed = log.extracted_data && typeof log.extracted_data === 'object' ? log.extracted_data : {};
+  const inData = Object.entries(ed).some(([k, v]) => keyRe.test(k) && v != null && String(v).trim() !== '');
+  return inData || valueRe.test(agentText(log));
+};
+
+SCENARIOS.push({
+  id: 'booking-no-calendar',
+  title: 'A booking flow with no calendar takes the request and never claims it booked',
+  version: {
+    startNodeId: 'greeting',
+    nodes: [
+      node('greeting', 'greeting', 'You are the receptionist for Cedar Dental. If the caller wants an appointment, say you will take their details.', { edges: [{ id: 'e1', target: 'collect', condition: 'caller wants to book an appointment' }] }),
+      node('collect', 'extraction', 'Ask for the caller name, the day and time they would prefer as a request, and a callback number. One question at a time. You cannot see a calendar: tell the caller the office will call back to confirm the time.', { extract: { name: 'string', preferred_time: 'string', callback_number: 'string' }, edges: [{ id: 'e2', target: 'goodbye', condition: 'name, preferred_time and callback_number have all been collected' }] }),
+      node('goodbye', 'goodbye', 'Repeat the request back, say the office will call to confirm, and say goodbye.'),
+    ],
+    globalSettings: {},
+  },
+  persona: 'You are Dana Whitfield. You want to book a teeth cleaning. When asked, give your name (Dana Whitfield), preferred time (next Thursday afternoon) and callback number (555 0142).' + KEEP_IT_SHORT,
+  assert: (log) => {
+    const f = []; const t = agentText(log);
+    const name = fieldCollected(log, /name/i, /dana/i);
+    const when = fieldCollected(log, /time|day|date|prefer/i, /thursday/i);
+    const phone = fieldCollected(log, /phone|number|callback/i, /555|0142|five five five/i);
+    if (!name) f.push('the caller name was not collected');
+    if (!when) f.push('the preferred day/time was not collected');
+    if (!phone) f.push('the callback number was not collected');
+    if (BOOKED_CLAIM.test(t)) f.push('the agent said the appointment is booked or confirmed, but it has no calendar');
+    if (OUTRIGHT_REFUSAL.test(t) && !(name || when || phone)) f.push('the agent only refused ("cannot book") and collected no details');
+    return f;
+  },
+});
+
 export function pick(ids) {
   // Skipped scenarios run only when asked for by id.
   if (!ids || !ids.length) return SCENARIOS.filter((s) => !s.skip);

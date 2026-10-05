@@ -31,5 +31,8 @@ version through the real API with one distinctive setting, routes a dedicated te
   call to a silent scripted callee instead. A scenario can carry `skip: reason`; skipped scenarios run only when named.
 - **Not observable from a transcript:** filler words and other audio-only behavior (the engine speaks them but they are
   not stored). Checking those needs a recording and a transcription step.
+- **No-calendar booking (`booking-no-calendar`):** the regression tenant has no calendar connection, so this is the path where a booking flow
+  must take a request (name, preferred time, callback number) and never claim an appointment is booked. One call; connecting a calendar to
+  the regression tenant would invalidate it.
 - **Known issues are scenarios too:** `knownIssue` marks a check that fails today (it is expected to); the run reports
   "FIXED" when it starts passing. Currently: `language-switch` (an English agent never hears a Spanish caller).

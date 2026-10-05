@@ -78,7 +78,7 @@ server.registerTool('rename_agent', { description: 'Rename an agent.', annotatio
 server.registerTool('delete_agent', { description: 'PERMANENTLY delete an agent and its versions, subflows and knowledge bases.', annotations: DESTROY, inputSchema: { agentId: z.string() } }, run((a: any) => api('DELETE', `/agents/${a.agentId}`)));
 server.registerTool('list_agent_versions', { description: 'List an agent’s immutable versions, newest first.', annotations: READ, inputSchema: { agentId: z.string() } }, run((a: any) => api('GET', `/agents/${a.agentId}/versions`)));
 server.registerTool('publish_agent_version', {
-  description: 'Publish a new immutable version of an agent from a conversation-flow graph. Call flow_authoring_guide first. Returns the version id to route a number to.',
+  description: 'Publish a new immutable version of an agent from a conversation-flow graph. Call flow_authoring_guide first. Returns the version id to route a number to. The result may include a non-blocking `warnings` array (e.g. booking_without_calendar: the flow collects appointments but no calendar is connected or calendarTools is false, so the agent only takes a request); pass it on to the customer.',
   annotations: WRITE,
   inputSchema: {
     agentId: z.string(),

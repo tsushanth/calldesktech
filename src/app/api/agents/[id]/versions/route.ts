@@ -9,6 +9,8 @@ import { tierVoiceIsEnglishOnly } from '@/lib/pricingTiers';
 import { validateModelChoice } from '@/lib/modelCatalog';
 import { resolveTierForPublish } from '@/lib/pricingTiers';
 import { TIER_OVERRIDE_FIELDS } from '@/lib/versionCarryOver';
+import { detectBookingIntent, bookingWarning } from '@/lib/bookingIntent';
+import { tenantHasCalendar } from '@/lib/calendarConnection';
 import { resolveExpertBackupForPublish, expertBackupBillingConfigured } from '@/lib/expertBackup';
 
 // For every 'subflow_ref' node, snapshot the referenced subflow's current
@@ -331,5 +333,18 @@ export async function POST(
     );
   }
 
-  return NextResponse.json({ version, flow }, { status: 201 });
+  // Non-blocking hint: the flow collects appointments but the agent cannot book (no calendar, or calendar tools off). One cheap query,
+  // and only when booking intent is detected; any failure just means no warning.
+  const warnings: Array<{ code: string; message: string }> = [];
+  try {
+    const intent = detectBookingIntent(embeddedNodes, globalSettings);
+    if (intent.intends) {
+      const w = bookingWarning(intent, intent.calendarToolsOff ? true : await tenantHasCalendar(agent.tenant_id));
+      if (w) warnings.push(w);
+    }
+  } catch (err) {
+    console.error('Booking-intent check failed', err);
+  }
+
+  return NextResponse.json({ version, flow, ...(warnings.length ? { warnings } : {}) }, { status: 201 });
 }

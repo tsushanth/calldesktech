@@ -3,7 +3,7 @@
 Decision (2026-10-03): **do not run the regression nightly at the current capacity.** Revisit when the criteria below are met.
 
 ## What it is
-`node scripts/regression/run.mjs --place-calls` places real phone calls against the live engine (17 scenarios: greeting, handbook, variables,
+`node scripts/regression/run.mjs --place-calls` places real phone calls against the live engine (18 scenarios: greeting, handbook, variables,
 extraction flow, language switching, transfers, webhook/MCP function nodes, DTMF, voicemail, silence handling). `--list` shows them. A full run is
 about $3.40 (about $0.20 per call, 17 calls). Options: `--scenario <id>`, `--max-calls <n>`, `--tier <t>` and `--voice <id>` (publish the test
 version on a pricing tier / voice). The lifetime call counter lives in `~/.calldesk-regression-calls-used` and is capped (raised from 60 to 80 on
