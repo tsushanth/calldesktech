@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { api, type CallLog } from '@/lib/api';
 import { formatPhoneDisplay, formatDuration, formatRelativeTime } from '@/lib/utils';
 import { isPilotBlockedCall } from '@/lib/pilotBlockShared';
+import { IssuesPanel } from '@/components/CallIssues';
 
 interface TranscriptEntry {
   role: string;
@@ -117,6 +118,8 @@ export default function CallDetailPage() {
               <InfoRow label="Time" value={new Date(call.created_at).toLocaleTimeString()} />
             </div>
           </div>
+
+          {!call.is_internal_test && !isPilotBlockedCall(call) && <IssuesPanel analysis={call.analysis} />}
 
           {call.recording_url ? (
             <div className="rounded-xl border border-gray-200 bg-white p-5">

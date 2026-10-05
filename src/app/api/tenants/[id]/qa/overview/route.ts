@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/supabase';
 import { authorizeTenant } from '@/lib/authz';
 import { isPilotBlockedCall } from '@/lib/pilotBlockShared';
+import { summarizeIssues, ISSUE_LABELS } from '@/lib/callIssues';
 
 // GET /api/tenants/[id]/qa/overview?days=30 — the QA "Overview" dashboard
 // (trend charts + resolution rate + date range), matching Retell's own
@@ -43,7 +44,7 @@ export async function GET(
 
   const { data, error } = await supabase
     .from('calldesk_call_logs')
-    .select('created_at, outcome, qa_status, qa_score, transfer_status, transfer_wait_ms, analysis')
+    .select('created_at, outcome, qa_status, qa_score, transfer_status, transfer_wait_ms, analysis, to_number, direction, is_internal_test')
     .eq('tenant_id', tenantId)
     .gte('created_at', windowStart.toISOString())
     .order('created_at', { ascending: true });
@@ -126,7 +127,19 @@ export async function GET(
     };
   });
 
+  // Issues found after the call (analysis.issues): counts by code and the agents with the most affected calls.
+  const issueRows = rows.filter((r) => !r.is_internal_test && Array.isArray((r.analysis as { issues?: unknown } | null)?.issues) && ((r.analysis as { issues: unknown[] }).issues.length > 0));
+  const agentNames = await resolveAgentNames(supabase, tenantId, issueRows);
+  const issueSummary = summarizeIssues(issueRows.map((r) => ({ analysis: r.analysis, is_internal_test: r.is_internal_test, agentKey: agentNames.keyFor(r) })));
+  const issues = {
+    callsWithIssues: issueSummary.callsWithIssues,
+    totalIssues: issueSummary.totalIssues,
+    byCode: issueSummary.byCode.map((c) => ({ ...c, label: ISSUE_LABELS[c.code] ?? c.code })),
+    topAgents: issueSummary.agentCounts.slice(0, 5).map((a) => ({ agent: agentNames.names.get(a.agentKey) ?? 'Unknown agent', calls: a.calls, issues: a.issues })),
+  };
+
   return NextResponse.json({
+    issues,
     windowDays,
     totalCalls: rows.length,
     completedQa,
@@ -139,4 +152,45 @@ export async function GET(
     transferSuccessRate: transferAttempts > 0 ? Number(((transferAnswered / transferAttempts) * 100).toFixed(1)) : null,
     avgTransferWaitMs: transferWaitCount > 0 ? Math.round(transferWaitSum / transferWaitCount) : null,
   });
+}
+
+// Maps calls to the agent that handled them: the number a call ran on routes (inbound or outbound slot) to an agent version, which
+// belongs to an agent. Best-effort: anything unresolved is grouped as 'Unknown agent'.
+async function resolveAgentNames(
+  supabase: ReturnType<typeof getSupabaseAdmin>,
+  tenantId: string,
+  rows: Array<{ to_number?: string | null; direction?: string | null }>
+): Promise<{ names: Map<string, string>; keyFor: (r: { to_number?: string | null; direction?: string | null }) => string | null }> {
+  const names = new Map<string, string>();
+  const versionByKey = new Map<string, string>(); // `${number}|${direction}` -> version id
+  const agentByVersion = new Map<string, string>();
+  try {
+    const numbers = [...new Set(rows.map((r) => r.to_number).filter((n): n is string => !!n))];
+    if (numbers.length) {
+      const { data: pn } = await supabase.from('calldesk_phone_numbers').select('number, inbound_agent_version_id, outbound_agent_version_id').eq('tenant_id', tenantId).in('number', numbers);
+      for (const p of pn ?? []) {
+        if (p.inbound_agent_version_id) versionByKey.set(`${p.number}|inbound`, p.inbound_agent_version_id);
+        if (p.outbound_agent_version_id) versionByKey.set(`${p.number}|outbound`, p.outbound_agent_version_id);
+      }
+      const versionIds = [...new Set(versionByKey.values())];
+      if (versionIds.length) {
+        const { data: vs } = await supabase.from('calldesk_agent_versions').select('id, agent_id').in('id', versionIds);
+        for (const v of vs ?? []) if (v.agent_id) agentByVersion.set(v.id, v.agent_id);
+        const agentIds = [...new Set(agentByVersion.values())];
+        if (agentIds.length) {
+          const { data: ags } = await supabase.from('calldesk_agents').select('id, name').in('id', agentIds);
+          for (const a of ags ?? []) names.set(a.id, a.name);
+        }
+      }
+    }
+  } catch {
+    // leave unresolved
+  }
+  return {
+    names,
+    keyFor: (r) => {
+      const v = r.to_number ? versionByKey.get(`${r.to_number}|${r.direction === 'outbound' ? 'outbound' : 'inbound'}`) : undefined;
+      return (v && agentByVersion.get(v)) || null;
+    },
+  };
 }

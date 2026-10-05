@@ -5,6 +5,8 @@ import Link from 'next/link';
 import { useOnboarding } from '@/context/OnboardingContext';
 import { api, type CallLog } from '@/lib/api';
 import { isPilotBlockedCall } from '@/lib/pilotBlockShared';
+import { issuesFromAnalysis } from '@/lib/callIssues';
+import { IssueCountBadge } from '@/components/CallIssues';
 import { formatPhoneDisplay, formatDuration, formatRelativeTime } from '@/lib/utils';
 
 export default function CallsPage() {
@@ -44,12 +46,15 @@ export default function CallsPage() {
       ? visibleCalls
       : filter === 'blocked'
         ? visibleCalls.filter((call) => isPilotBlockedCall(call))
-        : visibleCalls.filter((call) => call.outcome === filter && !isPilotBlockedCall(call));
+        : filter === 'issues'
+          ? visibleCalls.filter((call) => !isPilotBlockedCall(call) && issuesFromAnalysis(call.analysis).length > 0)
+          : visibleCalls.filter((call) => call.outcome === filter && !isPilotBlockedCall(call));
   const countedCalls = visibleCalls.filter((call) => !isPilotBlockedCall(call));
   const blockedCount = visibleCalls.length - countedCalls.length;
   const internalCount = calls.filter((call) => call.is_internal_test).length;
   const outcomes = ['all', 'booked', 'answered', 'transferred', 'voicemail', 'abandoned'];
-  const filterOptions = blockedCount > 0 ? [...outcomes, 'blocked'] : outcomes;
+  const issueCallCount = countedCalls.filter((call) => issuesFromAnalysis(call.analysis).length > 0).length;
+  const filterOptions = [...outcomes, ...(issueCallCount > 0 ? ['issues'] : []), ...(blockedCount > 0 ? ['blocked'] : [])];
 
   return (
     <>
@@ -71,7 +76,7 @@ export default function CallsPage() {
                 filter === outcome ? 'bg-[#1a1d29] text-white' : 'bg-white text-gray-600 hover:bg-gray-100'
               } border border-gray-200`}
             >
-              {outcome.charAt(0).toUpperCase() + outcome.slice(1)}
+              {outcome === 'issues' ? `Has issues (${issueCallCount})` : outcome.charAt(0).toUpperCase() + outcome.slice(1)}
             </button>
           ))}
           </div>
@@ -83,7 +88,7 @@ export default function CallsPage() {
           <div className="p-10 text-center text-[13.5px] text-gray-400">Loading calls…</div>
         ) : filteredCalls.length === 0 ? (
           <div className="p-10 text-center text-[13.5px] text-gray-400">
-            {filter === 'all' ? 'No calls yet. Your AI receptionist is ready to answer!' : `No ${filter} calls found.`}
+            {filter === 'all' ? 'No calls yet. Your AI receptionist is ready to answer!' : filter === 'issues' ? 'No calls with issues.' : `No ${filter} calls found.`}
           </div>
         ) : (
           <div className="overflow-x-auto">
@@ -110,6 +115,7 @@ export default function CallsPage() {
                         {call.is_internal_test && (
                           <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[10.5px] font-medium text-gray-500">Test</span>
                         )}
+                        {!call.is_internal_test && !isPilotBlockedCall(call) && <IssueCountBadge analysis={call.analysis} />}
                       </Link>
                     </td>
                     <td className="px-5 py-3.5 text-gray-500">{formatRelativeTime(call.created_at)}</td>

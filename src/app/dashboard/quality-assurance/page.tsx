@@ -14,6 +14,7 @@ import {
 import { useOnboarding } from '@/context/OnboardingContext';
 import { api, type CallQa, type QaOverviewResponse } from '@/lib/api';
 import { formatPhoneDisplay, formatRelativeTime } from '@/lib/utils';
+import { IssueSeverityBadge } from '@/components/CallIssues';
 
 const sentiments = ['all', 'positive', 'neutral', 'negative'] as const;
 const AXIS = '#898781';
@@ -357,6 +358,36 @@ function QaOverviewTab({
           <p className="text-[11.5px] text-gray-400">
             Resolved = outcome was booked, answered, or transferred. Voicemail/abandoned calls count as unresolved.
           </p>
+
+          {overview.issues && overview.issues.totalIssues > 0 && (
+            <div className="rounded-xl border border-gray-200 bg-white p-5">
+              <h2 className="mb-1 text-[13.5px] font-medium text-gray-500">Issues found after calls</h2>
+              <p className="mb-3 text-[24px] font-semibold text-[#1a1d29]">
+                {overview.issues.callsWithIssues} <span className="text-[13px] font-normal text-gray-400">call{overview.issues.callsWithIssues === 1 ? '' : 's'} with issues ({overview.issues.totalIssues} total)</span>
+              </p>
+              <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
+                <ul className="space-y-1.5">
+                  {overview.issues.byCode.map((c) => (
+                    <li key={c.code} className="flex items-center justify-between gap-3 text-[13px]">
+                      <span className="flex items-center gap-2 text-[#1a1d29]"><IssueSeverityBadge severity={c.severity} />{c.label}</span>
+                      <span className="font-medium text-[#1a1d29]">{c.count}</span>
+                    </li>
+                  ))}
+                </ul>
+                <div>
+                  <p className="mb-1.5 text-[12px] uppercase tracking-wide text-gray-400">Most affected agents</p>
+                  <ul className="space-y-1.5">
+                    {overview.issues.topAgents.map((a) => (
+                      <li key={a.agent} className="flex items-center justify-between gap-3 text-[13px]">
+                        <span className="truncate text-[#1a1d29]">{a.agent}</span>
+                        <span className="text-gray-500">{a.calls} call{a.calls === 1 ? '' : 's'}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
+            </div>
+          )}
 
           {overview.transferAttempts > 0 && (
             <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">

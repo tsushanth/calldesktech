@@ -107,8 +107,8 @@ const ops: Record<string, Partial<Record<Method, Op>>> = {
     post: { tag: 'Calls', summary: 'Place an outbound call', description: 'Calls `toNumber` from this number using its outbound agent. Rate-limited per workspace (429).', body: { toNumber: 'E.164 string' }, bodyRequired: ['toNumber'], returns: '{ call: { sid, to } }' },
   },
 
-  [`/tenants/${T}/calls`]: { get: { tag: 'Calls', summary: 'List calls', query: { limit: 'default 50' }, returns: '{ callLogs: CallLog[] }' } },
-  '/calls/{callId}': { get: { tag: 'Calls', summary: 'Get a call', description: 'Includes transcript, outcome, duration, transfer status, and `analysis` (post-call analysis fields, null unless configured on the agent).', returns: '{ callLog }' } },
+  [`/tenants/${T}/calls`]: { get: { tag: 'Calls', summary: 'List calls', description: 'Each call includes `analysis.issues` (problems found automatically after the call; see Get a call).', query: { limit: 'default 50' }, returns: '{ callLogs: CallLog[] }' } },
+  '/calls/{callId}': { get: { tag: 'Calls', summary: 'Get a call', description: 'Includes transcript, outcome, duration, transfer status, and `analysis` (post-call analysis fields, null unless configured on the agent). `analysis.issues` lists problems found automatically after the call, each `{ code, severity: \'high\'|\'medium\'|\'low\', message, evidence: string[], fix }`; codes: `claimed_booking_without_tool`, `placeholder_read_aloud`, `number_readback_mismatch`, `no_fields_collected`, `long_silence`. The key is absent until the call has been checked and `[]` when nothing was found. Blocked and internal-test calls are never checked.', returns: '{ callLog }' } },
   '/calls/{callId}/recording': { get: { tag: 'Calls', summary: 'Stream a call recording', returns: 'audio' } },
 
   [`/tenants/${T}/batch-calls`]: {

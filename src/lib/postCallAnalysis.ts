@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { getAnthropicClient, getCallQaModel } from '@/lib/anthropic';
 import { transcriptToText } from '@/lib/callQa';
+import { detectAndStoreCallIssues, type CallIssue } from '@/lib/callIssues';
 
 // Post-call analysis has two parts, merged into a single Claude call:
 //   - Built-in fields (BUILT_IN_FIELDS below): always extracted for every
@@ -56,6 +57,8 @@ export interface BuiltInAnalysis {
 export interface CallAnalysisResult {
   built_in: BuiltInAnalysis;
   custom: Record<string, unknown>;
+  /** Deterministic after-the-call issues (see callIssues.ts); absent when detection could not run. */
+  issues?: CallIssue[];
 }
 
 // Conservative defaults used when there's no transcript text to analyze at
@@ -206,7 +209,29 @@ export async function runAndStorePostCallAnalysis(params: {
       analysis = await extractCallAnalysis(text, fields);
     }
 
-    await params.supabase.from('calldesk_call_logs').update({ analysis }).eq('retell_call_id', params.retellCallId);
+    // Merge into whatever analysis the row already holds instead of replacing it (the voice engine writes keys such as blocked,
+    // pilot_limit and expert_backup on the same column).
+    let existing: Record<string, unknown> = {};
+    try {
+      const { data } = await params.supabase.from('calldesk_call_logs').select('analysis').eq('retell_call_id', params.retellCallId).maybeSingle();
+      if (data?.analysis && typeof data.analysis === 'object' && !Array.isArray(data.analysis)) existing = data.analysis as Record<string, unknown>;
+    } catch { /* fall back to writing just the new analysis */ }
+    await params.supabase.from('calldesk_call_logs').update({ analysis: { ...existing, ...analysis } }).eq('retell_call_id', params.retellCallId);
+
+    // Deterministic issue detection (no LLM call). Never throws; a failure leaves the analysis above intact.
+    try {
+      const { data: row } = await params.supabase
+        .from('calldesk_call_logs')
+        .select('id, tenant_id, retell_call_id, to_number, direction, created_at, duration_seconds, transcript, extracted_data, analysis, is_internal_test')
+        .eq('retell_call_id', params.retellCallId)
+        .maybeSingle();
+      if (row) {
+        const issues = await detectAndStoreCallIssues(params.supabase, row, { retellAgentId: params.retellAgentId });
+        if (issues) analysis = { ...analysis, issues };
+      }
+    } catch (err) {
+      console.error(`Issue detection failed for ${params.retellCallId}:`, err);
+    }
     return analysis;
   } catch (error) {
     console.error(`Post-call analysis failed for ${params.retellCallId}:`, error);

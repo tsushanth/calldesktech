@@ -639,6 +639,13 @@ export interface QaOverviewResponse {
   transferAnswered: number;
   transferSuccessRate: number | null;
   avgTransferWaitMs: number | null;
+  /** Issues found after calls (analysis.issues): counts by code and the agents with the most affected calls. */
+  issues?: {
+    callsWithIssues: number;
+    totalIssues: number;
+    byCode: Array<{ code: string; severity: 'high' | 'medium' | 'low'; count: number; label: string }>;
+    topAgents: Array<{ agent: string; calls: number; issues: number }>;
+  };
 }
 
 // Custom error class
