@@ -9,6 +9,7 @@ import { useToday } from '@/lib/useToday';
 import { useLiveDemo } from '@/lib/useLiveDemo';
 import { track } from '@/components/Analytics';
 import { HeroCallPanel } from './HeroCallPanel';
+import { HERO_PRICE_LINE, HERO_PRICE_QUALIFIER } from '@/lib/pricingCopy';
 
 /**
  * Hero: the headline rotates through example calls, and the call panel beside
@@ -84,6 +85,14 @@ export function Hero() {
                 Talk to it now
               </button>
               <GlassButton href="/demo" size="lg">Set up your own agent</GlassButton>
+            </div>
+
+            <div className="mt-5 max-w-[480px]" data-testid="hero-price">
+              <p className="text-[15px] font-medium leading-[1.4] text-white">
+                {HERO_PRICE_LINE}{' '}
+                <a href="/pricing" className="whitespace-nowrap underline underline-offset-4 hover:text-white/80 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white">See pricing</a>
+              </p>
+              <p className="mt-1 text-[12.5px] leading-[1.45] text-white/65">{HERO_PRICE_QUALIFIER}</p>
             </div>
 
             {tabs('mt-10 hidden md:flex')}

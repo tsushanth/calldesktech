@@ -11,7 +11,16 @@ import { FAQ, FinalCTA, SiteFooter } from "@/components/landing/Closing";
 import { PricingSummary } from "@/components/landing/PricingSummary";
 import { ContactCenter, Developers, Studio, Trust, UseCases } from "@/components/landing/Platform";
 import type { UseCaseGroup } from "@/components/landing/UseCases";
+import type { Metadata } from "next";
+import { SITE_TITLE, SITE_DESCRIPTION } from "@/lib/pricingCopy";
 import { listTemplates } from "@/lib/templateInstall";
+
+export const metadata: Metadata = {
+  title: SITE_TITLE,
+  description: SITE_DESCRIPTION,
+  openGraph: { title: SITE_TITLE, description: SITE_DESCRIPTION, type: 'website', siteName: 'CallDeskTech' },
+  twitter: { card: 'summary', title: SITE_TITLE, description: SITE_DESCRIPTION },
+};
 
 // Templates grouped by what the caller is trying to do. Any template not listed
 // here still counts toward the total but is not shown until it is grouped.

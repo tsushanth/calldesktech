@@ -56,6 +56,18 @@ export const HEADLINE_WITH_QUALIFIER = `${HEADLINE}. ${QUALIFIER}.`;
 
 export const CARRIER_NOTE_LINE = 'Every plan is bring-your-own carrier.';
 
+/** The cheapest advertised per-minute price as a short label ("2¢"). Only shown with a qualifier (see HERO_PRICE_QUALIFIER, SITE_DESCRIPTION). */
+export const FROM_CENTS_LABEL = centsLabel(cheapest.pricePerMinuteCents);
+
+/** Hero price line ("From 2¢ a minute. No monthly minimum."). "No monthly minimum" is stated on /pricing; do not add other claims here without verifying them. */
+export const HERO_PRICE_LINE = `From ${FROM_CENTS_LABEL} a minute. No monthly minimum.`;
+
+/** Small print that must sit next to HERO_PRICE_LINE: which plans can be bought, and that carrier/numbers are separate. */
+export const HERO_PRICE_QUALIFIER = `${QUALIFIER}. ${CARRIER_NOTE_LINE} Phone numbers from us are extra.`;
+
+/** Site-wide title, meta description, OpenGraph and Twitter text. The description stays under 160 characters (tested). */
+export const SITE_TITLE = `CallDeskTech: AI phone agents from ${FROM_CENTS_LABEL} a minute`;
+
 export const ADD_ONS_LINE = 'Optional add-ons are coming soon and cannot be bought yet; amounts will be announced when they launch.';
 
 /** Carrier explanation shared by compare copy. */
@@ -72,6 +84,9 @@ export const US_RATE_MEDIUM = `${centsLabel(tier('lite').pricePerMinuteCents)}/m
 
 /** Comparison-table "us" cell, narrow (stat cards). */
 export const US_RATE_SHORT = `${centsLabel(tier('lite').pricePerMinuteCents)} Lite${soonSuffix('lite')}, ${centsLabel(tier('standard').pricePerMinuteCents)} Standard, ${centsLabel(tier('pro').pricePerMinuteCents)} Pro`;
+
+/** Meta description: product, what it does, the tier prices (so the headline price is qualified) and that phone numbers are extra. */
+export const SITE_DESCRIPTION = `AI phone agents that answer, book, take messages and transfer. From ${FROM_CENTS_LABEL} a minute: ${US_RATE_SHORT}. Phone numbers extra.`;
 
 /** "2¢ to 9¢" range of what can be bought today. */
 export const LIVE_RANGE = `${centsLabel(Math.min(...LIVE_TIERS.map((t) => t.pricePerMinuteCents)))} to ${centsLabel(Math.max(...LIVE_TIERS.map((t) => t.pricePerMinuteCents)))}`;

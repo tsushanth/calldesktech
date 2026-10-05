@@ -3,6 +3,7 @@ import { Geist, Geist_Mono, Instrument_Serif } from "next/font/google";
 import "./globals.css";
 import { Providers } from "@/components/Providers";
 import WebFailureReporter from '@/components/WebFailureReporter';
+import { SITE_TITLE, SITE_DESCRIPTION } from '@/lib/pricingCopy';
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -22,8 +23,10 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "CallDeskTech - AI Receptionist Platform",
-  description: "Deploy AI-powered phone receptionists for your business",
+  title: SITE_TITLE,
+  description: SITE_DESCRIPTION,
+  openGraph: { title: SITE_TITLE, description: SITE_DESCRIPTION, type: 'website', siteName: 'CallDeskTech' },
+  twitter: { card: 'summary', title: SITE_TITLE, description: SITE_DESCRIPTION },
 };
 
 export default function RootLayout({
