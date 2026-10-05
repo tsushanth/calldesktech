@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { usePathname } from 'next/navigation';
 import { useSession, signOut } from 'next-auth/react';
 import { useOnboarding } from '@/context/OnboardingContext';
@@ -25,20 +25,43 @@ export default function DashboardLayout({
   // tenant just from logging in. /api/tenants now resolves the real session
   // server-side (previously trusted a spoofable client header), so this
   // looks up your tenant the moment login is the only thing you've done.
+  const creatingDefaultRef = useRef(false);
   useEffect(() => {
     if (!session?.user || tenantId) return;
     let cancelled = false;
     fetch('/api/tenants')
       .then((res) => (res.ok ? res.json() : null))
       .then((body) => {
-        if (cancelled || !body?.tenants?.length) return;
-        setTenantId(body.tenants[0].id);
+        if (cancelled || !body) return;
+        if (body.tenants?.length) {
+          setTenantId(body.tenants[0].id);
+          return;
+        }
+        // Brand-new user with no workspace: create the default one so the dashboard works straight away.
+        // The server returns the existing workspace instead of creating a second if two tabs race.
+        if (creatingDefaultRef.current) return;
+        creatingDefaultRef.current = true;
+        const first = (session.user?.name || '').trim().split(/\s+/)[0];
+        return fetch('/api/tenants', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name: first ? `${first}'s workspace` : 'My workspace', voiceEngine: 'poc', ensureDefault: true }),
+        })
+          .then((res) => (res.ok ? res.json() : null))
+          .then((created) => {
+            if (!created?.tenant?.id) { creatingDefaultRef.current = false; return; }
+            if (cancelled) return;
+            setTenantId(created.tenant.id);
+            if (created.tenant.name) setBusinessName(created.tenant.name);
+          });
       })
-      .catch(() => {});
+      .catch(() => {
+        creatingDefaultRef.current = false;
+      });
     return () => {
       cancelled = true;
     };
-  }, [session, tenantId, setTenantId]);
+  }, [session, tenantId, setTenantId, setBusinessName]);
   // The sidebar was a fixed 256px column with no breakpoint at all — on a
   // 375px phone it just overflowed the viewport instead of collapsing
   // (found during a mobile-viewport pass that had never been done before).

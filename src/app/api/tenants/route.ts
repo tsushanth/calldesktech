@@ -85,6 +85,19 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { name, areaCode, voiceEngine, workspaceType } = body;
 
+    // First sign-in: a user with no workspace at all used to land in a dashboard where nothing worked (every page needs a
+    // tenant), until they created one by hand. The dashboard calls this with ensureDefault when /api/tenants came back
+    // empty. Idempotent: if the user already owns a workspace, that one is returned and nothing is created.
+    if (body.ensureDefault === true) {
+      const { data: existing } = await supabase
+        .from('calldesk_tenants')
+        .select('*')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: true })
+        .limit(1);
+      if (existing && existing.length > 0) return NextResponse.json({ tenant: existing[0] }, { status: 200 });
+    }
+
     if (!name) {
       return NextResponse.json(
         { error: 'Business name is required' },
