@@ -1,0 +1,27 @@
+name: Uptime check (every 5 minutes)
+
+# Fails (and so emails the repo's watchers) when the website, the call engine or the Twilio voice webhook does not answer
+# quickly. Public URLs only, no secrets. GitHub may delay scheduled runs by a few minutes under load.
+
+on:
+  schedule:
+    - cron: '*/5 * * * *'
+  workflow_dispatch:
+
+jobs:
+  uptime:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Probe
+        run: |
+          fail=0
+          probe() { # name url max_seconds
+            out=$(curl -sS -o /dev/null -w '%{http_code} %{time_total}' --max-time "$3" "$2" 2>&1) || { echo "FAIL $1: $out"; fail=1; return; }
+            code=${out%% *}; t=${out##* }
+            if [ "$code" != "200" ]; then echo "FAIL $1: HTTP $code in ${t}s"; fail=1; else echo "ok   $1: ${t}s"; fi
+          }
+          probe website https://calldesk.tech/ 10
+          probe engine https://call-loop-poc.fly.dev/ 10
+          # a second try for slow starts: Twilio gives a webhook only a few seconds
+          exit $fail
