@@ -5,6 +5,7 @@ import type { AgentVersion, PhoneNumber } from '@/types';
 import { formatPhoneE164 } from '@/lib/utils';
 import { trackBuilder, errorProps } from '@/lib/builderTelemetry';
 import { apiErrorText } from '@/lib/pilotBlockShared';
+import { callFromOptions, friendlyCallError } from '@/lib/testCallNumbers';
 
 // Places a real call to the user's own phone via the existing
 // POST /api/phone-numbers/[id]/call route (which places the call FROM a
@@ -50,10 +51,13 @@ export default function TestCallModal({
       : formatPhoneE164(toNumber);
   const toValid = /^\+\d{7,15}$/.test(toE164);
 
-  const eligible = numbers.filter((n) => latestVersion && n.outbound_agent_version_id === latestVersion.id);
+  // Every number is offered; the ones not yet using this version get a one-click "use it" below instead of a dead end.
+  const options = callFromOptions(numbers, latestVersion?.id, latestVersion?.version_number);
+  const selected = options.find((o) => o.id === fromId) ?? null;
+  const eligible = options.filter((o) => o.ready);
   useEffect(() => {
-    if (!fromId && eligible.length > 0) setFromId(eligible[0].id);
-  }, [eligible, fromId]);
+    if (!fromId && options.length > 0) setFromId((eligible[0] ?? options[0]).id);
+  }, [options, eligible, fromId]);
 
   const assign = async (n: PhoneNumber) => {
     if (!latestVersion) return;
@@ -97,7 +101,7 @@ export default function TestCallModal({
       }
     } catch (err) {
       trackBuilder('test_call_failed', errorProps(err));
-      setMessage({ ok: false, text: err instanceof Error ? err.message : 'Call failed' });
+      setMessage({ ok: false, text: friendlyCallError(err instanceof Error ? err.message : 'Call failed') });
     } finally {
       setBusy(false);
     }
@@ -129,36 +133,30 @@ export default function TestCallModal({
             </div>
             {loading ? (
               <p className="text-[12.5px] text-gray-400">Loading numbers…</p>
-            ) : eligible.length > 0 ? (
-              <div>
-                <label className="mb-1 block text-[12.5px] font-medium text-gray-500">Call from</label>
-                <select value={fromId} onChange={(e) => setFromId(e.target.value)} className="w-full rounded-lg border border-gray-200 px-3 py-2.5 text-[13.5px]">
-                  {eligible.map((n) => <option key={n.id} value={n.id}>{n.number}</option>)}
-                </select>
+            ) : options.length === 0 ? (
+              <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-[12.5px] text-amber-800">
+                <p>This workspace has no phone numbers yet. Add or buy one on the Phone Numbers page, then come back.</p>
               </div>
             ) : (
-              <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-[12.5px] text-amber-800">
-                <p className="mb-1.5">No phone number uses V{latestVersion.version_number} as its Outbound Call Agent.</p>
-                {numbers.length === 0 ? (
-                  <p>Add a phone number first.</p>
-                ) : (
-                  <div className="space-y-1">
-                    {numbers.map((n) => (
-                      <button key={n.id} type="button" disabled={busy} onClick={() => assign(n)} className="block font-medium underline disabled:opacity-40">
-                        Use V{latestVersion.version_number} on {n.number}
-                      </button>
-                    ))}
+              <div>
+                <label className="mb-1 block text-[12.5px] font-medium text-gray-500">Call from</label>
+                <select value={fromId} onChange={(e) => { setFromId(e.target.value); setMessage(null); }} className="w-full rounded-lg border border-gray-200 px-3 py-2.5 text-[13.5px]">
+                  {options.map((o) => <option key={o.id} value={o.id}>{o.label}</option>)}
+                </select>
+                {selected && !selected.ready && (
+                  <div className="mt-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-[12.5px] text-amber-800">
+                    <p className="mb-1.5">{selected.number} is not using V{latestVersion.version_number} as its Outbound Call Agent yet.</p>
+                    <button type="button" disabled={busy} onClick={() => { const n = numbers.find((x) => x.id === selected.id); if (n) assign(n); }} className="font-medium underline disabled:opacity-40">
+                      Use V{latestVersion.version_number} on {selected.number}
+                    </button>
                   </div>
                 )}
               </div>
             )}
-            {!loading && eligible.length === 0 && toValid && (
-              <p className="text-[12.5px] text-amber-700">The Call button stays off until a phone number uses V{latestVersion.version_number} as its Outbound Call Agent — use the link above.</p>
-            )}
             {message && <p className={`text-[13px] ${message.ok ? 'text-green-700' : 'text-red-600'}`}>{message.text}</p>}
             <div className="flex justify-end gap-2">
               <button onClick={onClose} className="rounded-lg px-4 py-2 text-[13.5px] font-medium text-gray-600 hover:bg-gray-50">Close</button>
-              <button onClick={call} disabled={busy || !fromId || !toValid} className="rounded-lg bg-blue-600 px-4 py-2 text-[13.5px] font-medium text-white disabled:opacity-40">
+              <button onClick={call} disabled={busy || !selected?.ready || !toValid} className="rounded-lg bg-blue-600 px-4 py-2 text-[13.5px] font-medium text-white disabled:opacity-40">
                 {busy ? 'Calling…' : 'Call me'}
               </button>
             </div>
