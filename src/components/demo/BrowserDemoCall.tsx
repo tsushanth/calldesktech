@@ -293,9 +293,11 @@ export default function BrowserDemoCall({ intro = false }: { intro?: boolean }) 
         )}
 
         <Card className="text-center mb-4">
-          <div className={`w-20 h-20 ${profile?.color ?? 'bg-gray-200'} rounded-full flex items-center justify-center text-4xl mx-auto mb-4`}>
-            {profile?.icon ?? '🤖'}
-          </div>
+          {profile && (
+            <div className={`w-20 h-20 ${profile.color} rounded-full flex items-center justify-center text-4xl mx-auto mb-4`}>
+              {profile.icon}
+            </div>
+          )}
           <h2 className="text-xl font-semibold text-gray-900 mb-1">{businessName}</h2>
           <p className="text-gray-500 mb-4">
             {ended
