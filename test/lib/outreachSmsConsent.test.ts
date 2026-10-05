@@ -1,10 +1,10 @@
 import { describe, it, expect } from 'vitest';
-import { CONSENT_TEXT, CONSENT_VERSION, csvEscape, generateCouponCode, parseConsentBody, smsStatusFor } from '@/lib/outreach/smsConsent';
+import { CONSENT_TEXT, CONSENT_VERSION, FORM_COPY, consentSha256, csvEscape, formSha256, generateCouponCode, parseConsentBody, shownMatchesCurrent, smsStatusFor } from '@/lib/outreach/smsConsent';
 import { renderOutreachEmail } from '@/lib/outreach/emailHtml';
 
 describe('parseConsentBody', () => {
   it('normalizes a US number and reads the opt-in flag', () => {
-    expect(parseConsentBody({ phone: '(415) 555-0123', smsOptIn: true })).toEqual({ ok: true, phone: '+14155550123', smsOptIn: true });
+    expect(parseConsentBody({ phone: '(415) 555-0123', smsOptIn: true, consentVersion: 'v', consentSha256: 'h' })).toEqual({ ok: true, phone: '+14155550123', smsOptIn: true, shownVersion: 'v', shownSha256: 'h' });
   });
   it('opt-in is true only for an explicit boolean true', () => {
     for (const v of ['true', 1, 'on', undefined, null]) expect(parseConsentBody({ phone: '4155550123', smsOptIn: v })).toMatchObject({ ok: true, smsOptIn: false });
@@ -54,5 +54,22 @@ describe('trial link in the outreach email', () => {
   it('is absent when no tryUrl', () => {
     const r = renderOutreachEmail(base);
     expect(r.html).not.toContain('trial coupon'); expect(r.text).not.toContain('Trial coupon');
+  });
+});
+
+describe('audit: what was shown is what is recorded', () => {
+  it('the form copy carries the exact consent wording, unchecked by default', () => {
+    expect(FORM_COPY.consentLabel).toBe(CONSENT_TEXT);
+    expect(FORM_COPY.consentCheckboxDefaultChecked).toBe(false);
+  });
+  it('hashes are stable SHA-256 hex and change when the wording changes', () => {
+    expect(consentSha256()).toMatch(/^[0-9a-f]{64}$/); expect(formSha256()).toMatch(/^[0-9a-f]{64}$/);
+    expect(consentSha256()).toBe(consentSha256()); expect(consentSha256('other wording')).not.toBe(consentSha256());
+  });
+  it('a stale page (old version or hash) does not match the current wording', () => {
+    expect(shownMatchesCurrent(CONSENT_VERSION, consentSha256())).toBe(true);
+    expect(shownMatchesCurrent('2026-01-01-v0', consentSha256())).toBe(false);
+    expect(shownMatchesCurrent(CONSENT_VERSION, consentSha256('old'))).toBe(false);
+    expect(shownMatchesCurrent('', '')).toBe(false);
   });
 });

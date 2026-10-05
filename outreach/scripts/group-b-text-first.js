@@ -18,6 +18,13 @@
  * friction than multi-message conversations. Still best-effort delivery.
  */
 
+// BLOCKED (2026-10-05): this script texts phone numbers taken from a CSV of leads, i.e. numbers scraped from business websites.
+// Marketing texts to US numbers need prior express written consent, which scraped numbers do not have. The only supported marketing-SMS
+// audience is the Supabase view calldesk_sms_marketing_audience (numbers people submitted on /try with the opt-in box ticked), and only
+// once a MARKETING 10DLC campaign is approved. Do not remove this guard to run the script against scraped numbers.
+console.error('group-b-text-first.js is disabled: it would text scraped numbers without consent. See the comment at the top of this file.');
+process.exit(1);
+
 import fs from 'node:fs';
 import { parse } from 'csv-parse/sync';
 

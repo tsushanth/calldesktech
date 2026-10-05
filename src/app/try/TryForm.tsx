@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 
-export default function TryForm({ token, consentText }: { token: string; consentText: string }) {
+export default function TryForm({ token, copy, consentVersion, consentSha256 }: { token: string; copy: { phoneLabel: string; consentLabel: string; optionalNote: string; submitLabel: string }; consentVersion: string; consentSha256: string }) {
   const [phone, setPhone] = useState('');
   const [optIn, setOptIn] = useState(false);
   const [website, setWebsite] = useState(''); // honeypot, hidden from people
@@ -15,7 +15,7 @@ export default function TryForm({ token, consentText }: { token: string; consent
     e.preventDefault();
     setBusy(true); setError(null);
     try {
-      const res = await fetch('/api/try', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ t: token, phone, smsOptIn: optIn, website }) });
+      const res = await fetch('/api/try', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ t: token, phone, smsOptIn: optIn, website, consentVersion, consentSha256 }) });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Something went wrong. Please try again.');
       setDone({ coupon: data.coupon ?? null, smsOptIn: !!data.smsOptIn, suppressed: !!data.suppressed });
@@ -44,7 +44,7 @@ export default function TryForm({ token, consentText }: { token: string; consent
 
   return (
     <form onSubmit={submit} className="rounded-xl border border-neutral-200 bg-white p-6">
-      <label className="mb-1 block text-sm font-medium" htmlFor="phone">Mobile number</label>
+      <label className="mb-1 block text-sm font-medium" htmlFor="phone">{copy.phoneLabel}</label>
       <input id="phone" type="tel" inputMode="tel" autoComplete="tel" required value={phone} onChange={(e) => setPhone(e.target.value)}
         placeholder="(415) 555-0123" className="mb-4 w-full rounded-lg border border-neutral-300 px-3 py-2" />
       <div style={{ position: 'absolute', left: '-10000px', height: 0, overflow: 'hidden' }} aria-hidden="true">
@@ -53,12 +53,12 @@ export default function TryForm({ token, consentText }: { token: string; consent
       <label className="mb-4 flex items-start gap-3 text-sm text-neutral-700">
         <input type="checkbox" checked={optIn} onChange={(e) => setOptIn(e.target.checked)} className="mt-1 h-4 w-4" />
         <span>
-          {consentText} See our <a className="text-blue-600 underline" href="/privacy">Privacy Policy</a> and <a className="text-blue-600 underline" href="/terms">Terms</a>.
+          {copy.consentLabel} See our <a className="text-blue-600 underline" href="/privacy">Privacy Policy</a> and <a className="text-blue-600 underline" href="/terms">Terms</a>.
         </span>
       </label>
       {error && <p className="mb-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
-      <button type="submit" disabled={busy} className="rounded-lg bg-blue-600 px-4 py-2 font-medium text-white hover:bg-blue-700 disabled:opacity-60">{busy ? 'Getting your coupon...' : 'Get my coupon'}</button>
-      <p className="mt-3 text-xs text-neutral-500">The text-message box is optional. You get the coupon either way.</p>
+      <button type="submit" disabled={busy} className="rounded-lg bg-blue-600 px-4 py-2 font-medium text-white hover:bg-blue-700 disabled:opacity-60">{busy ? 'Getting your coupon...' : copy.submitLabel}</button>
+      <p className="mt-3 text-xs text-neutral-500">{copy.optionalNote}</p>
     </form>
   );
 }

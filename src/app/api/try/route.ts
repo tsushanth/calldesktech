@@ -4,7 +4,7 @@ import { getSupabaseAdmin } from '@/lib/supabase';
 import { getStripe } from '@/lib/stripe';
 import { tryAcquireToken } from '@/lib/rateLimiter';
 import { verifySampleToken } from '@/lib/outreach/samples';
-import { CONSENT_TEXT, CONSENT_VERSION, COUPON_DAYS, COUPON_ID, generateCouponCode, parseConsentBody, smsStatusFor } from '@/lib/outreach/smsConsent';
+import { CONSENT_TEXT, CONSENT_VERSION, COUPON_DAYS, COUPON_ID, FORM_COPY, consentSha256, formSha256, generateCouponCode, parseConsentBody, shownMatchesCurrent, smsStatusFor } from '@/lib/outreach/smsConsent';
 
 export const dynamic = 'force-dynamic';
 
@@ -39,6 +39,10 @@ export async function POST(request: NextRequest) {
   if ('bot' in parsed) return NextResponse.json({ ok: true, coupon: null }); // silent success for bots
   if (!parsed.ok) return NextResponse.json({ error: parsed.error }, { status: parsed.status });
 
+  if (!shownMatchesCurrent(parsed.shownVersion, parsed.shownSha256)) {
+    return NextResponse.json({ error: 'This page is out of date. Please reload it and try again.', stale: true }, { status: 409 });
+  }
+
   const messageId = verifySampleToken(String(body.t ?? ''));
   if (!messageId) return NextResponse.json({ error: 'This link is not valid. Please use the link in your email.' }, { status: 400 });
 
@@ -57,15 +61,35 @@ export async function POST(request: NextRequest) {
   const { data: existing } = await supabase.from('calldesk_sms_consents').select('coupon_code').eq('message_id', messageId).maybeSingle();
   const coupon = (existing?.coupon_code as string | null | undefined) || (await makeCoupon());
 
+  const ua = (request.headers.get('user-agent') || '').slice(0, 300);
+  const now = new Date().toISOString();
+
+  // 1) The wording itself (immutable, one row per version). 2) The submission as an append-only event: exactly what was shown and what
+  // was chosen. Both must succeed, otherwise we do not record a consent we cannot prove.
+  const textRow = { version: CONSENT_VERSION, sha256: consentSha256(), consent_text: CONSENT_TEXT, form_copy: FORM_COPY };
+  const { error: textErr } = await supabase.from('calldesk_sms_consent_texts').upsert(textRow, { onConflict: 'version', ignoreDuplicates: true });
+  const { error: evErr } = textErr ? { error: textErr } : await supabase.from('calldesk_sms_consent_events').insert({
+    message_id: messageId, lead_id: msg.lead_id ?? null, product: msg.product ?? null, phone: parsed.phone,
+    sms_opt_in: parsed.smsOptIn, checkbox_default_checked: FORM_COPY.consentCheckboxDefaultChecked,
+    consent_version: CONSENT_VERSION, consent_text: CONSENT_TEXT, consent_sha256: consentSha256(), form_copy: FORM_COPY, form_sha256: formSha256(),
+    page_url: `${(process.env.NEXT_PUBLIC_APP_URL || 'https://calldesk.tech').replace(/\/$/, '')}${FORM_COPY.page}`,
+    referrer: (request.headers.get('referer') || '').slice(0, 500) || null, accept_language: (request.headers.get('accept-language') || '').slice(0, 100) || null,
+    ip, user_agent: ua, coupon_code: coupon,
+  });
+  if (evErr) {
+    console.error('[try] could not write the consent audit record:', evErr.message);
+    return NextResponse.json({ error: 'Something went wrong. Please try again.' }, { status: 500 });
+  }
+
   const row = {
     message_id: messageId, lead_id: msg.lead_id ?? null, product: msg.product ?? null, phone: parsed.phone,
     sms_opt_in: parsed.smsOptIn, sms_status: smsStatus,
-    consent_text: parsed.smsOptIn ? CONSENT_TEXT : null, consent_version: parsed.smsOptIn ? CONSENT_VERSION : null,
-    ip, user_agent: (request.headers.get('user-agent') || '').slice(0, 300), coupon_code: coupon, updated_at: new Date().toISOString(),
+    consent_text: CONSENT_TEXT, consent_version: CONSENT_VERSION, consent_sha256: consentSha256(), // the wording shown, whether or not the box was ticked
+    ip, user_agent: ua, coupon_code: coupon, updated_at: now,
   };
   const { error } = await supabase.from('calldesk_sms_consents').upsert(row, { onConflict: 'message_id' });
   if (error) {
-    console.error('[try] could not record consent:', error.message);
+    console.error('[try] could not update the current consent row:', error.message);
     return NextResponse.json({ error: 'Something went wrong. Please try again.' }, { status: 500 });
   }
   return NextResponse.json({ ok: true, coupon, smsOptIn: parsed.smsOptIn, suppressed: smsStatus === 'suppressed_stop_on_file' });

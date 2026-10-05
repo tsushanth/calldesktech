@@ -19,9 +19,10 @@ export default function ConsentsPage() {
       <div className="flex items-center gap-3">
         <Link href="/admin/outreach" className="text-[13px] text-blue-600 hover:underline">&larr; All leads</Link>
         <h2 className="text-[15px] font-semibold">SMS consents</h2>
-        <a href="/api/admin/outreach/consents?format=csv" className="ml-auto rounded-lg border border-gray-300 px-3 py-1.5 text-[13px] font-medium text-gray-700 hover:bg-gray-50">Download CSV (proof file)</a>
+        <a href="/api/admin/outreach/consents?format=events" className="ml-auto rounded-lg border border-gray-300 px-3 py-1.5 text-[13px] font-medium text-gray-700 hover:bg-gray-50">Audit log CSV (exact wording per submission)</a>
+        <a href="/api/admin/outreach/consents?format=csv" className=" rounded-lg border border-gray-300 px-3 py-1.5 text-[13px] font-medium text-gray-700 hover:bg-gray-50">Download CSV (proof file)</a>
       </div>
-      <p className="text-[12px] text-gray-500">Collected on /try from outreach emails. &quot;pending_campaign&quot; means the person opted in but no marketing text may be sent until a marketing 10DLC campaign is approved. Nothing is texted from this page.</p>
+      <p className="text-[12px] text-gray-500">Collected on /try from outreach emails. &quot;pending_campaign&quot; means the person opted in but no marketing text may be sent until a marketing 10DLC campaign is approved. Nothing is texted from this page. These numbers are kept apart from phone numbers found on business websites: only the view calldesk_sms_marketing_audience (opted in, no STOP on file) may ever be used for marketing texts.</p>
       {note && <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-[13px] text-amber-800">{note}</p>}
       {rows && <p className="text-[13px]">{rows.length} submissions, {optIns} opted in to texts.</p>}
       <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white">
