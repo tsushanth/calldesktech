@@ -1,0 +1,39 @@
+name: Scan finished calls for issues (every 30 minutes)
+
+# The voice engine writes its own post-call analysis, so the web app's per-call hook only runs for Retell calls. This job scans recent
+# calls that have no analysis.issues yet (src/lib/callIssues.ts), up to 200 per run, only calls older than 5 minutes.
+# Dry run by hand: workflow_dispatch with dry = true, or POST the URL with ?dry=1.
+#
+# Repo secrets (this workflow does nothing until CALL_ISSUES_BACKFILL_URL is set):
+#   CALL_ISSUES_BACKFILL_URL  e.g. https://calldesk.tech/api/cron/call-issues-backfill
+#   CRON_SECRET               same value as the CRON_SECRET secret on the Fly app
+
+on:
+  schedule:
+    - cron: '11,41 * * * *' # every 30 minutes
+  workflow_dispatch:
+    inputs:
+      dry:
+        description: 'Dry run (writes nothing)'
+        type: boolean
+        default: true
+
+jobs:
+  call-issues:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Scan calls
+        env:
+          URL: ${{ secrets.CALL_ISSUES_BACKFILL_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          DRY: ${{ github.event.inputs.dry }}
+        run: |
+          set -euo pipefail
+          if [ -z "$URL" ] || [ -z "$CRON_SECRET" ]; then
+            echo "CALL_ISSUES_BACKFILL_URL / CRON_SECRET not set: call issue scanning is not enabled, nothing to do."
+            exit 0
+          fi
+          if [ "$DRY" = "true" ]; then URL="${URL}?dry=1"; fi
+          curl -sS --fail-with-body --max-time 300 -X POST "$URL" \
+            -H "Authorization: Bearer $CRON_SECRET"
