@@ -1,0 +1,38 @@
+name: Call issues digest (daily)
+
+# Emails the owner (PILOT_ALERT_EMAIL on the Fly app) one summary of the last 24 hours: calls with detected issues and failed or very
+# short calls. Quiet days send nothing. Dry run by hand: workflow_dispatch with dry = true.
+#
+# Repo secrets (does nothing until CALL_ISSUES_DIGEST_URL is set):
+#   CALL_ISSUES_DIGEST_URL  e.g. https://calldesk.tech/api/cron/call-issues-digest
+#   CRON_SECRET             same value as the CRON_SECRET secret on the Fly app
+
+on:
+  schedule:
+    - cron: '30 15 * * *' # daily, 15:30 UTC (8:30 AM Pacific)
+  workflow_dispatch:
+    inputs:
+      dry:
+        description: 'Dry run (no email)'
+        type: boolean
+        default: true
+
+jobs:
+  digest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Run digest
+        env:
+          URL: ${{ secrets.CALL_ISSUES_DIGEST_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          DRY: ${{ github.event.inputs.dry }}
+        run: |
+          set -euo pipefail
+          if [ -z "$URL" ] || [ -z "$CRON_SECRET" ]; then
+            echo "CALL_ISSUES_DIGEST_URL / CRON_SECRET not set: the digest is not enabled, nothing to do."
+            exit 0
+          fi
+          if [ "$DRY" = "true" ]; then URL="${URL}?dry=1"; fi
+          curl -sS --fail-with-body --max-time 120 -X POST "$URL" \
+            -H "Authorization: Bearer $CRON_SECRET"
