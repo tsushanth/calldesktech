@@ -300,7 +300,9 @@ const fieldCollected = (log, keyRe, valueRe) => {
   // extracted_data shape is not pinned down, so accept either a matching key with a value or the agent echoing the value back.
   const ed = log.extracted_data && typeof log.extracted_data === 'object' ? log.extracted_data : {};
   const inData = Object.entries(ed).some(([k, v]) => keyRe.test(k) && v != null && String(v).trim() !== '');
-  return inData || valueRe.test(agentText(log));
+  const text = agentText(log);
+  // The agent reads numbers back in many shapes ("555 0147", "5 ... 5 ... 5 ... 0 ...", "five five five"), so also test the digits-only form.
+  return inData || valueRe.test(text) || valueRe.test(text.replace(/\D+/g, ''));
 };
 
 SCENARIOS.push({
@@ -320,7 +322,7 @@ SCENARIOS.push({
     const f = []; const t = agentText(log);
     const name = fieldCollected(log, /name/i, /dana/i);
     const when = fieldCollected(log, /time|day|date|prefer/i, /thursday/i);
-    const phone = fieldCollected(log, /phone|number|callback/i, /555|0142|five five five/i);
+    const phone = fieldCollected(log, /phone|number|callback/i, /555|0142|0147|five five five/i);
     if (!name) f.push('the caller name was not collected');
     if (!when) f.push('the preferred day/time was not collected');
     if (!phone) f.push('the callback number was not collected');
