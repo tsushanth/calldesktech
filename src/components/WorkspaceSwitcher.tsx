@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 
 // The sidebar's workspace row used to be static display only — clicking it
 // did nothing, and there was no way to see or switch between a user's other
@@ -22,9 +23,30 @@ interface WorkspaceSwitcherProps {
   onCreated: (tenant: WorkspaceOption) => void;
 }
 
+// Modals render into document.body: inside the sidebar they were clipped to its 256px column (an ancestor with a
+// transform or overflow traps `position: fixed`), which is what made the create dialog look cramped.
+function Overlay({ onClose, children }: { onClose: () => void; children: React.ReactNode }) {
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [onClose]);
+  if (typeof document === 'undefined') return null;
+  return createPortal(
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 p-4" onClick={onClose} role="presentation">
+      <div role="dialog" aria-modal="true" className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+        {children}
+      </div>
+    </div>,
+    document.body
+  );
+}
+
 export default function WorkspaceSwitcher({ activeTenantId, displayName, onSwitch, onCreated }: WorkspaceSwitcherProps) {
   const [open, setOpen] = useState(false);
   const [showCreate, setShowCreate] = useState(false);
+  const [renaming, setRenaming] = useState<WorkspaceOption | null>(null);
+  const [deleting, setDeleting] = useState<WorkspaceOption | null>(null);
   const [tenants, setTenants] = useState<WorkspaceOption[] | null>(null);
   const [query, setQuery] = useState('');
   const containerRef = useRef<HTMLDivElement>(null);
@@ -97,25 +119,44 @@ export default function WorkspaceSwitcher({ activeTenantId, displayName, onSwitc
               <p className="px-2 py-3 text-[13px] text-gray-400">No workspaces found</p>
             ) : (
               filtered.map((t) => (
-                <button
-                  key={t.id}
-                  type="button"
-                  onClick={() => {
-                    onSwitch(t);
-                    setOpen(false);
-                  }}
-                  className="flex w-full items-center gap-2.5 rounded-lg px-2 py-2 text-left hover:bg-gray-50"
-                >
-                  <div className="flex h-7 w-7 flex-none items-center justify-center rounded-lg bg-gradient-to-br from-blue-500 to-indigo-600 text-xs font-semibold text-white">
-                    {t.name.charAt(0).toUpperCase()}
-                  </div>
-                  <span className="min-w-0 flex-1 truncate text-[13.5px] font-medium text-[#1a1d29]">{t.name}</span>
-                  {t.id === activeTenantId && (
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="flex-none text-blue-600">
-                      <path d="M20 6 9 17l-5-5" />
-                    </svg>
-                  )}
-                </button>
+                <div key={t.id} className="group flex items-center gap-1 rounded-lg hover:bg-gray-50">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onSwitch(t);
+                      setOpen(false);
+                    }}
+                    className="flex min-w-0 flex-1 items-center gap-2.5 rounded-lg px-2 py-2 text-left"
+                  >
+                    <div className="flex h-7 w-7 flex-none items-center justify-center rounded-lg bg-gradient-to-br from-blue-500 to-indigo-600 text-xs font-semibold text-white">
+                      {t.name.charAt(0).toUpperCase()}
+                    </div>
+                    <span className="min-w-0 flex-1 truncate text-[13.5px] font-medium text-[#1a1d29]">{t.name}</span>
+                    {t.id === activeTenantId && (
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="flex-none text-blue-600" aria-label="Current workspace">
+                        <path d="M20 6 9 17l-5-5" />
+                      </svg>
+                    )}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setOpen(false); setRenaming(t); }}
+                    className="flex-none rounded-md p-1.5 text-gray-400 hover:bg-gray-100 hover:text-[#1a1d29]"
+                    aria-label={`Rename ${t.name}`}
+                    title="Rename"
+                  >
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 20h9" /><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z" /></svg>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setOpen(false); setDeleting(t); }}
+                    className="mr-1 flex-none rounded-md p-1.5 text-gray-400 hover:bg-red-50 hover:text-red-600"
+                    aria-label={`Delete ${t.name}`}
+                    title="Delete"
+                  >
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18" /><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /><path d="m19 6-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" /><path d="M10 11v6M14 11v6" /></svg>
+                  </button>
+                </div>
               ))
             )}
           </div>
@@ -135,6 +176,31 @@ export default function WorkspaceSwitcher({ activeTenantId, displayName, onSwitc
             </button>
           </div>
         </div>
+      )}
+
+      {renaming && (
+        <RenameWorkspaceModal
+          workspace={renaming}
+          onClose={() => setRenaming(null)}
+          onRenamed={(updated) => {
+            setRenaming(null);
+            setTenants((prev) => (prev ? prev.map((t) => (t.id === updated.id ? updated : t)) : prev));
+            if (updated.id === activeTenantId) onSwitch(updated);
+          }}
+        />
+      )}
+
+      {deleting && (
+        <DeleteWorkspaceModal
+          workspace={deleting}
+          onClose={() => setDeleting(null)}
+          onDeleted={(id) => {
+            setDeleting(null);
+            const remaining = (tenants || []).filter((t) => t.id !== id);
+            setTenants(remaining);
+            if (id === activeTenantId && remaining.length > 0) onSwitch(remaining[0]);
+          }}
+        />
       )}
 
       {showCreate && (
@@ -169,9 +235,15 @@ function CreateWorkspaceModal({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const canSave = name.trim().length > 0 && !saving;
+  const [attempted, setAttempted] = useState(false);
+  const nameEmpty = name.trim().length === 0;
+  const canSave = !nameEmpty && !saving;
+  // The button stays grey until the name is filled in (the use-case choice is optional); say so instead of leaving it a mystery.
+  const missing = nameEmpty ? 'Enter a workspace name to continue' : null;
+  const showNameError = nameEmpty && (attempted || type !== null);
 
   const handleSave = async () => {
+    setAttempted(true);
     if (!canSave) return;
     setSaving(true);
     setError(null);
@@ -191,56 +263,62 @@ function CreateWorkspaceModal({
   };
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/30 p-4" onClick={onClose}>
-      <div
-        className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="mb-5 flex items-center justify-between">
-          <h2 className="text-[19px] font-semibold text-[#1a1d29]">Create your workspace</h2>
-          <button type="button" onClick={onClose} className="text-gray-400 hover:text-gray-600" aria-label="Close">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-              <path d="M18 6 6 18" />
-              <path d="m6 6 12 12" />
-            </svg>
-          </button>
-        </div>
+    <Overlay onClose={onClose}>
+      <div className="mb-5 flex items-center justify-between">
+        <h2 className="text-[19px] font-semibold text-[#1a1d29]">Create a workspace</h2>
+        <button type="button" onClick={onClose} className="text-gray-400 hover:text-gray-600" aria-label="Close">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+            <path d="M18 6 6 18" />
+            <path d="m6 6 12 12" />
+          </svg>
+        </button>
+      </div>
 
-        <label className="mb-1.5 block text-[13.5px] font-medium text-[#1a1d29]">Workspace name</label>
-        <input
-          autoFocus
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          placeholder="Acme Company"
-          className="mb-5 w-full rounded-lg border border-gray-200 px-3.5 py-2.5 text-[14px] text-[#1a1d29] outline-none focus:border-blue-400"
-        />
+      <label htmlFor="ws-name" className="mb-1.5 block text-[13.5px] font-medium text-[#1a1d29]">
+        Workspace name <span className="text-red-500" aria-hidden="true">*</span>
+      </label>
+      <input
+        id="ws-name"
+        autoFocus
+        value={name}
+        onChange={(e) => setName(e.target.value)}
+        onKeyDown={(e) => { if (e.key === 'Enter') handleSave(); }}
+        placeholder="Acme Company"
+        aria-invalid={showNameError}
+        className={`w-full rounded-lg border px-3.5 py-2.5 text-[14px] text-[#1a1d29] outline-none ${showNameError ? 'border-red-400 focus:border-red-500' : 'border-gray-200 focus:border-blue-400'}`}
+      />
+      <p className={`mb-5 mt-1 min-h-[18px] text-[12.5px] ${showNameError ? 'text-red-600' : 'text-transparent'}`}>
+        Give your workspace a name, for example your business name.
+      </p>
 
-        <p className="mb-1 text-[13.5px] font-medium text-[#1a1d29]">What best describes you?</p>
-        <p className="mb-3 text-[12.5px] text-gray-400">We&apos;ll customize your workspace accordingly.</p>
-        <div className="mb-5 grid grid-cols-2 gap-3">
-          {WORKSPACE_TYPES.map((opt) => {
-            const Icon = opt.icon;
-            const active = type === opt.id;
-            return (
-              <button
-                key={opt.id}
-                type="button"
-                onClick={() => setType(opt.id)}
-                className={`rounded-xl border px-4 py-3.5 text-left transition ${
-                  active ? 'border-blue-400 bg-blue-50' : 'border-gray-200 hover:border-gray-300'
-                }`}
-              >
-                <Icon className={active ? 'text-blue-600' : 'text-blue-500'} />
-                <p className="mt-2.5 text-[14px] font-semibold text-[#1a1d29]">{opt.label}</p>
-                <p className="text-[12.5px] text-gray-400">{opt.description}</p>
-              </button>
-            );
-          })}
-        </div>
+      <p className="mb-1 text-[13.5px] font-medium text-[#1a1d29]">What best describes you?</p>
+      <p className="mb-3 text-[12.5px] text-gray-400">We&apos;ll customize your workspace accordingly.</p>
+      <div className="mb-5 grid grid-cols-2 gap-3">
+        {WORKSPACE_TYPES.map((opt) => {
+          const Icon = opt.icon;
+          const active = type === opt.id;
+          return (
+            <button
+              key={opt.id}
+              type="button"
+              onClick={() => setType(opt.id)}
+              className={`rounded-xl border px-4 py-3.5 text-left transition ${
+                active ? 'border-blue-400 bg-blue-50' : 'border-gray-200 hover:border-gray-300'
+              }`}
+            >
+              <Icon className={active ? 'text-blue-600' : 'text-blue-500'} />
+              <p className="mt-2.5 text-[14px] font-semibold text-[#1a1d29]">{opt.label}</p>
+              <p className="text-[12.5px] text-gray-400">{opt.description}</p>
+            </button>
+          );
+        })}
+      </div>
 
-        {error && <p className="mb-3 text-[13px] text-red-600">{error}</p>}
+      {error && <p className="mb-3 text-[13px] text-red-600">{error}</p>}
 
-        <div className="flex justify-end gap-2">
+      <div className="flex items-center justify-between gap-3">
+        <p className="min-w-0 flex-1 text-[12.5px] text-gray-500">{missing}</p>
+        <div className="flex flex-none gap-2">
           <button
             type="button"
             onClick={onClose}
@@ -251,14 +329,110 @@ function CreateWorkspaceModal({
           <button
             type="button"
             onClick={handleSave}
-            disabled={!canSave}
-            className="rounded-lg bg-blue-600 px-4 py-2 text-[13.5px] font-medium text-white transition disabled:cursor-not-allowed disabled:bg-gray-200 disabled:text-gray-400 hover:bg-blue-700 disabled:hover:bg-gray-200"
+            aria-disabled={!canSave}
+            className={`rounded-lg px-4 py-2 text-[13.5px] font-medium transition ${canSave ? 'bg-blue-600 text-white hover:bg-blue-700' : 'cursor-not-allowed bg-gray-200 text-gray-400'}`}
           >
-            {saving ? 'Saving...' : 'Save'}
+            {saving ? 'Creating...' : 'Create workspace'}
           </button>
         </div>
       </div>
-    </div>
+    </Overlay>
+  );
+}
+
+function RenameWorkspaceModal({ workspace, onClose, onRenamed }: { workspace: WorkspaceOption; onClose: () => void; onRenamed: (w: WorkspaceOption) => void }) {
+  const [name, setName] = useState(workspace.name);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const trimmed = name.trim();
+  const canSave = trimmed.length > 0 && trimmed !== workspace.name && !saving;
+
+  const save = async () => {
+    if (!canSave) return;
+    setSaving(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/tenants/${workspace.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: trimmed }),
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(body.error || 'Could not rename the workspace');
+      onRenamed({ id: workspace.id, name: body.tenant?.name ?? trimmed });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not rename the workspace');
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Overlay onClose={onClose}>
+      <h2 className="mb-4 text-[19px] font-semibold text-[#1a1d29]">Rename workspace</h2>
+      <label htmlFor="ws-rename" className="mb-1.5 block text-[13.5px] font-medium text-[#1a1d29]">Workspace name</label>
+      <input
+        id="ws-rename"
+        autoFocus
+        value={name}
+        onChange={(e) => setName(e.target.value)}
+        onKeyDown={(e) => { if (e.key === 'Enter') save(); }}
+        maxLength={200}
+        className="mb-4 w-full rounded-lg border border-gray-200 px-3.5 py-2.5 text-[14px] text-[#1a1d29] outline-none focus:border-blue-400"
+      />
+      {error && <p className="mb-3 text-[13px] text-red-600">{error}</p>}
+      <div className="flex justify-end gap-2">
+        <button type="button" onClick={onClose} className="rounded-lg border border-gray-200 px-4 py-2 text-[13.5px] font-medium text-[#1a1d29] hover:bg-gray-50">Cancel</button>
+        <button
+          type="button"
+          onClick={save}
+          aria-disabled={!canSave}
+          className={`rounded-lg px-4 py-2 text-[13.5px] font-medium transition ${canSave ? 'bg-blue-600 text-white hover:bg-blue-700' : 'cursor-not-allowed bg-gray-200 text-gray-400'}`}
+        >
+          {saving ? 'Saving...' : 'Save'}
+        </button>
+      </div>
+    </Overlay>
+  );
+}
+
+function DeleteWorkspaceModal({ workspace, onClose, onDeleted }: { workspace: WorkspaceOption; onClose: () => void; onDeleted: (id: string) => void }) {
+  const [deleting, setDeleting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const confirm = async () => {
+    setDeleting(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/tenants/${workspace.id}`, { method: 'DELETE' });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(body.error || 'Could not delete the workspace');
+      onDeleted(workspace.id);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not delete the workspace');
+      setDeleting(false);
+    }
+  };
+
+  return (
+    <Overlay onClose={onClose}>
+      <h2 className="mb-2 text-[19px] font-semibold text-[#1a1d29]">Delete &ldquo;{workspace.name}&rdquo;?</h2>
+      <p className="mb-2 text-[14px] text-gray-600">
+        Are you sure? This permanently deletes the workspace and everything in it: its agents, flows, call logs, contacts, knowledge bases and API keys.
+      </p>
+      <p className="mb-4 text-[14px] font-medium text-red-600">This cannot be undone.</p>
+      {error && <p className="mb-3 rounded-lg bg-red-50 px-3 py-2 text-[13px] text-red-700">{error}</p>}
+      <div className="flex justify-end gap-2">
+        <button type="button" autoFocus onClick={onClose} className="rounded-lg border border-gray-200 px-4 py-2 text-[13.5px] font-medium text-[#1a1d29] hover:bg-gray-50">Cancel</button>
+        <button
+          type="button"
+          onClick={confirm}
+          disabled={deleting}
+          className="rounded-lg bg-red-600 px-4 py-2 text-[13.5px] font-medium text-white transition hover:bg-red-700 disabled:opacity-60"
+        >
+          {deleting ? 'Deleting...' : 'Delete workspace'}
+        </button>
+      </div>
+    </Overlay>
   );
 }
 

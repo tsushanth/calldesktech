@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/supabase';
 import { getRetellClient } from '@/lib/retell';
-import { authorizeTenant } from '@/lib/authz';
+import { authorizeTenant, requireTenantRole } from '@/lib/authz';
 import { parseTenantUpdates, protectServerManagedSettings } from '@/lib/tenantUpdates';
 
 // GET/PATCH a single tenant, server-side (service role) — src/lib/api.ts's
@@ -81,4 +81,36 @@ export async function PATCH(
   }
 
   return NextResponse.json({ tenant: data });
+}
+
+// DELETE /api/tenants/[id] - permanently delete a workspace and everything in it (agents, flows, call logs, knowledge bases,
+// contacts, API keys, team) through the ON DELETE CASCADE foreign keys. Owner only, never through an API key.
+// Refused (409) when it would leave the owner with no workspace, or while the workspace still holds phone numbers: those are
+// rented from the carrier and deleting the row would leave them billed with nothing pointing at them. Release them first.
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const { id } = await params;
+  const auth = await requireTenantRole(request, id, ['owner'], { apiKeysAllowed: false });
+  if (!auth.ok) return auth.response;
+
+  const supabase = getSupabaseAdmin();
+  const { data: tenant, error: tenantError } = await supabase.from('calldesk_tenants').select('id, user_id, name').eq('id', id).maybeSingle();
+  if (tenantError) return NextResponse.json({ error: tenantError.message }, { status: 500 });
+  if (!tenant) return NextResponse.json({ error: 'Not found' }, { status: 404 });
+
+  const { count: ownedCount } = await supabase.from('calldesk_tenants').select('id', { count: 'exact', head: true }).eq('user_id', tenant.user_id);
+  if ((ownedCount ?? 0) <= 1) {
+    return NextResponse.json({ error: 'This is your only workspace, so it cannot be deleted. Create another one first.' }, { status: 409 });
+  }
+
+  const { count: numberCount } = await supabase.from('calldesk_phone_numbers').select('id', { count: 'exact', head: true }).eq('tenant_id', id);
+  if ((numberCount ?? 0) > 0) {
+    return NextResponse.json({ error: `This workspace still has ${numberCount} phone number${numberCount === 1 ? '' : 's'}. Release ${numberCount === 1 ? 'it' : 'them'} on the Phone Numbers page first, so you are not billed for ${numberCount === 1 ? 'a number' : 'numbers'} with no workspace.` }, { status: 409 });
+  }
+
+  const { error } = await supabase.from('calldesk_tenants').delete().eq('id', id);
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  return NextResponse.json({ deleted: true, id });
 }
