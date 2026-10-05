@@ -116,7 +116,7 @@ export async function PATCH(
       .single();
     if (updateError) return NextResponse.json({ error: updateError.message }, { status: 500 });
 
-    return NextResponse.json({ suggestion: updatedSuggestion, newVersion: body.version });
+    return NextResponse.json({ suggestion: updatedSuggestion, newVersion: body.version, ...(Array.isArray(body.warnings) && body.warnings.length ? { warnings: body.warnings } : {}) });
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Failed to create draft version';
     return NextResponse.json({ error: message }, { status: 500 });

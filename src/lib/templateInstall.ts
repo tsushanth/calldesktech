@@ -173,7 +173,7 @@ export async function installTemplate(req: NextRequest, tenantId: string, opts: 
       retell = { agentId: r.agentId, warnings: r.warnings };
     }
 
-    const { version } = await json<{ version: { id: string; version_number: number } }>(
+    const { version, warnings: publishWarnings } = await json<{ version: { id: string; version_number: number }; warnings?: Array<{ code: string; message: string }> }>(
       await createVersionRoute(
         withBody(req, `/api/agents/${agent.id}/versions`, {
           flowName: template.id, startNodeId: template.startNodeId, nodes,
@@ -184,7 +184,10 @@ export async function installTemplate(req: NextRequest, tenantId: string, opts: 
         ctx(agent.id)
       )
     );
-    return { agentId: agent.id, versionId: version.id, versionNumber: version.version_number, template: template.id, voiceEngine: opts.voiceEngine, ...(retell ? { retellAgentId: retell.agentId, warnings: retell.warnings } : {}) };
+    return { agentId: agent.id, versionId: version.id, versionNumber: version.version_number, template: template.id, voiceEngine: opts.voiceEngine, ...(retell ? { retellAgentId: retell.agentId, warnings: retell.warnings } : {}),
+      // The publish response's non-blocking warnings ({ code, message }[], e.g. booking_without_calendar). Kept apart from `warnings`, which
+      // already means Retell conversion notes (string[]) in this response, so existing consumers of that field are unaffected.
+      ...(publishWarnings?.length ? { publishWarnings } : {}) };
   } catch (err) {
     await getSupabaseAdmin().from('calldesk_agents').delete().eq('id', agent.id);
     throw err;

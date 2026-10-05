@@ -18,6 +18,9 @@ export const BOOKING_WITHOUT_CALENDAR_MESSAGE =
 export const BOOKING_CALENDAR_TOOLS_OFF_MESSAGE =
   'This agent collects appointments, but its calendar tools are turned off, so it will take a request and someone must confirm. Turn calendar tools back on (and connect a calendar under Integrations) to let it book.';
 
+export const BOOKING_REQUIRES_CALENDAR_FIX =
+  'Connect a calendar under Integrations, remove the booking steps, or publish without requireBookingTools to accept a request-only agent.';
+
 // Extraction keys that name an appointment request. Matched on the whole key, split into words.
 const FIELD_KEY = /(^|[\s_\-.])(preferred[\s_\-]?(time|day|date|slot|appointment)|appointment([\s_\-]?(time|date|day|slot|request))?|booking([\s_\-]?(time|date|day|slot))?|schedule[d]?([\s_\-]?(time|date|day))?|date[\s_\-]?time|requested[\s_\-]?(time|date|day|slot))($|[\s_\-.])/i;
 // Instructions to book/schedule/reserve something with a time. "book" as a verb or "booking" of an appointment/slot/visit; plain

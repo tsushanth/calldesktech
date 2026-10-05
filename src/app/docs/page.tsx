@@ -175,6 +175,16 @@ export default function DocsPage() {
        "voiceEngine":"poc","tier":"standard"}'`}</Code></div>
               </section>
 
+              <section id="booking-without-calendar" className="mt-14 scroll-mt-[96px]">
+                <h2 className="text-[24px] font-semibold tracking-[-0.02em]">Booking without a calendar</h2>
+                <p className="mt-2 max-w-[640px] text-[15px] leading-[1.55] text-gray-500">
+                  An agent can only book appointments live when a calendar is connected under Integrations and <code className="rounded bg-white px-1.5 py-0.5 text-[13px]">globalSettings.calendarTools</code> is not <code className="rounded bg-white px-1.5 py-0.5 text-[13px]">false</code>. If you publish a flow that collects appointments without that, the version is still published and the response carries a <code className="rounded bg-white px-1.5 py-0.5 text-[13px]">warnings</code> array with code <code className="rounded bg-white px-1.5 py-0.5 text-[13px]">booking_without_calendar</code>: the agent takes a request and someone must confirm it. Templates installed from the API report the same warnings as <code className="rounded bg-white px-1.5 py-0.5 text-[13px]">publishWarnings</code>.
+                </p>
+                <p className="mt-3 max-w-[640px] text-[15px] leading-[1.55] text-gray-500">
+                  If you would rather fail than ship a request-only agent, pass <code className="rounded bg-white px-1.5 py-0.5 text-[13px]">&quot;requireBookingTools&quot;: true</code> when publishing. In that case, and only that case, the publish is refused with HTTP 422 and code <code className="rounded bg-white px-1.5 py-0.5 text-[13px]">booking_requires_calendar</code> (with <code className="rounded bg-white px-1.5 py-0.5 text-[13px]">reasons</code> and <code className="rounded bg-white px-1.5 py-0.5 text-[13px]">fix</code>) before anything is saved or billed. Flows without booking steps, or workspaces with a calendar connected, publish as normal.
+                </p>
+              </section>
+
               <section id="models" className="mt-14 scroll-mt-[96px]">
                 <h2 className="text-[24px] font-semibold tracking-[-0.02em]">Advanced: choose models yourself</h2>
                 <p className="mt-2 max-w-[640px] text-[15px] leading-[1.55] text-gray-500">

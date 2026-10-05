@@ -9,7 +9,7 @@ import { tierVoiceIsEnglishOnly } from '@/lib/pricingTiers';
 import { validateModelChoice } from '@/lib/modelCatalog';
 import { resolveTierForPublish } from '@/lib/pricingTiers';
 import { TIER_OVERRIDE_FIELDS } from '@/lib/versionCarryOver';
-import { detectBookingIntent, bookingWarning } from '@/lib/bookingIntent';
+import { detectBookingIntent, bookingWarning, BOOKING_REQUIRES_CALENDAR_FIX } from '@/lib/bookingIntent';
 import { tenantHasCalendar } from '@/lib/calendarConnection';
 import { resolveExpertBackupForPublish, expertBackupBillingConfigured } from '@/lib/expertBackup';
 
@@ -126,6 +126,7 @@ export async function POST(
     routingMode: requestedRoutingMode,
     acceptExpertBackup,
     wizardConfig,
+    requireBookingTools,
   } = body as {
     flowName: string;
     startNodeId: string;
@@ -144,8 +145,12 @@ export async function POST(
     routingMode?: unknown;
     acceptExpertBackup?: unknown;
     wizardConfig?: Record<string, unknown>;
+    requireBookingTools?: unknown;
   };
 
+  if (requireBookingTools !== undefined && requireBookingTools !== null && typeof requireBookingTools !== 'boolean') {
+    return NextResponse.json({ error: 'requireBookingTools must be a boolean' }, { status: 400 });
+  }
   if (!flowName || !startNodeId || !Array.isArray(nodes) || nodes.length === 0) {
     return NextResponse.json(
       { error: 'flowName, startNodeId, and at least one node are required' },
@@ -237,6 +242,27 @@ export async function POST(
     .single();
   if (agentError || !agent) {
     return NextResponse.json({ error: agentError?.message || 'Agent not found' }, { status: 404 });
+  }
+
+  // Booking intent (computed once, used for both the strict check below and the non-blocking warning at the end). A detection failure
+  // never blocks a publish.
+  let bookingIntent: ReturnType<typeof detectBookingIntent> | null = null;
+  try { bookingIntent = detectBookingIntent(nodes, globalSettings); } catch (err) { console.error('Booking-intent check failed', err); }
+
+  // Opt-in strict mode: a flow that collects appointments cannot be published without booking tools when the caller asked for that.
+  // Same condition as the warning below; refused before any billing line is added or anything is saved. Default (flag absent/false) is unchanged.
+  if (requireBookingTools === true && bookingIntent?.intends) {
+    let calendarConnected = false;
+    if (!bookingIntent.calendarToolsOff) {
+      try { calendarConnected = await tenantHasCalendar(agent.tenant_id); } catch (err) { console.error('Calendar check failed', err); }
+    }
+    const w = bookingWarning(bookingIntent, calendarConnected);
+    if (w) {
+      return NextResponse.json(
+        { error: w.message, code: 'booking_requires_calendar', reasons: bookingIntent.reasons, fix: BOOKING_REQUIRES_CALENDAR_FIX },
+        { status: 422 }
+      );
+    }
   }
 
   // Tiered publish: make sure the subscription has a line for the tier's price BEFORE saving anything. The add is idempotent and a metered
