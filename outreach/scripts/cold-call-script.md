@@ -1,7 +1,7 @@
 # CallDeskTech cold-call script
 
 Goal of every call: get the business owner to agree to forward their
-overflow/after-hours calls to a number we give them, for a free 2-week
+overflow/after-hours calls to a number we give them, for a free 1-week
 trial (capped at 50 minutes of calls, no credit card). That's the only ask.
 
 ## 1. Open (10-15 sec)
@@ -36,7 +36,7 @@ anything that isn't a flat refusal to talk.
 Offer, once they've engaged:
 
 > "We built an AI phone service that picks up those calls for you so you
-> don't lose the job. It's free to try for two weeks, capped at 50 minutes
+> don't lose the job. It's free to try for one week, capped at 50 minutes
 > of calls, no credit card. All you'd do is forward your overflow calls to
 > a number we give you."
 
@@ -85,7 +85,7 @@ note it and move on.
 ## Hard rules, every call, no exceptions
 
 - Never invent a statistic or claim a result we haven't proven.
-- Never promise anything beyond: free 2-week trial, 50-minute cap, no
+- Never promise anything beyond: free 1-week trial, 50-minute cap, no
   credit card.
 - If you don't know the answer to something, say you'll have someone
   follow up by email — never guess.
@@ -95,3 +95,17 @@ note it and move on.
 
 Note the outcome (forwarded number set up / callback time / not
 interested / no answer) so it's tracked. That's it — keep it short.
+
+## When an AI answers, or an AI voicemail picks up: leave a message
+
+If you reach an AI (it says it is an AI or virtual assistant, or an automated system asks you to leave a message after the tone),
+do not hang up and do not try to pitch it. Leave this short message (about 15 seconds), then end the call:
+
+> "Hi, this is [your name] with Calldesk. We make an AI phone service that answers the calls you miss when you are busy or after
+> hours. It is free to try for one week, no credit card. Please pass this to the owner. You can find us at calldesk dot tech.
+> Thank you."
+
+- Log the outcome as **Voicemail** (AI voicemail) or **Gatekeeper** (a live AI assistant took the message), write **"AI, left message"**
+  in the notes, and answer the owner/decision-maker question No.
+- A voicemail with a real person's recorded greeting: do not leave a message. Log "voicemail"; the number comes back once, at a
+  different time of day.

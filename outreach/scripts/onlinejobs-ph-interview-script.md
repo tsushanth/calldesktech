@@ -34,7 +34,7 @@ is what we want. Note it, move on — this section doesn't get a score.
 
 Then ask: "Does that make sense? Any questions before we role-play it?"
 Answer their questions honestly. If they ask "what if they ask about pricing"
-— tell them: "It's free for a 2-week trial, capped at 50 minutes of calls, no
+— tell them: "It's free for a 1-week trial, capped at 50 minutes of calls, no
 credit card. That's the only number you're allowed to give them."
 
 ## 3. Role-play round 1 — receptive owner (score this)

@@ -10,6 +10,7 @@ export const metadata = { robots: { index: false, follow: false }, title: 'Call 
 
 const SCRIPTS = [
   { id: 'reseller', label: 'Resellers and agencies', file: 'cold-call-script-reseller.md' },
+  { id: 'local', label: 'Local businesses (towing, septic, bail bonds)', file: 'cold-call-script.md' },
   { id: 'freight', label: 'Freight brokers', file: 'cold-call-script-freight.md' },
 ];
 
