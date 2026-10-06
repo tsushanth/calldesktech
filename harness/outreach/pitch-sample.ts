@@ -8,6 +8,7 @@ import { getSupabaseAdmin } from '@/lib/supabase';
 import { resolveProduct, leadsTable, messagesTable, scopeToProduct } from '@/lib/outreach/products';
 import { draftAgencyEmail } from '@/lib/outreach/agencyDraft';
 import { fetchSiteSignals, chooseAngle } from '@/lib/outreach/businessBrief';
+import { detectDraftLanguage } from '@/lib/outreach/language';
 
 const PER = Math.max(1, Number(process.env.PER) || 3);
 const VERTICALS = (process.env.VERTICALS || 'dental,homeservices,bailbonds,homecare,towing,childcare').split(',').map((s) => s.trim()).filter(Boolean);
@@ -24,10 +25,18 @@ const VERTICALS = (process.env.VERTICALS || 'dental,homeservices,bailbonds,homec
     console.log(`\n# ${v}\n`);
     for (const lead of (leads ?? []) as { id: string; company_name: string; domain: string; location: string | null; description: string | null; tier: string | null; research: never }[]) {
       if (shown >= PER) break;
+      // English-language leads only: the site patterns are English, and the sample is for review in English.
+      if (detectDraftLanguage(lead.location ?? null)) continue;
       const site = await fetchSiteSignals(lead.domain);
       if (!site) continue;
       const angle = chooseAngle(product.id.replace(/^calldesk:/, ''), site.signals);
-      const draft = await draftAgencyEmail({ name: lead.company_name, domain: lead.domain, tier: lead.tier, location: lead.location, description: lead.description, dossier: null, product, angle });
+      let draft;
+      try {
+        draft = await draftAgencyEmail({ name: lead.company_name, domain: lead.domain, tier: lead.tier, location: lead.location, description: lead.description, dossier: null, product, angle });
+      } catch (e) {
+        console.error(`draft failed for ${lead.company_name}: ${e instanceof Error ? e.message.slice(0, 100) : e}`);
+        continue;
+      }
       const old = byLead.get(lead.id) as { subject: string; body_text: string };
       tally[angle.id] = (tally[angle.id] || 0) + 1;
       shown++;

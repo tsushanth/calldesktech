@@ -71,12 +71,14 @@ export function extractSignals(pages: string[]): SiteSignals {
   return s;
 }
 
+// Which angles make sense per vertical. 'reminders' is deliberately in no list yet: the pilot is "forward your calls" and
+// reminder calls are outbound from their appointment list, so it does not fit the offer as written.
 // Which angles make sense per vertical. Sensitive verticals never get the angles that imply handling the substance of a
 // call (booking or reminders for legal or funeral matters); those stay on answering, transfer and messages.
 const ALLOWED: Record<string, AngleId[]> = {
-  dental: ['booking', 'reminders', 'after_hours', 'spanish'],
-  physio: ['booking', 'reminders', 'after_hours', 'spanish'],
-  vets: ['booking', 'reminders', 'transfer', 'after_hours', 'spanish'],
+  dental: ['booking', 'after_hours', 'spanish'],
+  physio: ['booking', 'after_hours', 'spanish'],
+  vets: ['booking', 'transfer', 'after_hours', 'spanish'],
   childcare: ['booking', 'after_hours', 'spanish'],
   homecare: ['after_hours', 'transfer', 'spanish'],
   homeservices: ['transfer', 'booking', 'after_hours', 'spanish'],
@@ -117,7 +119,7 @@ export function chooseAngle(verticalId: string, s: SiteSignals): Angle {
       ? pick('after_hours', `Your site lists: "${s.weekdayOnlyHours}"`, 'What happens to a call that comes in outside those hours?')
       : null,
     s.onlineBookingTool && (s.cancellationPolicy || ['dental', 'physio', 'vets'].includes(verticalId))
-      ? pick('reminders', s.cancellationPolicy ? `Your site mentions: "${s.cancellationPolicy}"` : `You take bookings online through ${s.onlineBookingTool}`, 'How are you confirming appointments today, so a no-show does not leave an empty slot?')
+      ? pick('reminders', s.cancellationPolicy ? `Your site mentions: "${s.cancellationPolicy}"` : (s.onlineBookingTool === 'online booking' ? 'Your site lets people book online' : `You take bookings online through ${s.onlineBookingTool}`), 'How are you confirming appointments today, so a no-show does not leave an empty slot?')
       : null,
     s.spanish ? pick('spanish', 'Your site is available in Spanish', 'When a caller prefers Spanish and the person who speaks it is busy, what happens to the call?') : null,
   ];

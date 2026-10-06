@@ -50,9 +50,10 @@ describe('chooseAngle', () => {
     expect(a.id).toBe('after_hours');
     expect(a.evidence).toMatch(/^Your site lists/);
   });
-  it('online booking in a dental practice points at reminders', () => {
+  it('online booking alone does not pick reminders (the pilot is forward-your-calls)', () => {
     const a = chooseAngle('dental', extractSignals([page('<a href="https://www.zocdoc.com/x">Book</a>')]));
-    expect(a.id).toBe('reminders');
+    expect(a.id).toBe('after_hours');
+    expect(a.evidence).toBeNull();
   });
   it('bail bonds never get booking or reminders', () => {
     const a = chooseAngle('bailbonds', extractSignals([page('<p>Call us to schedule your appointment. Online booking available.</p>')]));
