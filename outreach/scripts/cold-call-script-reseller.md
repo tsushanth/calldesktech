@@ -1,7 +1,8 @@
 # CallDeskTech cold-call script: voice-AI agencies and resellers
 
 Goal of every call: get the owner or head of the agency to agree to a 15-minute call with the founders about
-becoming a Calldesk design partner. That is the only ask. We are not selling them a phone service.
+becoming a Calldesk design partner, or, for the speech-API angle below, about trying the readaloudai.org API. That is
+the only ask. We are not selling them a phone service.
 
 Who you are calling: small agencies, studios and software shops that build or sell AI voice agents and AI
 receptionists to other businesses, plus a few AI-receptionist vendors. Most are small teams, so whoever picks up
@@ -21,6 +22,35 @@ the outcome logging are the same. The offer and the ask are different.
 - Partners get a free trial and direct access to the founders.
 - Terms beyond the 20% share (how long it lasts, when it is paid, any minimums) are being finalized with the first
   partners. If asked, say exactly that. Never state a price, a duration, a payout date or a minimum.
+
+## The second angle: speech APIs (STT and TTS, sold separately)
+
+Some of these companies do not need a phone platform. They build products that use speech (voice agents on their own
+stack, dictation or notes tools, dubbing and localization, e-learning narration, IVR replacement). For them the
+better conversation is the readaloudai.org speech API. Pick the angle from what they build, or from what they tell
+you in the discovery question. If they run their own voice agents, lead with the speech API; if they sell finished
+voice agents to clients, lead with the platform. You can offer both if they are interested in both, but never in the
+same breath: one angle per call is the default.
+
+What the speech API offer is (say only this):
+
+- readaloudai.org is a realtime speech-to-text and text-to-speech API for developers building voice products.
+- Realtime STT and TTS API access is available now.
+- Pay as you go with no monthly minimum: text-to-speech from $0.004 per 1,000 characters, and speech-to-text at $0.11
+  per hour of audio.
+- New accounts get free credits to try the API.
+- We are looking for a small number of early integration partners to try it with their product, with direct access to
+  the founders for integration support.
+- Terms beyond pricing (volume discounts, SLAs) are being finalized with the first partners. There is no resale or
+  revenue-share term for the speech API yet. If they ask about one, say the founders will follow up on it; never
+  invent a number.
+
+Do NOT say it is cheaper than, or better or faster than, ElevenLabs, Deepgram, Cartesia or anyone else, and do not name
+a competitor in a comparison. Say the prices exactly as above and suggest they compare with what they pay today:
+"Worth putting next to what you pay now." If they ask how it compares on quality, say you do not have a verified
+comparison to quote and the founders can share test audio.
+
+The ask for this angle is the same: 15 minutes with the founders, or they try the free credits and tell us what breaks.
 
 ## 1. Open (10-15 sec)
 
