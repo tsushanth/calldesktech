@@ -38,8 +38,8 @@ Every lead is an agency or a company that builds voice products. Which pitch you
 
 ### The pitch for this angle, in one line
 
-> "Every minute of a voice-agent call pays for speech to text, speech to text back out, the language model and the phone
-> line. We sell the two speech parts, and our list prices for them are lower, so your cost per call minute goes down."
+> "Every minute of a voice-agent call pays for speech to text, the language model, text to speech and the phone line. We sell
+> the two speech parts, and our list prices for them are lower, so your cost per call minute goes down."
 
 - It works because they already pay for speech on every call. We are not asking them to change what the agent does, only
   to point the speech part at us.
@@ -110,8 +110,8 @@ Not optional. Say it before the real conversation starts.
 
 ## 3. Discover (one question, then listen)
 
-Use what the batch screen shows about the company if there is a note (what they build, who they serve). If there is
-nothing, ask:
+Read the "What they do" column for that company on your list sheet before you dial (what they build, who they serve). If it
+is not clear, ask:
 
 > "Do you build the voice agents on your own stack, or on a platform like Retell or Vapi?"
 
