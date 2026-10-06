@@ -5,33 +5,39 @@ import { verifyLooksLikeVoiceAi, type SearchCandidate } from './genericSource';
 // exactly the kind of reseller or competitor we want in the pool. This only reads search results, then
 // verifies each candidate's own homepage the same way the other sources do (genericSource.verifyLooksLikeVoiceAi).
 //
-// Cost: the live endpoint is about $2 per 1,000 searches. OUTREACH_SERP_QUERIES_PER_DAY defaults to 0 (off) and
-// is capped at 20 a day in code. Credentials: DATAFORSEO_LOGIN / DATAFORSEO_PASSWORD in the harness env.
+// Cost: the live advanced endpoint costs $0.004 per search ($4 per 1,000). OUTREACH_SERP_QUERIES_PER_DAY defaults to 0 (off)
+// and is capped at 20 a day in code (OUTREACH_SERP_MAX raises the cap for a deliberate bulk run). Credentials: DATAFORSEO_LOGIN / DATAFORSEO_PASSWORD in the harness env.
 
 export type SerpCandidate = SearchCandidate & { ad: boolean; query: string };
 
 // English, US. Each is a search a reseller or a white-label vendor would pay to appear on.
 const QUERIES = [
-  'white label ai receptionist',
-  'white label ai voice agent',
-  'ai voice agent reseller program',
-  'resell ai phone agents',
-  'ai receptionist for small business',
-  'ai answering service for small business',
-  'ai phone answering service',
-  'voice ai agency',
-  'ai voice agent platform for agencies',
-  'gohighlevel voice ai',
-  'ai receptionist for dentists',
-  'ai receptionist for contractors',
-  'virtual receptionist ai',
-  'ai call answering white label partner program',
+  // white-label and reseller intent
+  'white label ai receptionist', 'white label ai voice agent', 'ai voice agent reseller program', 'resell ai phone agents',
+  'ai call answering white label partner program', 'white label ai phone agent for agencies', 'ai receptionist reseller',
+  'voice ai white label platform for agencies', 'ai voice agent partner program', 'become a voice ai reseller',
+  // agencies that build on the big platforms
+  'vapi agency', 'retell ai agency', 'synthflow agency', 'bland ai agency', 'voice ai agency', 'voice ai consultant',
+  'gohighlevel voice ai', 'gohighlevel ai receptionist agency', 'ai voice agent development company', 'ai appointment setter agency',
+  'n8n voice agent agency', 'elevenlabs voice agent agency', 'livekit voice agent developer', 'pipecat voice agent agency',
+  // answering services and phone resellers adding AI
+  'ai answering service for small business', 'ai phone answering service', 'virtual receptionist ai', 'ai receptionist for small business',
+  'answering service ai voice agent', 'medical answering service ai', 'law firm answering service ai receptionist',
+  'business phone system reseller ai receptionist', 'voip reseller ai voice agent',
+  // vertical specialists (they sell to the same owners we do)
+  'ai receptionist for dentists', 'ai receptionist for contractors', 'ai receptionist for law firms', 'ai voice agent for real estate',
+  'ai voice agent for car dealerships', 'ai receptionist for home services', 'ai phone agent for restaurants', 'ai receptionist for medical practices',
 ];
 
 const SLOT_MS = 2 * 60 * 60_000;
 export function serpQueriesForDay(now = new Date(), perDay = 2): string[] {
   const slot = Math.floor(now.getTime() / SLOT_MS);
-  return Array.from({ length: perDay }, (_, i) => QUERIES[(slot * perDay + i) % QUERIES.length]);
+  return Array.from({ length: Math.min(perDay, QUERIES.length) }, (_, i) => QUERIES[(slot * perDay + i) % QUERIES.length]);
+}
+
+/** Daily cap on searches. 20 by default; OUTREACH_SERP_MAX raises it for a deliberate bulk run (each search is about $0.004). */
+export function serpMax(): number {
+  return Math.min(100, Math.max(1, Number(process.env.OUTREACH_SERP_MAX) || 20));
 }
 
 const EXCLUDED = [
@@ -101,7 +107,7 @@ export async function findSerpCandidates(
   const errors: string[] = [];
   const found = new Map<string, SerpCandidate>();
   let raw = 0;
-  for (const query of serpQueriesForDay(new Date(), Math.min(20, Math.max(0, perDay)))) {
+  for (const query of serpQueriesForDay(new Date(), Math.min(serpMax(), Math.max(0, perDay)))) {
     if (shouldStop()) break;
     try {
       const items = parseSerp(await serpSearch(query), query);

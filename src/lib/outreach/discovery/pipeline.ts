@@ -12,7 +12,7 @@ import { findContact, type ContactForm } from './contactPages';
 import { isBlockedDomain, isRegionBlocked, scoreLead, type ScoreEvidence } from './score';
 import { findJobPostingCandidates } from './jobPostingsSearch';
 import { findReviewSiteCandidates } from './reviewSitesSearch';
-import { findSerpCandidates } from './serpAds';
+import { findSerpCandidates, serpMax } from './serpAds';
 import { fetchSiteSignals, chooseAngle, type Angle } from '../businessBrief';
 import { detectDraftLanguage } from '../language';
 import { findGithubCandidates } from './githubSignal';
@@ -512,7 +512,7 @@ async function stageSerp(
   db: Db, summary: RunSummary, dryRun: boolean, index: LeadIndex<LeadRow>, stop: () => boolean, product: ProductConfig,
 ): Promise<DirectoryEntry[]> {
   if (product.id !== 'calldesk') return [];
-  const perDay = Math.min(20, Math.max(0, Number(process.env.OUTREACH_SERP_QUERIES_PER_DAY ?? 0)));
+  const perDay = Math.min(serpMax(), Math.max(0, Number(process.env.OUTREACH_SERP_QUERIES_PER_DAY ?? 0)));
   if (!perDay) return [];
 
   const { candidates, errors, rejected } = await findSerpCandidates(perDay, stop);
