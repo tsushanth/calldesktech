@@ -23,32 +23,53 @@ the outcome logging are the same. The offer and the ask are different.
 - Terms beyond the 20% share (how long it lasts, when it is paid, any minimums) are being finalized with the first
   partners. If asked, say exactly that. Never state a price, a duration, a payout date or a minimum.
 
-## The second angle: speech APIs (STT and TTS, sold separately)
+## Two angles: pick by what they built
 
-Some of these companies do not need a phone platform. They build products that use speech (voice agents on their own
-stack, dictation or notes tools, dubbing and localization, e-learning narration, IVR replacement). For them the
-better conversation is the readaloudai.org speech API. Pick the angle from what they build, or from what they tell
-you in the discovery question. If they run their own voice agents, lead with the speech API; if they sell finished
-voice agents to clients, lead with the platform. You can offer both if they are interested in both, but never in the
-same breath: one angle per call is the default.
+Every lead is an agency or a company that builds voice products. Which pitch you use depends on what they do:
 
-What the speech API offer is (say only this):
+- **They sell or resell finished voice agents or phone platforms to clients** -> pitch the Calldesk platform (the offer above).
+- **They built their own platform or product and run their own voice stack** -> pitch the ReadAloud speech API as a component
+  to plug into what they already have. They do not need our phone platform; they may need cheaper speech.
+- Not sure -> ask the discovery question in section 3 and let their answer decide. One angle per call by default; offer
+  the other only if they ask about it.
+
+### The speech-API offer (say only this)
 
 - readaloudai.org is a realtime speech-to-text and text-to-speech API for developers building voice products.
-- Realtime STT and TTS API access is available now.
-- Pay as you go with no monthly minimum: text-to-speech from $0.004 per 1,000 characters, and speech-to-text at $0.11
-  per hour of audio.
-- New accounts get free credits to try the API.
-- We are looking for a small number of early integration partners to try it with their product, with direct access to
-  the founders for integration support.
+- Text-to-speech from $0.004 per 1,000 characters (Piper voices) and $0.01 per 1,000 characters (Kokoro voices).
+- Speech-to-text at $0.11 per hour of audio, billed by the second. Transcription uses Whisper large-v3-turbo and takes
+  clips up to 25 MB per call.
+- Pay as you go, no monthly minimum. New accounts get free credits to try it (worth $0.10, about 10,000 characters of
+  speech, so enough to hear the voices, not to run a pilot).
+- It also works as an MCP server at `https://readaloudai.org/mcp`: one URL, so an AI assistant or agent that supports MCP can call text-to-speech and transcription directly. For a
+  product or platform integration they would use the REST and WebSocket API instead.
+- We are looking for a small number of early integration partners, with direct access to the founders for
+  integration support.
 - Terms beyond pricing (volume discounts, SLAs) are being finalized with the first partners. There is no resale or
-  revenue-share term for the speech API yet. If they ask about one, say the founders will follow up on it; never
-  invent a number.
+  revenue-share term for the speech API yet. If they ask about one, say the founders will follow up; never invent a number.
+- If they ask about scale: each Piper server handles up to 12 simultaneous streams, and the founders can discuss
+  capacity for their volume. Do not promise more than that.
 
-Do NOT say it is cheaper than, or better or faster than, ElevenLabs, Deepgram, Cartesia or anyone else, and do not name
-a competitor in a comparison. Say the prices exactly as above and suggest they compare with what they pay today:
-"Worth putting next to what you pay now." If they ask how it compares on quality, say you do not have a verified
-comparison to quote and the founders can share test audio.
+### The price comparison (the only one you may make)
+
+You may say our list price is lower than ElevenLabs and Deepgram. Public list prices, checked on 2026-10-05 on each
+company's own pricing page (re-check before quoting if this sheet is more than a few weeks old):
+
+| | Ours | ElevenLabs | Deepgram |
+|---|---|---|---|
+| Text-to-speech per 1,000 characters | $0.004 Piper, $0.01 Kokoro | $0.04 Flash, $0.08 Multilingual v2 | $0.030 Aura-2 |
+| Speech-to-text, batch, per hour | $0.11 | $0.22 (Scribe) | about $0.26 ($0.0043 per minute, Nova-3 pre-recorded) |
+
+Rules for using it:
+- Say it as a list-price comparison and offer to send it in writing: "On list price we are lower than ElevenLabs and
+  Deepgram. I can email you the numbers so you can check them."
+- Compare only to ElevenLabs and Deepgram, only these figures, and only batch speech-to-text against batch (not their
+  realtime or streaming rates).
+- Never say we are better, faster or higher quality, and never say the voices sound the same. Piper and Kokoro are not
+  ElevenLabs voices. If they ask about quality, say you do not have a verified comparison to quote and the founders can
+  share sample audio.
+- If they name another provider (Groq, DeepInfra, Cartesia and so on), do not argue and do not claim to beat it. Say you
+  do not have their numbers and the founders can compare in the call.
 
 The ask for this angle is the same: 15 minutes with the founders, or they try the free credits and tell us what breaks.
 
@@ -116,7 +137,8 @@ is not a win: note it and move on.
 ## Hard rules, every call, no exceptions
 
 - Never invent a statistic, a customer, a price, a payout date or a result.
-- Never say we are better, faster or cheaper than any competitor. Never disparage Retell, Vapi or any platform.
+- Never say we are better or faster than any competitor, and never disparage Retell, Vapi or any platform. For the platform
+  angle, make no price comparison. For the speech-API angle, the only comparison allowed is the list-price table above.
 - Never promise anything beyond the offer facts above. If you do not know, say the founders will follow up by email.
 - Never say the agency is a Retell partner or mention where we found them.
 - A clear no gets a polite close, never a rebuttal.
