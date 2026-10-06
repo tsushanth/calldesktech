@@ -30,6 +30,9 @@ Every lead is an agency or a company that builds voice products. Which pitch you
 - **They sell or resell finished voice agents or phone platforms to clients** -> pitch the Calldesk platform (the offer above).
 - **They built their own platform or product and run their own voice stack** -> pitch the ReadAloud speech API as a component
   to plug into what they already have. They do not need our phone platform; they may need cheaper speech.
+- **They are a white-label AI receptionist or voice platform themselves** (they look like a Calldesk competitor): do not pitch
+  the Calldesk platform at all. They already have a product and already pay someone for speech, so the speech API is the
+  fit: the same one-line pitch and the same price table apply.
 - Not sure -> ask the discovery question in section 3 and let their answer decide. One angle per call by default; offer
   the other only if they ask about it.
 
