@@ -32,10 +32,14 @@ export const STATE_ZONES: Record<string, string[]> = {
   ON: ['America/Toronto', 'America/Winnipeg'], QC: ['America/Toronto'], BC: ['America/Vancouver', 'America/Edmonton'],
   AB: ['America/Edmonton'], SK: ['America/Regina'], MB: ['America/Winnipeg'],
   NS: ['America/Halifax'], NB: ['America/Halifax'], PE: ['America/Halifax'], NL: ['America/St_Johns', 'America/Halifax'],
+  // 'TF' is not a place: a toll-free number (800, 833, 844, 855, 866, 877, 888) says nothing about where the business
+  // is, so it is held to the window that is lawful on every continental US and Canadian coast at once (Eastern and
+  // Pacific, 9:00 start, so roughly noon to 9 PM Eastern).
+  TF: ['America/New_York', 'America/Los_Angeles'],
 };
 
 // Canada's telemarketing rules start the calling day at 9:00 local time; the US window starts at 8:00.
-const CANADA = new Set(['ON', 'QC', 'BC', 'AB', 'SK', 'MB', 'NS', 'NB', 'PE', 'NL']);
+const CANADA = new Set(['ON', 'QC', 'BC', 'AB', 'SK', 'MB', 'NS', 'NB', 'PE', 'NL', 'TF']);
 
 // "Fort Myers, FL", "Toronto, ON", "Spydeberg, NO" -> "FL" / "ON" / null (not a US state or Canadian province, so it is never batched).
 export function stateFromLocation(location: string | null | undefined): string | null {

@@ -17,6 +17,10 @@ describe('stateFromPhone', () => {
     expect(stateFromPhone('+1 416 555 0100')).toBe('ON');
     expect(stateFromPhone('604-555-0100')).toBe('BC');
   });
+  it('marks toll-free numbers TF', () => {
+    expect(stateFromPhone('(888) 362-9378')).toBe('TF');
+    expect(stateFromPhone('+1 855 710 3655')).toBe('TF');
+  });
   it('returns null for the Caribbean, unknown codes and junk', () => {
     expect(stateFromPhone('+1 242 555 0100')).toBeNull();
     expect(stateFromPhone('555')).toBeNull();

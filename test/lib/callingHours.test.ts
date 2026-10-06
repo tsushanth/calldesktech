@@ -56,3 +56,11 @@ describe('Canada', () => {
     expect(checkCallingHours('ON', at('2026-10-05T14:00:00Z'))).toEqual({ ok: true }); // 10:00 ET
   });
 });
+
+describe('toll-free (TF)', () => {
+  it('is held to the window that is lawful on both coasts, 9:00 start', () => {
+    expect(checkCallingHours('TF', at('2026-10-05T15:30:00Z'))).toEqual({ ok: false, reason: 'too_early' }); // 8:30 PT
+    expect(checkCallingHours('TF', at('2026-10-05T17:00:00Z'))).toEqual({ ok: true }); // 1 PM ET / 10 AM PT
+    expect(checkCallingHours('TF', at('2026-10-06T01:30:00Z'))).toEqual({ ok: false, reason: 'too_late' }); // 9:30 PM ET
+  });
+});

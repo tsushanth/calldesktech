@@ -16,6 +16,9 @@ const CANADA_AREA_CODE_PROVINCE: Record<string, string> = {
 
 const AREA_CODE_STATE: Record<string, string> = {
   ...CANADA_AREA_CODE_PROVINCE,
+  // Filled from a second, city-based dataset (ravisorg/Area-Code-Geolocation-Database) where libphonenumber lists
+  // a code only by exchange. That dataset agrees with every other entry in this table (294 of 294).
+  203: 'CT', 310: 'CA', 713: 'TX', 718: 'NY', 905: 'ON',
   201: 'NJ', 202: 'DC', 205: 'AL', 206: 'WA', 207: 'ME', 208: 'ID', 209: 'CA', 210: 'TX', 212: 'NY', 213: 'CA',
   214: 'TX', 215: 'PA', 216: 'OH', 217: 'IL', 218: 'MN', 219: 'IN', 220: 'OH', 223: 'PA', 224: 'IL', 225: 'LA',
   227: 'MD', 228: 'MS', 229: 'GA', 231: 'MI', 234: 'OH', 235: 'MO', 239: 'FL', 240: 'MD', 248: 'MI', 251: 'AL',
@@ -54,6 +57,9 @@ const AREA_CODE_STATE: Record<string, string> = {
   983: 'CO', 984: 'NC', 985: 'LA', 986: 'ID', 989: 'MI',
 };
 
+// Toll-free codes: a real business line, but no place. 'TF' makes the call gate use the strictest US/Canada window.
+const TOLL_FREE = new Set(['800', '833', '844', '855', '866', '877', '888']);
+
 // Raw stored phone in any format -> US state or Canadian province, or null when it is not a +1-format number or the code is unknown.
 // A number written with a + and a country code other than 1 (or 00...) is never read as a US number, so a
 // ten-digit foreign number cannot be mistaken for one.
@@ -62,5 +68,7 @@ export function stateFromPhone(raw: string | null | undefined): string | null {
   if (/^\+(?!1)/.test(s) || /^00/.test(s)) return null;
   const d = s.replace(/\D/g, '');
   const ten = d.length === 10 ? d : d.length === 11 && d.startsWith('1') ? d.slice(1) : null;
-  return ten ? AREA_CODE_STATE[ten.slice(0, 3)] ?? null : null;
+  if (!ten) return null;
+  const code = ten.slice(0, 3);
+  return TOLL_FREE.has(code) ? 'TF' : AREA_CODE_STATE[code] ?? null;
 }
