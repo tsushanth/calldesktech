@@ -12,6 +12,7 @@ import { getSupabaseAdmin } from '@/lib/supabase';
 import { officerNameFromCensus, type CensusRow } from '@/lib/outreach/discovery/freightFmcsa';
 
 const LIVE = process.env.LIVE === '1';
+const MAX = Number(process.env.MAX) || Infinity; // stop after this many leads scanned (for a small preview)
 const PRODUCT = 'calldesk:freight';
 const CENSUS = 'https://data.transportation.gov/resource/az4n-8mr2.json';
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
@@ -21,9 +22,9 @@ const mask = (n: string) => `${n.split(' ')[0]} ${n.split(' ').slice(1).map((x) 
 async function census(dots: string[]): Promise<Map<string, CensusRow>> {
   const out = new Map<string, CensusRow>();
   const url = `${CENSUS}?$select=dot_number,company_officer_1,company_officer_2&$limit=${dots.length + 50}&$where=${encodeURIComponent(`dot_number in(${dots.map((d) => `'${d}'`).join(',')})`)}`;
-  for (let attempt = 0; attempt < 5; attempt++) {
+  for (let attempt = 0; attempt < 8; attempt++) {
     const res = await fetch(url, { headers: { 'User-Agent': 'calldesk-officer-backfill/1.0', ...(process.env.SOCRATA_APP_TOKEN ? { 'X-App-Token': process.env.SOCRATA_APP_TOKEN } : {}) } });
-    if (res.status === 429) { await sleep(20_000 * (attempt + 1)); continue; }
+    if (res.status === 429) { await sleep(30_000 * (attempt + 1)); continue; }
     if (!res.ok) throw new Error(`census HTTP ${res.status}`);
     for (const r of (await res.json()) as CensusRow[]) if (r.dot_number) out.set(String(Number(r.dot_number)), r);
     return out;
@@ -37,7 +38,7 @@ async function main() {
   const samples: string[] = [];
   let lastId = '00000000-0000-0000-0000-000000000000';
   for (;;) {
-    const { data, error } = await db.from('calldesk_outreach_leads').select('id, signal_detail, signals, source_key').eq('product', PRODUCT).like('source_key', 'freight:mc:%').gt('id', lastId).order('id').limit(100);
+    const { data, error } = await db.from('calldesk_outreach_leads').select('id, signal_detail, signals, source_key').eq('product', PRODUCT).like('source_key', 'freight:mc:%').gt('id', lastId).order('id').limit(250);
     if (error) throw new Error(error.message);
     if (!data?.length) break;
     lastId = data[data.length - 1].id as string;
@@ -50,7 +51,7 @@ async function main() {
     });
     if (!todo.length) continue;
     const map = await census([...new Set(todo.map((l) => String(Number(dotOf(l.signal_detail as string)))))]);
-    await sleep(400);
+    await sleep(3000);
     for (const l of todo) {
       const row = map.get(String(Number(dotOf(l.signal_detail as string))));
       if (!row) { stats.notInCensus++; continue; }
@@ -65,7 +66,8 @@ async function main() {
       if (e) throw new Error(e.message);
       if (upd?.length) stats.set++; else stats.raced++;
     }
-    process.stdout.write(`\r${stats.leads} leads scanned, ${stats.wouldSet} names found`);
+    console.log(`${stats.leads} leads scanned, ${stats.wouldSet} names found`);
+    if (stats.leads >= MAX) break;
   }
   console.log(`\n${LIVE ? 'LIVE' : 'DRY RUN'}`, JSON.stringify(stats), '\nmasked samples:', samples.join(' | '));
 }
