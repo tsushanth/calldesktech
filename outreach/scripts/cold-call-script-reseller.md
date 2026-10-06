@@ -16,33 +16,41 @@ the outcome logging are the same. The offer and the ask are different.
 
 - Calldesk (calldesk.tech) is an AI voice-agent platform: inbound and outbound phone agents, a knowledge base and
   call analytics.
-- It supports 55 languages on live calls.
+- Pricing is public on calldesk.tech/pricing: phone agents from 2 cents a minute. Lite is 2 cents, Standard is 5 cents and
+  Pro is 9 cents per minute. Each price covers the whole engine (the language model and the voice). They bring their own phone
+  carrier or number, or buy a number from us. No per-booking or per-transfer fees.
+- It supports 55 languages on live calls. Lite's voice is English only; other languages need Standard or Pro.
 - We are looking for a small number of agencies to be design partners and try it with their clients.
 - Partners get a 20% revenue share on usage from customers they refer.
 - Partners get a free trial and direct access to the founders.
 - Terms beyond the 20% share (how long it lasts, when it is paid, any minimums) are being finalized with the first
   partners. If asked, say exactly that. Never state a price, a duration, a payout date or a minimum.
 
-## Two angles: pick by what they built
+## Lead with the price, and offer both routes
 
-Every lead is an agency or a company that builds voice products. Which pitch you use depends on what they do:
+Every pitch starts with the price and gives both ways to work together. Then let them choose:
 
-- **They sell or resell finished voice agents or phone platforms to clients** -> pitch the Calldesk platform (the offer above).
-- **They built their own platform or product and run their own voice stack** -> pitch the ReadAloud speech API as a component
-  to plug into what they already have. They do not need our phone platform; they may need cheaper speech.
-- **They are a white-label AI receptionist or voice platform themselves** (they look like a Calldesk competitor): do not pitch
-  the Calldesk platform at all. They already have a product and already pay someone for speech, so the speech API is the
-  fit: the same one-line pitch and the same price table apply.
-- Not sure -> ask the discovery question in section 3 and let their answer decide. One angle per call by default; offer
-  the other only if they ask about it.
+- **Route 1, our platform:** Calldesk phone agents from 2 cents a minute. This is for agencies that sell or resell voice agents and
+  would use our platform with their clients (with the 20% revenue share on customers they refer).
+- **Route 2, our speech API:** readaloudai.org text-to-speech and speech-to-text, to plug into a voice platform they already own.
+  This is for companies that built their own platform, and for vendors that look like us. Do not push our platform at a vendor
+  that already has its own: for them lead with Route 2.
+- Say both in the first thirty seconds, then follow whichever one they pick. Read the "What they do" column on your list sheet
+  first so you can say which you expect to fit.
 
-### The pitch for this angle, in one line
+There is no language-model product or "optimization" to sell on its own: the language model is simply included in the
+per-minute platform price. Do not claim more than that.
 
-> "Every minute of a voice-agent call pays for speech to text, the language model, text to speech and the phone line. We sell
-> the two speech parts, and our list prices for them are lower, so your cost per call minute goes down."
+### The one-line pitch (the price comes first)
 
-- It works because they already pay for speech on every call. We are not asking them to change what the agent does, only
-  to point the speech part at us.
+> "Calldesk phone agents start at 2 cents a minute, with the language model and the voice included. If you already run your own
+> platform, our speech API is a quarter of a cent per thousand characters of text-to-speech and eleven cents an hour of
+> speech-to-text. Which of those would fit you better?"
+
+(The exact figures: $0.004 per 1,000 characters for text-to-speech, $0.11 per hour for speech-to-text.)
+
+- Route 2 works because they already pay for speech on every call. We are not asking them to change what their agent does,
+  only to point the speech part at us.
 - Do not state a total saving or a percent. How much it saves depends on how much their agent talks and which voices they
   use, and we do not have their numbers. If they ask "how much would I save", say the founders can run their numbers on the
   call. The per-unit prices below are what you may quote.
@@ -121,9 +129,10 @@ competitor), do not pretend otherwise: the offer below is still honest, and they
 
 ## 4. Case 1: receptive / curious
 
-> "We are a platform for inbound and outbound phone agents, 55 languages on live calls. We are picking a small
-> number of agencies as design partners to try it with their own clients. Partners get a free trial, direct access to
-> the founders, and a 20% revenue share on usage from customers they refer."
+> "Calldesk phone agents start at 2 cents a minute, with the language model and voice included, and our speech API is a
+> quarter of a cent per thousand characters of text-to-speech and eleven cents an hour of speech-to-text. We are picking a
+> small number of agencies as design partners: a free trial, direct access to the founders, and a 20% revenue share on usage
+> from customers they refer to the platform. Which would fit you better, our platform or the speech API in your own?"
 
 - If they ask about terms past the 20%: "Duration, payout timing and minimums are being finalized with the first
   partners, which is part of why we want the call." Do not guess.
