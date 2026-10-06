@@ -41,8 +41,12 @@ function strip(html: string): string {
     .replace(/&nbsp;|&#160;/g, ' ').replace(/&amp;/g, '&').replace(/\s+/g, ' ').trim();
 }
 
-function snippet(text: string, m: RegExpExecArray, before = 0, after = 90): string {
-  return text.slice(Math.max(0, m.index - before), m.index + m[0].length + after).trim();
+// Collapses whitespace and cuts at a word boundary, so a quoted fact is never chopped mid-word.
+function clean(s: string, max: number): string {
+  const t = s.replace(/\s+/g, ' ').trim();
+  if (t.length <= max) return t;
+  const cut = t.slice(0, max);
+  return cut.slice(0, Math.max(cut.lastIndexOf(' '), 1)).trim();
 }
 
 /** Pure: signals from one or more pages of a business's own site (html strings). */
@@ -54,20 +58,22 @@ export function extractSignals(pages: string[]): SiteSignals {
   for (const [re, name] of BOOKING_TOOLS) if (re.test(html)) { s.onlineBookingTool = name; break; }
 
   const call = /call (us |our office |the office )?(today )?(to|for) (schedule|book|make|an appointment|a free (quote|estimate)|your appointment)[^.!?]{0,50}/i.exec(text);
-  if (call) s.callToBook = call[0].trim();
+  if (call) s.callToBook = clean(call[0], 70);
 
   // Weekday hours with weekends closed. Needs a day range AND a closing signal so a plain "Mon-Fri" mention does not count.
   const hours = /(mon(day)?\s*[-–to]+\s*fri(day)?[^.]{0,40}\d[^.]{0,30}(pm|p\.m\.)|(sat(urday)?|sun(day)?)[^.]{0,25}closed|closed[^.]{0,15}(sat|sun|weekend))/i.exec(text);
-  if (hours) s.weekdayOnlyHours = snippet(text, hours, 0, 40).slice(0, 140);
+  if (hours) s.weekdayOnlyHours = clean(hours[0], 80);
 
-  const tfs = /(24\s*\/\s*7|24[- ]hours?( a day| service)?|open 24|around the clock)[^.]{0,40}/i.exec(text);
-  if (tfs) s.twentyFourSeven = tfs[0].trim().slice(0, 100);
+  // Every 24/7-style claim on the page; keep the most specific one (nav bars and footers repeat a bare "24/7").
+  const claimRe = /(24\s*\/\s*7|24[- ]hours?(?: a day)?(?:,? (?:7|seven) days(?: a week)?)?|open 24(?: hours)?|around the clock|seven days a week)(?:\s+(?:emergency|service|services|towing|roadside|assistance|support|dispatch|bail bonds?|bail|care|repair|plumbing|septic|pumping|answering|available|availability|hotline|line)){0,3}/gi;
+  const claims = [...text.matchAll(claimRe)].map((m) => clean(m[0], 60)).sort((a, b) => b.length - a.length);
+  if (claims.length) s.twentyFourSeven = claims[0];
 
   s.emergency = /emergenc(y|ies)|urgent (care|calls?)|same[- ]day/i.test(text);
   s.spanish = /se habla espa(ñ|n)ol|hablamos espa(ñ|n)ol|en espa(ñ|n)ol|\bespa(ñ|n)ol\b/i.test(text) || /<html[^>]*lang=["']?es/i.test(html);
 
   const canc = /(cancell?ation|no[- ]show|missed appointment)[^.]{0,80}/i.exec(text);
-  if (canc) s.cancellationPolicy = canc[0].trim().slice(0, 120);
+  if (canc) s.cancellationPolicy = clean(canc[0], 100);
   return s;
 }
 
@@ -94,11 +100,25 @@ const ALLOWED: Record<string, AngleId[]> = {
   freight: ['after_hours'],
 };
 
+// The transfer question, in the words of the vertical (a tow truck is "out on a job"; a bail-bond office is not).
+const TRANSFER_Q: Record<string, string> = {
+  towing: 'Who picks up when that line rings and your crew is already out on a job?',
+  septic: 'Who picks up when that line rings and you are already out on a job?',
+  homeservices: 'Who picks up when that line rings and you are already out on a job?',
+  bailbonds: 'Who picks up when that line rings in the middle of the night, or while your agent is with another client?',
+  homecare: 'Who picks up when that line rings and the office is with a client or out on a visit?',
+  taxi: 'Who picks up when that line rings and every dispatcher is already on a call?',
+  vets: 'Who picks up when that line rings and the whole team is with patients?',
+  lodging: 'Who picks up when that line rings and the front desk is with a guest?',
+  funeral: 'Who picks up when that line rings and the director is with a family?',
+};
+const TRANSFER_DEFAULT_Q = 'Who picks up when that line rings and nobody is free to answer?';
+
 const CAP = {
   after_hours: 'answers, takes the caller\'s name, what they need and a callback number, and you get a summary and transcript of every call',
   booking: 'reads your live Google or Outlook calendar (connected through Cal.com), offers the caller open times and books one during the same call, then texts a confirmation',
   reminders: 'calls clients ahead of their appointment to confirm or reschedule, so empty slots are caught early',
-  transfer: 'passes urgent calls to the number you choose and takes a message with name, number and reason for the rest, so you can keep working',
+  transfer: 'passes urgent calls to the number you choose and takes a message with name, number and reason for the rest',
   spanish: 'answers in the caller\'s language, including Spanish (Calldesk supports 55 languages on live calls), and you get an English summary',
 };
 
@@ -113,7 +133,7 @@ export function chooseAngle(verticalId: string, s: SiteSignals): Angle {
       ? pick('booking', `Your site says: "${s.callToBook}"`, 'When the phone is how people book, what happens to the call when the front desk is already on another line?')
       : null,
     s.twentyFourSeven && (s.emergency || verticalId !== 'freight')
-      ? pick('transfer', `Your site says: "${s.twentyFourSeven}"`, 'Who picks up when that line rings and you are already out on a job?')
+      ? pick('transfer', /^24\s*\/\s*7$/.test(s.twentyFourSeven) ? 'Your site advertises 24/7 service' : `Your site says: "${s.twentyFourSeven}"`, TRANSFER_Q[verticalId] ?? TRANSFER_DEFAULT_Q)
       : null,
     s.weekdayOnlyHours
       ? pick('after_hours', `Your site lists: "${s.weekdayOnlyHours}"`, 'What happens to a call that comes in outside those hours?')

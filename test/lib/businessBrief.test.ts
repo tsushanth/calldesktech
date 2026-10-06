@@ -21,6 +21,17 @@ describe('extractSignals', () => {
     const s = extractSignals([page('<p>Open every day from 8 am to 8 pm.</p>')]);
     expect(s.weekdayOnlyHours).toBeNull();
   });
+  it('quotes only the claim, never the page chrome around it', () => {
+    const s = extractSignals([page('<nav>24/7 Help Skip to content No results How Bail Works</nav><h1>24/7 emergency towing and roadside assistance</h1>')]);
+    expect(s.twentyFourSeven).toBe('24/7 emergency towing');
+    const t = extractSignals([page('<h1>24/7 emergency towing and roadside assistance</h1>')]);
+    expect(t.twentyFourSeven).toBe('24/7 emergency towing');
+  });
+  it('never cuts a quoted fact mid-word', () => {
+    const s = extractSignals([page('<p>Call us to schedule your appointment with our friendly front desk team members today</p>')]);
+    expect(s.callToBook!.endsWith(' ')).toBe(false);
+    expect(/\s\S{1,2}$/.test(s.callToBook!)).toBe(false);
+  });
   it('finds a 24/7 claim and Spanish', () => {
     const s = extractSignals([page('<p>Emergency service 24/7. Se habla español.</p>')]);
     expect(s.twentyFourSeven).toMatch(/24\/7/);
@@ -42,8 +53,15 @@ describe('chooseAngle', () => {
     expect(a.evidence).toMatch(/^Your site says: "Call us to schedule/);
     expect(a.capability).toMatch(/Cal\.com/);
   });
-  it('a 24/7 claim points at transfer for a tow company', () => {
-    expect(chooseAngle('towing', extractSignals([page('<p>24/7 emergency towing</p>')])).id).toBe('transfer');
+  it('a 24/7 claim points at transfer for a tow company, in tow-company words', () => {
+    const a = chooseAngle('towing', extractSignals([page('<p>24/7 emergency towing</p>')]));
+    expect(a.id).toBe('transfer');
+    expect(a.question).toMatch(/crew/);
+  });
+  it('bail bonds get the middle-of-the-night question, not "out on a job"', () => {
+    const a = chooseAngle('bailbonds', extractSignals([page('<p>Available 24 hours a day, 7 days a week</p>')]));
+    expect(a.id).toBe('transfer');
+    expect(a.question).not.toMatch(/job/);
   });
   it('weekday-only hours point at after-hours with the hours quoted', () => {
     const a = chooseAngle('homecare', extractSignals([page('<p>Office: Mon-Fri 9am to 5pm. Closed weekends.</p>')]));

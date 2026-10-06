@@ -112,7 +112,7 @@ export async function draftAgencyEmail(input: AgencyDraftInput): Promise<AgencyD
   };
 
   if (usingCli()) {
-    return finish(cliComplete(`${systemPrompt}\n\n${userPrompt}\n\n${jsonInstruction}`, { maxTurns: 2 }));
+    return finish(cliComplete(`${systemPrompt}\n\n${userPrompt}\n\n${jsonInstruction}`, { maxTurns: 4 }));
   }
 
   if (usingApi()) {
@@ -177,7 +177,7 @@ export async function draftFollowUpEmail(input: FollowUpInput): Promise<AgencyDr
 
   const text = cliComplete(
     `${armPrompts.followUpSystemPrompt}\n\n${userPrompt}\n\nReply with ONLY a JSON object {"subject": string, "body": string${language ? ', "translationSubject": string, "translationBody": string' : ''}}. subject should be "${followUpSubject(input.previousSubject)}" unless a small variation reads more natural. No markdown fences, no commentary.`,
-    { maxTurns: 2 },
+    { maxTurns: 4 },
   );
   const parsed = extractJson<AgencyDraft>(text, 'object');
   if (!parsed || typeof parsed.subject !== 'string' || typeof parsed.body !== 'string') throw new Error('Follow-up draft reply was not valid JSON');

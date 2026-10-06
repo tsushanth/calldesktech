@@ -13,6 +13,8 @@ import { isBlockedDomain, isRegionBlocked, scoreLead, type ScoreEvidence } from 
 import { findJobPostingCandidates } from './jobPostingsSearch';
 import { findReviewSiteCandidates } from './reviewSitesSearch';
 import { findSerpCandidates } from './serpAds';
+import { fetchSiteSignals, chooseAngle, type Angle } from '../businessBrief';
+import { detectDraftLanguage } from '../language';
 import { findGithubCandidates } from './githubSignal';
 import { findTelephonyPlatformCandidates } from './telephonyPlatformsSearch';
 import { findSttTtsSignalCandidates } from './sttTtsSignalSearch';
@@ -1587,9 +1589,19 @@ export async function stageDraft(db: Db, summary: RunSummary, dryRun: boolean, l
       // Experiment arm (freight only, OUTREACH_FREIGHT_EXPERIMENT=on): stored in experiment_arm, NOT in
       // `variant`, which already means plain/sample for the sample-call A/B (see migration 067).
       const arm = armForLead(product.id, lead.id);
+      // Vertical leads: read the business's own site and, when it shows something specific, draft around that instead of
+      // the vertical's one default question (businessBrief.ts). Off with OUTREACH_BUSINESS_BRIEF=0. English leads only.
+      let angle: Angle | null = null;
+      if (process.env.OUTREACH_BUSINESS_BRIEF !== '0' && product.vertical && product.id !== 'freight' && lead.domain && !detectDraftLanguage(lead.location ?? null)) {
+        try {
+          const site = await fetchSiteSignals(lead.domain);
+          const chosen = site ? chooseAngle(product.id.replace(/^calldesk:/, ''), site.signals) : null;
+          if (chosen?.evidence) angle = chosen;
+        } catch { /* no brief: the default draft is still fine */ }
+      }
       const draft = await draftAgencyEmail({
         name: lead.company_name, domain: lead.domain, tier: lead.tier, location: lead.location, description: lead.description,
-        dossier: lead.research ?? null, product, arm,
+        dossier: lead.research ?? null, product, arm, angle,
       });
       const row = {
         lead_id: lead.id, to_email: (lead.contact_email ?? '').toLowerCase(), subject: draft.subject, body_text: draft.body, status: 'draft',
@@ -1601,7 +1613,10 @@ export async function stageDraft(db: Db, summary: RunSummary, dryRun: boolean, l
       // Column not there yet (migration 067 unapplied): fail loudly instead of silently sending an
       // unattributed email under an arm-specific offer.
       if (error) throw new Error(arm && /experiment_arm/i.test(error.message) ? `experiment_arm column missing: apply migration 067 or unset OUTREACH_FREIGHT_EXPERIMENT (${error.message})` : error.message);
-      await db.from(leadsTable(product)).update({ status: 'report_generated', updated_at: new Date().toISOString() }).eq('id', lead.id);
+      await db.from(leadsTable(product)).update({
+        status: 'report_generated', updated_at: new Date().toISOString(),
+        ...(angle ? { signals: { ...(lead.signals ?? {}), brief: { angle: angle.id, evidence: angle.evidence, at: new Date().toISOString() } } } : {}),
+      }).eq('id', lead.id);
       return 'drafted';
     }));
     for (let j = 0; j < batch.length; j++) {
