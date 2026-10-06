@@ -1,6 +1,6 @@
 import { ADD_ONS, INCLUDED_ON_ALL, ratingsForStack, type PricingTier } from '@/lib/pricingTiers';
 import { EXPERT_BACKUP, expertBackupAllowedTierNames, expertBackupPriceShort } from '@/lib/expertBackup';
-import { ADD_ONS_LINE, BRING_YOUR_OWN_LINE, PHONE_NUMBER_OPTIONS, workedExample } from '@/lib/pricingCopy';
+import { ADD_ONS_LINE, BRING_YOUR_OWN_LINE, HIGH_VOLUME, PHONE_NUMBER_OPTIONS, workedExample } from '@/lib/pricingCopy';
 
 // Shared, server-renderable pieces of the tier structure (pricing page, docs page, home summary): the three rating rows per tier, the one
 // "Included on every plan" block, and the Extras section. All text comes from src/lib/pricingTiers.ts and src/lib/pricingCopy.ts.
@@ -92,6 +92,28 @@ export function ExtrasSection() {
           </li>
         ))}
       </ul>
+    </section>
+  );
+}
+
+/** High-volume dedicated models: a "talk to us" block, not a buyable plan (see HIGH_VOLUME in pricingCopy.ts for the copy rules). */
+export function HighVolumeSection() {
+  return (
+    <section aria-labelledby="high-volume-heading" className="mx-auto mt-12 max-w-3xl rounded-2xl border border-[#e4e4f0] bg-gray-50 p-6" data-testid="pricing-high-volume">
+      <div className="flex flex-wrap items-center gap-2">
+        <h2 id="high-volume-heading" className="text-[24px] font-semibold tracking-[-0.02em] text-[#00122e]">{HIGH_VOLUME.heading}</h2>
+        <span className="rounded-full bg-amber-50 px-2.5 py-1 text-[12px] font-medium text-amber-700">{HIGH_VOLUME.status}</span>
+      </div>
+      <p className="mt-3 text-[15px] leading-[1.55] text-gray-700">{HIGH_VOLUME.intro}</p>
+      <ul className="mt-4 space-y-3">
+        {HIGH_VOLUME.points.map((pt) => (
+          <li key={pt.title}>
+            <p className="text-[15px] font-medium text-[#00122e]">{pt.title}</p>
+            <p className="mt-0.5 text-[13px] leading-[1.5] text-gray-600">{pt.body}</p>
+          </li>
+        ))}
+      </ul>
+      <a href={HIGH_VOLUME.ctaHref} className="mt-5 inline-block text-[#00122e] font-medium underline underline-offset-4 hover:text-blue-600">{HIGH_VOLUME.cta}</a>
     </section>
   );
 }

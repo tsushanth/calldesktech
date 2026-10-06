@@ -3,7 +3,7 @@ import Link from 'next/link';
 import { PRICING_TIERS, CARRIER_NOTE, type TierId } from '@/lib/pricingTiers';
 import { LITE_CENTS, centsLabel } from '@/lib/pricingCopy';
 import { PricingCalculator } from '@/components/pricing/PricingCalculator';
-import { ExtrasSection, IncludedOnEveryPlan, TierRatingRows } from '@/components/pricing/PricingParts';
+import { ExtrasSection, HighVolumeSection, IncludedOnEveryPlan, TierRatingRows } from '@/components/pricing/PricingParts';
 
 // Server-rendered body of /pricing. `cta` is the checkout button (a client island, see GetStartedButton) so everything else is plain HTML.
 export function PricingContent({ cta, planCta }: { cta: ReactNode; planCta?: (plan: TierId) => ReactNode }) {
@@ -64,6 +64,7 @@ export function PricingContent({ cta, planCta }: { cta: ReactNode; planCta?: (pl
 
         <IncludedOnEveryPlan />
         <ExtrasSection />
+        <HighVolumeSection />
 
         {/* Get started: unchanged checkout */}
         <div className="mt-12 flex flex-col items-center gap-3">

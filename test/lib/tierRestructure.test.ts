@@ -6,7 +6,7 @@ import path from 'node:path';
 import { PricingContent } from '@/components/pricing/PricingContent';
 import { PricingSummary } from '@/components/landing/PricingSummary';
 import { PRICING_TIERS, INCLUDED_ON_ALL, ADD_ONS, ratingsForStack } from '@/lib/pricingTiers';
-import { PHONE_NUMBER_OPTIONS, workedExample } from '@/lib/pricingCopy';
+import { HIGH_VOLUME, PHONE_NUMBER_OPTIONS, workedExample } from '@/lib/pricingCopy';
 import { NUMBER_ADDON_PRICES } from '@/lib/numberAddOn';
 import { buildOpenApi } from '@/lib/openapi';
 import { GET as pricingRoute } from '@/app/api/pricing/route';
@@ -117,5 +117,25 @@ describe('no stale copy anywhere in the repo sources', () => {
   });
   it('the tiers say bring your own carrier and phone numbers are priced for every tier', () => {
     expect(read('src/lib/numberAddOn.ts')).toMatch(/NUMBER_ADDON_TIERS: readonly TierId\[\] = \['lite', 'standard', 'pro'\]/);
+  });
+});
+
+describe('pricing page: high-volume block is a talk-to-us announcement, not an offer with numbers', () => {
+  const block = strip(html.slice(html.indexOf('data-testid="pricing-high-volume"')));
+  const copy = [HIGH_VOLUME.heading, HIGH_VOLUME.status, HIGH_VOLUME.intro, ...HIGH_VOLUME.points.flatMap((p) => [p.title, p.body])].join(' ');
+  it('sits after Extras and before the checkout button, says coming soon, and links to a mailbox', () => {
+    expect(html.indexOf('data-testid="pricing-high-volume"')).toBeGreaterThan(html.indexOf('data-testid="pricing-extras"'));
+    expect(html.indexOf('data-testid="pricing-high-volume"')).toBeLessThan(html.indexOf('Get Started'));
+    expect(block).toContain('Coming soon, by arrangement');
+    expect(block).toContain(HIGH_VOLUME.cta);
+    expect(HIGH_VOLUME.ctaHref).toMatch(/^mailto:support@calldesk\.tech/);
+  });
+  it('states the volume-cost and vendor-price-protection points', () => {
+    expect(block).toContain('Cost that falls as your volume grows');
+    expect(block).toContain('Protected from model vendor price increases');
+  });
+  it('carries no amounts, percentages, latency or cost figures (public repo, nothing verified yet)', () => {
+    expect(copy).not.toMatch(/[0-9$%¢]/);
+    expect(copy).not.toMatch(/\b(margin|cost us|our cost|ms|millisecond|faster than|cheaper than|save[sd]?)\b/i);
   });
 });

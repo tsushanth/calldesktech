@@ -157,3 +157,18 @@ export function pricingPlainText(): string {
     `- ${ADD_ONS_LINE}`,
   ].join('\n');
 }
+
+// High-volume dedicated models: announced, not purchasable. Copy rules: no amounts, no savings percentages, no latency or quality figures,
+// no cost or vendor-rate figures (public repo). Add numbers only once they are verified and the offer is approved.
+export const HIGH_VOLUME = {
+  heading: 'Built for high volume',
+  status: 'Coming soon, by arrangement',
+  intro: 'If you handle thousands of calls a day, talk to us about a dedicated model: a small language model tuned to your own call flows and run on infrastructure we operate for you.',
+  points: [
+    { title: 'Cost that falls as your volume grows', body: 'The hosting is shared across more of your calls as volume rises, so the per-minute rate can come down with volume. Rates are agreed with you in advance.' },
+    { title: 'Protected from model vendor price increases', body: 'The model that answers most turns runs on infrastructure we operate, so a price increase from an AI model vendor does not change what that part of your calls costs. Your rate is set in your agreement and does not follow vendor price changes during the term.' },
+    { title: 'Hard turns can still go to a larger model', body: 'Pair it with Expert backup so the turns the small model is unsure about are handed to a larger one.' },
+  ],
+  cta: 'Talk to us about high volume',
+  ctaHref: 'mailto:support@calldesk.tech?subject=High-volume%20dedicated%20model',
+} as const;
