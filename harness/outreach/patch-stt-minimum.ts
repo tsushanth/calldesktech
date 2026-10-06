@@ -5,7 +5,7 @@
 //
 //   DRY_RUN=1 tsx harness/outreach/patch-stt-minimum.ts
 import { getSupabaseAdmin } from '@/lib/supabase';
-import { addSttMinimum } from '@/lib/outreach/sttMinimum';
+import { addSttMinimum, dropRealtimeClaim } from '@/lib/outreach/sttMinimum';
 
 const DRY = process.env.DRY_RUN === '1';
 
@@ -19,9 +19,11 @@ const DRY = process.env.DRY_RUN === '1';
     if (!data?.length) break;
     for (const m of data as { id: string; status: string; body_text: string }[]) {
       scanned++;
-      if (/realtime|real-time/i.test(m.body_text)) realtime++;
-      const next = addSttMinimum(m.body_text);
-      if (!next) { if (!/10[ -]second minimum/i.test(m.body_text)) noPrice++; continue; }
+      let next: string | null = addSttMinimum(m.body_text);
+      if (!next && !/10[ -]second minimum/i.test(m.body_text)) noPrice++;
+      const noRt = dropRealtimeClaim(next ?? m.body_text);
+      if (noRt) { next = noRt; realtime++; }
+      if (!next) continue;
       if (!DRY) {
         const { error: e } = await db.from('calldesk_outreach_messages').update({ body_text: next }).eq('id', m.id).in('status', ['draft', 'approved', 'paused']);
         if (e) { console.log('update failed', m.id, e.message); continue; }
@@ -30,6 +32,6 @@ const DRY = process.env.DRY_RUN === '1';
     }
     if (data.length < 500) break;
   }
-  console.log(`${DRY ? '[dry] ' : ''}email scan: ${scanned} unsent messages mention $0.11, patched ${patched}, no matching phrase ${noPrice}, mention realtime ${realtime}`);
+  console.log(`${DRY ? '[dry] ' : ''}email scan: ${scanned} unsent messages mention $0.11, patched ${patched}, no matching phrase ${noPrice}, realtime claims removed ${realtime}`);
   process.exit(0);
 })().catch((e) => { console.error(e); process.exit(1); });

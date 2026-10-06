@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { addSttMinimum } from '@/lib/outreach/sttMinimum';
+import { addSttMinimum, dropRealtimeClaim } from '@/lib/outreach/sttMinimum';
 
 describe('addSttMinimum', () => {
   it('adds the note after the hourly price', () => {
@@ -9,5 +9,12 @@ describe('addSttMinimum', () => {
   it('leaves text that already has it or has no hourly price', () => {
     expect(addSttMinimum('$0.11 per hour, 10 second minimum per request')).toBeNull();
     expect(addSttMinimum('from 2 cents a minute')).toBeNull();
+  });
+
+  it('drops realtime from claims about our speech API only', () => {
+    expect(dropRealtimeClaim('readaloudai.org, a realtime speech-to-text and text-to-speech API')).toBe('readaloudai.org, a speech-to-text and text-to-speech API');
+    expect(dropRealtimeClaim('Realtime STT and TTS API access is available now.')).toBe('STT and TTS API access is available now.');
+    expect(dropRealtimeClaim('Our realtime speech API runs')).toBe('Our speech API runs');
+    expect(dropRealtimeClaim('you build realtime voice products')).toBeNull();
   });
 });

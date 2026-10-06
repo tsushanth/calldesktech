@@ -11,3 +11,9 @@ export function addSttMinimum(text: string): string | null {
   const end = m.index + m[0].length;
   return `${text.slice(0, end)} ${NOTE}${text.slice(end)}`;
 }
+
+/** Removes "realtime" from phrases that claim our speech API is realtime ("a realtime speech-to-text ... API"); null when nothing to change. */
+export function dropRealtimeClaim(text: string): string | null {
+  const next = text.replace(/\b[Rr]ealtime (?=(?:speech|STT|text-to-speech|TTS))/g, '');
+  return next === text ? null : next;
+}
