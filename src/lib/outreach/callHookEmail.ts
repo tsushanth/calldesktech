@@ -55,7 +55,7 @@ export function buildCallHookEmail(i: CallHookInput): { subject: string; body: s
   const body = [
     'Hi,',
     `We tried calling ${company} ${at} and ${what}. That is the moment Calldesk is built for: when ${callers} and nobody can pick up, an AI phone agent answers, ${collects}, and you get a summary and transcript of every call.`,
-    `If you would like to hear it, reply "yes" and we will set up a free test line for ${company}: two weeks, capped at 50 minutes of calls, no credit card, stop any time. Or listen to a short sample call below.`,
+    `If you would like to hear it, reply "yes" and we will set up a free test line for ${company}: one week, capped at 50 minutes of calls, no credit card, stop any time. Or listen to a short sample call below.`,
     'Sushanth & Deepika\nCo-founders, Calldesk (calldesk.tech)',
   ].join('\n\n');
   return { subject: `We tried calling ${company} today`.slice(0, 120), body };

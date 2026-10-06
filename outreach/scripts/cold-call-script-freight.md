@@ -1,7 +1,7 @@
 # CallDeskTech cold-call script: freight brokers
 
 Goal of every call: get the person who answers to agree to forward their
-overflow or after-hours calls to a number we give them, for a free 2-week
+overflow or after-hours calls to a number we give them, for a free 1-week
 trial (capped at 50 minutes of calls, no credit card). That is the only ask.
 
 Who you are calling: US freight brokerages (companies with FMCSA property
@@ -65,7 +65,7 @@ really, but..."
 Make the offer once, after they have engaged:
 
 > "We built an AI phone service that picks up those calls for you and takes
-> down who called and what they need. It is free to try for two weeks, capped
+> down who called and what they need. It is free to try for one week, capped
 > at 50 minutes of calls, no credit card. All you would do is forward your
 > overflow calls to a number we give you."
 
@@ -116,7 +116,7 @@ ask for the best mobile number to text and log it. Anything else (a vague
 
 - Never invent a statistic or claim a result we have not proven. Do not say
   freight brokers lose a certain number of loads or calls.
-- Never promise anything beyond: free 2-week trial, 50-minute cap, no credit
+- Never promise anything beyond: free 1-week trial, 50-minute cap, no credit
   card.
 - If you do not know something, say someone will follow up by email. Never
   guess.
