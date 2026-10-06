@@ -122,10 +122,24 @@ ask for the best mobile number to text and log it. Anything else (a vague
   guess.
 - A clear no gets a polite close, never a rebuttal.
 
-## Voicemail
+## When an AI answers, or an AI voicemail picks up: leave a message
 
-Do not leave a message. Log "voicemail" and retry that number once, at a
-different time of day.
+Some brokerages answer with an AI assistant or an automated voicemail. If you reach one (it says it is an AI or virtual
+assistant, or an automated system asks you to leave a message), do not pitch it. **Leave this short message** (about 20 seconds),
+then end the call:
+
+> "Hi, this is [your name] with Calldesk. We built an AI phone service that picks up carrier and shipper calls when nobody is free
+> and takes down who called and what they need. It is free to try for one week, no credit card. Please pass this to [owner name
+> from your page] or whoever handles the phones. You can find us at calldesk dot tech. Thank you."
+
+- If a live AI assistant answers, ask it to take a message for the owner by name, then give the message above in one go.
+- Log the outcome as **Voicemail** (AI voicemail) or **Gatekeeper** (live AI assistant), and write **"AI, left message"** in the
+  notes. Answer the owner/decision-maker question No.
+
+## Voicemail with a person's greeting
+
+A voicemail with a real person's recorded greeting: do not leave a message. Log "voicemail". Numbers that went to voicemail once
+come back once more in your list, at a different time of day.
 
 ## If the line goes quiet
 

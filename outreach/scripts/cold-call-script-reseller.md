@@ -168,9 +168,28 @@ is not a win: note it and move on.
 - Never say the agency is a Retell partner or mention where we found them.
 - A clear no gets a polite close, never a rebuttal.
 
-## Voicemail
+## When an AI answers, or an AI voicemail picks up: leave a message
 
-Do not leave a message. Log "voicemail" and retry that number once, at a different time of day.
+More and more of these companies sell AI phone agents, and some answer their own phone with one. If you reach an AI (it says it is
+an AI or virtual assistant, or an automated system asks you to leave a message after the tone), do not hang up and do not try to
+pitch it. **Leave this short message** (about 20 seconds), then end the call:
+
+> "Hi, this is [your name] with Calldesk. We make phone agents from 2 cents a minute, with the language model and voice included,
+> and a speech API from four tenths of a cent per thousand characters of text-to-speech and eleven cents an hour of
+> speech-to-text, for plugging into a voice platform you already run. We are picking a few design partners, with a 20% revenue
+> share on customers they refer. Please pass this to the owner, or whoever looks after partnerships. You can find us at
+> calldesk dot tech, and the speech API at readaloud A I dot org. Thank you."
+
+- If a live AI assistant answers and asks how it can help, say: "Please pass a message to the owner or whoever looks after
+  partnerships," then give the message above in one go. If it offers to take a message or send a link, accept.
+- Log the outcome as **Voicemail** (if it was an AI voicemail) or **Gatekeeper** (if a live AI assistant took the message), and
+  write **"AI, left message"** in the notes. Answer the owner/decision-maker question No.
+- Do not argue with the AI, do not try to get it to confirm anything, and do not say the company is a competitor.
+
+## Voicemail with a person's greeting
+
+A voicemail with a real person's recorded greeting: do not leave a message. Log "voicemail" and retry that number once, at a
+different time of day.
 
 ## If the line goes quiet
 

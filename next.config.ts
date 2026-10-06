@@ -30,6 +30,8 @@ const nextConfig: NextConfig = {
   // The text simulator's code node loads QuickJS (and its WASM variant) with a dynamic import that static tracing can't
   // see, so without this the standalone image ships without it and every code node fails.
   outputFileTracingIncludes: {
+    // The call scripts are read from disk at request time (src/app/caller/script), so they must ship in the standalone image.
+    '/caller/script': ['./outreach/scripts/**/*'],
     '/api/chat/**': ['./node_modules/quickjs-emscripten/**/*', './node_modules/quickjs-emscripten-core/**/*', './node_modules/@jitl/**/*'],
     '/api/agents/**': ['./node_modules/quickjs-emscripten/**/*', './node_modules/quickjs-emscripten-core/**/*', './node_modules/@jitl/**/*'],
   },

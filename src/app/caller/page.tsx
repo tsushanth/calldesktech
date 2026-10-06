@@ -110,6 +110,7 @@ export default function CallerPage() {
     <main className="mx-auto max-w-3xl px-4 py-6 text-gray-900">
       <header className="mb-4">
         <h1 className="text-xl font-semibold">Hi {data.caller.name.split(' ')[0]}, your calls for {data.date}</h1>
+        <a href={`/caller/script?k=${encodeURIComponent(token ?? '')}`} className="mt-1 inline-block text-sm text-blue-700 underline">Open the call scripts</a>
         <p className="mt-1 text-sm text-gray-600">
           Logged {s.logged} of {s.total} &middot; Dialed {s.dialed} &middot; Wins {s.wins}
         </p>
