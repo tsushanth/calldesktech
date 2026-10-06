@@ -112,6 +112,16 @@ A yes to that, or a specific "call me back at [time]", counts. If they say yes,
 ask for the best mobile number to text and log it. Anything else (a vague
 "maybe later", "send me an email") is not a win: note it and move on.
 
+## If they ask how to reach us
+
+Give these only when they ask, or once they agree to a call or to receive details:
+
+- Email: outreach@calldesk.tech
+- Phone or text: 425-628-4887 (our callback number)
+
+Say them slowly and spell the email once ("outreach at calldesk dot tech"). Do not promise who will answer or how fast; say the
+founders will follow up. Write down in the notes that you gave the details.
+
 ## Hard rules, every call, no exceptions
 
 - Never invent a statistic or claim a result we have not proven. Do not say

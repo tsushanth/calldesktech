@@ -153,6 +153,16 @@ competitor), do not pretend otherwise: the offer below is still honest, and they
 A yes, or a specific time, counts. Log the email and the time. Anything vaguer ("maybe later", "send me something")
 is not a win: note it and move on.
 
+## If they ask how to reach us
+
+Give these only when they ask, or once they agree to a call or to receive details:
+
+- Email: outreach@calldesk.tech
+- Phone or text: 425-628-4887 (our callback number)
+
+Say them slowly and spell the email once ("outreach at calldesk dot tech"). Do not promise who will answer or how fast; say the
+founders will follow up. Write down in the notes that you gave the details.
+
 ## Hard rules, every call, no exceptions
 
 - Never invent a statistic, a customer, a price, a payout date or a result.
