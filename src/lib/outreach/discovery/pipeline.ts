@@ -756,7 +756,7 @@ async function stageFreight(
     const fields = {
       company_name: c.name, domain, source_key: sourceKey, tier: null, location, description,
       score, region_blocked: false,
-      signals: { reasons, techPlatforms: [] as string[], ...(phoneExcluded ? { registry: { callerPhoneExcluded: phoneExcluded } } : {}) },
+      signals: { reasons, techPlatforms: [] as string[], ...((phoneExcluded || c.contactName) ? { registry: { ...(phoneExcluded ? { callerPhoneExcluded: phoneExcluded } : {}), ...(c.contactName ? { contactName: c.contactName } : {}) } } : {}) },
       ...(phone ? { phone } : {}),
       contact_email: c.email, contact_status: 'found',
       contact_source_url: `https://data.transportation.gov/resource/az4n-8mr2.json?dot_number=${c.dot}`,

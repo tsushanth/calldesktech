@@ -7,6 +7,7 @@ interface Row {
   id: string;
   phone: string;
   company_name: string;
+  ask_for: string | null;
   state: string | null;
   position: number;
   attempt: number;
@@ -136,6 +137,9 @@ export default function CallerPage() {
               <div className="flex flex-wrap items-start justify-between gap-2">
                 <div>
                   <p className="font-medium">{r.position}. {r.company_name}{r.attempt > 1 && <span className="ml-2 rounded bg-purple-50 px-1.5 py-0.5 text-xs text-purple-700">retry</span>}</p>
+                  {r.ask_for
+                    ? <p className="mt-0.5 text-sm font-medium text-blue-700">Ask for: {r.ask_for} <span className="font-normal text-gray-500">(owner or officer on record; do not pitch whoever picks up)</span></p>
+                    : <p className="mt-0.5 text-xs text-gray-500">No name on file: ask who handles carrier calls and phones, and get an email.</p>}
                   <p className="mt-0.5 text-lg tracking-wide">
                     {pretty(r.phone)}
                     <button className="ml-3 rounded border border-gray-300 px-2 py-0.5 text-xs text-gray-600" onClick={() => navigator.clipboard?.writeText(r.phone.replace(/^\+1/, ''))}>Copy</button>

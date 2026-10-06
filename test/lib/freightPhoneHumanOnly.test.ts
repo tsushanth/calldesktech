@@ -30,6 +30,9 @@ const ALLOWED_READERS = [
   /^src\/lib\/outreach\/discovery\//,
   /^scripts\/(build-call-batch\.ts|lookup-line-types\.mjs|line-type-sample\.mjs|backfill-freight-phones\.mjs)$/,
   /^harness\/outreach\//,
+  // The human cold-caller's batch screen: it now also reads the officer name (signals.registry.contactName) of each batch lead to show
+  // "Ask for: ...". It places no calls and sends no texts (the next test checks that).
+  /^src\/app\/api\/caller\/batch\/route\.ts$/,
   /^src\/lib\/outreach\/(products|sender|autosend|emailVerify)\.ts$/,
 ];
 // Anything that can place a call or send a text.

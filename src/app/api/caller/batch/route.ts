@@ -18,11 +18,22 @@ export async function GET(request: NextRequest) {
   const date = batchDateEastern();
   const { data: rows, error } = await db
     .from('calldesk_call_batches')
-    .select('id, phone, company_name, state, position, attempt, outcome, notes, mobile_number, text_ok, outcome_at')
+    .select('id, lead_id, phone, company_name, state, position, attempt, outcome, notes, mobile_number, text_ok, outcome_at')
     .eq('batch_date', date)
     .eq('sip_username', user.sip_username)
     .order('position');
   if (error) return NextResponse.json({ error: 'Could not load your batch.' }, { status: 500, headers });
+
+  // The person to ask for (FMCSA census company officer, stored on the lead by the freight loader). Human callers only.
+  const askFor = new Map<string, string>();
+  const leadIds = (rows ?? []).map((r) => r.lead_id).filter((x): x is string => !!x);
+  for (let i = 0; i < leadIds.length; i += 100) {
+    const { data: leads } = await db.from('calldesk_outreach_leads').select('id, signals').in('id', leadIds.slice(i, i + 100));
+    for (const l of (leads ?? []) as { id: string; signals: { registry?: { contactName?: string | null } } | null }[]) {
+      const n = l.signals?.registry?.contactName;
+      if (n) askFor.set(l.id, n);
+    }
+  }
 
   const { data: calls } = await db
     .from('calldesk_outbound_calls')
@@ -41,6 +52,7 @@ export async function GET(request: NextRequest) {
       id: r.id,
       phone: r.phone,
       company_name: r.company_name,
+      ask_for: r.lead_id ? askFor.get(r.lead_id) ?? null : null,
       state: r.state,
       position: r.position,
       attempt: r.attempt,

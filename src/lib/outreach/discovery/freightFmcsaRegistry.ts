@@ -1,7 +1,7 @@
 import { socrataGet } from './socrata';
 import { sleep } from './http';
 import { callerPhoneExclusion } from './callerPhonePolicy';
-import { AUTHORITY_DATASET, CENSUS_DATASET, censusPhone, cleanEmail, evaluateBroker, mcNumber, stripZeros, titleCase, type AuthorityRow, type CensusRow } from './freightFmcsa';
+import { AUTHORITY_DATASET, CENSUS_DATASET, censusPhone, cleanEmail, evaluateBroker, mcNumber, officerNameFromCensus, stripZeros, titleCase, type AuthorityRow, type CensusRow } from './freightFmcsa';
 import { cityState, describeRegistryLead, emptyResult, reject, type RegistryLead, type RegistryResult } from './registryCommon';
 
 // Bulk, phone-first load of US freight BROKERS from FMCSA open data. The per-run stage in
@@ -30,7 +30,7 @@ async function getPatient<T>(dataset: string, params: Record<string, string>, lo
 }
 
 const AUTH_SELECT = 'docket_number,dot_number,broker_stat,broker_app_pend,broker_rev_pend,property_chk,bond_file,legal_name,dba_name,bus_city,bus_state_code,bus_ctry_code,bus_telno';
-const CENSUS_SELECT = 'dot_number,legal_name,dba_name,email_address,phone,status_code,add_date,power_units,total_drivers,business_org_desc,phy_city,phy_state';
+const CENSUS_SELECT = 'dot_number,legal_name,dba_name,email_address,phone,company_officer_1,status_code,add_date,power_units,total_drivers,business_org_desc,phy_city,phy_state';
 
 export function toFmcsaRegistryLead(auth: AuthorityRow, census: CensusRow, ev: { adjust: number; reasons: string[] }): RegistryLead {
   const name = titleCase(auth.legal_name || census.legal_name || '');
@@ -53,7 +53,7 @@ export function toFmcsaRegistryLead(auth: AuthorityRow, census: CensusRow, ev: {
     licenseId: `MC-${mc}`,
     registryName: REGISTRY,
     typeLabel,
-    contactName: null,
+    contactName: officerNameFromCensus(census),
     location,
     description: describeRegistryLead({ typeLabel, registryName: REGISTRY, location, legalName: null, name, listNoun: 'registry' }),
     signalDetail: `FMCSA active broker authority MC-${mc} (DOT ${dot})${phone ? `; registry phone ${phone}` : ''}`,

@@ -44,6 +44,8 @@ export interface CensusRow {
   dba_name?: string;
   email_address?: string;
   phone?: string;
+  company_officer_1?: string;
+  company_officer_2?: string;
   status_code?: string;
   add_date?: string;
   power_units?: string;
@@ -62,6 +64,8 @@ export interface FreightBrokerCandidate {
   state: string | null;
   email: string;
   phone: string | null;
+  // Company officer from the census (MCS-150), usually the owner. For HUMAN callers to ask for by name; never used in drafts.
+  contactName: string | null;
   addDate: string | null;
   // Score adjustment (added to the product's vocabulary score) and reasons.
   adjust: number;
@@ -219,6 +223,27 @@ export function evaluateBroker(auth: AuthorityRow, census: CensusRow | undefined
   return { keep: true, adjust, reasons };
 }
 
+const NOT_A_PERSON = /\b(llc|l\.l\.c|inc|incorporated|corp|corporation|co|company|ltd|lp|llp|pllc|logistics|freight|transport|transportation|trucking|brokerage|brokers?|services|group|holdings|enterprises?|solutions|systems|express|carriers?|shipping|cargo|dispatch)\b/i;
+
+/**
+ * The person to ask for, from the census's company_officer_1 / company_officer_2 ("WILLIAM WALKER" -> "William Walker").
+ * Returns null when the field is empty, looks like a company, a single word, initials only or has digits. "LAST, FIRST" is flipped.
+ * This is registry data: usually the owner or a principal, but not guaranteed to be the person who decides. Human callers only.
+ */
+export function officerNameFromCensus(census: Pick<CensusRow, 'company_officer_1' | 'company_officer_2'> | undefined): string | null {
+  for (const raw of [census?.company_officer_1, census?.company_officer_2]) {
+    let n = String(raw ?? '').replace(/\s+/g, ' ').trim();
+    if (!n || n.length > 40 || /[0-9@/\\]/.test(n) || NOT_A_PERSON.test(n)) continue;
+    if (n.includes(',')) { const [last, first] = n.split(',').map((x) => x.trim()); if (!last || !first || first.includes(',')) continue; n = `${first} ${last}`; }
+    const parts = n.split(' ').filter(Boolean);
+    if (parts.length < 2 || parts.length > 4) continue;
+    if (parts.every((x) => x.replace(/\./g, '').length < 2)) continue;
+    if (parts[0].replace(/\./g, '').length < 2 && parts.length < 3) continue; // "J SMITH" is not enough to ask for someone by name
+    return parts.map((w) => w.length <= 1 ? w.toUpperCase() : w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).map((w) => w.replace(/^(Mc|Mac)([a-z])/, (_m, a, b) => a + b.toUpperCase())).join(' ');
+  }
+  return null;
+}
+
 export function toCandidate(auth: AuthorityRow, census: CensusRow, ev: { adjust: number; reasons: string[] }): FreightBrokerCandidate {
   const dba = (auth.dba_name || census.dba_name || '').trim();
   const city = (auth.bus_city || census.phy_city || '').trim();
@@ -232,6 +257,7 @@ export function toCandidate(auth: AuthorityRow, census: CensusRow, ev: { adjust:
     state: state || null,
     email: cleanEmail(census.email_address) as string,
     phone: censusPhone(census, auth.bus_telno),
+    contactName: officerNameFromCensus(census),
     addDate: census.add_date ?? null,
     adjust: ev.adjust,
     reasons: ev.reasons,
@@ -297,7 +323,7 @@ export async function findFreightBrokerCandidates(
       const chunk = ids.slice(i, i + 75);
       const rows = await socrata<CensusRow>(CENSUS_DATASET, {
         $where: `dot_number in(${chunk.map((d) => `'${d.replace(/\D/g, '')}'`).join(',')}) AND email_address IS NOT NULL`,
-        $select: 'dot_number,legal_name,dba_name,email_address,phone,status_code,add_date,power_units,total_drivers,business_org_desc,phy_city,phy_state',
+        $select: 'dot_number,legal_name,dba_name,email_address,phone,company_officer_1,status_code,add_date,power_units,total_drivers,business_org_desc,phy_city,phy_state',
         $limit: '200',
       }, log);
       for (const r of rows) census.set(stripZeros(r.dot_number), r);

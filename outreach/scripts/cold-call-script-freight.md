@@ -13,17 +13,32 @@ This is the freight variant of `cold-call-script.md`. Only the open, the
 discovery question and a couple of objection answers change; the offer, the
 ask, the close and the hard rules are the same.
 
-## 1. Open (10-15 sec)
+## 1. Open: find the decision maker first (10-15 sec)
 
-> "Hi, is this [name]? ... Hey [name], this is [your name] calling about
-> [brokerage name]. Got a quick minute?"
+Whoever answers the main line is usually a dispatcher or agent: someone whose job is answering those calls.
+They are not the person who decides, and this product replaces part of what they do. **Do not pitch them.** Do
+not run the discovery question or the offer on them. The only goal of the first 20 seconds is to reach the
+owner or get their name and email.
 
-If you do not know who you have, ask once: "Hi, who am I speaking with?" If
-you reach a front desk, ask once for the owner or whoever handles the phones.
-If they say no, thank them and hang up.
+The batch screen shows "Ask for: [name]" when we have the officer on record from the FMCSA census (usually
+the owner). Use it:
 
-If no: "No worries, is there a better time to catch you?" If still no, thank
-them and hang up.
+> "Hi, this is [your name] with Calldesk. Is [name] available? It is about how [brokerage name] handles
+> carrier calls."
+
+- **If [name] is on the line:** go to section 2, then section 3.
+- **If someone else answers and says [name] is not in or not available:** "No problem, when is a good time
+  to catch them? And is there an email I can send a short note to?" Log "gatekeeper" with the name,
+  the time and the email in the notes. Do not pitch. Thank them and hang up.
+- **If they ask what it is about:** "A quick question about the company's phones. I will email [name] the details."
+  Do not say "AI", "trial" or "free" to a gatekeeper. Do not say "I'm not selling anything".
+- **If there is no name on the screen:** ask once: "Who handles carrier and vendor decisions there, and
+  what is the best email for them?" Then thank them and hang up.
+- If the person who answers says they ARE the owner or decision maker ("I'm the one in charge"), treat them as
+  the decision maker and continue to section 2.
+
+If they say no or are busy: "No worries, is there a better time to catch them?" If still no, thank them and
+hang up.
 
 ## 2. Disclosure (say this before anything else, every call)
 
@@ -36,8 +51,10 @@ Not optional. Say it before the real conversation starts.
 > "When carriers or shippers call about a load and nobody is free to pick
 > up, or it is after hours, do any of those calls go to voicemail?"
 
-Let them answer. Do not move on until they have actually said something.
-Their answer puts you into one of two cases.
+Let them answer. Do not move on until they have actually said something. Listen for what they actually do about
+missed calls (they text back, a person is always on the phone, a service answers) and build on THAT. If they say
+"we answer every call", do not explain the product anyway: ask how, e.g. "Who covers it when you are on a call or out
+of the office?" Their answer puts you into one of two cases.
 
 ## 4. Case 1: receptive / neutral
 
@@ -109,6 +126,11 @@ ask for the best mobile number to text and log it. Anything else (a vague
 
 Do not leave a message. Log "voicemail" and retry that number once, at a
 different time of day.
+
+## If the line goes quiet
+
+If the person stops answering for more than 10 seconds, ask once "Are you still there?", wait, and end the
+call. Do not talk into a silent line or redial immediately. Log what happened in the notes ("went silent").
 
 ## After every call, log one outcome
 
