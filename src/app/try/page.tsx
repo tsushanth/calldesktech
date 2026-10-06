@@ -2,6 +2,10 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { CONSENT_VERSION, FORM_COPY, consentSha256 } from '@/lib/outreach/smsConsent';
 import { verifySampleToken } from '@/lib/outreach/samples';
+import { headers } from 'next/headers';
+import { getSupabaseAdmin } from '@/lib/supabase';
+import { clientIpFrom } from '@/lib/outreach/sampleEvents';
+import { recordPageView } from '@/lib/outreach/deckEvents';
 import TryForm from './TryForm';
 
 export const metadata: Metadata = {
@@ -15,6 +19,10 @@ export default async function TryPage({ searchParams }: { searchParams: Promise<
   const { t } = await searchParams;
   const token = typeof t === 'string' ? t : '';
   const valid = !!verifySampleToken(token);
+  if (valid) {
+    const h = await headers();
+    await recordPageView(getSupabaseAdmin(), { token, event: 'try_view', userAgent: h.get('user-agent'), ip: clientIpFrom(h) });
+  }
   return (
     <main className="min-h-screen bg-neutral-50 px-6 py-12 text-neutral-900">
       <div className="mx-auto max-w-lg">

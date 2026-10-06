@@ -41,7 +41,19 @@ export async function GET() {
     const queued = await supabase.from('calldesk_outreach_messages').select('product').eq('status', 'approved').limit(5000);
     const approved: Record<string, number> = {};
     for (const r of (queued.data ?? []) as { product: string | null }[]) approved[r.product ?? 'calldesk'] = (approved[r.product ?? 'calldesk'] ?? 0) + 1;
-    return NextResponse.json({ generatedAt: new Date().toISOString(), maxBounce, caps, approved, ...result });
+    // Engagement per product over 7 days: who opened what the email linked to, and who used the trial form. Bots are never stored.
+    const since7 = new Date(Date.now() - 7 * 86_400_000).toISOString();
+    const engagement: Record<string, { deckViews: number; sampleViews: number; tryViews: number; trySubmissions: number; replies: number }> = {};
+    const eng = (p: string | null) => (engagement[p ?? 'calldesk'] ??= { deckViews: 0, sampleViews: 0, tryViews: 0, trySubmissions: 0, replies: 0 });
+    const deck = await supabase.from('calldesk_outreach_deck_events').select('product, event').eq('is_bot', false).gte('created_at', since7).limit(20000);
+    for (const r of (deck.data ?? []) as { product: string | null; event: string }[]) { if (r.event === 'try_view') eng(r.product).tryViews++; else eng(r.product).deckViews++; }
+    const smp = await supabase.from('calldesk_outreach_sample_events').select('product, event').eq('is_bot', false).eq('event', 'view').gte('created_at', since7).limit(20000);
+    for (const r of (smp.data ?? []) as { product: string | null }[]) eng(r.product).sampleViews++;
+    const cons = await supabase.from('calldesk_sms_consents').select('product').gte('created_at', since7).limit(20000);
+    for (const r of (cons.data ?? []) as { product: string | null }[]) eng(r.product).trySubmissions++;
+    const rep = await supabase.from('calldesk_outreach_leads').select('product').gte('replied_at', since7).limit(20000);
+    for (const r of (rep.data ?? []) as { product: string | null }[]) eng(r.product).replies++;
+    return NextResponse.json({ generatedAt: new Date().toISOString(), maxBounce, caps, approved, engagement, ...result });
   } catch (err) {
     console.warn('[admin/deliverability]', err instanceof Error ? err.message : err);
     return NextResponse.json({ error: 'Deliverability data unavailable' }, { status: 500 });

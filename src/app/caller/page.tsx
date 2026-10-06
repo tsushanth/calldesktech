@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { OUTCOMES, OUTCOME_LABELS, type Outcome } from '@/lib/callerPortal';
+import { DECLINE_REASONS, DECLINE_REASON_LABELS, OUTCOMES, OUTCOME_LABELS, declineReasonOf, stripReason, type Outcome } from '@/lib/callerPortal';
 
 interface Row {
   id: string;
@@ -25,7 +25,7 @@ interface Data {
   summary: { total: number; dialed: number; logged: number; wins: number };
   rows: Row[];
 }
-interface Draft { outcome: string; notes: string; mobile: string; textOk: boolean }
+interface Draft { outcome: string; notes: string; mobile: string; textOk: boolean; reason: string }
 
 const pretty = (e164: string) => e164.replace(/^\+1(\d{3})(\d{3})(\d{4})$/, '($1) $2-$3');
 const HOURS_WHY: Record<string, string> = {
@@ -75,7 +75,7 @@ export default function CallerPage() {
   }, [load]);
 
   const draftOf = (r: Row): Draft =>
-    drafts[r.id] ?? { outcome: r.outcome ?? '', notes: r.notes ?? '', mobile: r.mobile_number ? pretty(r.mobile_number) : '', textOk: r.text_ok };
+    drafts[r.id] ?? { outcome: r.outcome ?? '', notes: stripReason(r.notes), mobile: r.mobile_number ? pretty(r.mobile_number) : '', textOk: r.text_ok, reason: declineReasonOf(r.notes) ?? '' };
   const setDraft = (r: Row, patch: Partial<Draft>) => setDrafts((d) => ({ ...d, [r.id]: { ...draftOf(r), ...patch } }));
 
   async function save(r: Row) {
@@ -87,7 +87,7 @@ export default function CallerPage() {
       const res = await fetch('/api/caller/outcome', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ k: token, id: r.id, outcome: d.outcome, notes: d.notes, mobile_number: d.mobile, text_ok: d.textOk }),
+        body: JSON.stringify({ k: token, id: r.id, outcome: d.outcome, notes: d.notes, mobile_number: d.mobile, text_ok: d.textOk, reason: d.reason }),
       });
       const body = await res.json();
       if (!res.ok) { setRowError((e) => ({ ...e, [r.id]: body.error || 'Could not save.' })); return; }
@@ -165,6 +165,12 @@ export default function CallerPage() {
                   <input value={d.mobile} onChange={(e) => setDraft(r, { mobile: e.target.value })} placeholder="Their mobile number" className="rounded border border-gray-300 px-2 py-2" />
                   <label className="flex items-center gap-2"><input type="checkbox" checked={d.textOk} onChange={(e) => setDraft(r, { textOk: e.target.checked })} /> They agreed to a text</label>
                 </div>
+              )}
+              {d.outcome === 'not_interested' && (
+                <select value={d.reason} onChange={(e) => setDraft(r, { reason: e.target.value })} className="mt-2 w-full rounded border border-gray-300 px-2 py-2 text-sm">
+                  <option value="">Why did they say no? (required)</option>
+                  {DECLINE_REASONS.map((c) => <option key={c} value={c}>{DECLINE_REASON_LABELS[c]}</option>)}
+                </select>
               )}
               {d.outcome === 'do_not_call' && <p className="mt-2 text-xs text-gray-500">This number will be blocked for everyone.</p>}
               {rowError[r.id] && <p className="mt-2 text-sm text-red-600">{rowError[r.id]}</p>}

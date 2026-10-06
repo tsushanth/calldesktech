@@ -37,7 +37,7 @@ describe('validateOutcomeInput', () => {
     expect(validateOutcomeInput({ outcome: 'callback_requested', notes: 'Monday 2pm CT' }).ok).toBe(true);
   });
   it('clears any stray mobile number on other outcomes', () => {
-    expect(validateOutcomeInput({ outcome: 'not_interested', mobile_number: '4256284887', text_ok: true })).toMatchObject({
+    expect(validateOutcomeInput({ outcome: 'not_interested', reason: 'bad_timing', mobile_number: '4256284887', text_ok: true })).toMatchObject({
       ok: true,
       value: { mobile_number: null, text_ok: false },
     });

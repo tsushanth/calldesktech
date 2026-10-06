@@ -8,6 +8,7 @@ interface Data {
   generatedAt: string; maxBounce: number;
   caps: Record<string, { sentToday: number; cap: number }>;
   approved: Record<string, number>;
+  engagement: Record<string, { deckViews: number; sampleViews: number; tryViews: number; trySubmissions: number; replies: number }>;
   overall: Counts; products: ProductRow[]; lanes: LaneHealth[];
 }
 
@@ -87,7 +88,7 @@ export default function DeliverabilityPage() {
                 <tr>
                   <th className={th}>Product</th><th className={th}>Sent 24h</th><th className={th}>Sent 7d</th><th className={th}>Delivered 7d</th>
                   <th className={th}>Hard bounce 7d</th><th className={th}>Soft 7d</th><th className={th}>Complaints 7d</th><th className={th}>Bounce rate 7d</th>
-                  <th className={th}>All time</th><th className={th}>Bounced all time</th><th className={th}>Approved queue</th>
+                  <th className={th}>All time</th><th className={th}>Bounced all time</th><th className={th}>Approved queue</th><th className={th}>Replies 7d</th><th className={th}>Deck views 7d</th><th className={th}>Sample views 7d</th><th className={th}>Trial page 7d</th><th className={th}>Trial submits 7d</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
@@ -98,6 +99,7 @@ export default function DeliverabilityPage() {
                     <td className={td}>{p.hardBounced7d}</td><td className={td}>{p.softBounced7d}</td><td className={td}>{p.complained7d}</td>
                     <td className={`${td} ${rateClass(p.bounceRate7d, data.maxBounce)}`}>{pct(p.bounceRate7d)}</td>
                     <td className={td}>{p.sentAll}</td><td className={td}>{p.hardBouncedAll}</td><td className={td}>{data.approved[p.product] ?? 0}</td>
+                    <td className={td}>{data.engagement?.[p.product]?.replies ?? 0}</td><td className={td}>{data.engagement?.[p.product]?.deckViews ?? 0}</td><td className={td}>{data.engagement?.[p.product]?.sampleViews ?? 0}</td><td className={td}>{data.engagement?.[p.product]?.tryViews ?? 0}</td><td className={td}>{data.engagement?.[p.product]?.trySubmissions ?? 0}</td>
                   </tr>
                 ))}
               </tbody>
