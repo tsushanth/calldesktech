@@ -9,7 +9,7 @@
 //     npx tsx --env-file=.env scripts/build-call-batch.ts
 //
 // A lead is eligible when: it has a valid US/Canada phone (any stored format, normalised to E.164), a US
-// state we can read from its location (needed for calling hours), it is not marked dead/region-blocked,
+// state we can read from its location or, failing that, from its US area code (needed for calling hours), it is not marked dead/region-blocked,
 // not flagged as a personal/home line by the registry loaders, not on the do-not-call list, and not already
 // in an earlier batch. Products are taken in the order given, so freight fills a batch first and the next
 // product tops it up. No lead is assigned to two callers the same day.
@@ -17,6 +17,7 @@
 import { getSupabaseAdmin } from '@/lib/supabase';
 import { normalizeNanp } from '@/lib/outboundCalling';
 import { stateFromLocation, batchDateEastern, STATE_ZONES } from '@/lib/callingHours';
+import { stateFromPhone } from '@/lib/areaCodeState';
 import { selectRetries, dealWithQuotas, orderWithRetries, type PreviousRow } from '@/lib/batchPlanning';
 
 const CALLERS = (process.env.CALLERS || 'mary,mark').split(',').map((s) => s.trim()).filter(Boolean);
@@ -126,7 +127,10 @@ async function main() {
     const eligible: Candidate[] = [];
     for (const l of leads) {
       const phone = normalizeNanp(l.phone);
-      const state = stateFromLocation(l.location);
+      // No state in the location (most web-search leads): read it from the area code, but only when the
+      // location is empty or just says United States. A lead located abroad is never placed by its phone.
+      const loc = String(l.location ?? '').trim();
+      const state = stateFromLocation(l.location) ?? (!loc || /^(united states|usa|us|u\.s\.a?\.?)$/i.test(loc) ? stateFromPhone(l.phone) : null);
       const excluded = (l.signals as { registry?: { callerPhoneExcluded?: string } } | null)?.registry?.callerPhoneExcluded;
       if (STATES.length && state && !STATES.includes(state)) continue;
       if (!phone || !state || excluded || dnc.has(phone) || used.has(phone) || seen.has(phone)) continue;
