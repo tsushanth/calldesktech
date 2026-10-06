@@ -12,6 +12,7 @@ import { findContact, type ContactForm } from './contactPages';
 import { isBlockedDomain, isRegionBlocked, scoreLead, type ScoreEvidence } from './score';
 import { findJobPostingCandidates } from './jobPostingsSearch';
 import { findReviewSiteCandidates } from './reviewSitesSearch';
+import { findSerpCandidates } from './serpAds';
 import { findGithubCandidates } from './githubSignal';
 import { findTelephonyPlatformCandidates } from './telephonyPlatformsSearch';
 import { findSttTtsSignalCandidates } from './sttTtsSignalSearch';
@@ -107,6 +108,7 @@ export interface RunSummary {
   searchCandidates: number;
   jobPostingCandidates: number;
   reviewSiteCandidates: number;
+  serpCandidates?: number;
   githubCandidates: number;
   techFingerprintHits: number;
   searchDebug: { raw: number; rejected: string[] } | null;
@@ -251,6 +253,7 @@ export async function runDiscovery(db: Db, opts: RunOptions = {}): Promise<RunSu
     const searchEntries = stop() ? [] : await stageSearch(db, summary, dryRun, index, stop, product);
     const jobPostingEntries = stop() ? [] : await stageJobPostings(db, summary, dryRun, index, stop, product);
     const reviewSiteEntries = stop() ? [] : await stageReviewSites(db, summary, dryRun, index, stop, product);
+    const serpEntries = stop() ? [] : await stageSerp(db, summary, dryRun, index, stop, product);
     const githubEntries = stop() ? [] : await stageGithub(db, summary, dryRun, index, stop, product);
     const telephonyEntries = stop() ? [] : await stageTelephonyPlatforms(db, summary, dryRun, index, stop, product);
     const sttTtsEntries = stop() ? [] : await stageSttTtsSignal(db, summary, dryRun, index, stop, product);
@@ -258,7 +261,7 @@ export async function runDiscovery(db: Db, opts: RunOptions = {}): Promise<RunSu
     const verticalEntries = stop() ? [] : await stageVerticalSearch(db, summary, dryRun, index, stop, product);
     const registryEntries = stop() ? [] : await stageRegistry(db, summary, dryRun, index, stop, product);
     const allEntries = [
-      ...entries, ...searchEntries, ...jobPostingEntries, ...reviewSiteEntries, ...githubEntries,
+      ...entries, ...searchEntries, ...jobPostingEntries, ...reviewSiteEntries, ...serpEntries, ...githubEntries,
       ...telephonyEntries, ...sttTtsEntries, ...freightEntries, ...verticalEntries, ...registryEntries,
     ];
     if (!stop()) await stageEnrich(db, summary, dryRun, enrichLimit, allEntries, index, stop, product);
@@ -489,6 +492,54 @@ async function stageJobPostings(
     }
     const { data: inserted, error } = await db.from(leadsTable(product)).insert({
       ...base, signal_source: 'job_posting', signal_detail: `Job posting: ${(c.blurb ?? '').slice(0, 200)}`, last_seen_at: now, ...productInsertFields(product),
+    }).select('*').single();
+    if (error) {
+      summary.leadsNew--;
+      summary.errors.push(`insert ${c.name}: ${error.message}`);
+    } else if (inserted) {
+      index.add(inserted as LeadRow);
+      entries.push({ slug: null, row: inserted as LeadRow });
+    }
+  }
+  return entries;
+}
+
+// Google results including paid ads (DataForSEO). Off unless OUTREACH_SERP_QUERIES_PER_DAY is set; see serpAds.ts.
+// Reuses signal_source='search' (no dedicated DB value); the signal_detail says whether it was an ad.
+async function stageSerp(
+  db: Db, summary: RunSummary, dryRun: boolean, index: LeadIndex<LeadRow>, stop: () => boolean, product: ProductConfig,
+): Promise<DirectoryEntry[]> {
+  if (product.id !== 'calldesk') return [];
+  const perDay = Math.min(20, Math.max(0, Number(process.env.OUTREACH_SERP_QUERIES_PER_DAY ?? 0)));
+  if (!perDay) return [];
+
+  const { candidates, errors, rejected } = await findSerpCandidates(perDay, stop);
+  summary.errors.push(...errors);
+  summary.serpCandidates = candidates.length;
+  if (rejected.length) summary.errors.push(`[serp] rejected: ${rejected.slice(0, 5).join(', ')}`);
+
+  const entries: DirectoryEntry[] = [];
+  const now = new Date().toISOString();
+  for (const c of candidates) {
+    const sourceKey = `serp:${c.domain}`;
+    if (index.find({ sourceKey, name: c.name, domain: c.domain })) continue;
+
+    const blocked = isRegionBlocked(c.location, c.name) || isBlockedDomain(c.domain);
+    const { score, reasons } = scoreLead({ tier: null, location: c.location, description: c.blurb }, undefined, product);
+    summary.leadsNew++;
+
+    const base = {
+      company_name: c.name, domain: c.domain, source_key: sourceKey, tier: null, location: c.location,
+      description: c.blurb, score, region_blocked: blocked, signals: { reasons, techPlatforms: [] },
+    };
+    if (dryRun) {
+      const fake = { id: `dry-${c.domain}`, status: 'new', contact_email: null, contact_status: 'unknown', enriched_at: null, ...base } as LeadRow;
+      index.add(fake);
+      entries.push({ slug: null, row: fake });
+      continue;
+    }
+    const { data: inserted, error } = await db.from(leadsTable(product)).insert({
+      ...base, signal_source: 'search', signal_detail: `Google ${c.ad ? 'ad' : 'result'}: ${(c.blurb ?? '').slice(0, 180)}`, last_seen_at: now, ...productInsertFields(product),
     }).select('*').single();
     if (error) {
       summary.leadsNew--;
