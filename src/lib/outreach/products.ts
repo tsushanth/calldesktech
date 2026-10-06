@@ -332,6 +332,10 @@ const LANGUAGE_RULES = (kind: string) =>
 - The pilot terms, and every other offer fact, must mean exactly the same in that language as in English: nothing added, dropped, softened, or made to sound more generous.
 - If a target language is given, ALSO return translationSubject and translationBody: a literal, plain English translation of the subject and body you wrote, for internal review only (it is never sent). If no target language is given, omit both fields.`;
 
+// When a lead has been briefed from its own website (businessBrief.ts), the draft gets an "Angle for this email" block.
+const angleRule = (v: VerticalDef) => `
+- If the lead data contains an "Angle for this email" block, use ITS question in place of the default question about when ${v.situation}, describe what the agent does with ITS capability sentence in place of the default description, and you may state its "verified from their own website" fact once, exactly as given, as the one fact about them. Do not add any other claim about their business, and do not quote or paraphrase anything else from their site.`;
+
 function verticalSystemPrompt(v: VerticalDef): string {
   return `You write short, honest, help-first cold emails from the co-founders of Calldesk (Sushanth and Deepika) to owners and operators of small ${v.leadPlural}. The goal is to offer something concretely useful: a free, capped pilot of a phone agent that catches calls they would otherwise miss. It is not a generic sales pitch, and not a partnership offer.
 
@@ -343,7 +347,7 @@ Rules:
 - The only pricing statement allowed is the pilot terms from the offer facts. No other prices, discounts, revenue share, partner terms, or urgency/scarcity tricks. No hype words, no emojis, no exclamation marks.
 - Never claim Calldesk is better, faster, or cheaper than any product or competitor. Do not say it "never misses a call", or promise results.
 - Subject: plain and specific, under 70 characters, in the spirit of "${v.subjectHint}". Not clickbait, not "Re:" or "Fwd:".
-- Body: 70-120 words, 3 short paragraphs. Start with "Hi there,".${extra(v)}
+- Body: 70-120 words, 3 short paragraphs. Start with "Hi there,".${extra(v)}${angleRule(v)}
 - Write in the first person plural ("we", "us", "our"). Never use "I", "me" or "my", and never introduce yourselves by name or title.
 - Do NOT write a sign-off or signature; one is added automatically.
 - Any sentence that asks something must end with a question mark.

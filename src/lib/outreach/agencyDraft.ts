@@ -2,6 +2,7 @@ import { getAnthropicClient } from '@/lib/anthropic';
 import { cliComplete, apiComplete, extractJson, usingApi, usingCli } from './llm';
 import { detectDraftLanguage } from './language';
 import { calldesk, resolveArmPrompts, type ProductConfig } from './products';
+import type { Angle } from './businessBrief';
 
 // Drafts a short first-touch email to a voice-AI agency. Facts the model may
 // state are limited to product.offerFacts (see products.ts); everything else
@@ -24,6 +25,8 @@ export interface AgencyDraftInput {
   product?: ProductConfig;
   // Experiment arm (freight: 'free_week' | 'demo'). Absent/unknown = the product's default offer.
   arm?: string | null;
+  // Pain-point angle picked from the lead's own website (vertical leads only). Absent = the vertical's default question.
+  angle?: Angle | null;
 }
 
 export interface AgencyDraft {
@@ -81,6 +84,9 @@ export async function draftAgencyEmail(input: AgencyDraftInput): Promise<AgencyD
       : '',
     input.dossier
       ? `Verified facts from their own website (mention at most ONE, exactly as stated, no embellishment):\n- ${input.dossier.summary}${input.dossier.hook ? `\n- Specific detail: ${input.dossier.hook}` : ''}${input.dossier.verticals.length ? `\n- Verticals: ${input.dossier.verticals.join(', ')}` : ''}`
+      : '',
+    input.angle
+      ? `Angle for this email (use this INSTEAD of the default question and agent description):\n- Question to ask: ${input.angle.question}\n- What the agent does for this: it ${input.angle.capability}${input.angle.evidence ? `\n- Verified from their own website (state exactly as given, once; the only fact about them you may state): ${input.angle.evidence}` : ''}`
       : '',
     '',
     'Offer facts you may use (and nothing else):',
