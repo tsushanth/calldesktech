@@ -24,26 +24,26 @@ describe('validateOutcomeInput', () => {
     expect(validateOutcomeInput({}).ok).toBe(false);
   });
   it('needs a valid mobile number and the agreed-to-text box for a forward-number win', () => {
-    expect(validateOutcomeInput({ outcome: 'forward_number_requested' }).ok).toBe(false);
-    expect(validateOutcomeInput({ outcome: 'forward_number_requested', mobile_number: '555', text_ok: true }).ok).toBe(false);
-    expect(validateOutcomeInput({ outcome: 'forward_number_requested', mobile_number: '(425) 628-4887', text_ok: false }).ok).toBe(false);
-    expect(validateOutcomeInput({ outcome: 'forward_number_requested', mobile_number: '(425) 628-4887', text_ok: true })).toEqual({
+    expect(validateOutcomeInput({ decision_maker: true, outcome: 'forward_number_requested' }).ok).toBe(false);
+    expect(validateOutcomeInput({ decision_maker: true, outcome: 'forward_number_requested', mobile_number: '555', text_ok: true }).ok).toBe(false);
+    expect(validateOutcomeInput({ decision_maker: true, outcome: 'forward_number_requested', mobile_number: '(425) 628-4887', text_ok: false }).ok).toBe(false);
+    expect(validateOutcomeInput({ decision_maker: true, outcome: 'forward_number_requested', mobile_number: '(425) 628-4887', text_ok: true })).toEqual({
       ok: true,
-      value: { outcome: 'forward_number_requested', notes: null, mobile_number: '+14256284887', text_ok: true },
+      value: { outcome: 'forward_number_requested', notes: '[dm:yes]', mobile_number: '+14256284887', text_ok: true },
     });
   });
   it('needs a callback time in the notes', () => {
-    expect(validateOutcomeInput({ outcome: 'callback_requested' }).ok).toBe(false);
-    expect(validateOutcomeInput({ outcome: 'callback_requested', notes: 'Monday 2pm CT' }).ok).toBe(true);
+    expect(validateOutcomeInput({ decision_maker: true, outcome: 'callback_requested' }).ok).toBe(false);
+    expect(validateOutcomeInput({ decision_maker: true, outcome: 'callback_requested', notes: 'Monday 2pm CT' }).ok).toBe(true);
   });
   it('clears any stray mobile number on other outcomes', () => {
-    expect(validateOutcomeInput({ outcome: 'not_interested', reason: 'bad_timing', mobile_number: '4256284887', text_ok: true })).toMatchObject({
+    expect(validateOutcomeInput({ decision_maker: true, outcome: 'not_interested', reason: 'bad_timing', mobile_number: '4256284887', text_ok: true })).toMatchObject({
       ok: true,
       value: { mobile_number: null, text_ok: false },
     });
   });
   it('caps notes at 1000 characters', () => {
-    const r = validateOutcomeInput({ outcome: 'gatekeeper', notes: 'x'.repeat(2000) });
+    const r = validateOutcomeInput({ decision_maker: true, outcome: 'gatekeeper', notes: 'x'.repeat(2000) });
     expect(r.ok && r.value.notes?.length).toBe(1000);
   });
 });

@@ -137,6 +137,13 @@ call. Do not talk into a silent line or redial immediately. Log what happened in
 no answer / voicemail / gatekeeper / callback requested / forward-number
 requested / not interested / wrong number / do-not-call
 
+**Whenever a person spoke to you** (gatekeeper, callback requested, forward-number requested, not interested,
+do-not-call) the form also asks one yes/no question: **Did you reach the owner / decision maker?** Answer
+Yes only if the person said they own the company or make the decision on phones and vendors (or is the person you asked
+for by name and confirmed it). A dispatcher, agent or receptionist is No, even if they were friendly. If you are
+not sure, answer No. This is how we measure whether asking for the owner is working, so answer it honestly
+on every call; it is never counted against you.
+
 A call that is blocked on the line is outside legal calling hours for that
 business, or the number is not in your batch for the day. Log it and move to
 the next number.

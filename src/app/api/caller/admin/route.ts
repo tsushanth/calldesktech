@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/supabase';
 import { authenticateLink } from '@/lib/callerAuth';
 import { batchDateEastern } from '@/lib/callingHours';
-import { OUTCOMES, WIN_OUTCOMES } from '@/lib/callerPortal';
+import { OUTCOMES, OUTCOMES_ASKING_DECISION_MAKER, WIN_OUTCOMES, decisionMakerOf } from '@/lib/callerPortal';
 
 // GET /api/caller/admin?k=<admin token>&date=YYYY-MM-DD — the supervisor view: per caller, how many dials, how many
 // answered, the outcomes logged, wins, and which answered calls have no outcome logged yet. Test calls are excluded.
@@ -55,6 +55,10 @@ export async function GET(request: NextRequest) {
       logged: mine.filter((b) => b.outcome).length,
       wins: mine.filter((b) => b.outcome && (WIN_OUTCOMES as string[]).includes(b.outcome)).length,
       outcomes: outcomeCounts,
+      // People reached (a person spoke to the caller) and how many of those were the owner or decision maker, per the caller's own answer.
+      people_reached: mine.filter((b) => b.outcome && (OUTCOMES_ASKING_DECISION_MAKER as string[]).includes(b.outcome)).length,
+      decision_maker_reached: mine.filter((b) => b.outcome && (OUTCOMES_ASKING_DECISION_MAKER as string[]).includes(b.outcome) && decisionMakerOf(b.notes) === true).length,
+      decision_maker_wins: mine.filter((b) => b.outcome && (WIN_OUTCOMES as string[]).includes(b.outcome) && decisionMakerOf(b.notes) === true).length,
       answered_not_logged: mine.filter((b) => !b.outcome && answeredPhones.has(b.phone)).length,
     };
   });

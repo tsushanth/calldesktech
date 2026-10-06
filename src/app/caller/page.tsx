@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { DECLINE_REASONS, DECLINE_REASON_LABELS, OUTCOMES, OUTCOME_LABELS, declineReasonOf, stripReason, type Outcome } from '@/lib/callerPortal';
+import { DECLINE_REASONS, DECLINE_REASON_LABELS, OUTCOMES, OUTCOMES_ASKING_DECISION_MAKER, OUTCOME_LABELS, decisionMakerOf, declineReasonOf, stripReason, type Outcome } from '@/lib/callerPortal';
 
 interface Row {
   id: string;
@@ -26,7 +26,7 @@ interface Data {
   summary: { total: number; dialed: number; logged: number; wins: number };
   rows: Row[];
 }
-interface Draft { outcome: string; notes: string; mobile: string; textOk: boolean; reason: string }
+interface Draft { outcome: string; notes: string; mobile: string; textOk: boolean; reason: string; dm: '' | 'yes' | 'no' }
 
 const pretty = (e164: string) => e164.replace(/^\+1(\d{3})(\d{3})(\d{4})$/, '($1) $2-$3');
 const HOURS_WHY: Record<string, string> = {
@@ -76,7 +76,7 @@ export default function CallerPage() {
   }, [load]);
 
   const draftOf = (r: Row): Draft =>
-    drafts[r.id] ?? { outcome: r.outcome ?? '', notes: stripReason(r.notes), mobile: r.mobile_number ? pretty(r.mobile_number) : '', textOk: r.text_ok, reason: declineReasonOf(r.notes) ?? '' };
+    drafts[r.id] ?? { outcome: r.outcome ?? '', notes: stripReason(r.notes), mobile: r.mobile_number ? pretty(r.mobile_number) : '', textOk: r.text_ok, reason: declineReasonOf(r.notes) ?? '', dm: decisionMakerOf(r.notes) === null ? '' : decisionMakerOf(r.notes) ? 'yes' : 'no' };
   const setDraft = (r: Row, patch: Partial<Draft>) => setDrafts((d) => ({ ...d, [r.id]: { ...draftOf(r), ...patch } }));
 
   async function save(r: Row) {
@@ -88,7 +88,7 @@ export default function CallerPage() {
       const res = await fetch('/api/caller/outcome', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ k: token, id: r.id, outcome: d.outcome, notes: d.notes, mobile_number: d.mobile, text_ok: d.textOk, reason: d.reason }),
+        body: JSON.stringify({ k: token, id: r.id, outcome: d.outcome, notes: d.notes, mobile_number: d.mobile, text_ok: d.textOk, reason: d.reason, decision_maker: d.dm === '' ? null : d.dm === 'yes' }),
       });
       const body = await res.json();
       if (!res.ok) { setRowError((e) => ({ ...e, [r.id]: body.error || 'Could not save.' })); return; }
@@ -160,7 +160,7 @@ export default function CallerPage() {
                   {OUTCOMES.map((o) => <option key={o} value={o}>{OUTCOME_LABELS[o]}</option>)}
                 </select>
                 <input value={d.notes} onChange={(e) => setDraft(r, { notes: e.target.value })} placeholder={d.outcome === 'callback_requested' ? 'Callback time (required)' : 'Notes (optional)'} className="rounded border border-gray-300 px-2 py-2 text-sm" />
-                <button onClick={() => save(r)} disabled={!d.outcome || saving === r.id} className="rounded bg-blue-600 px-4 py-2 text-sm font-medium text-white disabled:opacity-40">
+                <button onClick={() => save(r)} disabled={!d.outcome || saving === r.id || ((OUTCOMES_ASKING_DECISION_MAKER as string[]).includes(d.outcome) && d.dm === '')} className="rounded bg-blue-600 px-4 py-2 text-sm font-medium text-white disabled:opacity-40">
                   {saving === r.id ? 'Saving...' : r.outcome ? 'Update' : 'Save'}
                 </button>
               </div>
@@ -168,6 +168,14 @@ export default function CallerPage() {
                 <div className="mt-2 flex flex-wrap items-center gap-3 text-sm">
                   <input value={d.mobile} onChange={(e) => setDraft(r, { mobile: e.target.value })} placeholder="Their mobile number" className="rounded border border-gray-300 px-2 py-2" />
                   <label className="flex items-center gap-2"><input type="checkbox" checked={d.textOk} onChange={(e) => setDraft(r, { textOk: e.target.checked })} /> They agreed to a text</label>
+                </div>
+              )}
+              {(OUTCOMES_ASKING_DECISION_MAKER as string[]).includes(d.outcome) && (
+                <div className="mt-2 flex items-center gap-3 text-sm">
+                  <span className="font-medium">Did you reach the owner / decision maker?</span>
+                  {(['yes', 'no'] as const).map((v) => (
+                    <label key={v} className="flex items-center gap-1"><input type="radio" name={`dm-${r.id}`} checked={d.dm === v} onChange={() => setDraft(r, { dm: v })} /> {v === 'yes' ? 'Yes' : 'No'}</label>
+                  ))}
                 </div>
               )}
               {d.outcome === 'not_interested' && (
