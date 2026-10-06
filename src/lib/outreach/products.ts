@@ -73,7 +73,7 @@ const CALLDESK_OFFER_FACTS = [
   'Calldesk (calldesk.tech) is an AI voice-agent platform: inbound and outbound phone agents, knowledge base, call analytics.',
   'Pricing is public on calldesk.tech/pricing: phone agents from 2 cents a minute. Lite is 2 cents, Standard is 5 cents and Pro is 9 cents per minute, all available now, with no per-booking or per-transfer fees. Customers bring their own phone carrier or number, or buy a number from us.',
   'Each per-minute price covers the whole engine: the language model and the voice. Customers bring their own phone carrier or number.',
-  'The same founders also run readaloudai.org, a realtime speech-to-text and text-to-speech API for developers building voice products. It is pay as you go with no monthly minimum: text-to-speech from $0.004 per 1,000 characters and speech-to-text at $0.11 per hour of audio, with free credits for new accounts. It is meant for teams that already run their own voice platform and want to plug cheaper speech into it.',
+  'The same founders also run readaloudai.org, a speech-to-text and text-to-speech API for developers building voice products. It is pay as you go with no monthly minimum: text-to-speech from $0.004 per 1,000 characters and speech-to-text at $0.11 per hour of audio, with free credits for new accounts. It is meant for teams that already run their own voice platform and want to plug cheaper speech into it.',
   'So there are two ways to work together: use the Calldesk platform (with the 20% revenue share on customers referred), or plug the readaloudai.org speech API into a platform the agency already owns. There is no resale or revenue-share term for the speech API.',
   'Calldesk supports 55 languages on live calls, verified end-to-end (speech recognition, the agent itself, voice, and turn-taking).',
   'We are looking for a small number of agency design partners to try it with their clients.',
@@ -141,9 +141,9 @@ export const calldesk: ProductConfig = {
 // version said "$0.10/min, significantly cheaper than Deepgram, ElevenLabs, and Cartesia", which did not match
 // that page. Re-check the page before changing these numbers.
 const READALOUD_OFFER_FACTS = [
-  'readaloudai.org is a realtime speech-to-text and text-to-speech API for developers building voice products.',
-  'Realtime STT and TTS API access is available now.',
-  'Pricing is pay as you go with no monthly minimum: text-to-speech from $0.004 per 1,000 characters, and speech-to-text at $0.11 per hour of audio.',
+  'readaloudai.org is a speech-to-text and text-to-speech API for developers building voice products. Speech-to-text is batch (audio clips), not realtime streaming; do not claim realtime speech-to-text.',
+  'STT and TTS API access is available now. Do not claim latency, accuracy or quality advantages over any provider.',
+  'Pricing is pay as you go with no monthly minimum: text-to-speech from $0.004 per 1,000 characters, and speech-to-text at $0.11 per hour of audio (billed by the second, 10 second minimum per request).',
   'New accounts get free credits to try the API.',
   'The same founders also run Calldesk (calldesk.tech), an AI phone-agent platform with public pricing from 2 cents a minute: Lite 2 cents, Standard 5 cents, Pro 9 cents per minute, where each price covers the whole engine (language model and voice). Customers bring their own phone carrier or number. Agencies that refer customers to Calldesk get a 20% revenue share on their usage.',
   'So there are two ways to work together: plug the speech API into a voice platform they already own, or use the Calldesk platform itself.',

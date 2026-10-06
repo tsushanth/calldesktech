@@ -59,9 +59,9 @@ per-minute platform price. Do not claim more than that.
 
 ### The speech-API offer (say only this)
 
-- readaloudai.org is a realtime speech-to-text and text-to-speech API for developers building voice products.
+- readaloudai.org is a speech-to-text and text-to-speech API for developers building voice products. Speech-to-text is batch (audio clips), not realtime streaming. Never claim realtime speech-to-text, and never claim latency, accuracy or quality advantages.
 - Text-to-speech from $0.004 per 1,000 characters (Piper voices) and $0.01 per 1,000 characters (Kokoro voices).
-- Speech-to-text at $0.11 per hour of audio, billed by the second. Transcription uses Whisper large-v3-turbo and takes
+- Speech-to-text at $0.11 per hour of audio, billed by the second with a 10 second minimum per request. Transcription uses Whisper large-v3-turbo and takes
   clips up to 25 MB per call.
 - Pay as you go, no monthly minimum. New accounts get free credits to try it (worth $0.10, about 10,000 characters of
   speech, so enough to hear the voices, not to run a pilot).
@@ -71,29 +71,23 @@ per-minute platform price. Do not claim more than that.
   integration support.
 - Terms beyond pricing (volume discounts, SLAs) are being finalized with the first partners. There is no resale or
   revenue-share term for the speech API yet. If they ask about one, say the founders will follow up; never invent a number.
-- If they ask about scale: each Piper server handles up to 12 simultaneous streams, and the founders can discuss
-  capacity for their volume. Do not promise more than that.
+- If they ask about scale or capacity: say the founders will follow up with their volume numbers. Do not state any capacity figure; capacity is still being measured.
 
 ### The price comparison (the only one you may make)
 
-You may say our list price is lower than ElevenLabs and Deepgram. Public list prices, checked on 2026-10-05 on each
-company's own pricing page (re-check before quoting if this sheet is more than a few weeks old):
-
-| | Ours | ElevenLabs | Deepgram |
-|---|---|---|---|
-| Text-to-speech per 1,000 characters | $0.004 Piper, $0.01 Kokoro | $0.04 Flash, $0.08 Multilingual v2 | $0.030 Aura-2 |
-| Speech-to-text, batch, per hour | $0.11 | $0.22 (Scribe) | about $0.26 ($0.0043 per minute, Nova-3 pre-recorded) |
+You may say our batch speech-to-text list price is lower than ElevenLabs Scribe. ElevenLabs Scribe is $0.22 per hour on their
+public pricing page (verified 2026-10-04); ours is $0.11 per hour. Say "as of October 2026". Do NOT compare to Deepgram: we have
+not verified their batch list price and their terms restrict benchmarking. Do not compare text-to-speech prices.
 
 Rules for using it:
-- Say it as a list-price comparison and offer to send it in writing: "On list price we are lower than ElevenLabs and
-  Deepgram. I can email you the numbers so you can check them."
-- Compare only to ElevenLabs and Deepgram, only these figures, and only batch speech-to-text against batch (not their
-  realtime or streaming rates).
-- Never say we are better, faster or higher quality, and never say the voices sound the same. Piper and Kokoro are not
-  ElevenLabs voices. If they ask about quality, say you do not have a verified comparison to quote and the founders can
-  share sample audio.
-- If they name another provider (Groq, DeepInfra, Cartesia and so on), do not argue and do not claim to beat it. Say you
+- Say it as a list-price comparison and offer to send it in writing: "On batch speech-to-text list price we are lower than
+  ElevenLabs Scribe, as of October 2026. I can email you the numbers so you can check them."
+- Never say we are better, faster or higher quality, and never claim latency or accuracy parity (ElevenLabs is somewhat
+  faster through our path). If they ask about quality or speed, say you do not have a verified comparison to quote and the
+  founders can share samples.
+- If they name another provider (Deepgram, Groq, DeepInfra, Cartesia and so on), do not argue and do not claim to beat it. Say you
   do not have their numbers and the founders can compare in the call.
+- Do not say a self-serve paid signup has been tested, and make no claims about capacity or TTS quality.
 
 The ask for this angle is the same: 15 minutes with the founders, or they try the free credits and tell us what breaks.
 
@@ -163,7 +157,7 @@ is not a win: note it and move on.
 
 - Never invent a statistic, a customer, a price, a payout date or a result.
 - Never say we are better or faster than any competitor, and never disparage Retell, Vapi or any platform. For the platform
-  angle, make no price comparison. For the speech-API angle, the only comparison allowed is the list-price table above.
+  angle, make no price comparison. For the speech-API angle, the only comparison allowed is the ElevenLabs Scribe batch figure above.
 - Never promise anything beyond the offer facts above. If you do not know, say the founders will follow up by email.
 - Never say the agency is a Retell partner or mention where we found them.
 - A clear no gets a polite close, never a rebuttal.
