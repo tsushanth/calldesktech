@@ -71,6 +71,10 @@ export function resolveArmPrompts(product: ProductConfig, arm?: string | null): 
 
 const CALLDESK_OFFER_FACTS = [
   'Calldesk (calldesk.tech) is an AI voice-agent platform: inbound and outbound phone agents, knowledge base, call analytics.',
+  'Pricing is public on calldesk.tech/pricing: phone agents from 2 cents a minute. Lite is 2 cents, Standard is 5 cents and Pro is 9 cents per minute, all available now, with no per-booking or per-transfer fees. Customers bring their own phone carrier or number, or buy a number from us.',
+  'Each per-minute price covers the whole engine: the language model and the voice. Customers bring their own phone carrier or number.',
+  'The same founders also run readaloudai.org, a realtime speech-to-text and text-to-speech API for developers building voice products. It is pay as you go with no monthly minimum: text-to-speech from $0.004 per 1,000 characters and speech-to-text at $0.11 per hour of audio, with free credits for new accounts. It is meant for teams that already run their own voice platform and want to plug cheaper speech into it.',
+  'So there are two ways to work together: use the Calldesk platform (with the 20% revenue share on customers referred), or plug the readaloudai.org speech API into a platform the agency already owns. There is no resale or revenue-share term for the speech API.',
   'Calldesk supports 55 languages on live calls, verified end-to-end (speech recognition, the agent itself, voice, and turn-taking).',
   'We are looking for a small number of agency design partners to try it with their clients.',
   'Partners receive a 20% revenue share on usage from customers they refer.',
@@ -81,6 +85,7 @@ const CALLDESK_OFFER_FACTS = [
 const CALLDESK_SYSTEM_PROMPT = `You write short, specific, honest first-touch emails from the co-founders of Calldesk (Sushanth and Deepika) to owners of AI voice-agent agencies.
 
 Rules:
+- LEAD WITH THE PRICE, AND OFFER BOTH ROUTES. The subject line and the first sentence must state a price from the offer facts. In the first two sentences give both options with their prices: Calldesk phone agents from 2 cents a minute (the whole engine, language model and voice, is in that price), and the readaloudai.org speech API for plugging into a platform they already own (text-to-speech from $0.004 per 1,000 characters, speech-to-text at $0.11 per hour). Then say the 20% revenue share applies to customers they refer to Calldesk, and ask which route fits them, offering a 15-minute call. State prices exactly as in the offer facts. Never compare a price to any competitor and never call it the cheapest. Do not claim any language-model product or optimization beyond "the language model is included in the per-minute price".
 - State ONLY facts from the provided offer facts. Never invent prices, numbers, customers, integrations, benchmark results or quality claims.
 - Never claim Calldesk is better, faster, or higher quality than any competitor. Never name or disparage Retell. You may say the agency builds voice agents.
 - Do not mention that the agency is a Retell partner.
@@ -140,6 +145,8 @@ const READALOUD_OFFER_FACTS = [
   'Realtime STT and TTS API access is available now.',
   'Pricing is pay as you go with no monthly minimum: text-to-speech from $0.004 per 1,000 characters, and speech-to-text at $0.11 per hour of audio.',
   'New accounts get free credits to try the API.',
+  'The same founders also run Calldesk (calldesk.tech), an AI phone-agent platform with public pricing from 2 cents a minute: Lite 2 cents, Standard 5 cents, Pro 9 cents per minute, where each price covers the whole engine (language model and voice). Customers bring their own phone carrier or number. Agencies that refer customers to Calldesk get a 20% revenue share on their usage.',
+  'So there are two ways to work together: plug the speech API into a voice platform they already own, or use the Calldesk platform itself.',
   'We are looking for a small number of early integration partners to try the API with their product.',
   'Partners get direct access to the founders for integration support.',
   'Terms beyond pricing (volume discounts, SLAs) are being finalized with the first partners.',
@@ -148,6 +155,7 @@ const READALOUD_OFFER_FACTS = [
 const READALOUD_SYSTEM_PROMPT = `You write short, specific, honest first-touch emails from the co-founders of readaloudai.org (Sushanth and Deepika) to teams building realtime voice products (telephony/voice-agent platforms, voice agents, dubbing/localization, accessibility tools, IVR replacement, e-learning narration) who currently rely on a speech API like Deepgram, ElevenLabs, or Cartesia.
 
 Rules:
+- LEAD WITH THE PRICE, AND OFFER BOTH ROUTES. The subject line and the first sentence must state a price from the offer facts. In the first two sentences give both options with their prices: the speech API to plug into a platform they already own (text-to-speech from $0.004 per 1,000 characters, speech-to-text at $0.11 per hour of audio, free credits for new accounts), and the Calldesk platform from 2 cents a minute (the language model and voice are in that price). Then ask which route fits them and offer a 15-minute call. State prices exactly as in the offer facts; never compare them to any named competitor and never call them the cheapest. Do not claim any language-model product or optimization beyond "the language model is included in the per-minute price".
 - State ONLY facts from the provided offer facts. Never invent prices, numbers, customers, integrations, benchmark results, uptime, or latency claims.
 - Never claim readaloudai.org is faster or higher-quality than any named competitor, and never name a competitor or compare our price to anyone else's. State prices exactly as given in the offer facts.
 - Personalize with one concrete detail from the company's own description, without flattery.
