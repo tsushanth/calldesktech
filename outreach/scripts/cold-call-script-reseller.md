@@ -24,7 +24,7 @@ the outcome logging are the same. The offer and the ask are different.
 - Partners get a 20% revenue share on usage from customers they refer.
 - Partners get a free trial and direct access to the founders.
 - Terms beyond the 20% share (how long it lasts, when it is paid, any minimums) are being finalized with the first
-  partners. If asked, say exactly that. Never state a price, a duration, a payout date or a minimum.
+  partners. If asked, say exactly that. The only prices you may state are the ones on this sheet. Never state a duration, a payout date or a minimum.
 
 ## Lead with the price, and offer both routes
 
@@ -44,7 +44,7 @@ per-minute platform price. Do not claim more than that.
 ### The one-line pitch (the price comes first)
 
 > "Calldesk phone agents start at 2 cents a minute, with the language model and the voice included. If you already run your own
-> platform, our speech API is a quarter of a cent per thousand characters of text-to-speech and eleven cents an hour of
+> platform, our speech API is four tenths of a cent per thousand characters of text-to-speech and eleven cents an hour of
 > speech-to-text. Which of those would fit you better?"
 
 (The exact figures: $0.004 per 1,000 characters for text-to-speech, $0.11 per hour for speech-to-text.)
@@ -54,7 +54,8 @@ per-minute platform price. Do not claim more than that.
 - Do not state a total saving or a percent. How much it saves depends on how much their agent talks and which voices they
   use, and we do not have their numbers. If they ask "how much would I save", say the founders can run their numbers on the
   call. The per-unit prices below are what you may quote.
-- The language model and the telephony are not ours in this angle; do not claim to lower them.
+- In Route 2 the language model and the telephony are not ours; do not claim to lower them. (In Route 1 the language model is
+  included in the per-minute price, nothing more.)
 
 ### The speech-API offer (say only this)
 
@@ -129,8 +130,8 @@ competitor), do not pretend otherwise: the offer below is still honest, and they
 
 ## 4. Case 1: receptive / curious
 
-> "Calldesk phone agents start at 2 cents a minute, with the language model and voice included, and our speech API is a
-> quarter of a cent per thousand characters of text-to-speech and eleven cents an hour of speech-to-text. We are picking a
+> "Calldesk phone agents start at 2 cents a minute, with the language model and voice included, and our speech API is four
+> tenths of a cent per thousand characters of text-to-speech and eleven cents an hour of speech-to-text. We are picking a
 > small number of agencies as design partners: a free trial, direct access to the founders, and a 20% revenue share on usage
 > from customers they refer to the platform. Which would fit you better, our platform or the speech API in your own?"
 
