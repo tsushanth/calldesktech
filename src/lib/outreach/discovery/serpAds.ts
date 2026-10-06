@@ -45,15 +45,24 @@ const EXCLUDED = [
   'twilio.com', 'g2.com', 'capterra.com', 'clutch.co', 'linkedin.com', 'facebook.com', 'youtube.com', 'reddit.com', 'yelp.com',
   'wikipedia.org', 'google.com', 'x.com', 'twitter.com', 'trustpilot.com', 'forbes.com', 'zapier.com', 'medium.com', 'quora.com',
   'softwareadvice.com', 'getapp.com', 'sourceforge.net', 'producthunt.com', 'github.com', 'zoom.us', 'ringcentral.com',
+  'smash.vc', 'technologyadvice.com', 'forum.bubble.io', 'pressconnects.com', 'barchart.com', 'finance.yahoo.com', 'thecrunch.io', 'getmailtracker.com', 'unity-connect.com', 'wotnot.io',
 ];
 
 function bare(domain: string): string {
   return domain.toLowerCase().replace(/^www\./, '');
 }
 
-function nameFromTitle(title: string, domain: string): string {
-  const t = title.split(/\s[|–—-]\s|:\s/)[0].trim();
-  return (t.length >= 2 && t.length <= 60 ? t : domain.replace(/\.[a-z.]+$/, '')).slice(0, 120);
+// A search-result title is often an article headline ("11 Best AI Phone Answering Systems (2026)", "How to White-Label Vapi"),
+// not a company name. When it reads like one, fall back to the domain's brand label ("botpenguin.com" -> "Botpenguin").
+const ARTICLE_TITLE = /\b(best|top|how to|guide|vs\.?|versus|review(s|ed)?|compared|comparison|tested|alternatives?|in 20\d\d|20\d\d)\b|^\d+\s/i;
+export function nameFromTitle(title: string, domain: string): string {
+  const brand = () => {
+    const label = domain.replace(/^www\./, '').split('.')[0].replace(/[-_]+/g, ' ').trim();
+    return (label.charAt(0).toUpperCase() + label.slice(1)).slice(0, 60);
+  };
+  const t = title.split(/\s[|\u2013\u2014-]\s|:\s/)[0].trim();
+  if (!t || ARTICLE_TITLE.test(t) || t.length > 60 || t.split(/\s+/).length > 7) return brand();
+  return t.slice(0, 120);
 }
 
 /** Pulls candidate companies out of one DataForSEO "organic/live/advanced" response. Pure, so it is unit tested. */

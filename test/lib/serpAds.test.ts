@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { parseSerp, serpQueriesForDay } from '@/lib/outreach/discovery/serpAds';
+import { parseSerp, serpQueriesForDay, nameFromTitle } from '@/lib/outreach/discovery/serpAds';
 
 const resp = (items: unknown[]) => ({ tasks: [{ result: [{ items }] }] });
 
@@ -39,6 +39,15 @@ describe('parseSerp', () => {
   it('tolerates an empty or failed response', () => {
     expect(parseSerp(null, 'q')).toEqual([]);
     expect(parseSerp({ tasks: null }, 'q')).toEqual([]);
+  });
+});
+
+describe('nameFromTitle', () => {
+  it('keeps a real company name', () => { expect(nameFromTitle('Dialzara | AI Receptionist', 'dialzara.com')).toBe('Dialzara'); });
+  it('uses the domain for an article headline', () => {
+    expect(nameFromTitle('11 Best AI Phone Answering Systems for Restaurants (2026)', 'botpenguin.com')).toBe('Botpenguin');
+    expect(nameFromTitle('How to White-Label Vapi Voice AI Agents', 'five.co')).toBe('Five');
+    expect(nameFromTitle('Voice AI agents in production 2026', 'reactify-solutions.com')).toBe('Reactify solutions');
   });
 });
 
