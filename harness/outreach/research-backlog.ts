@@ -44,7 +44,10 @@ async function research() {
   if (SOURCES.length) q = q.in('signal_source', SOURCES);
   const { data, error } = await q.order('score', { ascending: false }).limit(2000);
   if (error) throw new Error(error.message);
-  const mine = ((data ?? []) as { id: string; company_name: string; domain: string; description: string | null; signals: { callRegion?: { verdict?: string } } | null }[]).filter((l) => inShard(l.id)).slice(0, LIMIT);
+  const mine = ((data ?? []) as { id: string; company_name: string; domain: string; description: string | null; signal_source: string | null; source_key: string | null; signals: { callRegion?: { verdict?: string } } | null }[])
+    // 'directory' also holds registry loads (e.g. Norwegian ad agencies) that are not voice-AI resellers: only Retell directory entries count.
+    .filter((l) => l.signal_source !== 'directory' || (l.source_key ?? '').startsWith('retell:'))
+    .filter((l) => inShard(l.id)).slice(0, LIMIT);
   console.log(`shard ${shardIdx}/${shardCount}: ${mine.length} leads to research`);
   let done = 0, low = 0, failed = 0;
   for (const lead of mine) {

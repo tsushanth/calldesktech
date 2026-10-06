@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { isPlatformDomain } from '@/lib/outreach/platformBlocklist';
 import { sendEmail } from '@/lib/email';
 import { unsubscribeUrl, oneClickUnsubscribeUrl } from './unsubscribe';
 import { domainCanReceiveMail } from './mxCheck';
@@ -208,6 +209,11 @@ export async function sendApprovedMessage(supabase: SupabaseClient<any>, message
     const cap = dailyCap(product);
     const sent = await sentTodayCount(supabase, product);
     if (sent >= cap) return { ok: false, error: `Daily send cap reached (${sent} of ${cap}); sending resumes ${capResetLabel()}` };
+  }
+
+  if (isPlatformDomain(toEmail)) {
+    await supabase.from('calldesk_outreach_messages').update({ status: 'failed', error: 'voice platform provider: excluded until the owner decides' }).eq('id', messageId);
+    return { ok: false, error: 'Recipient is a voice platform provider; not sending' };
   }
 
   if (!(await domainCanReceiveMail(toEmail))) {

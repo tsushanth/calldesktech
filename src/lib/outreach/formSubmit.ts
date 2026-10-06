@@ -1,3 +1,4 @@
+import { isPlatformDomain } from '@/lib/outreach/platformBlocklist';
 // Pure decision logic for human-triggered contact-form submission.
 //
 // Everything in this file is side-effect free and unit-tested: field mapping,
@@ -435,6 +436,7 @@ export function skipReason(lead: LeadEligibility, suppressedDomains: Set<string>
   if (lead.repliedAt) return 'lead already replied';
   const domain = lead.domain?.toLowerCase().replace(/^www\./, '') ?? null;
   if (domain && suppressedDomains.has(domain)) return 'domain is suppressed';
+  if (isPlatformDomain(domain)) return 'voice platform provider: excluded until the owner decides';
   return null;
 }
 

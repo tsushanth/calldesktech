@@ -18,6 +18,7 @@ import { getSupabaseAdmin } from '@/lib/supabase';
 import { normalizeNanp } from '@/lib/outboundCalling';
 import { stateFromLocation, batchDateEastern, STATE_ZONES } from '@/lib/callingHours';
 import { stateFromPhone } from '@/lib/areaCodeState';
+import { isPlatformDomain } from '@/lib/outreach/platformBlocklist';
 import { selectRetries, dealWithQuotas, orderWithRetries, type PreviousRow } from '@/lib/batchPlanning';
 
 const CALLERS = (process.env.CALLERS || 'mary,mark').split(',').map((s) => s.trim()).filter(Boolean);
@@ -51,7 +52,7 @@ function shuffle<T>(arr: T[], rand: () => number): T[] {
   return a;
 }
 
-type Lead = { id: string; company_name: string; phone: string; location: string | null; product: string; signals: Record<string, unknown> | null };
+type Lead = { id: string; company_name: string; domain?: string | null; phone: string; location: string | null; product: string; signals: Record<string, unknown> | null };
 // lead_id is nullable in the table (a retry's lead may since have been deleted), so fresh and retry rows share this shape.
 type BatchEntry = { lead_id: string | null; phone: string; company_name: string; state: string | null; attempt: number; hourET: number | null | undefined };
 type Candidate = { lead_id: string; phone: string; company_name: string; state: string; product: string };
@@ -117,7 +118,7 @@ async function main() {
     for (let off = 0; ; off += 1000) {
       const { data, error } = await db
         .from('calldesk_outreach_leads')
-        .select('id, company_name, phone, location, product, signals')
+        .select('id, company_name, phone, location, product, signals, domain')
         .eq('product', product).eq('region_blocked', false).neq('status', 'dead').not('phone', 'is', null)
         .order('id').range(off, off + 999);
       if (error) throw new Error(`${product}: ${error.message}`);
@@ -126,6 +127,7 @@ async function main() {
     }
     const eligible: Candidate[] = [];
     for (const l of leads) {
+      if (isPlatformDomain(l.domain)) continue;
       const phone = normalizeNanp(l.phone);
       // No state in the location (most web-search leads): read it from the area code, but only for a lead whose
       // own website check says it serves the US or Canada (signals.callRegion). Where the business is based does
