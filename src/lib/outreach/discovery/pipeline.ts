@@ -13,6 +13,7 @@ import { isBlockedDomain, isRegionBlocked, scoreLead, type ScoreEvidence } from 
 import { findJobPostingCandidates } from './jobPostingsSearch';
 import { findReviewSiteCandidates } from './reviewSitesSearch';
 import { findSerpCandidates, serpMax } from './serpAds';
+import { fetchVapiPartners } from './vapiDirectory';
 import { fetchSiteSignals, chooseAngle, type Angle } from '../businessBrief';
 import { detectDraftLanguage } from '../language';
 import { findGithubCandidates } from './githubSignal';
@@ -111,6 +112,7 @@ export interface RunSummary {
   jobPostingCandidates: number;
   reviewSiteCandidates: number;
   serpCandidates?: number;
+  vapiPartners?: number;
   githubCandidates: number;
   techFingerprintHits: number;
   searchDebug: { raw: number; rejected: string[] } | null;
@@ -256,6 +258,7 @@ export async function runDiscovery(db: Db, opts: RunOptions = {}): Promise<RunSu
     const jobPostingEntries = stop() ? [] : await stageJobPostings(db, summary, dryRun, index, stop, product);
     const reviewSiteEntries = stop() ? [] : await stageReviewSites(db, summary, dryRun, index, stop, product);
     const serpEntries = stop() ? [] : await stageSerp(db, summary, dryRun, index, stop, product);
+    const vapiEntries = stop() ? [] : await stageVapiDirectory(db, summary, dryRun, index, stop, product);
     const githubEntries = stop() ? [] : await stageGithub(db, summary, dryRun, index, stop, product);
     const telephonyEntries = stop() ? [] : await stageTelephonyPlatforms(db, summary, dryRun, index, stop, product);
     const sttTtsEntries = stop() ? [] : await stageSttTtsSignal(db, summary, dryRun, index, stop, product);
@@ -263,7 +266,7 @@ export async function runDiscovery(db: Db, opts: RunOptions = {}): Promise<RunSu
     const verticalEntries = stop() ? [] : await stageVerticalSearch(db, summary, dryRun, index, stop, product);
     const registryEntries = stop() ? [] : await stageRegistry(db, summary, dryRun, index, stop, product);
     const allEntries = [
-      ...entries, ...searchEntries, ...jobPostingEntries, ...reviewSiteEntries, ...serpEntries, ...githubEntries,
+      ...entries, ...searchEntries, ...jobPostingEntries, ...reviewSiteEntries, ...serpEntries, ...vapiEntries, ...githubEntries,
       ...telephonyEntries, ...sttTtsEntries, ...freightEntries, ...verticalEntries, ...registryEntries,
     ];
     if (!stop()) await stageEnrich(db, summary, dryRun, enrichLimit, allEntries, index, stop, product);
@@ -498,6 +501,55 @@ async function stageJobPostings(
     if (error) {
       summary.leadsNew--;
       summary.errors.push(`insert ${c.name}: ${error.message}`);
+    } else if (inserted) {
+      index.add(inserted as LeadRow);
+      entries.push({ slug: null, row: inserted as LeadRow });
+    }
+  }
+  return entries;
+}
+
+// Vapi's public partner directory (service partners = agencies that build on Vapi). Opt-in with OUTREACH_VAPI_DIRECTORY=1
+// because it is one HTTP request per directory page; see vapiDirectory.ts. Reuses signal_source='directory'.
+async function stageVapiDirectory(
+  db: Db, summary: RunSummary, dryRun: boolean, index: LeadIndex<LeadRow>, stop: () => boolean, product: ProductConfig,
+): Promise<DirectoryEntry[]> {
+  if (product.id !== 'calldesk' || process.env.OUTREACH_VAPI_DIRECTORY !== '1') return [];
+  let partners;
+  try { partners = await fetchVapiPartners(); } catch (error) {
+    summary.errors.push(`[vapi directory] ${error instanceof Error ? error.message : String(error)}`);
+    return [];
+  }
+  summary.vapiPartners = partners.length;
+
+  const entries: DirectoryEntry[] = [];
+  const now = new Date().toISOString();
+  for (const p of partners) {
+    if (stop()) break;
+    const sourceKey = `vapi:${p.slug}`;
+    if (index.find({ sourceKey, name: p.name, domain: p.domain })) continue;
+
+    const blocked = isRegionBlocked(null, p.name) || isBlockedDomain(p.domain);
+    const description = p.headline ?? p.description;
+    const { score, reasons } = scoreLead({ tier: null, location: null, description }, undefined, product);
+    summary.leadsNew++;
+
+    const base = {
+      company_name: p.name, domain: p.domain, source_key: sourceKey, tier: null, location: null,
+      description, score, region_blocked: blocked, signals: { reasons, techPlatforms: ['Vapi'] },
+    };
+    if (dryRun) {
+      const fake = { id: `dry-${p.domain}`, status: 'new', contact_email: null, contact_status: 'unknown', enriched_at: null, ...base } as LeadRow;
+      index.add(fake);
+      entries.push({ slug: null, row: fake });
+      continue;
+    }
+    const { data: inserted, error } = await db.from(leadsTable(product)).insert({
+      ...base, signal_source: 'directory', signal_detail: `Vapi partner directory: ${(description ?? '').slice(0, 160)}`, last_seen_at: now, ...productInsertFields(product),
+    }).select('*').single();
+    if (error) {
+      summary.leadsNew--;
+      summary.errors.push(`insert ${p.name}: ${error.message}`);
     } else if (inserted) {
       index.add(inserted as LeadRow);
       entries.push({ slug: null, row: inserted as LeadRow });
