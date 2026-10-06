@@ -44,16 +44,20 @@ async function research() {
   if (SOURCES.length) q = q.in('signal_source', SOURCES);
   const { data, error } = await q.order('score', { ascending: false }).limit(2000);
   if (error) throw new Error(error.message);
-  const mine = ((data ?? []) as { id: string; company_name: string; domain: string; description: string | null }[]).filter((l) => inShard(l.id)).slice(0, LIMIT);
+  const mine = ((data ?? []) as { id: string; company_name: string; domain: string; description: string | null; signals: { callRegion?: { verdict?: string } } | null }[]).filter((l) => inShard(l.id)).slice(0, LIMIT);
   console.log(`shard ${shardIdx}/${shardCount}: ${mine.length} leads to research`);
   let done = 0, low = 0, failed = 0;
   for (const lead of mine) {
     if (stopped()) { console.log('STOP file present, ending'); break; }
     try {
       const dossier = researchAgency({ name: lead.company_name, domain: lead.domain, description: lead.description });
+      // A lead with a callable US/Canada phone (website region check) stays alive when the email pitch judges it
+      // low fit: 'low' keeps it out of drafting, but status 'dead' would also drop it from the cold callers' batches.
+      const callable = ['us_confirmed', 'us_likely', 'ca_confirmed', 'ca_likely'].includes(lead.signals?.callRegion?.verdict ?? '');
+      const kill = dossier.fit === 'low' && !callable;
       const { error: e } = await db.from(leadsTable(product)).update({
         research: dossier, researched_at: new Date().toISOString(), fit: dossier.fit,
-        ...(dossier.fit === 'low' ? { status: 'dead', signal_detail: `Low fit: ${dossier.fit_reason}`.slice(0, 300) } : {}),
+        ...(kill ? { status: 'dead', signal_detail: `Low fit: ${dossier.fit_reason}`.slice(0, 300) } : {}),
       }).eq('id', lead.id);
       if (e) { failed++; console.log(`store failed ${lead.company_name}: ${e.message}`); continue; }
       done++; if (dossier.fit === 'low') low++;
