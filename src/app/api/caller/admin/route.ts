@@ -29,7 +29,7 @@ export async function GET(request: NextRequest) {
   const to = new Date(from.getTime() + 36 * 3600 * 1000);
   const { data: calls } = await db
     .from('calldesk_outbound_calls')
-    .select('sip_username, to_number, status, answered, duration_seconds, reject_reason, recording_sid, outcome, started_at')
+    .select('id, sip_username, to_number, status, answered, duration_seconds, reject_reason, recording_sid, outcome, started_at')
     .gte('started_at', from.toISOString())
     .lt('started_at', to.toISOString())
     .order('started_at', { ascending: false });
@@ -77,7 +77,7 @@ export async function GET(request: NextRequest) {
       phone: b.phone,
       state: b.state,
       attempt: b.attempt,
-      call: c ? { status: c.status, answered: c.answered, seconds: c.duration_seconds, recorded: !!c.recording_sid, blocked: c.reject_reason } : null,
+      call: c ? { id: c.id, status: c.status, answered: c.answered, seconds: c.duration_seconds, recorded: !!c.recording_sid, blocked: c.reject_reason } : null,
       outcome: b.outcome,
       notes: b.notes,
       mobile_number: b.mobile_number,

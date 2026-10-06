@@ -33,6 +33,9 @@ const ALLOWED_READERS = [
   // The human cold-caller's batch screen: it now also reads the officer name (signals.registry.contactName) of each batch lead to show
   // "Ask for: ...". It places no calls and sends no texts (the next test checks that).
   /^src\/app\/api\/caller\/batch\/route\.ts$/,
+  // The supervisor's calling-review statistics: it reads each batch lead's PRODUCT (to split results by kind of company), never its phone for
+  // any other purpose, and places no calls and sends no texts (the next test checks that).
+  /^src\/app\/api\/caller\/admin\/stats\/route\.ts$/,
   /^src\/lib\/outreach\/(products|sender|autosend|emailVerify)\.ts$/,
 ];
 // Anything that can place a call or send a text.
