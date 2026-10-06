@@ -46,3 +46,13 @@ describe('localTimeLabel', () => {
     expect(localTimeLabel('ZZ')).toBeNull();
   });
 });
+
+describe('Canada', () => {
+  it('reads provinces from a location', () => {
+    expect(stateFromLocation('Toronto, ON')).toBe('ON');
+  });
+  it('starts the calling day at 9:00 local', () => {
+    expect(checkCallingHours('ON', at('2026-10-05T12:30:00Z'))).toEqual({ ok: false, reason: 'too_early' }); // 8:30 ET
+    expect(checkCallingHours('ON', at('2026-10-05T14:00:00Z'))).toEqual({ ok: true }); // 10:00 ET
+  });
+});

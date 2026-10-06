@@ -13,8 +13,11 @@ describe('stateFromPhone', () => {
     expect(stateFromPhone('+372 5123 4567')).toBeNull();
     expect(stateFromPhone('0044 20 7946 0958')).toBeNull();
   });
-  it('returns null for Canada, unknown codes and junk', () => {
-    expect(stateFromPhone('+1 416 555 0100')).toBeNull();
+  it('reads Canadian numbers as provinces', () => {
+    expect(stateFromPhone('+1 416 555 0100')).toBe('ON');
+    expect(stateFromPhone('604-555-0100')).toBe('BC');
+  });
+  it('returns null for the Caribbean, unknown codes and junk', () => {
     expect(stateFromPhone('+1 242 555 0100')).toBeNull();
     expect(stateFromPhone('555')).toBeNull();
     expect(stateFromPhone(null)).toBeNull();

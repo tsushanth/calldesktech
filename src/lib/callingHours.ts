@@ -28,9 +28,16 @@ export const STATE_ZONES: Record<string, string[]> = {
   TN: ['America/Chicago', 'America/New_York'], TX: ['America/Chicago', 'America/Denver'],
   UT: ['America/Denver'], VT: ['America/New_York'], VA: ['America/New_York'], WA: ['America/Los_Angeles'],
   WV: ['America/New_York'], WI: ['America/Chicago'], WY: ['America/Denver'],
+  // Canadian provinces (territories are left out: Yukon, Northwest Territories and Nunavut span several zones).
+  ON: ['America/Toronto', 'America/Winnipeg'], QC: ['America/Toronto'], BC: ['America/Vancouver', 'America/Edmonton'],
+  AB: ['America/Edmonton'], SK: ['America/Regina'], MB: ['America/Winnipeg'],
+  NS: ['America/Halifax'], NB: ['America/Halifax'], PE: ['America/Halifax'], NL: ['America/St_Johns', 'America/Halifax'],
 };
 
-// "Fort Myers, FL", "Spydeberg, NO" -> "FL" / null (not a US state, so it is never batched).
+// Canada's telemarketing rules start the calling day at 9:00 local time; the US window starts at 8:00.
+const CANADA = new Set(['ON', 'QC', 'BC', 'AB', 'SK', 'MB', 'NS', 'NB', 'PE', 'NL']);
+
+// "Fort Myers, FL", "Toronto, ON", "Spydeberg, NO" -> "FL" / "ON" / null (not a US state or Canadian province, so it is never batched).
 export function stateFromLocation(location: string | null | undefined): string | null {
   const m = /,\s*([A-Z]{2})\s*(?:\d{5}(?:-\d{4})?)?\s*$/.exec(String(location ?? '').trim());
   return m && STATE_ZONES[m[1]] ? m[1] : null;
@@ -50,7 +57,7 @@ export function checkCallingHours(state: string | null | undefined, now: Date = 
   for (const zone of zones) {
     const { weekday, minutes } = localParts(zone, now);
     if (weekday === 'Sat' || weekday === 'Sun') return { ok: false, reason: 'weekend' };
-    if (minutes < CALL_START_HOUR * 60) return { ok: false, reason: 'too_early' };
+    if (minutes < (CANADA.has(state as string) ? 9 : CALL_START_HOUR) * 60) return { ok: false, reason: 'too_early' };
     if (minutes >= CALL_END_HOUR * 60) return { ok: false, reason: 'too_late' };
   }
   return { ok: true };

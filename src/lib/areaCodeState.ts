@@ -2,10 +2,20 @@
 // The call gate needs a state to enforce legal calling hours, so a number we cannot place is never batched.
 //
 // Source: Google libphonenumber geocoding data (resources/geocoding/en/1.txt, Apache-2.0), US entries only.
-// Canadian and Caribbean codes are left out on purpose: Canada has its own do-not-call regime that this
-// line does not check. An area code only says where the number was issued, so mobile and remote-team
+// Canadian codes (provinces, territories excluded: 867 spans three zones) and Caribbean codes: Caribbean left out.
+// An area code only says where the number was issued, so mobile and remote-team
 // businesses can sit in another state; the gate holds a two-zone state to its stricter edge.
+const CANADA_AREA_CODE_PROVINCE: Record<string, string> = {
+  204: 'MB', 226: 'ON', 236: 'BC', 249: 'ON', 250: 'BC', 257: 'BC', 263: 'QC', 273: 'QC', 289: 'ON', 306: 'SK',
+  343: 'ON', 354: 'QC', 365: 'ON', 367: 'QC', 368: 'AB', 382: 'ON', 403: 'AB', 416: 'ON', 418: 'QC', 428: 'NB',
+  431: 'MB', 437: 'ON', 438: 'QC', 450: 'QC', 468: 'QC', 474: 'SK', 506: 'NB', 514: 'QC', 519: 'ON', 548: 'ON',
+  579: 'QC', 581: 'QC', 584: 'MB', 587: 'AB', 604: 'BC', 613: 'ON', 639: 'SK', 647: 'ON', 672: 'BC', 683: 'ON',
+  705: 'ON', 709: 'NL', 742: 'ON', 753: 'ON', 778: 'BC', 780: 'AB', 782: 'NS', 807: 'ON', 819: 'QC', 825: 'AB',
+  873: 'QC', 879: 'NL', 902: 'NS', 942: 'ON',
+};
+
 const AREA_CODE_STATE: Record<string, string> = {
+  ...CANADA_AREA_CODE_PROVINCE,
   201: 'NJ', 202: 'DC', 205: 'AL', 206: 'WA', 207: 'ME', 208: 'ID', 209: 'CA', 210: 'TX', 212: 'NY', 213: 'CA',
   214: 'TX', 215: 'PA', 216: 'OH', 217: 'IL', 218: 'MN', 219: 'IN', 220: 'OH', 223: 'PA', 224: 'IL', 225: 'LA',
   227: 'MD', 228: 'MS', 229: 'GA', 231: 'MI', 234: 'OH', 235: 'MO', 239: 'FL', 240: 'MD', 248: 'MI', 251: 'AL',
@@ -44,7 +54,7 @@ const AREA_CODE_STATE: Record<string, string> = {
   983: 'CO', 984: 'NC', 985: 'LA', 986: 'ID', 989: 'MI',
 };
 
-// Raw stored phone in any format -> US state, or null when it is not a US-format number or the code is unknown.
+// Raw stored phone in any format -> US state or Canadian province, or null when it is not a +1-format number or the code is unknown.
 // A number written with a + and a country code other than 1 (or 00...) is never read as a US number, so a
 // ten-digit foreign number cannot be mistaken for one.
 export function stateFromPhone(raw: string | null | undefined): string | null {

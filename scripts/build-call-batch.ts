@@ -9,7 +9,7 @@
 //     npx tsx --env-file=.env scripts/build-call-batch.ts
 //
 // A lead is eligible when: it has a valid US/Canada phone (any stored format, normalised to E.164), a US
-// state we can read from its location or, failing that, from its US area code once its website shows it serves the US (needed for calling hours), it is not marked dead/region-blocked,
+// state we can read from its location or, failing that, from its +1 area code once its website check shows it serves the US or Canada (needed for calling hours), it is not marked dead/region-blocked,
 // not flagged as a personal/home line by the registry loaders, not on the do-not-call list, and not already
 // in an earlier batch. Products are taken in the order given, so freight fills a batch first and the next
 // product tops it up. No lead is assigned to two callers the same day.
@@ -128,13 +128,12 @@ async function main() {
     for (const l of leads) {
       const phone = normalizeNanp(l.phone);
       // No state in the location (most web-search leads): read it from the area code, but only for a lead whose
-      // own website says it serves the US (signals.callRegion, set by the website region check) and whose
-      // location is empty or just says United States. Number shape alone is not enough: foreign mobiles stored
-      // without a country code look like US numbers.
-      const loc = String(l.location ?? '').trim();
+      // own website check says it serves the US or Canada (signals.callRegion). Where the business is based does
+      // not matter, only whether the number is a real +1 number: foreign mobiles stored without a country code
+      // look like US numbers, and the check catches them by finding the same digits on the site under another code.
       const verdict = (l.signals as { callRegion?: { verdict?: string } } | null)?.callRegion?.verdict;
-      const usVerified = verdict === 'us_confirmed' || verdict === 'us_likely';
-      const state = stateFromLocation(l.location) ?? (usVerified && (!loc || /^(united states|usa|us|u\.s\.a?\.?)$/i.test(loc)) ? stateFromPhone(l.phone) : null);
+      const verified = verdict === 'us_confirmed' || verdict === 'us_likely' || verdict === 'ca_confirmed' || verdict === 'ca_likely';
+      const state = stateFromLocation(l.location) ?? (verified ? stateFromPhone(l.phone) : null);
       const excluded = (l.signals as { registry?: { callerPhoneExcluded?: string } } | null)?.registry?.callerPhoneExcluded;
       if (STATES.length && state && !STATES.includes(state)) continue;
       if (!phone || !state || excluded || dnc.has(phone) || used.has(phone) || seen.has(phone)) continue;
