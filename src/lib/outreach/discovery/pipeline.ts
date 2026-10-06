@@ -254,11 +254,13 @@ export async function runDiscovery(db: Db, opts: RunOptions = {}): Promise<RunSu
     if (!stop()) await stageFollowUp(db, summary, dryRun, stop, product);
 
     const { entries, index } = await stageDirectory(db, summary, dryRun, product);
+    // The search-engine and directory stages are plain HTTP, so they go before the slow Claude web-search stages below:
+    // those can use the whole ~9-minute budget and starve anything placed after them (the first bulk run found nothing).
+    const serpEntries = stop() ? [] : await stageSerp(db, summary, dryRun, index, stop, product);
+    const vapiEntries = stop() ? [] : await stageVapiDirectory(db, summary, dryRun, index, stop, product);
     const searchEntries = stop() ? [] : await stageSearch(db, summary, dryRun, index, stop, product);
     const jobPostingEntries = stop() ? [] : await stageJobPostings(db, summary, dryRun, index, stop, product);
     const reviewSiteEntries = stop() ? [] : await stageReviewSites(db, summary, dryRun, index, stop, product);
-    const serpEntries = stop() ? [] : await stageSerp(db, summary, dryRun, index, stop, product);
-    const vapiEntries = stop() ? [] : await stageVapiDirectory(db, summary, dryRun, index, stop, product);
     const githubEntries = stop() ? [] : await stageGithub(db, summary, dryRun, index, stop, product);
     const telephonyEntries = stop() ? [] : await stageTelephonyPlatforms(db, summary, dryRun, index, stop, product);
     const sttTtsEntries = stop() ? [] : await stageSttTtsSignal(db, summary, dryRun, index, stop, product);
@@ -1282,6 +1284,15 @@ async function stageEnrich(
     for (const row of index.rows()) {
       if (!seen.has(row.id) && row.status === 'new' && !row.domain && !row.enriched_at && row.signals?.registry) entries = [...entries, { row, slug: null }];
     }
+  }
+  // Agency (calldesk) leads that arrived with a website but no contact yet, from an earlier run or a source whose run
+  // ended before enrichment: pick them up too, best score first, within `limit`. Without this they stayed 'unknown' forever.
+  if (product.id === 'calldesk') {
+    const seen = new Set(entries.map((e) => e.row.id));
+    const stale = index.rows()
+      .filter((row) => !seen.has(row.id) && row.status === 'new' && row.domain && !row.enriched_at && row.contact_status === 'unknown' && !row.region_blocked)
+      .sort((a, b) => (b.score ?? 0) - (a.score ?? 0));
+    for (const row of stale) entries = [...entries, { row, slug: null }];
   }
   // readaloud leads added by the bulk sources (readaloud/import.ts) arrive with a
   // domain but no contact yet: pick up any not enriched so far, so the daily run

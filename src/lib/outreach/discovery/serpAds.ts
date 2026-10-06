@@ -94,7 +94,8 @@ export async function serpSearch(query: string, fetchImpl: typeof fetch = fetch)
   });
   const json = (await res.json()) as { status_code?: number; status_message?: string; tasks?: Array<{ status_code?: number; status_message?: string }> };
   const taskCode = json.tasks?.[0]?.status_code;
-  if (!res.ok || json.status_code !== 20000 || (taskCode !== undefined && taskCode !== 20000)) {
+  // 20000 is success; other 2xxxx task codes (for example 'completed with partial results') still carry the items we got.
+  if (!res.ok || json.status_code !== 20000 || (taskCode !== undefined && (taskCode < 20000 || taskCode >= 30000))) {
     throw new Error(`DataForSEO ${json.status_code ?? res.status} ${json.tasks?.[0]?.status_message ?? json.status_message ?? ''}`.trim());
   }
   return json;
