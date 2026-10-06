@@ -33,6 +33,18 @@ Every lead is an agency or a company that builds voice products. Which pitch you
 - Not sure -> ask the discovery question in section 3 and let their answer decide. One angle per call by default; offer
   the other only if they ask about it.
 
+### The pitch for this angle, in one line
+
+> "Every minute of a voice-agent call pays for speech to text, speech to text back out, the language model and the phone
+> line. We sell the two speech parts, and our list prices for them are lower, so your cost per call minute goes down."
+
+- It works because they already pay for speech on every call. We are not asking them to change what the agent does, only
+  to point the speech part at us.
+- Do not state a total saving or a percent. How much it saves depends on how much their agent talks and which voices they
+  use, and we do not have their numbers. If they ask "how much would I save", say the founders can run their numbers on the
+  call. The per-unit prices below are what you may quote.
+- The language model and the telephony are not ours in this angle; do not claim to lower them.
+
 ### The speech-API offer (say only this)
 
 - readaloudai.org is a realtime speech-to-text and text-to-speech API for developers building voice products.
