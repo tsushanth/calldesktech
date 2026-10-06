@@ -511,6 +511,35 @@ async function stageJobPostings(
   return entries;
 }
 
+/**
+ * The HTTP-only reseller sources (Google results incl. ads, Vapi's partner directory) plus contact enrichment for what they find
+ * and for older agency leads that never got a contact, on a budget of their own. runDiscovery spends its ~9 minutes on drafting,
+ * follow-ups and slow Claude web searches before it reaches discovery, so a backlog of drafts starves it (calldesk found 0 new
+ * leads in several runs for exactly that reason). Run this from harness/outreach/discover-resellers.ts.
+ */
+export async function discoverResellers(
+  db: Db,
+  opts: { enrichLimit?: number; dryRun?: boolean; deadlineSeconds?: number; product?: ProductConfig } = {},
+): Promise<RunSummary> {
+  const product = opts.product ?? calldesk;
+  const dryRun = !!opts.dryRun;
+  const deadline = Date.now() + (opts.deadlineSeconds ?? 900) * 1000;
+  const stop = () => Date.now() >= deadline;
+  const existing = await selectAll<LeadRow>(() => scopeToProduct(db.from(leadsTable(product)).select('*'), product));
+  const index = new LeadIndex<LeadRow>(existing);
+  const summary: RunSummary = {
+    runId: null, dryRun, status: 'ok', directoryCount: 0, searchCandidates: 0,
+    jobPostingCandidates: 0, reviewSiteCandidates: 0, githubCandidates: 0, techFingerprintHits: 0,
+    searchDebug: null, stopped: false, leadsSeen: existing.length, leadsNew: 0,
+    duplicatesSkipped: 0, contactsFound: 0, draftsCreated: 0, followUpsCreated: 0, phoneBackfilled: 0, researched: 0, lowFit: 0, errors: [], sample: { enriched: [], researched: [] },
+  };
+  const serpEntries = await stageSerp(db, summary, dryRun, index, stop, product);
+  const vapiEntries = await stageVapiDirectory(db, summary, dryRun, index, stop, product);
+  if (!stop()) await stageEnrich(db, summary, dryRun, opts.enrichLimit ?? 60, [...serpEntries, ...vapiEntries], index, stop, product);
+  summary.stopped = stop();
+  return summary;
+}
+
 // Vapi's public partner directory (service partners = agencies that build on Vapi). Opt-in with OUTREACH_VAPI_DIRECTORY=1
 // because it is one HTTP request per directory page; see vapiDirectory.ts. Reuses signal_source='directory'.
 async function stageVapiDirectory(
