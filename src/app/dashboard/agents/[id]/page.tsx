@@ -30,6 +30,8 @@ import { LLM_MODELS, ttsModelsFor, DEFAULT_LLM_MODEL } from '@/lib/modelCatalog'
 import { carryOverFromVersion } from '@/lib/versionCarryOver';
 import { detectBookingIntent, BOOKING_WITHOUT_CALENDAR_MESSAGE } from '@/lib/bookingIntent';
 
+import { FixedGreetingField } from '@/components/builder/FixedGreetingField';
+import { DEFAULT_FIXED_GREETING, hasFixedGreeting, withFixedGreeting } from '@/lib/fixedGreeting';
 type DraftNode = FlowNode & { _key: string };
 
 let keySeq = 0;
@@ -167,6 +169,9 @@ export default function AgentBuilderPage() {
   // ---- Flow/version builder state (ported from the old versions/new wizard) ----
   const [agentType, setAgentType] = useState<'single_prompt' | 'conversational_flow'>('conversational_flow');
   const [singlePrompt, setSinglePrompt] = useState('');
+  // Fixed greeting for the single-prompt editor (flows keep it on the entry step's params). On by default for new agents.
+  const [fixedGreetingOn, setFixedGreetingOn] = useState(true);
+  const [fixedGreetingText, setFixedGreetingText] = useState(DEFAULT_FIXED_GREETING);
   const [flowName, setFlowName] = useState('v1');
   const [language, setLanguage] = useState('');
   const [transcriptionMode, setTranscriptionMode] = useState<'' | 'fast' | 'balanced' | 'accurate'>('');
@@ -470,8 +475,9 @@ export default function AgentBuilderPage() {
   const startFromScratch = (type: 'single_prompt' | 'conversational_flow') => {
     setAgentType(type);
     setAppliedTemplateId(null);
+    setFixedGreetingOn(true); setFixedGreetingText(DEFAULT_FIXED_GREETING);
     if (type === 'conversational_flow' && nodes.length === 0) {
-      setNodes([emptyNodeOfType('greeting')]);
+      setNodes([{ ...emptyNodeOfType('greeting'), params: withFixedGreeting(undefined, true) }]);
     }
     setShowEditor(true);
   };
@@ -806,7 +812,7 @@ export default function AgentBuilderPage() {
   // Every {{placeholder}} referenced anywhere in the current flow text.
   const flowText = (() => {
     const parts: string[] = [handbook, voicemailMessage];
-    if (agentType === 'single_prompt') parts.push(singlePrompt);
+    if (agentType === 'single_prompt') parts.push(singlePrompt, fixedGreetingOn ? fixedGreetingText : '');
     else {
       for (const n of nodes) {
         if (n.type === 'note') continue;
@@ -841,7 +847,10 @@ export default function AgentBuilderPage() {
 
     if (agentType === 'single_prompt') {
       if (!singlePrompt.trim()) return setError("Write the agent's prompt.");
-      cleanNodes = [{ id: 'main', type: 'greeting', prompt: singlePrompt.trim(), edges: [] }];
+      {
+        const gp = withFixedGreeting(undefined, fixedGreetingOn, fixedGreetingText);
+        cleanNodes = [{ id: 'main', type: 'greeting', prompt: singlePrompt.trim(), edges: [], ...(gp ? { params: gp } : {}) }];
+      }
       effectiveStartNodeId = 'main';
     } else {
       // Notes are canvas-only stickies: never published. They have no edges,
@@ -1329,6 +1338,9 @@ export default function AgentBuilderPage() {
                       placeholder="You are a friendly receptionist for Acme Dental. Greet the caller, answer questions about hours and services, and help them book an appointment by collecting their name and preferred time."
                       className="w-full resize-none rounded-lg border border-gray-200 bg-white px-3.5 py-2.5 text-[13.5px] focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100"
                     />
+                    <div className="mt-3">
+                      <FixedGreetingField on={fixedGreetingOn} text={fixedGreetingText} onChange={(on, text) => { setFixedGreetingOn(on); setFixedGreetingText(text); }} />
+                    </div>
                   </div>
                 ) : (
                   <FlowVisualEditor
@@ -1777,6 +1789,7 @@ export default function AgentBuilderPage() {
                       subflows={subflows}
                       onCreateSubflow={handleCreateSubflow}
                       tenantAgents={tenantAgents.filter((a) => a.id !== agentId)}
+                      isStartNode={selectedNode.id === (startNodeId || nodes[0]?.id)}
                     />
                   ) : (
                     <p className="text-[13px] text-gray-400">Select a node on the canvas to edit it, or add one from the left panel.</p>
@@ -1870,6 +1883,7 @@ function NodeSettingsPanel({
   subflows,
   onCreateSubflow,
   tenantAgents,
+  isStartNode,
 }: {
   node: DraftNode;
   allNodes: DraftNode[];
@@ -1884,7 +1898,12 @@ function NodeSettingsPanel({
   subflows?: Subflow[];
   onCreateSubflow?: (name: string) => Promise<Subflow | null>;
   tenantAgents?: { id: string; name: string }[];
+  /** True for the flow's entry step; its greeting gets the Fixed greeting control. */
+  isStartNode?: boolean;
 }) {
+  // The switch and the text are kept here so clearing the text does not flip the switch; params get the text only while it is on and not blank.
+  const [greetingOn, setGreetingOn] = useState(() => hasFixedGreeting(node.params));
+  const [greetingText, setGreetingText] = useState(() => (hasFixedGreeting(node.params) ? (node.params?.spokenMessage as string) : DEFAULT_FIXED_GREETING));
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-2 gap-3">
@@ -1950,7 +1969,15 @@ function NodeSettingsPanel({
         </div>
       )}
 
-      {(node.type === 'transfer' || node.type === 'goodbye' || node.type === 'agent_transfer' || node.type === 'greeting') && (
+      {node.type === 'greeting' && isStartNode && (
+        <FixedGreetingField
+          on={greetingOn}
+          text={greetingText}
+          onChange={(on, text) => { setGreetingOn(on); setGreetingText(text); onUpdate({ params: withFixedGreeting(node.params, on, text) }); }}
+        />
+      )}
+
+      {(node.type === 'transfer' || node.type === 'goodbye' || node.type === 'agent_transfer' || (node.type === 'greeting' && !isStartNode)) && (
         <div>
           <label className="mb-1 block text-[12px] font-medium text-gray-500">Exact words to say (optional)</label>
           <textarea rows={2} value={(node.params?.spokenMessage as string) || ''} onChange={(e) => onUpdate({ params: { ...node.params, spokenMessage: e.target.value } })} placeholder={node.type === 'goodbye' ? 'Thanks for calling, goodbye!' : node.type === 'greeting' ? 'This call may be recorded. How can I help you today?' : 'Transferring you to a colleague now, one moment.'} className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-[12.5px] focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100" />
