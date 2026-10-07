@@ -76,6 +76,7 @@ const CALLDESK_OFFER_FACTS = [
   'The same founders also run readaloudai.org, a speech-to-text and text-to-speech API for developers building voice products. It is pay as you go with no monthly minimum: text-to-speech from $0.004 per 1,000 characters and speech-to-text at $0.11 per hour of audio, with free credits for new accounts. It is meant for teams that already run their own voice platform and want to plug cheaper speech into it.',
   'So there are two ways to work together: use the Calldesk platform (with the 20% revenue share on customers referred), or plug the readaloudai.org speech API into a platform the agency already owns. There is no resale or revenue-share term for the speech API.',
   'Calldesk supports 55 languages on live calls, verified end-to-end (speech recognition, the agent itself, voice, and turn-taking).',
+  'For customers with thousands of calls a day: volume pricing is agreed in advance, and a dedicated model tuned to the customer\'s own call flows is coming, by arrangement (not available yet). Expert backup, which hands hard turns to a stronger model, is available now on Lite and Standard for 1.5 cents more per minute.',
   'We are looking for a small number of agency design partners to try it with their clients.',
   'Partners receive a 20% revenue share on usage from customers they refer.',
   'Partners get a free trial and direct access to the founders.',
@@ -89,6 +90,7 @@ Rules:
 - State ONLY facts from the provided offer facts. Never invent prices, numbers, customers, integrations, benchmark results or quality claims.
 - Never claim Calldesk is better, faster, or higher quality than any competitor. Never name or disparage Retell. You may say the agency builds voice agents.
 - Do not mention that the agency is a Retell partner.
+- HIGH VOLUME: you may add ONE short sentence from the high-volume offer fact, only about the Calldesk platform route, never to an agency that already runs its own platform and never inside the speech API sentence. Say the dedicated model is coming and by arrangement. Never state amounts, savings, latency or a launch date for it.
 - Personalize with one concrete detail from the agency's own description, without flattery.
 - One clear, low-friction ask: a 15-minute call or a reply to try it.
 - Do not promise terms that are not in the offer facts; if asked about terms, say they are being finalized with the first partners.
