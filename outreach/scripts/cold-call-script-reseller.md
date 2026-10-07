@@ -44,16 +44,30 @@ per-minute platform price. Do not claim more than that.
 ### The one-line pitch (the price comes first)
 
 > "Calldesk phone agents start at 2 cents a minute, with the language model and the voice included. If you already run your own
-> platform, our speech API is four tenths of a cent per thousand characters of text-to-speech and eleven cents an hour of
-> speech-to-text. Which of those would fit you better?"
+> platform, the voice is usually the biggest part of what a call costs, and our speech API can cut the cost of a typical call by
+> roughly 45% against ElevenLabs, at list prices. Which of those would fit you better?"
 
-(The exact figures: $0.004 per 1,000 characters for text-to-speech, $0.11 per hour for speech-to-text.)
+Only say the percent to someone who uses ElevenLabs. Ask first: "Which voice provider do you use for the speech part?" (see
+section 3). If they use a different provider, or you do not know, drop the percent and say: "Voice is usually the biggest part of
+a call's cost, and our speech API is priced well below the big providers. The founders can run your numbers on the call."
+
+(The exact unit prices, when they ask: $0.004 per 1,000 characters for text-to-speech, $0.11 per hour for speech-to-text.)
 
 - Route 2 works because they already pay for speech on every call. We are not asking them to change what their agent does,
   only to point the speech part at us.
-- Do not state a total saving or a percent. How much it saves depends on how much their agent talks and which voices they
-  use, and we do not have their numbers. If they ask "how much would I save", say the founders can run their numbers on the
-  call. The per-unit prices below are what you may quote.
+- The percent is a list-price calculation for an example call, not a promise. It compares one minute of a call with a typical phone
+  line, transcription and language model, about 550 characters of agent speech, and only the voice changing. Say "roughly",
+  "at list prices" and "on a typical call", never "you will save" or "guaranteed". The numbers you may use, only when they use
+  ElevenLabs:
+  - ElevenLabs Flash or Turbo to our Piper voices: roughly 45% off the whole call.
+  - ElevenLabs v2, v3 or v4 to our Piper voices: roughly 60% off the whole call.
+  - ElevenLabs Flash or Turbo to our Kokoro voices (the more expressive tier): roughly 35% off the whole call.
+  Never say a percent for any other provider. If they ask how it is worked out: "On list prices, for a call that is about half
+  agent speech, with a typical phone line, transcription and language model. Only the voice part changes. The founders can run
+  your numbers." If they want it in writing, offer to email the table. The saving is about price only: never say the voice is
+  better, faster or the same quality.
+- ElevenLabs runs promotions on its newest models until October 12, so someone who sees a lower price on their own dashboard
+  is right. Say "at list prices" and offer to run their numbers.
 - In Route 2 the language model and the telephony are not ours; do not claim to lower them. (In Route 1 the language model is
   included in the per-minute price, nothing more.)
 
@@ -129,16 +143,22 @@ is not clear, ask:
 
 > "Do you build the voice agents on your own stack, or on a platform like Retell or Vapi?"
 
+Then ask: "Which voice provider do you use for the speech part, ElevenLabs or something else?" The answer decides whether you may
+say the percent (section 4).
+
 Do not name or judge any platform in your own words, only repeat theirs. Listen to what they build, for whom and
 what is hard for them. Build on THAT in the next step. If they sell AI receptionists directly (they look like a
 competitor), do not pretend otherwise: the offer below is still honest, and they can say no.
 
 ## 4. Case 1: receptive / curious
 
-> "Calldesk phone agents start at 2 cents a minute, with the language model and voice included, and our speech API is four
-> tenths of a cent per thousand characters of text-to-speech and eleven cents an hour of speech-to-text. We are picking a
-> small number of agencies as design partners: a free trial, direct access to the founders, and a 20% revenue share on usage
-> from customers they refer to the platform. Which would fit you better, our platform or the speech API in your own?"
+> "Calldesk phone agents start at 2 cents a minute, with the language model and voice included. If you run your own platform on
+> ElevenLabs, our speech API can cut the cost of a typical call by roughly 45%, at list prices. We are picking a small number
+> of agencies as design partners: a free trial, direct access to the founders, and a 20% revenue share on usage from customers
+> they refer to the platform. Which would fit you better, our platform or the speech API in your own?"
+
+(If they do not use ElevenLabs, leave out the sentence with the percent and say: "our speech API is priced well below the big
+voice providers, and the founders can run your numbers.")
 
 - If they ask about terms past the 20%: "Duration, payout timing and minimums are being finalized with the first
   partners, which is part of why we want the call." Do not guess.
