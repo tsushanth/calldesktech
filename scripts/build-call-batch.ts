@@ -105,7 +105,23 @@ async function main() {
     }
     for (const r of retries) r.hourET = hourOf.get(r.phone) ?? null;
   }
-  const quota: Record<string, number> = Object.fromEntries(CALLERS.map((c) => [c, PER - retries.filter((r) => r.sip_username === c).length]));
+  // Carryover (CARRYOVER=1): numbers given to a caller on the previous batch day and never logged (outcome null)
+  // go back into that caller's new batch as fresh attempts and count toward the quota.
+  const carry: PreviousRow[] = [];
+  if (process.env.CARRYOVER === '1') {
+    const last = await db.from('calldesk_call_batches').select('batch_date').lt('batch_date', DATE).order('batch_date', { ascending: false }).limit(1);
+    const lastDate = last.data?.[0]?.batch_date;
+    if (lastDate) {
+      const un = await db.from('calldesk_call_batches')
+        .select('sip_username, phone, lead_id, company_name, state, attempt, outcome, batch_date')
+        .eq('batch_date', lastDate).is('outcome', null).in('sip_username', CALLERS);
+      for (const r of ((un.error ? [] : un.data) ?? []) as PreviousRow[]) {
+        if (!dnc.has(r.phone) && lookups.get(r.phone)?.valid !== false && !retries.some((x) => x.phone === r.phone)) carry.push(r);
+      }
+      console.log(`Carryover from ${lastDate}: ${carry.length} (${CALLERS.map((c) => `${c} ${carry.filter((r) => r.sip_username === c).length}`).join(', ')})`);
+    }
+  }
+  const quota: Record<string, number> = Object.fromEntries(CALLERS.map((c) => [c, PER - retries.filter((r) => r.sip_username === c).length - carry.filter((r) => r.sip_username === c).length]));
   const need = Object.values(quota).reduce((a, b) => a + b, 0);
   if (retries.length) console.log(`Retries coming back: ${retries.length} (${CALLERS.map((c) => `${c} ${retries.filter((r) => r.sip_username === c).length}`).join(', ')})`);
   const picked: Candidate[] = [];
@@ -163,6 +179,10 @@ async function main() {
     const fresh: BatchEntry[] = shuffle(dealt[u], rng(`${DATE}:order:${u}`)).map((c) => ({
       lead_id: c.lead_id, phone: c.phone, company_name: c.company_name, state: c.state as string | null, attempt: 1, hourET: null as number | null | undefined,
     }));
+    const carried: BatchEntry[] = carry.filter((r) => r.sip_username === u).map((r) => ({
+      lead_id: r.lead_id, phone: r.phone, company_name: r.company_name, state: r.state as string | null, attempt: 1, hourET: null as number | null | undefined,
+    }));
+    fresh.unshift(...carried);
     const back: BatchEntry[] = retries.filter((r) => r.sip_username === u).map((r) => ({
       lead_id: r.lead_id, phone: r.phone, company_name: r.company_name, state: r.state, attempt: 2, hourET: r.hourET,
     }));
