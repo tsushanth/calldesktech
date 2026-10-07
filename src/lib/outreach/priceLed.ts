@@ -6,7 +6,8 @@ export function checkPriceLed(subject: string, body: string): string | null {
   if (!/2 cents|\$0\.004|\$0\.11/i.test(subject)) return 'subject does not carry a price';
   if (/cheapest|cheaper than|better than|best price|lowest price/i.test(all)) return 'comparative price claim';
   if (/elevenlabs|deepgram|cartesia|groq|openai/i.test(all)) return 'names a competitor';
-  if (body.split(/\s+/).length > 190) return 'too long';
+  if (!/readaloudai\.org\/samples\/compare\/new-voice\.mp3/.test(body)) return 'no listen link in the body';
+  if (body.split(/\s+/).length > 230) return 'too long';
   if (/[^\x00-\x7F]/.test(all.replace(/[’‘“”]/g, "'"))) return 'non-ASCII characters';
   return null;
 }
