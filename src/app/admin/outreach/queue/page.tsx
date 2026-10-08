@@ -68,10 +68,13 @@ interface WorkerRow {
   screenshot: string | null;
   /** Where the lead stands now (a human may have finished it since). */
   lead_status: string | null;
+  dismissed_at: string | null;
+  /** The message to paste into the form, for attempts that still need a human. */
+  message: { subject: string | null; body: string } | null;
 }
 
 interface WorkerCounts {
-  all: { attempts: number; delivered: number; needsManual: number; failed: number };
+  all: { attempts: number; delivered: number; needsManual: number; failed: number; done: number };
   last24h: { attempts: number; delivered: number; needsManual: number; failed: number };
   byEmail: number;
 }
@@ -233,6 +236,15 @@ export default function OutreachQueuePage() {
 
   const markForm = (id: string, status: string) => patchForm(id, { status }, `Marked ${status}.`);
 
+  // The Worker tab's "Done": the human finished this form by hand. The lead is marked submitted (the worker never retries it) and the row leaves "needs you".
+  const markWorkerDone = async (id: string) => {
+    if (!window.confirm('Mark this form as sent by you? The worker will not try it again.')) return;
+    const res = await fetch('/api/admin/outreach/worker', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id }) });
+    if (res.ok) setNotice({ ok: true, text: 'Marked done.' });
+    else setNotice({ ok: false, text: (await res.json().catch(() => ({}))).error ?? 'Could not mark it done.' });
+    await refresh();
+  };
+
   const patch = (id: string, payload: object) =>
     fetch(`/api/admin/outreach/messages/${id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
 
@@ -300,7 +312,7 @@ export default function OutreachQueuePage() {
         <>
           <p className="rounded-lg border border-gray-200 bg-white px-4 py-2 text-[13px] text-gray-700" data-testid="worker-counts">
             Tried by the worker: {workerCounts?.all.attempts ?? 0} (last 24 h: {workerCounts?.last24h.attempts ?? 0}) · delivered {workerCounts?.all.delivered ?? 0}
-            {' '}(by the company&apos;s auto-reply: {workerCounts?.byEmail ?? 0}) · needs you {workerCounts?.all.needsManual ?? 0} · failed {workerCounts?.all.failed ?? 0}
+            {' '}(by the company&apos;s auto-reply: {workerCounts?.byEmail ?? 0}) · needs you {workerCounts?.all.needsManual ?? 0} · failed {workerCounts?.all.failed ?? 0} · done by you {workerCounts?.all.done ?? 0}
           </p>
           <div className="flex flex-wrap gap-1">
             {WORKER_FILTERS.map((f) => {
@@ -324,9 +336,10 @@ export default function OutreachQueuePage() {
                 <span className="ml-2 rounded-full bg-gray-100 px-2 py-0.5 text-[11px] font-medium text-gray-600">{verticalLabel(r.product) ?? 'Reseller / agency'}</span>
                 <span className={`ml-2 rounded-full px-2 py-0.5 text-[11px] font-medium ${
                   r.outcome === 'submitted' ? (r.proof === 'email' ? 'bg-blue-50 text-blue-700' : 'bg-green-50 text-green-700')
+                  : r.dismissed_at ? 'bg-gray-100 text-gray-600'
                   : r.outcome === 'failed' ? 'bg-red-50 text-red-700'
                   : 'bg-amber-50 text-amber-700'}`}>
-                  {r.outcome === 'submitted' ? (r.proof === 'email' ? 'delivered, auto-reply received' : 'delivered, page confirmed') : r.outcome === 'failed' ? 'failed' : 'needs you'}
+                  {r.outcome === 'submitted' ? (r.proof === 'email' ? 'delivered, auto-reply received' : 'delivered, page confirmed') : r.dismissed_at ? 'done by you' : r.outcome === 'failed' ? 'failed' : 'needs you'}
                 </span>
                 {r.lead_status && <span className="ml-2 rounded-full bg-gray-50 px-2 py-0.5 text-[11px] font-medium text-gray-500">{NOW_LABEL[r.lead_status] ?? `now: ${r.lead_status}`}</span>}
               </p>
@@ -334,8 +347,30 @@ export default function OutreachQueuePage() {
                 {new Date(r.created_at).toLocaleString()} · {r.domain}
                 {r.page_url && <> · <a href={r.page_url} target="_blank" rel="noreferrer" className="text-blue-600 hover:underline">form page</a></>}
               </p>
-              {r.outcome !== 'submitted' && r.reason && <p className="mt-1 text-[12.5px] text-amber-700">{r.reason}</p>}
-              {r.outcome !== 'submitted' && r.lead_status === 'submitted' && <p className="mt-1 text-[12px] text-gray-500">Since marked submitted.</p>}
+              {r.outcome !== 'submitted' && r.reason && (
+                <p className="mt-1 text-[12.5px] text-amber-700">
+                  {r.reason.startsWith('unconfirmed')
+                    ? `${r.reason}. The worker filled the form and clicked submit but the page showed no thank-you, so it may or may not have gone through. Check the site before pasting.`
+                    : r.reason}
+                </p>
+              )}
+              {r.outcome !== 'submitted' && r.dismissed_at && <p className="mt-1 text-[12px] text-gray-500">Done by you.</p>}
+              {r.outcome !== 'submitted' && !r.dismissed_at && r.lead_status === 'submitted' && <p className="mt-1 text-[12px] text-gray-500">Since marked submitted.</p>}
+              {r.outcome !== 'submitted' && !r.dismissed_at && (
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {r.message && (
+                    <button
+                      onClick={() => navigator.clipboard.writeText(r.message!.body).then(() => setNotice({ ok: true, text: 'Message copied.' }))}
+                      className="rounded-lg border border-gray-300 px-3 py-1.5 text-[13px] font-medium text-gray-700 hover:bg-gray-50"
+                    >
+                      Copy message
+                    </button>
+                  )}
+                  <button onClick={() => markWorkerDone(r.id)} className="rounded-lg bg-blue-600 px-3 py-1.5 text-[13px] font-medium text-white hover:bg-blue-700">
+                    Done
+                  </button>
+                </div>
+              )}
               {r.confirmed_by && <p className="mt-1 text-[12px] text-gray-500">{r.confirmed_by}</p>}
             </div>
           ))}

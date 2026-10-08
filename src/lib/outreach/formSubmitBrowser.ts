@@ -409,7 +409,8 @@ async function submitOnPageInner(page: Page, ctx: SubmitContext, track: { url: s
   const evidence = await gatherEvidence(page, urlBefore, picked.form.marker);
   await shot('after');
   const outcome = decideOutcome(evidence);
-  if (outcome.status !== 'submitted' && softCaptcha) outcome.reason = `${outcome.reason} (page loads a ${softCaptcha})`;
+  // A bare "captcha" word in the markup says nothing about this form (it matched Wix pages with no captcha), so only real scripts are noted.
+  if (outcome.status !== 'submitted' && softCaptcha && softCaptcha !== 'captcha word') outcome.reason = `${outcome.reason} (page loads a ${softCaptcha})`;
   return { outcome, screenshots, detail: `url=${evidence.url} formPresent=${evidence.formStillPresent}${softCaptcha ? ` soft=${softCaptcha}` : ''}` };
 }
 
