@@ -63,6 +63,8 @@ const ROUTES: Record<string, string> = {
   '/hiddenconsent': page(`${BASIC_FIELDS}<input type="checkbox" id="pp" name="pp" required style="position:absolute;opacity:0;width:1px;height:1px"><label for="pp">I agree to the privacy policy</label>`, SUCCESS),
   // A transparent overlay swallows normal clicks on the button; the form's own submit still works.
   '/covered': page(BASIC_FIELDS, `<div style="position:fixed;inset:0;z-index:99;background:transparent"></div>${SUCCESS}`),
+  // Required postal address fields: the business address.
+  '/address': page(`${BASIC_FIELDS.replace('<button', '<label for="st">Street address</label><input id="st" name="street" required><label for="ct">City</label><input id="ct" name="city" required><label for="sl">State</label><select id="sl" name="state" required><option value="">Select</option><option>Ohio</option><option>Texas</option></select><label for="zp">ZIP</label><input id="zp" name="zip" required><button')}`, SUCCESS),
   // Extra required fields we do not recognise: neutral answers.
   '/extras': page(`${BASIC_FIELDS.replace('<button', '<label for="jt">Job title</label><input id="jt" name="job_title" required><label for="tl">Timeline</label><select id="tl" name="timeline" required><option value="">Select one</option><option>This week</option><option>Flexible</option></select><button')}`, SUCCESS),
   // Required privacy consent: tickable.
@@ -179,6 +181,12 @@ describe.runIf(process.env.VITEST_SKIP_BROWSER !== '1')('submitOnPage (real Chro
     if (!browser) return;
     expect((await run('/covered')).outcome).toEqual({ status: 'submitted' });
   }, 60_000);
+
+  it('fills required postal address fields from the configured business address (and refuses without one)', async () => {
+    if (!browser) return;
+    expect((await run('/address', { address: { line1: '5900 Balcones Drive', line2: 'Ste 100', city: 'Austin', state: 'TX', zip: '78731' } })).outcome).toEqual({ status: 'submitted' });
+    expect((await run('/address')).outcome).toMatchObject({ status: 'needs_manual', reason: expect.stringMatching(/unrecognised required fields/) });
+  });
 
   it('answers unrecognised required fields with neutral placeholders instead of stopping', async () => {
     if (!browser) return;

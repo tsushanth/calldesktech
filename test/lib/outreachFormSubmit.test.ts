@@ -12,7 +12,9 @@ import {
   composeMessage,
   decideOutcome,
   DAILY_CAP_CEILING,
+  addressAnswerFor,
   defaultAnswerFor,
+  type PostalAddress,
   detectChallenge,
   detectSoftCaptcha,
   domainOfEmail,
@@ -130,7 +132,8 @@ describe('field classification', () => {
     expect(classifyField(f({ name: 'website' }))).toBe('website');
     expect(classifyField(f({ name: 'subject' }))).toBe('subject');
     expect(classifyField(f({ name: 'your-name' }))).toBe('name');
-    expect(classifyField(f({ name: 'zip_code' }))).toBe('unknown');
+    expect(classifyField(f({ name: 'zip_code' }))).toBe('address'); // postal address parts are their own role now
+    expect(classifyField(f({ name: 'budget' }))).toBe('unknown');
   });
 
   it('treats hidden and honeypot-named fields as honeypots', () => {
@@ -507,5 +510,43 @@ describe('isNonUsCaLead (the real leads that slipped past the domain check)', ()
     }
     expect(isNonUsCaLead({ domain: 'a.com', location: null, sourceKey: null })).toBe(false);
     expect(isNonUsCaLead({ domain: 'a.com', sourceKey: 'dental:us-npi:123' })).toBe(false);
+  });
+});
+
+
+describe('postal address fields (the business address, only on required fields)', () => {
+  const addr: PostalAddress = { line1: '5900 Balcones Drive', line2: 'Ste 100', city: 'Austin', state: 'TX', zip: '78731' };
+  const base = [f({ name: 'your-name', required: true }), f({ name: 'your-email', type: 'email', required: true }), f({ name: 'message', type: 'textarea', required: true })];
+
+  it('classifies address fields as addresses, not as a company, and leaves e-mail and web addresses alone', () => {
+    expect(classifyField(f({ name: 'business_address' }))).toBe('address');
+    expect(classifyField(f({ name: 'your-streetaddress01' }))).toBe('address');
+    expect(classifyField(f({ name: 'x', label: 'Zip / Postal code' }))).toBe('address');
+    expect(classifyField(f({ name: 'x', label: 'Country' }))).toBe('address');
+    expect(classifyField(f({ name: 'x', label: 'Email address' }))).toBe('email');
+    expect(classifyField(f({ name: 'website_address' }))).toBe('website');
+    expect(classifyField(f({ name: 'company_name' }))).toBe('company');
+  });
+
+  it('answers each part of the address, and combines the suite into a single address box', () => {
+    expect(addressAnswerFor(f({ name: 'street' }), addr, true)).toBe('5900 Balcones Drive Ste 100');
+    expect(addressAnswerFor(f({ name: 'address_line_1' }), addr)).toBe('5900 Balcones Drive');
+    expect(addressAnswerFor(f({ name: 'address_line_2' }), addr)).toBe('Ste 100');
+    expect(addressAnswerFor(f({ name: 'city' }), addr)).toBe('Austin');
+    expect(addressAnswerFor(f({ name: 'zip' }), addr)).toBe('78731');
+    expect(addressAnswerFor(f({ name: 'state' }), addr)).toBe('TX');
+    expect(addressAnswerFor(f({ name: 'state', type: 'select', options: ['Select', 'Ohio', 'Texas', 'Utah'] }), addr)).toBe('Texas');
+    expect(addressAnswerFor(f({ name: 'country', type: 'select', options: ['Canada', 'United States of America'] }), addr)).toBe('United States of America');
+    expect(addressAnswerFor(f({ name: 'city' }), undefined)).toBeNull();
+  });
+
+  it('fills required address fields when an address is configured, leaves optional ones blank, and refuses without one', () => {
+    const fields = [...base, f({ name: 'street', required: true }), f({ name: 'city', required: true }), f({ name: 'state', required: true }), f({ name: 'zip', required: true }), f({ name: 'address2' })];
+    const withAddr = planFields(fields, [], { ...ctx, address: addr });
+    expect(withAddr.needsManual).toBeNull();
+    const by = (n: string) => withAddr.plan.find((x) => x.field.name === n)!.value;
+    expect([by('street'), by('city'), by('state'), by('zip')]).toEqual(['5900 Balcones Drive', 'Austin', 'TX', '78731']); // address2 exists, so no merge
+    expect(by('address2')).toBeNull(); // optional: not given out
+    expect(planFields(fields, [], ctx).needsManual!.reason).toMatch(/unrecognised required fields: street, city, state, zip/);
   });
 });

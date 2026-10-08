@@ -145,6 +145,10 @@ async function main(): Promise<number> {
   const delayMax = Number(process.env.OUTREACH_FORM_SUBMIT_DELAY_MAX_MS) || undefined;
   const breakerLimit = Number(process.env.OUTREACH_FORM_SUBMIT_BREAKER) || undefined;
   const phone = (process.env.OUTREACH_FORM_PHONE || '').trim() || undefined;
+  const env = process.env;
+  const address = env.OUTREACH_FORM_ADDR_LINE1 && env.OUTREACH_FORM_ADDR_CITY && env.OUTREACH_FORM_ADDR_STATE && env.OUTREACH_FORM_ADDR_ZIP
+    ? { line1: env.OUTREACH_FORM_ADDR_LINE1.trim(), line2: env.OUTREACH_FORM_ADDR_LINE2?.trim() || undefined, city: env.OUTREACH_FORM_ADDR_CITY.trim(), state: env.OUTREACH_FORM_ADDR_STATE.trim(), zip: env.OUTREACH_FORM_ADDR_ZIP.trim(), country: env.OUTREACH_FORM_ADDR_COUNTRY?.trim() || undefined }
+    : undefined;
   if (cap === 0) {
     log('daily cap is 0, nothing to do');
     return 0;
@@ -254,7 +258,7 @@ async function main(): Promise<number> {
         score: lead.score,
         body: fo.body,
         // A form with no stored fields (entered by hand) is judged on the live page instead.
-        mappingNeedsManual: cf!.fields.length ? planFields(cf!.fields, [], { email: replyTo, subject: fo.subject, message: fo.body, phone }).needsManual : null,
+        mappingNeedsManual: cf!.fields.length ? planFields(cf!.fields, [], { email: replyTo, subject: fo.subject, message: fo.body, phone, address }).needsManual : null,
       });
       if (gate) {
         log(`skip ${lead.company_name}: ${gate}`);
@@ -290,6 +294,7 @@ async function main(): Promise<number> {
           email: replyTo,
           expectedFieldNames: cf!.fields.map((f) => f.name),
           phone,
+          address,
           shortBody: SHORT_BODY,
           screenshotDir: shotDir,
         });

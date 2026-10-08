@@ -157,7 +157,7 @@ export function defaultAnswerFor(f: FieldDescriptor): string | null {
 
 export type FieldRole =
   | 'name' | 'first_name' | 'last_name' | 'email' | 'phone'
-  | 'subject' | 'message' | 'company' | 'website' | 'honeypot' | 'optional_other' | 'unknown';
+  | 'subject' | 'message' | 'company' | 'website' | 'address' | 'honeypot' | 'optional_other' | 'unknown';
 
 export interface FieldDescriptor {
   /** name attribute, or id when there is no name (mirrors detectContactForm). */
@@ -213,6 +213,15 @@ export interface CheckboxPlan {
   kind: 'terms' | 'marketing' | 'other';
 }
 
+export interface PostalAddress {
+  line1: string;
+  line2?: string;
+  city: string;
+  state: string; // "TX"
+  zip: string;
+  country?: string; // default "United States"
+}
+
 export interface MappingContext {
   email: string;
   subject: string;
@@ -224,6 +233,8 @@ export interface MappingContext {
   websiteUrl?: string;
   /** A real number we answer (OUTREACH_FORM_PHONE). Never made up: without it a required phone field is still a human's job. */
   phone?: string;
+  /** The business's real postal address (OUTREACH_FORM_ADDR_*). Used only for REQUIRED address fields; without it those stay a human's job. */
+  address?: PostalAddress;
 }
 
 export interface MappingResult {
@@ -254,6 +265,11 @@ const ROLE_PATTERNS: { role: FieldRole; re: RegExp }[] = [
 // These do not block on their own unless required (see planFields).
 const HONEYPOT_NAMES = /honey|hpot|^hp$|_hp$|bot[\s_-]*field|leave[\s_-]*(this|it)[\s_-]*blank|do[\s_-]*not[\s_-]*fill|nospam|antispam/i;
 
+// Separators become spaces so the word patterns see "street address" in street_address, your-streetaddress01 or form_fields[city].
+const norm = (t: string) => t.replace(/[_\-.\[\]]+/g, ' ');
+const ADDRESS_RE = /(address|\bstreet|street\b|\baddr\d?\b|\bcity\b|\btown\b|\bstate\b|province|\bzip|postal|post\s*code|\bcountry\b|prefecture)/i;
+const NOT_POSTAL_RE = /e-?mail|web(?:site)?[\s_-]*address|\burl\b|\bsite\b|\bip\b|\bwallet\b|\bstatement\b/i;
+
 function haystack(f: { name: string; id?: string; label?: string; placeholder?: string }): string {
   return [f.name, f.id, f.label, f.placeholder].filter(Boolean).join(' ').toLowerCase();
 }
@@ -264,6 +280,8 @@ export function classifyField(f: FieldDescriptor): FieldRole {
   if (f.type === 'email') return 'email';
   if (f.type === 'tel') return 'phone';
   const h = haystack(f);
+  // A postal address field: checked before the patterns below, because "business address" would otherwise read as a company name.
+  if (ADDRESS_RE.test(norm(h)) && !NOT_POSTAL_RE.test(h)) return 'address';
   for (const p of ROLE_PATTERNS) if (p.re.test(h)) return p.role;
   return 'unknown';
 }
@@ -283,6 +301,32 @@ export function classifyCheckbox(c: CheckboxDescriptor): 'terms' | 'marketing' |
 /** The message we actually put in the textarea: draft body + opt-out + who we are. */
 export function composeMessage(body: string, brand = 'Calldesk', site = 'https://calldesk.tech'): string {
   return `${body.trimEnd()}\n\nNot relevant? Reply STOP and we will not contact you again.\n${brand} (${site})`;
+}
+
+const US_STATE_NAMES: Record<string, string> = { TX: 'Texas' };
+function pickOption(options: string[] | undefined, re: RegExp): string | null {
+  return (options ?? []).find((o) => re.test(o.trim())) ?? null;
+}
+
+/** The part of the business address a field asks for, or null when it is not an address part (or we have no address). */
+export function addressAnswerFor(f: FieldDescriptor, a: PostalAddress | undefined, combineLine2 = false): string | null {
+  if (!a) return null;
+  const h = norm(haystack(f));
+  const country = a.country ?? 'United States';
+  const stateName = US_STATE_NAMES[a.state.toUpperCase()] ?? a.state;
+  if (/zip|postal|post\s*code/.test(h)) return a.zip;
+  if (/\bcity\b|\btown\b/.test(h)) return a.city;
+  if (/\bstate\b|province|region/.test(h)) {
+    if (f.type === 'select') return pickOption(f.options, new RegExp(`^(${a.state}|${stateName})$`, 'i')) ?? pickOption(f.options, new RegExp(stateName, 'i'));
+    return a.state;
+  }
+  if (/\bcountry\b/.test(h)) {
+    if (f.type === 'select') return pickOption(f.options, /^(united states( of america)?|usa|us|u\.s\.a?\.?)$/i) ?? pickOption(f.options, /united states/i);
+    return country;
+  }
+  if (/line\s*2|address\s*2|addr\s*2|suite|apt|apartment|unit|02\b|\b2$/.test(h)) return a.line2 ?? null;
+  if (/street|address|addr/.test(h)) return combineLine2 && a.line2 ? `${a.line1} ${a.line2}` : a.line1;
+  return null;
 }
 
 /**
@@ -308,6 +352,8 @@ export function planFields(
 
   const roles = fields.map((f) => ({ f, role: classifyField(f) }));
   const splitName = roles.some((r) => r.role === 'first_name') || roles.some((r) => r.role === 'last_name');
+  // One address box gets the whole line; a form with a second line field gets "Ste 100" there instead.
+  const hasLine2 = roles.some((r) => r.role === 'address' && /line\s*2|address\s*2|addr\s*2|suite|apt|apartment|unit|02\b|\b2$/.test(norm(haystack(r.f))));
 
   for (const { f, role } of roles) {
     let value: string | null = null;
@@ -339,6 +385,13 @@ export function planFields(
       case 'message':
         value = ctx.message;
         hasMessage = true;
+        break;
+      case 'address':
+        // Only REQUIRED address fields are filled: an optional one stays blank (less of our address given out than asked for).
+        if (f.required && !f.hidden) {
+          value = addressAnswerFor(f, ctx.address, !hasLine2);
+          if (value === null) unknownRequired.push(f.name);
+        }
         break;
       case 'company':
         value = ctx.companyName ?? 'Calldesk';
