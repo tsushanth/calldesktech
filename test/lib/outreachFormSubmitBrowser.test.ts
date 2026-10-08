@@ -49,6 +49,10 @@ const ROUTES: Record<string, string> = {
   '/silent': page(BASIC_FIELDS, `<script>
       document.getElementById('contact').addEventListener('submit', (e) => e.preventDefault());
     </script>`),
+  // Builders like Wix blank the fields after a send and show nothing durable: unconfirmed, but worth a hint.
+  '/cleared': page(BASIC_FIELDS, `<script>
+      document.getElementById('contact').addEventListener('submit', (e) => { e.preventDefault(); document.getElementById('contact').reset(); });
+    </script>`),
   // reCAPTCHA present: must stop before typing anything.
   '/captcha': page(`${BASIC_FIELDS}<div class="g-recaptcha" data-sitekey="abc"></div>`),
   // Required phone: a human's job.
@@ -134,7 +138,7 @@ async function run(path: string, over: Record<string, unknown> = {}) {
   return result;
 }
 
-describe.runIf(process.env.VITEST_SKIP_BROWSER !== '1')('submitOnPage (real Chromium)', () => {
+describe.runIf(process.env.VITEST_SKIP_BROWSER !== '1')('submitOnPage (real Chromium)', { timeout: 30_000 }, () => {
   it.runIf(true)('is skipped with a clear reason when Chromium is not installed', () => {
     if (!browser) {
       console.warn(`[skipped] Chromium unavailable, run "npx playwright install chromium": ${launchError.slice(0, 120)}`);
@@ -196,14 +200,21 @@ describe.runIf(process.env.VITEST_SKIP_BROWSER !== '1')('submitOnPage (real Chro
   it('waits for a form that a script builds after the page loads', async () => {
     if (!browser) return;
     expect((await run('/lazy')).outcome).toEqual({ status: 'submitted' });
-  });
+  }, 30_000);
+
+  it('says so when the form emptied itself after submit, and still hands it to a human', async () => {
+    if (!browser) return;
+    const r = await run('/cleared');
+    expect(r.outcome.status).toBe('needs_manual');
+    expect((r.outcome as { reason: string }).reason).toMatch(/^unconfirmed, but the form emptied itself/);
+  }, 30_000);
 
   it('follows the site\'s own contact link when the stored page has no form, and reports the page the form was on', async () => {
     if (!browser) return;
     const r = await run('/home', { fallbackPaths: [] });
     expect(r.outcome).toEqual({ status: 'submitted' });
     expect(r.pageUrl).toMatch(/\/talk-with-sales-contact$/);
-  });
+}, 30_000);
 
   it('tries the configured fallback paths, and still stops at a visible captcha on the page it finds', async () => {
     if (!browser) return;

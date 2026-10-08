@@ -346,13 +346,14 @@ async function submitOnPageInner(page: Page, ctx: SubmitContext, track: { url: s
 
   // 3. Fill. Typed at a human-ish pace; nothing is clicked that was not planned.
   const frame = picked.frame;
+  const typedMarkers: string[] = [];
   for (const step of mapping.plan) {
     if (step.value === null) continue;
     const marker = (step.field as MarkedField).marker;
     const locator = frame.locator(`[data-cd-field="${marker}"]`);
     try {
       if (step.field.type === 'select') await locator.selectOption({ label: step.value });
-      else await locator.fill(step.value);
+      else { await locator.fill(step.value); typedMarkers.push(marker); }
     } catch (error) {
       return {
         outcome: { status: 'needs_manual', reason: `could not fill field ${step.field.name}` },
@@ -410,6 +411,11 @@ async function submitOnPageInner(page: Page, ctx: SubmitContext, track: { url: s
   await shot('after');
   const outcome = decideOutcome(evidence);
   // A bare "captcha" word in the markup says nothing about this form (it matched Wix pages with no captcha), so only real scripts are noted.
+  // Many builders (Wix among them) blank the fields once a message went through and show the thank-you only for a moment; say so, it is the best hint a human gets.
+  if (outcome.status === 'needs_manual' && outcome.reason === 'unconfirmed' && typedMarkers.length >= 2) {
+    const values = await Promise.all(typedMarkers.map((m) => frame.locator(`[data-cd-field="${m}"]`).inputValue({ timeout: 1_000 }).catch(() => null)));
+    if (values.every((v) => v === '')) outcome.reason = 'unconfirmed, but the form emptied itself after submit, which usually means it was sent';
+  }
   if (outcome.status !== 'submitted' && softCaptcha && softCaptcha !== 'captcha word') outcome.reason = `${outcome.reason} (page loads a ${softCaptcha})`;
   return { outcome, screenshots, detail: `url=${evidence.url} formPresent=${evidence.formStillPresent}${softCaptcha ? ` soft=${softCaptcha}` : ''}` };
 }
