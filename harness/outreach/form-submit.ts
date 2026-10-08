@@ -166,7 +166,9 @@ async function main(): Promise<number> {
   else if (scope === 'all') q = q.or('contact_status.eq.form_only,product.eq.calldesk');
   else q = q.eq('contact_status', 'form_only');
   if (auto) q = q.is('signals->formOutreach->>skipReason', null);
-  const { data } = await scopeToProduct(q, product).order('score', { ascending: false }).limit(100);
+  // The vertical products ('calldesk:homecare', ...) share the plain product's tables, so for those scopes the product filter above is the only one.
+  const scoped = scope === 'verticals' || scope === 'all' ? q : scopeToProduct(q, product);
+  const { data } = await scoped.order('score', { ascending: false }).limit(100);
   const leads = (data ?? []) as LeadRow[];
   log(`${leads.length} ${auto ? 'queued/ready (AUTO mode)' : 'queued'} form lead(s); cap ${cap}/day`);
 
