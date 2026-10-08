@@ -11,9 +11,9 @@
                     OUTREACH_FORM_SUBMIT_MAX_PER_DAY (default 15) and PRODUCT.
   Kill switch:      touch ~/.calldesk-forms/STOP
 
-  Runs every 20 minutes. Each pass submits only leads a human queued with
-  "Submit for me" in /admin/outreach/queue, so an empty queue is a no-op --
-  the frequent schedule just keeps the wait short after a click.
+  Runs every 5 minutes (StartInterval 300) and works continuously: with OUTREACH_FORM_AUTOSUBMIT=1 in the env file it sends every eligible
+  'ready' lead (the "Submit for me" button was removed from the admin on 2026-10-08), an empty queue is a no-op. Runbook, settings and the kill
+  switch: docs/form-worker.md. Quote any env value that contains a space.
 -->
 <plist version="1.0">
 <dict>
@@ -27,7 +27,7 @@
   <dict>
     <key>PRODUCT</key><string>calldesk</string>
   </dict>
-  <key>StartInterval</key><integer>1200</integer>
+  <key>StartInterval</key><integer>300</integer>
   <key>RunAtLoad</key><false/>
   <key>StandardOutPath</key><string>__HOME__/.calldesk-forms/logs/launchagent.log</string>
   <key>StandardErrorPath</key><string>__HOME__/.calldesk-forms/logs/launchagent.log</string>
