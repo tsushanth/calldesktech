@@ -22,6 +22,8 @@ export interface SendEmailParams {
   // such as List-Unsubscribe. Alerting callers leave these unset.
   from?: string;
   replyTo?: string;
+  // Blind copies (outreach replies copy the owner so the sent mail is visible in their own inbox).
+  bcc?: string[];
   headers?: Record<string, string>;
   // Outreach uses its own sending-only key so its reputation and limits stay separate from alerts.
   apiKey?: string;
@@ -36,7 +38,7 @@ export interface SendEmailResult {
 
 // Never throws — email failures should degrade gracefully (a missed alert
 // must not, for instance, fail the webhook that finalizes a call).
-export async function sendEmail({ to, subject, html, text, from: fromOverride, replyTo, headers, apiKey: apiKeyOverride }: SendEmailParams): Promise<SendEmailResult> {
+export async function sendEmail({ to, subject, html, text, from: fromOverride, replyTo, bcc, headers, apiKey: apiKeyOverride }: SendEmailParams): Promise<SendEmailResult> {
   const apiKey = apiKeyOverride || process.env.RESEND_API_KEY;
   if (!apiKey) {
     console.warn('[email] RESEND_API_KEY not configured — skipping send to', to);
@@ -52,7 +54,7 @@ export async function sendEmail({ to, subject, html, text, from: fromOverride, r
         Authorization: `Bearer ${apiKey}`,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ from, to, subject, html, text, ...(replyTo ? { reply_to: replyTo } : {}), ...(headers ? { headers } : {}) }),
+      body: JSON.stringify({ from, to, subject, html, text, ...(replyTo ? { reply_to: replyTo } : {}), ...(bcc && bcc.length ? { bcc } : {}), ...(headers ? { headers } : {}) }),
     });
 
     if (!res.ok) {
