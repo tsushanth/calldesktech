@@ -177,6 +177,8 @@ export interface SubmitContext extends Omit<MappingContext, 'message'> {
   body: string;
   /** Field names from signals.contactForm, used to find the same form again. */
   expectedFieldNames: string[];
+  /** Paths on the same site to try when the stored page has no form (e.g. /contact). Empty = do not look elsewhere. */
+  fallbackPaths?: string[];
   /** A compact complete message (opt-out included) for forms with a character limit the full draft exceeds. */
   shortBody?: string;
   brandName?: string;
@@ -190,6 +192,8 @@ export interface SubmitContext extends Omit<MappingContext, 'message'> {
 export interface SubmitResult {
   outcome: Outcome;
   screenshots: string[];
+  /** The page the form was actually on (it can differ from the stored address when a fallback found it). */
+  pageUrl?: string;
   /** For the log/attempt record. */
   detail?: string;
 }
@@ -203,6 +207,74 @@ const defaultScreenshot = async (page: Page, path: string) => {
  * refusal -- it returns a needs_manual outcome instead.
  */
 export async function submitOnPage(page: Page, ctx: SubmitContext): Promise<SubmitResult> {
+  const track = { url: '' };
+  const result = await submitOnPageInner(page, ctx, track);
+  return { ...result, pageUrl: track.url || page.url() };
+}
+
+/** Waits briefly for a contact form with a message box to appear: many sites build the form with a script after the page loads. */
+async function settleForm(page: Page, timeout = 6_000): Promise<void> {
+  await page.waitForSelector('form textarea', { state: 'attached', timeout }).catch(() => undefined);
+}
+
+/** Same-site links on the page that look like a way to contact the company. */
+async function contactLinks(page: Page): Promise<string[]> {
+  try {
+    return (await page.evaluate(`(() => {
+      const here = location.origin; const out = [];
+      for (const a of Array.from(document.querySelectorAll('a[href]'))) {
+        const href = a.getAttribute('href') || '';
+        if (/^(mailto:|tel:|javascript:|#)/i.test(href)) continue;
+        let u; try { u = new URL(href, location.href); } catch { continue; }
+        if (u.origin !== here) continue;
+        const text = (a.textContent || '').trim();
+        if (/contact|get[\\s-]*in[\\s-]*touch|reach[\\s-]*us|talk to us|talk to sales/i.test(text + ' ' + u.pathname) && !out.includes(u.href)) out.push(u.href);
+      }
+      return out.slice(0, 3);
+    })()`)) as string[];
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * The stored page had no usable form: look at the site's own contact links and the configured contact paths, a few pages at most. A visible
+ * challenge on any of them still stops the attempt (we never solve one). Returns the frames and form, a challenge, or null.
+ */
+async function findFormElsewhere(
+  page: Page,
+  ctx: SubmitContext,
+): Promise<{ frames: FrameForms[]; picked: { frame: Frame; form: ReadForm } } | { challenge: string } | null> {
+  const origin = (() => { try { return new URL(page.url()).origin; } catch { return ''; } })();
+  if (!origin) return null;
+  const here = (() => { try { return new URL(page.url()).pathname.replace(/\/$/, ''); } catch { return ''; } })();
+  const candidates: string[] = [];
+  for (const u of [...(await contactLinks(page)), ...(ctx.fallbackPaths ?? []).map((p) => origin + p)]) {
+    let path = '';
+    try { path = new URL(u).pathname.replace(/\/$/, ''); } catch { continue; }
+    if (path === here || candidates.some((c) => new URL(c).pathname.replace(/\/$/, '') === path)) continue;
+    candidates.push(u);
+    if (candidates.length >= 5) break;
+  }
+  for (const url of candidates) {
+    try {
+      await page.goto(url, { waitUntil: 'load', timeout: 20_000 });
+      await settleForm(page, 4_000);
+      const frames = await readFrames(page);
+      for (const ff of frames) {
+        const challenge = detectChallenge(ff.html, ff.text);
+        if (challenge) return { challenge };
+      }
+      const picked = pickForm(frames, ctx.expectedFieldNames);
+      if (picked) return { frames, picked };
+    } catch {
+      // a page that will not load is simply not the contact page
+    }
+  }
+  return null;
+}
+
+async function submitOnPageInner(page: Page, ctx: SubmitContext, track: { url: string }): Promise<SubmitResult> {
   const shoot = ctx.screenshot ?? defaultScreenshot;
   const screenshots: string[] = [];
   const shot = async (label: string) => {
@@ -217,7 +289,8 @@ export async function submitOnPage(page: Page, ctx: SubmitContext): Promise<Subm
 
   await shot('before');
 
-  const frames = await readFrames(page);
+  await settleForm(page);
+  let frames = await readFrames(page);
 
   // 1. Challenge check FIRST, across the page and every same-origin frame.
   //    A visible, interactive challenge stops the attempt: we never try to solve or bypass one. A page that only LOADS a captcha script is
@@ -233,10 +306,22 @@ export async function submitOnPage(page: Page, ctx: SubmitContext): Promise<Subm
 
   // A cross-origin iframe on the contact page is a third-party form host; we do
   // not reach into it, and if no local form matches we hand it to a human below.
-  const picked = pickForm(frames, ctx.expectedFieldNames);
+  let picked = pickForm(frames, ctx.expectedFieldNames);
+  if (!picked && ctx.fallbackPaths) {
+    const elsewhere = await findFormElsewhere(page, ctx);
+    if (elsewhere && 'challenge' in elsewhere) {
+      return { outcome: { status: 'needs_manual', reason: 'captcha' }, screenshots, detail: elsewhere.challenge };
+    }
+    if (elsewhere) {
+      frames = elsewhere.frames;
+      picked = elsewhere.picked;
+      await shot('before-other-page');
+    }
+  }
   if (!picked) {
     return { outcome: { status: 'needs_manual', reason: 'form not found in the rendered page' }, screenshots };
   }
+  track.url = page.url();
   if (!picked.form.hasSubmit) {
     return { outcome: { status: 'needs_manual', reason: 'no submit button found' }, screenshots };
   }

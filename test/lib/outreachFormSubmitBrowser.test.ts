@@ -63,6 +63,17 @@ const ROUTES: Record<string, string> = {
   '/hiddenconsent': page(`${BASIC_FIELDS}<input type="checkbox" id="pp" name="pp" required style="position:absolute;opacity:0;width:1px;height:1px"><label for="pp">I agree to the privacy policy</label>`, SUCCESS),
   // A transparent overlay swallows normal clicks on the button; the form's own submit still works.
   '/covered': page(BASIC_FIELDS, `<div style="position:fixed;inset:0;z-index:99;background:transparent"></div>${SUCCESS}`),
+  // The form is built by a script a moment after the page loads.
+  '/lazy': page('<p>Loading</p>', `<script>setTimeout(() => { document.getElementById('contact').innerHTML = ${JSON.stringify(BASIC_FIELDS)}; }, 1500);</script>${SUCCESS}`),
+  // A home page with no form and a link to the contact page.
+  '/home': '<!doctype html><html><body><h1>Welcome</h1><nav><a href="/about-us">About</a> <a href="/talk-with-sales-contact">Contact sales</a></nav></body></html>',
+  '/talk-with-sales-contact': page(BASIC_FIELDS, SUCCESS),
+  // No form and no useful link: only the configured fallback path can help.
+  '/bare': '<!doctype html><html><body><h1>Nothing here</h1></body></html>',
+  '/get-in-touch': page(BASIC_FIELDS, SUCCESS),
+  // The contact page the fallback finds has a visible captcha: stop there.
+  '/bare2': '<!doctype html><html><body><h1>Nothing here</h1></body></html>',
+  '/contact-us': page(`${BASIC_FIELDS}<div class="g-recaptcha" data-sitekey="abc"></div>`),
   // Required postal address fields: the business address.
   '/address': page(`${BASIC_FIELDS.replace('<button', '<label for="st">Street address</label><input id="st" name="street" required><label for="ct">City</label><input id="ct" name="city" required><label for="sl">State</label><select id="sl" name="state" required><option value="">Select</option><option>Ohio</option><option>Texas</option></select><label for="zp">ZIP</label><input id="zp" name="zip" required><button')}`, SUCCESS),
   // Extra required fields we do not recognise: neutral answers.
@@ -181,6 +192,30 @@ describe.runIf(process.env.VITEST_SKIP_BROWSER !== '1')('submitOnPage (real Chro
     if (!browser) return;
     expect((await run('/covered')).outcome).toEqual({ status: 'submitted' });
   }, 60_000);
+
+  it('waits for a form that a script builds after the page loads', async () => {
+    if (!browser) return;
+    expect((await run('/lazy')).outcome).toEqual({ status: 'submitted' });
+  });
+
+  it('follows the site\'s own contact link when the stored page has no form, and reports the page the form was on', async () => {
+    if (!browser) return;
+    const r = await run('/home', { fallbackPaths: [] });
+    expect(r.outcome).toEqual({ status: 'submitted' });
+    expect(r.pageUrl).toMatch(/\/talk-with-sales-contact$/);
+  });
+
+  it('tries the configured fallback paths, and still stops at a visible captcha on the page it finds', async () => {
+    if (!browser) return;
+    expect((await run('/bare', { fallbackPaths: ['/missing', '/get-in-touch'] })).outcome).toEqual({ status: 'submitted' });
+    expect((await run('/bare2', { fallbackPaths: ['/contact-us'] })).outcome).toEqual({ status: 'needs_manual', reason: 'captcha' });
+  }, 60_000);
+
+  it('does not wander off to other pages unless fallback paths are configured', async () => {
+    if (!browser) return;
+    const r = await run('/home');
+    expect(r.outcome).toEqual({ status: 'needs_manual', reason: 'form not found in the rendered page' });
+  }, 30_000);
 
   it('fills required postal address fields from the configured business address (and refuses without one)', async () => {
     if (!browser) return;

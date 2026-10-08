@@ -24,6 +24,7 @@ import {
   type FormOutreachStatus,
 } from '@/lib/outreach/formSubmit';
 import { CHROMIUM_UA, submitOnPage } from '@/lib/outreach/formSubmitBrowser';
+import { logWorkerAttempt, workerLogRow } from '@/lib/outreach/formWorkerLog';
 import type { ContactForm } from '@/lib/outreach/discovery/contactPages';
 
 // Submits contact forms a HUMAN queued from the admin queue ("Submit for me"),
@@ -103,7 +104,7 @@ async function suppressedDomains(db: any): Promise<Set<string>> {
 
 /** Writes the new status and appends the attempt to formOutreach. */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-async function persist(db: any, lead: LeadRow, status: FormOutreachStatus, extra: Record<string, unknown>, attempt?: FormAttempt) {
+async function persist(db: any, lead: LeadRow, status: FormOutreachStatus, extra: Record<string, unknown>, attempt?: FormAttempt, pageUsed?: string) {
   const fo = lead.signals.formOutreach;
   const attempts = [...(fo.attempts ?? []), ...(attempt ? [attempt] : [])];
   const now = new Date().toISOString();
@@ -121,6 +122,8 @@ async function persist(db: any, lead: LeadRow, status: FormOutreachStatus, extra
     .update({ signals: { ...lead.signals, formOutreach: next }, updated_at: now })
     .eq('id', lead.id);
   if (error) log(`could not persist ${lead.company_name}: ${error.message}`);
+  // The Worker tab's record of what the worker did (best effort).
+  if (attempt && !error) await logWorkerAttempt(db, workerLogRow(lead, attempt, { pageUrl: pageUsed }));
 }
 
 async function main(): Promise<number> {
@@ -295,6 +298,7 @@ async function main(): Promise<number> {
           expectedFieldNames: cf!.fields.map((f) => f.name),
           phone,
           address,
+          fallbackPaths: ['/contact', '/contact-us', '/get-in-touch'],
           shortBody: SHORT_BODY,
           screenshotDir: shotDir,
         });
@@ -303,12 +307,12 @@ async function main(): Promise<number> {
           log(`submitted ${lead.company_name}`);
           summary.submitted++;
           breaker.record('submitted');
-          await persist(db, lead, 'submitted', {}, { at, outcome: 'submitted', screenshot: shot });
+          await persist(db, lead, 'submitted', {}, { at, outcome: 'submitted', screenshot: shot }, result.pageUrl);
         } else {
           log(`needs manual ${lead.company_name}: ${result.outcome.reason}`);
           summary.needsManual++;
           breaker.record('needs_manual', result.outcome.reason);
-          await persist(db, lead, 'needs_manual', { reason: result.outcome.reason }, { at, outcome: 'needs_manual', reason: result.outcome.reason, screenshot: shot });
+          await persist(db, lead, 'needs_manual', { reason: result.outcome.reason }, { at, outcome: 'needs_manual', reason: result.outcome.reason, screenshot: shot }, result.pageUrl);
         }
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);

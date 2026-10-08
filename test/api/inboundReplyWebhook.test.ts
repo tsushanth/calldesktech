@@ -88,10 +88,12 @@ it('rejects a request missing the email field', async () => {
 
 it('confirms an unconfirmed contact-form lead from the company\'s own auto-reply email', async () => {
   const updates: unknown[] = [];
+  const inserts: unknown[] = [];
   const leadRow = { id: 'lead-7', domain: 'getstream.io', signals: { formOutreach: { status: 'needs_manual', attempts: [{ at: new Date(Date.now() - 45_000).toISOString(), outcome: 'needs_manual', reason: 'unconfirmed' }] } } };
   const builder: Record<string, unknown> = {};
   for (const m of ['select', 'eq', 'limit']) builder[m] = () => builder;
   builder.update = (u: unknown) => { updates.push(u); return builder; };
+  builder.insert = (r: unknown) => { inserts.push(r); return Promise.resolve({ error: null }); };
   (builder as unknown as PromiseLike<unknown>).then = (resolve: (v: unknown) => unknown) => Promise.resolve({ data: [leadRow], error: null }).then(resolve);
   vi.mocked(getSupabaseAdmin).mockReturnValue({ from: () => builder, rpc: () => Promise.resolve({ data: 0, error: null }) } as never);
   const response = await POST(makeRequest({ email: 'bounce@mail.example.net', fromHeader: 'Stream <hello@getstream.io>', subject: 'Thank you for contacting us!' }, 'Bearer correct-secret'));
@@ -99,6 +101,10 @@ it('confirms an unconfirmed contact-form lead from the company\'s own auto-reply
   expect(await response.json()).toEqual({ matched: 0, confirmed: ['getstream.io'] });
   expect(updates).toHaveLength(1);
   expect((updates[0] as { signals: { formOutreach: { status: string } } }).signals.formOutreach.status).toBe('submitted');
+  // and the confirmation is recorded for the outreach queue's Worker tab
+  expect(inserts).toHaveLength(1);
+  expect(inserts[0]).toMatchObject({ lead_id: 'lead-7', outcome: 'submitted', proof: 'email', domain: 'getstream.io' });
+  expect(String((inserts[0] as { confirmed_by: string }).confirmed_by)).toContain('hello@getstream.io');
 });
 
 it('an older worker payload (email only) still works and confirms nothing', async () => {

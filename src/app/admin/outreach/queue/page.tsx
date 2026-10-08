@@ -19,7 +19,7 @@ interface Message {
   lead: { company_name: string; domain: string | null; score: number | null; tier: string | null; contact_source_url: string | null; replied_at: string | null; phone: string | null } | null;
 }
 
-const TABS = ['draft', 'approved', 'sent', 'failed', 'forms'] as const;
+const TABS = ['draft', 'approved', 'sent', 'failed', 'forms', 'worker'] as const;
 const PRODUCTS = [
   { key: 'calldesk', label: 'Calldesk' },
   { key: 'kreativekoala:voxkey', label: 'VoxKey' },
@@ -53,6 +53,20 @@ const VERTICALS = [
   { key: 'taxi', label: 'Taxi & private hire' },
   { key: 'vets', label: 'Veterinary' },
 ] as const;
+interface WorkerRow {
+  id: string;
+  created_at: string;
+  lead_id: string | null;
+  product: string | null;
+  company_name: string | null;
+  domain: string | null;
+  page_url: string | null;
+  reason: string | null;
+  proof: 'page' | 'email';
+  confirmed_by: string | null;
+  screenshot: string | null;
+}
+
 const verticalLabel = (product?: string | null) => (product === 'calldesk' ? 'Reseller / agency' : VERTICALS.find((v) => v.key && product === `calldesk:${v.key}`)?.label ?? null);
 
 interface FormLead {
@@ -108,11 +122,23 @@ export default function OutreachQueuePage() {
   const [formLeads, setFormLeads] = useState<FormLead[]>([]);
   const [formStatus, setFormStatus] = useState<(typeof FORM_STATUSES)[number]>('ready');
   const [formCounts, setFormCounts] = useState<Record<string, number>>({});
+  const [workerRows, setWorkerRows] = useState<WorkerRow[]>([]);
+  const [workerCounts, setWorkerCounts] = useState<{ total: number; last24h: number; byEmail: number; needHumanLast24h: number } | null>(null);
   const [preview, setPreview] = useState<{ subject: string; to: string; html: string; variant: string | null } | null>(null);
   const [edits, setEdits] = useState<Record<string, { subject: string; body_text: string }>>({});
 
   const refresh = useCallback(async () => {
     setLoading(true);
+    if (tab === 'worker') {
+      const wr = await fetch('/api/admin/outreach/worker');
+      if (wr.ok) {
+        const wb = await wr.json();
+        setWorkerRows(wb.rows ?? []);
+        setWorkerCounts(wb.counts ?? null);
+      }
+      setLoading(false);
+      return;
+    }
     if (tab === 'forms') {
       const fr = await fetch(`/api/admin/outreach/forms?status=${formStatus}${formVertical ? `&vertical=${formVertical}` : ''}`);
       if (fr.ok) {
@@ -241,6 +267,36 @@ export default function OutreachQueuePage() {
             Companies with no public email. For each one: <strong>Copy message</strong>, open the form link, paste it, send it yourself, then mark it
             <em> submitted</em>. Nothing is sent automatically.
           </p>
+        </>
+      )}
+      {tab === 'worker' && (
+        <>
+          <p className="rounded-lg border border-gray-200 bg-white px-4 py-2 text-[13px] text-gray-700" data-testid="worker-counts">
+            Delivered by the worker: {workerCounts?.total ?? 0} · last 24 h: {workerCounts?.last24h ?? 0} · confirmed by the company&apos;s auto-reply: {workerCounts?.byEmail ?? 0}
+            {workerCounts && workerCounts.needHumanLast24h > 0 ? ` · tried in the last 24 h and left for you: ${workerCounts.needHumanLast24h} (see the forms tab, needs manual)` : ''}
+          </p>
+          <p className="text-[13px] text-gray-500">
+            Forms the worker sent on its own. &quot;Page confirmed&quot; means the site showed a confirmation after sending; &quot;auto-reply&quot; means the company&apos;s own email arrived at outreach@. Nothing here needs you.
+          </p>
+          {!loading && workerRows.length === 0 && <p className="text-gray-400">The worker has not delivered a form yet.</p>}
+          {workerRows.map((r) => (
+            <div key={r.id} className="flex flex-wrap items-baseline justify-between gap-2 rounded-xl border border-gray-200 bg-white px-4 py-3">
+              <div className="min-w-0">
+                <p className="text-[14px] font-semibold">
+                  {r.company_name ?? r.domain}
+                  <span className="ml-2 rounded-full bg-gray-100 px-2 py-0.5 text-[11px] font-medium text-gray-600">{verticalLabel(r.product) ?? 'Reseller / agency'}</span>
+                  <span className={`ml-2 rounded-full px-2 py-0.5 text-[11px] font-medium ${r.proof === 'email' ? 'bg-blue-50 text-blue-700' : 'bg-green-50 text-green-700'}`}>
+                    {r.proof === 'email' ? 'auto-reply received' : 'page confirmed'}
+                  </span>
+                </p>
+                <p className="text-[12px] text-gray-400">
+                  {new Date(r.created_at).toLocaleString()} · {r.domain}
+                  {r.page_url && <> · <a href={r.page_url} target="_blank" rel="noreferrer" className="text-blue-600 hover:underline">form page</a></>}
+                </p>
+                {r.confirmed_by && <p className="text-[12px] text-gray-500">{r.confirmed_by}</p>}
+              </div>
+            </div>
+          ))}
         </>
       )}
       {tab === 'forms' && !loading && formLeads.length === 0 && <p className="text-gray-400">No form leads in {formStatus}.</p>}

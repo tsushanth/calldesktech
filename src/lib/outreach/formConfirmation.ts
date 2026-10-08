@@ -6,6 +6,7 @@
 
 export interface ConfirmLead {
   id: string;
+  company_name?: string | null;
   domain: string | null;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   signals: any;
