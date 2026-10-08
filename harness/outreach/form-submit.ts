@@ -15,6 +15,7 @@ import {
   qualityGate,
   recordInLedger,
   resolveDailyCap,
+  resolveHourlyCap,
   resolveReplyToEmail,
   skipReason,
   type DayLedger,
@@ -59,6 +60,8 @@ interface LeadRow {
   company_name: string;
   domain: string | null;
   score: number | null;
+  product: string | null;
+  contact_source_url: string | null;
   region_blocked: boolean | null;
   replied_at: string | null;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -131,6 +134,11 @@ async function main(): Promise<number> {
   }
 
   const cap = resolveDailyCap(process.env.OUTREACH_FORM_SUBMIT_MAX_PER_DAY);
+  const hourCap = resolveHourlyCap(process.env.OUTREACH_FORM_SUBMIT_MAX_PER_HOUR);
+  const delayMin = Number(process.env.OUTREACH_FORM_SUBMIT_DELAY_MIN_MS) || undefined;
+  const delayMax = Number(process.env.OUTREACH_FORM_SUBMIT_DELAY_MAX_MS) || undefined;
+  const breakerLimit = Number(process.env.OUTREACH_FORM_SUBMIT_BREAKER) || undefined;
+  const phone = (process.env.OUTREACH_FORM_PHONE || '').trim() || undefined;
   if (cap === 0) {
     log('daily cap is 0, nothing to do');
     return 0;
@@ -144,16 +152,21 @@ async function main(): Promise<number> {
   // score first, under the same quality gate, caps and circuit breaker; ready leads the gate rejected
   // carry a skipReason and are not re-tried.
   const auto = process.env.OUTREACH_FORM_AUTOSUBMIT === '1';
-  let q = db.from(leadsTable(product)).select('id, company_name, domain, score, region_blocked, replied_at, signals')
-    .eq('contact_status', 'form_only')
+  // OUTREACH_FORM_SCOPE: 'reseller' = the plain 'calldesk' product (agencies and platforms; includes leads whose form was entered by hand and has no
+  // stored fields, the worker reads the live page), 'verticals' = 'calldesk:<vertical>' leads, unset = every product, form_only leads only (the old rule).
+  const scope = (process.env.OUTREACH_FORM_SCOPE || '').trim().toLowerCase();
+  let q = db.from(leadsTable(product)).select('id, company_name, domain, score, product, contact_source_url, region_blocked, replied_at, signals')
     .in('signals->formOutreach->>status', auto ? ['queued', 'ready'] : ['queued']);
+  if (scope === 'reseller') q = q.eq('product', 'calldesk');
+  else if (scope === 'verticals') q = q.like('product', 'calldesk:%').eq('contact_status', 'form_only');
+  else q = q.eq('contact_status', 'form_only');
   if (auto) q = q.is('signals->formOutreach->>skipReason', null);
   const { data } = await scopeToProduct(q, product).order('score', { ascending: false }).limit(100);
   const leads = (data ?? []) as LeadRow[];
   log(`${leads.length} ${auto ? 'queued/ready (AUTO mode)' : 'queued'} form lead(s); cap ${cap}/day`);
 
   let ledger = readLedger();
-  const breaker = new CircuitBreaker();
+  const breaker = new CircuitBreaker(breakerLimit);
   const summary = { queued: leads.length, submitted: 0, needsManual: 0, failed: 0, skipped: 0, capped: 0 };
 
   let browser: Browser | null = null;
@@ -187,7 +200,7 @@ async function main(): Promise<number> {
         continue;
       }
 
-      const blocked = capBlock(ledger, lead.domain, cap);
+      const blocked = capBlock(ledger, lead.domain, cap, new Date(), hourCap);
       if (blocked) {
         log(`skip ${lead.company_name}: ${blocked}`);
         summary.capped++;
@@ -207,6 +220,14 @@ async function main(): Promise<number> {
         continue;
       }
 
+      const pageUrl = cf!.pageUrl || lead.contact_source_url;
+      if (!pageUrl) {
+        log(`${lead.company_name}: needs manual (no form page address)`);
+        summary.needsManual++;
+        if (!dryRun) await persist(db, lead, 'needs_manual', { reason: 'no form page address' }, { at: new Date().toISOString(), outcome: 'needs_manual', reason: 'no form page address' });
+        continue;
+      }
+
       // Belt and braces: the quality gate re-checks the draft and the form's
       // static field list before a real message goes to a real business.
       // Measured on the DRAFT body: the opt-out and signature lines we append are
@@ -214,7 +235,8 @@ async function main(): Promise<number> {
       const gate = qualityGate({
         score: lead.score,
         body: fo.body,
-        mappingNeedsManual: planFields(cf!.fields, [], { email: replyTo, subject: fo.subject, message: fo.body }).needsManual,
+        // A form with no stored fields (entered by hand) is judged on the live page instead.
+        mappingNeedsManual: cf!.fields.length ? planFields(cf!.fields, [], { email: replyTo, subject: fo.subject, message: fo.body, phone }).needsManual : null,
       });
       if (gate) {
         log(`skip ${lead.company_name}: ${gate}`);
@@ -227,7 +249,7 @@ async function main(): Promise<number> {
       }
 
       if (dryRun) {
-        log(`DRY_RUN: would submit ${cf!.pageUrl} for ${lead.company_name}`);
+        log(`DRY_RUN: would submit ${pageUrl} for ${lead.company_name}`);
         summary.skipped++;
         continue;
       }
@@ -243,12 +265,13 @@ async function main(): Promise<number> {
       const page = await context.newPage();
       const at = new Date().toISOString();
       try {
-        await page.goto(cf!.pageUrl, { waitUntil: 'load', timeout: 45_000 });
+        await page.goto(pageUrl, { waitUntil: 'load', timeout: 45_000 });
         const result = await submitOnPage(page, {
           body: fo.body,
           subject: fo.subject,
           email: replyTo,
           expectedFieldNames: cf!.fields.map((f) => f.name),
+          phone,
           screenshotDir: shotDir,
         });
         const shot = result.screenshots[result.screenshots.length - 1];
@@ -277,7 +300,7 @@ async function main(): Promise<number> {
       ledger = recordInLedger(ledger, lead.domain);
       writeLedger(ledger);
 
-      const delay = nextDelayMs();
+      const delay = nextDelayMs(Math.random, delayMin, delayMax);
       log(`waiting ${Math.round(delay / 1000)}s`);
       await new Promise((r) => setTimeout(r, delay));
     }

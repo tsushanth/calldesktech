@@ -13,6 +13,7 @@ import {
   composeMessage,
   decideOutcome,
   detectChallenge,
+  detectSoftCaptcha,
   lengthLimitRefusal,
   planFields,
   type CheckboxDescriptor,
@@ -96,6 +97,7 @@ const READ_FORMS_SRC = `(() => {
         id: el.getAttribute('id') || undefined,
         hidden: !visible(el),
         maxLength: el.maxLength > 0 ? el.maxLength : undefined,
+        options: tag === 'select' ? Array.from(el.options).map((o) => (o.textContent || '').trim()).filter((t) => t).slice(0, 80) : undefined,
       };
       const fieldMarker = marker + '_' + fields.length + '_' + checkboxes.length;
       el.setAttribute('data-cd-field', fieldMarker);
@@ -210,12 +212,15 @@ export async function submitOnPage(page: Page, ctx: SubmitContext): Promise<Subm
   const frames = await readFrames(page);
 
   // 1. Challenge check FIRST, across the page and every same-origin frame.
-  //    Any hit stops the attempt. We never try to solve or bypass one.
+  //    A visible, interactive challenge stops the attempt: we never try to solve or bypass one. A page that only LOADS a captcha script is
+  //    tried; if the site then refuses or shows no proof, the reason says the page had one so the human sees why.
+  let softCaptcha: string | null = null;
   for (const ff of frames) {
     const challenge = detectChallenge(ff.html, ff.text);
     if (challenge) {
       return { outcome: { status: 'needs_manual', reason: 'captcha' }, screenshots, detail: challenge };
     }
+    softCaptcha ??= detectSoftCaptcha(ff.html);
   }
 
   // A cross-origin iframe on the contact page is a third-party form host; we do
@@ -284,7 +289,9 @@ export async function submitOnPage(page: Page, ctx: SubmitContext): Promise<Subm
   // 5. Decide from evidence only.
   const evidence = await gatherEvidence(page, urlBefore, picked.form.marker);
   await shot('after');
-  return { outcome: decideOutcome(evidence), screenshots, detail: `url=${evidence.url} formPresent=${evidence.formStillPresent}` };
+  const outcome = decideOutcome(evidence);
+  if (outcome.status !== 'submitted' && softCaptcha) outcome.reason = `${outcome.reason} (page loads a ${softCaptcha})`;
+  return { outcome, screenshots, detail: `url=${evidence.url} formPresent=${evidence.formStillPresent}${softCaptcha ? ` soft=${softCaptcha}` : ''}` };
 }
 
 const SUCCESS_SELECTORS = [

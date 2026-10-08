@@ -11,7 +11,10 @@ import {
   classifyField,
   composeMessage,
   decideOutcome,
+  DAILY_CAP_CEILING,
+  defaultAnswerFor,
   detectChallenge,
+  detectSoftCaptcha,
   domainOfEmail,
   emailAddressPart,
   emptyLedger,
@@ -22,6 +25,7 @@ import {
   qualityGate,
   recordInLedger,
   resolveDailyCap,
+  resolveHourlyCap,
   resolveReplyToEmail,
   rollLedger,
   skipReason,
@@ -74,18 +78,33 @@ describe('status transitions', () => {
 });
 
 describe('captcha / bot-challenge detection', () => {
-  it('finds the widgets by markup', () => {
-    expect(detectChallenge('<div class="g-recaptcha" data-sitekey="x"></div>')).toBe('recaptcha');
-    expect(detectChallenge('<script src="https://www.google.com/recaptcha/enterprise.js"></script>')).toBe('recaptcha');
-    expect(detectChallenge('<div class="h-captcha"></div>')).toBe('hcaptcha');
-    expect(detectChallenge('<div class="cf-turnstile"></div>')).toBe('turnstile');
-    expect(detectChallenge('<script src="https://challenges.cloudflare.com/turnstile/v0/api.js"></script>')).toBe('turnstile');
-    expect(detectChallenge('<div id="funcaptcha"></div>')).toBe('captcha widget');
-    expect(detectChallenge('<input name="captcha_code">')).toBe('captcha');
+  it('stops on a visible, interactive widget (v2 checkbox / hCaptcha container or anchor iframe)', () => {
+    expect(detectChallenge('<div class="g-recaptcha" data-sitekey="x"></div>')).toBe('recaptcha widget');
+    expect(detectChallenge('<div class="h-captcha" data-sitekey="x"></div>')).toBe('hcaptcha widget');
+    expect(detectChallenge('<iframe src="https://www.google.com/recaptcha/api2/anchor?k=x&size=normal"></iframe>')).toBe('recaptcha checkbox');
+    expect(detectChallenge('<iframe src="https://newassets.hcaptcha.com/captcha/v1/abc/static/hcaptcha.html"></iframe>')).toBe('hcaptcha checkbox');
+  });
+
+  it('does NOT stop on a page that only loads a captcha script, an invisible widget, or the bare word (owner decision 2026-10-08)', () => {
+    expect(detectChallenge('<script src="https://www.google.com/recaptcha/enterprise.js?render=KEY"></script>')).toBeNull();
+    expect(detectChallenge('<script src="https://www.google.com/recaptcha/api.js?render=KEY"></script>')).toBeNull();
+    expect(detectChallenge('<div class="g-recaptcha" data-size="invisible" data-sitekey="x"></div>')).toBeNull();
+    expect(detectChallenge('<iframe src="https://www.google.com/recaptcha/api2/anchor?k=x&size=invisible"></iframe>')).toBeNull();
+    expect(detectChallenge('<script src="https://challenges.cloudflare.com/turnstile/v0/api.js"></script>')).toBeNull();
+    expect(detectChallenge('<input name="captcha_code">')).toBeNull();
+    expect(detectChallenge('<div id="funcaptcha"></div>')).toBeNull();
+  });
+
+  it('still notes those scripts as soft signals so the human sees why an unsure attempt was unsure', () => {
+    expect(detectSoftCaptcha('<script src="https://www.google.com/recaptcha/api.js?render=KEY"></script>')).toBe('recaptcha script');
+    expect(detectSoftCaptcha('<div class="cf-turnstile"></div>')).toBe('turnstile script');
+    expect(detectSoftCaptcha('<input name="captcha_code">')).toBe('captcha word');
+    expect(detectSoftCaptcha('<form><input name="email"></form>')).toBeNull();
   });
 
   it('finds challenges stated only in visible text', () => {
     expect(detectChallenge('<p>Please verify you are human</p>', 'Please verify you are human')).toBeTruthy();
+    expect(detectChallenge('<script>var s = "security check";</script>', 'Contact us')).toBeNull(); // wording inside code is not a prompt a person sees
     expect(detectChallenge('<div></div>', "I'm not a robot")).toBeTruthy();
     expect(detectChallenge('<div></div>', 'Checking your browser before you continue')).toBeTruthy();
   });
@@ -157,9 +176,35 @@ describe('planFields', () => {
     expect(required.needsManual).toEqual({ reason: 'phone required' });
   });
 
-  it('refuses on unrecognised required fields and lists them', () => {
-    const res = planFields([...basic, f({ name: 'patient_id', required: true }), f({ name: 'appointment_date', required: true })], [], ctx);
+  it('refuses on required fields it must not invent (ids, numbers, dates, addresses) and lists them', () => {
+    const res = planFields([...basic, f({ name: 'patient_id', required: true }), f({ name: 'appointment_date', required: true, type: 'date' })], [], ctx);
     expect(res.needsManual!.reason).toBe('unrecognised required fields: patient_id, appointment_date');
+  });
+
+  it('fills other unrecognised required fields with neutral, truthful placeholders (owner decision 2026-10-08)', () => {
+    const res = planFields([...basic, f({ name: 'job_title', required: true }), f({ name: 'timeline', required: true }), f({ name: 'budget', required: true }), f({ name: 'referral', required: true }), f({ name: 'whatever', required: true })], [], ctx);
+    expect(res.needsManual).toBeNull();
+    const by = (n: string) => res.plan.find((x) => x.field.name === n)!.value;
+    expect(by('job_title')).toBe('Co-founder');
+    expect(by('timeline')).toBe('Flexible');
+    expect(by('budget')).toBe('To be discussed');
+    expect(by('referral')).toBe('Direct outreach');
+    expect(by('whatever')).toBe('Partnership inquiry');
+  });
+
+  it('picks a real option for an unrecognised required select, preferring a neutral one, and never an address-like one', () => {
+    expect(defaultAnswerFor(f({ name: 'timeline', type: 'select', required: true, options: ['Select one', 'This week', 'Flexible', 'Next year'] }))).toBe('Flexible');
+    expect(defaultAnswerFor(f({ name: 'size', label: 'Company size', type: 'select', required: true, options: ['Choose', '1-10', '11-50'] }))).toBe('1-10');
+    expect(defaultAnswerFor(f({ name: 'hear', label: 'How did you hear about us', type: 'select', required: true, options: ['Select', 'Google', 'Other'] }))).toBe('Other');
+    expect(defaultAnswerFor(f({ name: 'state', type: 'select', required: true, options: ['Select', 'Texas', 'Ohio'] }))).toBeNull();
+    expect(defaultAnswerFor(f({ name: 'x', type: 'select', required: true, options: ['Select'] }))).toBeNull();
+  });
+
+  it('uses a real phone number only when one is configured, never an invented one', () => {
+    const withPhone = planFields([...basic, f({ name: 'phone', type: 'tel', required: true })], [], { ...ctx, phone: '+15551230000' });
+    expect(withPhone.needsManual).toBeNull();
+    expect(withPhone.plan.find((x) => x.field.name === 'phone')!.value).toBe('+15551230000');
+    expect(planFields([...basic, f({ name: 'phone', type: 'tel', required: true })], [], ctx).needsManual).toEqual({ reason: 'phone required' });
   });
 
   it('refuses a form with no message field', () => {
@@ -285,8 +330,8 @@ describe('eligibility and preflight', () => {
     expect(skipReason({ ...lead, hasContactForm: false }, new Set())).toBe('no contact form on the lead');
   });
 
-  it('sends known captchas and third-party embeds to a human without opening a browser', () => {
-    expect(preflightNeedsManual({ ...lead, staticCaptcha: true })).toBe('captcha');
+  it('sends third-party embeds to a human without opening a browser, but lets a statically flagged captcha page be tried', () => {
+    expect(preflightNeedsManual({ ...lead, staticCaptcha: true })).toBeNull(); // the crude discovery-time flag no longer stops an attempt; the live page decides
     expect(preflightNeedsManual({ ...lead, embedded: true })).toBe('third-party embedded form');
     expect(preflightNeedsManual(lead)).toBeNull();
   });
@@ -298,7 +343,20 @@ describe('caps and pacing', () => {
     expect(resolveDailyCap('nonsense')).toBe(DEFAULT_MAX_PER_DAY);
     expect(resolveDailyCap('3')).toBe(3);
     expect(resolveDailyCap('-5')).toBe(0);
-    expect(resolveDailyCap('9999')).toBe(50);
+    expect(resolveDailyCap('9999')).toBe(DAILY_CAP_CEILING);
+    expect(DAILY_CAP_CEILING).toBeGreaterThan(50);
+  });
+
+  it('reads the hourly cap and the pacing from settings', () => {
+    expect(resolveHourlyCap(undefined)).toBe(MAX_PER_HOUR);
+    expect(resolveHourlyCap('')).toBe(MAX_PER_HOUR);
+    expect(resolveHourlyCap('40')).toBe(40);
+    expect(resolveHourlyCap('0')).toBe(1);
+    const ledger = { ...emptyLedger(), hours: { [new Date().toISOString().slice(0, 13)]: 10 } };
+    expect(capBlock(ledger, 'a.com', 100)).toBe('hourly cap of 5 reached');
+    expect(capBlock(ledger, 'a.com', 100, new Date(), 40)).toBeNull();
+    expect(nextDelayMs(() => 0, 3000, 8000)).toBe(3000);
+    expect(nextDelayMs(() => 0.9999, 3000, 8000)).toBeLessThanOrEqual(8000);
   });
 
   it('blocks at the daily cap', () => {

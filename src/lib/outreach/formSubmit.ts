@@ -76,30 +76,79 @@ export function isWorkerEligible(status: FormOutreachStatus, auto = false): bool
  * Captcha / bot-challenge detection
  * ------------------------------------------------------------------ */
 
-// Widget markers (class names, script hosts, iframe sources) and the plain-text
-// prompts humans see. Anything matching means STOP -- we do not solve these.
-const CHALLENGE_MARKERS: { re: RegExp; label: string }[] = [
-  { re: /g-recaptcha|grecaptcha|recaptcha\/api|recaptcha\/enterprise|www\.google\.com\/recaptcha/i, label: 'recaptcha' },
-  { re: /h-captcha|hcaptcha\.com|js\.hcaptcha/i, label: 'hcaptcha' },
-  { re: /cf-turnstile|challenges\.cloudflare\.com|turnstile\/v0/i, label: 'turnstile' },
-  { re: /funcaptcha|arkoselabs|geetest|friendly-?challenge|altcha|mtcaptcha|keycaptcha|solvemedia/i, label: 'captcha widget' },
-  // Catch-all, substring on purpose: 'captcha_code', 'nocaptcha', 'captchaResponse'
-  // are all captchas. Erring towards needs_manual is the safe direction here.
-  { re: /captcha/i, label: 'captcha' },
+// Owner decision 2026-10-08: pages that merely LOAD a captcha script (invisible reCAPTCHA v3, a Cloudflare script, the word "captcha" in the
+// markup) are tried like any browser would try them; whatever fails or is unsure goes to the human's manual queue. What still stops an attempt
+// immediately is a visible, interactive challenge we could only pass by solving it. We never solve or bypass one: no solver service, no token
+// tricks, no stealth plugins.
+//
+// HARD (stop, reason 'captcha'): an explicit v2/hCaptcha widget container or checkbox iframe, or challenge wording a person would see.
+const HARD_WIDGETS: { re: RegExp; label: string }[] = [
+  { re: /<(?:div|span)\b[^>]*class=["'][^"']*\bg-recaptcha\b(?![^>]*data-size=["']invisible)/i, label: 'recaptcha widget' },
+  { re: /<(?:div|span)\b[^>]*class=["'][^"']*\bh-captcha\b(?![^>]*data-size=["']invisible)/i, label: 'hcaptcha widget' },
+  { re: /<iframe\b[^>]+src=["'][^"']*recaptcha\/api2\/anchor(?![^"']*size=invisible)[^"']*["']/i, label: 'recaptcha checkbox' },
+  { re: /<iframe\b[^>]+src=["'][^"']*hcaptcha\.com\/captcha(?![^"']*size=invisible)[^"']*["']/i, label: 'hcaptcha checkbox' },
+];
+
+// SOFT (noted, not a stop): script hosts and the catch-all word.
+const SOFT_MARKERS: { re: RegExp; label: string }[] = [
+  { re: /g-recaptcha|grecaptcha|recaptcha\/api|recaptcha\/enterprise|www\.google\.com\/recaptcha/i, label: 'recaptcha script' },
+  { re: /h-captcha|hcaptcha\.com|js\.hcaptcha/i, label: 'hcaptcha script' },
+  { re: /cf-turnstile|challenges\.cloudflare\.com|turnstile\/v0/i, label: 'turnstile script' },
+  { re: /funcaptcha|arkoselabs|geetest|friendly-?challenge|altcha|mtcaptcha|keycaptcha|solvemedia/i, label: 'captcha widget script' },
+  { re: /captcha/i, label: 'captcha word' },
 ];
 
 const CHALLENGE_TEXT = /verify (?:that )?you (?:are|'re) (?:a )?human|are you a human|prove you(?:'re| are) (?:not a robot|human)|i'?m not a robot|security check|bot protection|human verification|checking your browser/i;
 
 /**
- * Looks for any captcha or bot challenge in the rendered markup (page plus any
- * same-origin frames) and its visible text. Returns a short reason label, or
- * null when the form is clean. Honeypots are NOT challenges: a hidden decoy
- * field is simply left empty (see planFields).
+ * A visible, interactive challenge in the rendered page (page plus same-origin frames): a v2/hCaptcha widget or the wording a person sees.
+ * Returns a short reason label, or null. Honeypots are NOT challenges: a hidden decoy field is simply left empty (see planFields).
  */
 export function detectChallenge(markup: string, visibleText = ''): string | null {
-  for (const m of CHALLENGE_MARKERS) if (m.re.test(markup)) return m.label;
-  if (CHALLENGE_TEXT.test(visibleText) || CHALLENGE_TEXT.test(markup)) return 'bot challenge';
+  for (const m of HARD_WIDGETS) if (m.re.test(markup)) return m.label;
+  if (CHALLENGE_TEXT.test(visibleText)) return 'bot challenge';
   return null;
+}
+
+/** A captcha script or word that is NOT a stop; recorded on the attempt so the human sees why an unsure attempt was unsure. */
+export function detectSoftCaptcha(markup: string): string | null {
+  for (const m of SOFT_MARKERS) if (m.re.test(markup)) return m.label;
+  return null;
+}
+
+/* ------------------------------------------------------------------ *
+ * Neutral answers for required fields we do not recognise
+ * ------------------------------------------------------------------ */
+
+// Owner decision 2026-10-08: an unrecognised REQUIRED field is filled with a neutral, truthful placeholder instead of stopping the attempt.
+// Never made up: a phone number (a real one from OUTREACH_FORM_PHONE, else a human's job), addresses, postal codes, ids, numbers and dates.
+const DEFAULT_ANSWERS: { re: RegExp; text: string; prefer: RegExp[] }[] = [
+  { re: /job\s*title|\btitle\b|position|\brole\b/i, text: 'Co-founder', prefer: [/founder|owner|ceo|other/i] },
+  { re: /timeline|time\s*frame|timeframe|when .*(start|need)|urgency/i, text: 'Flexible', prefer: [/flexible|not sure|unsure|exploring|no rush|other/i] },
+  { re: /budget|spend|price range/i, text: 'To be discussed', prefer: [/to be discussed|not sure|unsure|other|flexible/i] },
+  { re: /referral|referred|how did you (?:hear|find)|where did you (?:hear|find)|\bsource\b|found us/i, text: 'Direct outreach', prefer: [/other|direct|search|web/i] },
+  { re: /solution|interest|service|product|topic|inquiry|enquiry|reason|looking for|how can we help/i, text: 'Voice AI partnership', prefer: [/partner|other|general|sales|voice|ai/i] },
+  { re: /employees|company size|team size|head\s*count|number of staff/i, text: '1-10', prefer: [/^\s*1\s*[-–]\s*10|1-9|2-10|1-5|small|less than 10|under 10/i] },
+  { re: /country/i, text: 'United States', prefer: [/united states|usa|^us$/i] },
+  { re: /volume|minutes|calls per|how many calls/i, text: 'To be discussed', prefer: [/not sure|unsure|other|to be discussed/i] },
+];
+const NEVER_INVENT = /address|street|city|state|province|zip|postal|post\s*code|\bid\b|number|date|birth|ssn|license|account|vat|tax/i;
+const PLACEHOLDER_OPTION = /^\s*$|^select|^choose|^please|^--|^pick/i;
+
+export function defaultAnswerFor(f: FieldDescriptor): string | null {
+  // job_title, patient_id, form_fields[budget]: separators become spaces so the word patterns see the words.
+  const h = haystack(f).replace(/[_\-.\[\]]+/g, ' ');
+  if (f.type === 'number' || f.type === 'date' || f.type === 'datetime-local' || f.type === 'time' || f.type === 'password' || f.type === 'file') return null;
+  const rule = DEFAULT_ANSWERS.find((r) => r.re.test(h));
+  if (f.type === 'select') {
+    const opts = (f.options ?? []).filter((o) => !PLACEHOLDER_OPTION.test(o));
+    if (!opts.length) return null;
+    if (rule) for (const p of rule.prefer) { const hit = opts.find((o) => p.test(o)); if (hit) return hit; }
+    const other = opts.find((o) => /^\s*other\b|not sure|unsure|prefer not/i.test(o));
+    return other ?? (NEVER_INVENT.test(h) ? null : opts[0]);
+  }
+  if (NEVER_INVENT.test(h) && !rule) return null;
+  return rule ? rule.text : 'Partnership inquiry';
 }
 
 /* ------------------------------------------------------------------ *
@@ -123,6 +172,8 @@ export interface FieldDescriptor {
   hidden?: boolean;
   /** Rendered-DOM only: the field's maxlength, when the page sets one. */
   maxLength?: number;
+  /** Rendered-DOM only: the visible option labels of a <select>. */
+  options?: string[];
 }
 
 export interface CheckboxDescriptor {
@@ -171,6 +222,8 @@ export interface MappingContext {
   lastName?: string;
   companyName?: string;
   websiteUrl?: string;
+  /** A real number we answer (OUTREACH_FORM_PHONE). Never made up: without it a required phone field is still a human's job. */
+  phone?: string;
 }
 
 export interface MappingResult {
@@ -266,9 +319,9 @@ export function planFields(
         value = ctx.email;
         break;
       case 'phone':
-        // Never invent a phone number. A required one is a human's job.
-        if (f.required && !f.hidden) phoneRequired = true;
-        value = null;
+        // Never invent a phone number: use the real one we answer (ctx.phone) or leave a required one to a human.
+        value = ctx.phone ?? null;
+        if (value === null && f.required && !f.hidden) phoneRequired = true;
         break;
       case 'first_name':
         value = firstName;
@@ -295,7 +348,10 @@ export function planFields(
         break;
       default:
         value = null;
-        if (f.required && !f.hidden) unknownRequired.push(f.name);
+        if (f.required && !f.hidden) {
+          value = defaultAnswerFor(f);
+          if (value === null) unknownRequired.push(f.name);
+        }
         break;
     }
     // A required select we have no answer for is also a human's job.
@@ -446,7 +502,7 @@ export function skipReason(lead: LeadEligibility, suppressedDomains: Set<string>
  * opening a browser at all.
  */
 export function preflightNeedsManual(lead: LeadEligibility): string | null {
-  if (lead.staticCaptcha) return 'captcha';
+  // staticCaptcha (the crude discovery-time flag: any captcha word or script) no longer stops an attempt: the live page decides (detectChallenge).
   if (lead.embedded) return 'third-party embedded form';
   return null;
 }
@@ -457,6 +513,8 @@ export function preflightNeedsManual(lead: LeadEligibility): string | null {
 
 export const DEFAULT_MAX_PER_DAY = 15;
 export const MAX_PER_HOUR = 5;
+/** Highest daily cap an environment setting may ask for. The owner lifted the old 50 on 2026-10-08 (no throttling wanted). */
+export const DAILY_CAP_CEILING = 1000;
 export const PER_DOMAIN_PER_DAY = 1;
 /** Consecutive failed/unconfirmed attempts that stop a run outright. */
 export const CIRCUIT_BREAKER_FAILURES = 5;
@@ -466,12 +524,19 @@ export const MAX_DELAY_MS = 40_000;
 export function resolveDailyCap(raw: string | undefined): number {
   const n = Number(raw);
   if (!Number.isFinite(n)) return DEFAULT_MAX_PER_DAY;
-  return Math.min(50, Math.max(0, Math.floor(n)));
+  return Math.min(DAILY_CAP_CEILING, Math.max(0, Math.floor(n)));
+}
+
+/** OUTREACH_FORM_SUBMIT_MAX_PER_HOUR; unset or invalid = MAX_PER_HOUR. */
+export function resolveHourlyCap(raw: string | undefined): number {
+  const n = Number(raw);
+  if (raw === undefined || raw === '' || !Number.isFinite(n)) return MAX_PER_HOUR;
+  return Math.min(DAILY_CAP_CEILING, Math.max(1, Math.floor(n)));
 }
 
 /** Random 20-40 s human-paced gap between submissions. */
-export function nextDelayMs(rand: () => number = Math.random): number {
-  return MIN_DELAY_MS + Math.floor(rand() * (MAX_DELAY_MS - MIN_DELAY_MS + 1));
+export function nextDelayMs(rand: () => number = Math.random, min = MIN_DELAY_MS, max = MAX_DELAY_MS): number {
+  return min + Math.floor(rand() * (Math.max(max, min) - min + 1));
 }
 
 export interface DayLedger {
@@ -504,10 +569,10 @@ export function rollLedger(ledger: DayLedger, now = new Date()): DayLedger {
     : { date, count: 0, domains: ledger.domains ?? {}, hours: {} };
 }
 
-export function capBlock(ledger: DayLedger, domain: string | null, cap: number, now = new Date()): string | null {
+export function capBlock(ledger: DayLedger, domain: string | null, cap: number, now = new Date(), hourCap = MAX_PER_HOUR): string | null {
   const rolled = rollLedger(ledger, now);
   if (rolled.count >= cap) return `daily cap of ${cap} reached`;
-  if ((rolled.hours?.[hourKey(now)] ?? 0) >= MAX_PER_HOUR) return `hourly cap of ${MAX_PER_HOUR} reached`;
+  if ((rolled.hours?.[hourKey(now)] ?? 0) >= hourCap) return `hourly cap of ${hourCap} reached`;
   const d = domain?.toLowerCase().replace(/^www\./, '');
   if (d && rolled.domains[d] === rolled.date) return 'already submitted to this domain today';
   return null;
