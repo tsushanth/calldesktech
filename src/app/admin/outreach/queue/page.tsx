@@ -62,10 +62,36 @@ interface WorkerRow {
   domain: string | null;
   page_url: string | null;
   reason: string | null;
+  outcome: 'submitted' | 'needs_manual' | 'failed';
   proof: 'page' | 'email';
   confirmed_by: string | null;
   screenshot: string | null;
+  /** Where the lead stands now (a human may have finished it since). */
+  lead_status: string | null;
 }
+
+interface WorkerCounts {
+  all: { attempts: number; delivered: number; needsManual: number; failed: number };
+  last24h: { attempts: number; delivered: number; needsManual: number; failed: number };
+  byEmail: number;
+}
+
+const WORKER_FILTERS = [
+  { key: 'all', label: 'All tried' },
+  { key: 'submitted', label: 'Delivered' },
+  { key: 'needs_manual', label: 'Needs you' },
+  { key: 'failed', label: 'Failed' },
+] as const;
+const NOW_LABEL: Record<string, string> = {
+  submitted: 'now: submitted',
+  ready: 'now: back with the worker',
+  needs_manual: 'now: needs manual',
+  queued: 'now: queued',
+  submitting: 'now: in flight',
+  failed: 'now: failed',
+  replied: 'now: replied',
+  skipped: 'now: skipped',
+};
 
 const verticalLabel = (product?: string | null) => (product === 'calldesk' ? 'Reseller / agency' : VERTICALS.find((v) => v.key && product === `calldesk:${v.key}`)?.label ?? null);
 
@@ -123,14 +149,15 @@ export default function OutreachQueuePage() {
   const [formStatus, setFormStatus] = useState<(typeof FORM_STATUSES)[number]>('ready');
   const [formCounts, setFormCounts] = useState<Record<string, number>>({});
   const [workerRows, setWorkerRows] = useState<WorkerRow[]>([]);
-  const [workerCounts, setWorkerCounts] = useState<{ total: number; last24h: number; byEmail: number; needHumanLast24h: number } | null>(null);
+  const [workerCounts, setWorkerCounts] = useState<WorkerCounts | null>(null);
+  const [workerFilter, setWorkerFilter] = useState<(typeof WORKER_FILTERS)[number]['key']>('all');
   const [preview, setPreview] = useState<{ subject: string; to: string; html: string; variant: string | null } | null>(null);
   const [edits, setEdits] = useState<Record<string, { subject: string; body_text: string }>>({});
 
   const refresh = useCallback(async () => {
     setLoading(true);
     if (tab === 'worker') {
-      const wr = await fetch('/api/admin/outreach/worker');
+      const wr = await fetch(`/api/admin/outreach/worker?outcome=${workerFilter}`);
       if (wr.ok) {
         const wb = await wr.json();
         setWorkerRows(wb.rows ?? []);
@@ -159,7 +186,7 @@ export default function OutreachQueuePage() {
       setQuota({ sentToday: body.sentToday, cap: body.cap, resets: body.resets });
     }
     setLoading(false);
-  }, [tab, product, vertical, formVertical, formStatus]);
+  }, [tab, product, vertical, formVertical, formStatus, workerFilter]);
 
   useEffect(() => {
     // Fetch-on-mount/tab-change, not a render-loop risk (refresh only re-runs when tab/product change).
@@ -272,29 +299,44 @@ export default function OutreachQueuePage() {
       {tab === 'worker' && (
         <>
           <p className="rounded-lg border border-gray-200 bg-white px-4 py-2 text-[13px] text-gray-700" data-testid="worker-counts">
-            Delivered by the worker: {workerCounts?.total ?? 0} · last 24 h: {workerCounts?.last24h ?? 0} · confirmed by the company&apos;s auto-reply: {workerCounts?.byEmail ?? 0}
-            {workerCounts && workerCounts.needHumanLast24h > 0 ? ` · tried in the last 24 h and left for you: ${workerCounts.needHumanLast24h} (see the forms tab, needs manual)` : ''}
+            Tried by the worker: {workerCounts?.all.attempts ?? 0} (last 24 h: {workerCounts?.last24h.attempts ?? 0}) · delivered {workerCounts?.all.delivered ?? 0}
+            {' '}(by the company&apos;s auto-reply: {workerCounts?.byEmail ?? 0}) · needs you {workerCounts?.all.needsManual ?? 0} · failed {workerCounts?.all.failed ?? 0}
           </p>
+          <div className="flex flex-wrap gap-1">
+            {WORKER_FILTERS.map((f) => {
+              const n = !workerCounts ? 0 : f.key === 'all' ? workerCounts.all.attempts : f.key === 'submitted' ? workerCounts.all.delivered : f.key === 'needs_manual' ? workerCounts.all.needsManual : workerCounts.all.failed;
+              return (
+                <button key={f.key} onClick={() => setWorkerFilter(f.key)} className={`rounded-lg px-3 py-1 text-[12.5px] font-medium ${workerFilter === f.key ? 'bg-blue-50 text-blue-600' : 'text-gray-500 hover:bg-gray-100'}`}>
+                  {f.label}
+                  {n ? <span className="ml-1 text-gray-400">{n}</span> : null}
+                </button>
+              );
+            })}
+          </div>
           <p className="text-[13px] text-gray-500">
-            Forms the worker sent on its own. &quot;Page confirmed&quot; means the site showed a confirmation after sending; &quot;auto-reply&quot; means the company&apos;s own email arrived at outreach@. Nothing here needs you.
+            Every attempt, newest first. &quot;Delivered&quot; = the site showed a confirmation, or the company&apos;s own auto-reply reached outreach@. &quot;Needs you&quot; and &quot;Failed&quot; carry the reason; finish those in the forms tab (needs manual). The grey badge is where the lead stands now.
           </p>
-          {!loading && workerRows.length === 0 && <p className="text-gray-400">The worker has not delivered a form yet.</p>}
+          {!loading && workerRows.length === 0 && <p className="text-gray-400">Nothing here yet.</p>}
           {workerRows.map((r) => (
-            <div key={r.id} className="flex flex-wrap items-baseline justify-between gap-2 rounded-xl border border-gray-200 bg-white px-4 py-3">
-              <div className="min-w-0">
-                <p className="text-[14px] font-semibold">
-                  {r.company_name ?? r.domain}
-                  <span className="ml-2 rounded-full bg-gray-100 px-2 py-0.5 text-[11px] font-medium text-gray-600">{verticalLabel(r.product) ?? 'Reseller / agency'}</span>
-                  <span className={`ml-2 rounded-full px-2 py-0.5 text-[11px] font-medium ${r.proof === 'email' ? 'bg-blue-50 text-blue-700' : 'bg-green-50 text-green-700'}`}>
-                    {r.proof === 'email' ? 'auto-reply received' : 'page confirmed'}
-                  </span>
-                </p>
-                <p className="text-[12px] text-gray-400">
-                  {new Date(r.created_at).toLocaleString()} · {r.domain}
-                  {r.page_url && <> · <a href={r.page_url} target="_blank" rel="noreferrer" className="text-blue-600 hover:underline">form page</a></>}
-                </p>
-                {r.confirmed_by && <p className="text-[12px] text-gray-500">{r.confirmed_by}</p>}
-              </div>
+            <div key={r.id} className="rounded-xl border border-gray-200 bg-white px-4 py-3">
+              <p className="text-[14px] font-semibold">
+                {r.company_name ?? r.domain}
+                <span className="ml-2 rounded-full bg-gray-100 px-2 py-0.5 text-[11px] font-medium text-gray-600">{verticalLabel(r.product) ?? 'Reseller / agency'}</span>
+                <span className={`ml-2 rounded-full px-2 py-0.5 text-[11px] font-medium ${
+                  r.outcome === 'submitted' ? (r.proof === 'email' ? 'bg-blue-50 text-blue-700' : 'bg-green-50 text-green-700')
+                  : r.outcome === 'failed' ? 'bg-red-50 text-red-700'
+                  : 'bg-amber-50 text-amber-700'}`}>
+                  {r.outcome === 'submitted' ? (r.proof === 'email' ? 'delivered, auto-reply received' : 'delivered, page confirmed') : r.outcome === 'failed' ? 'failed' : 'needs you'}
+                </span>
+                {r.lead_status && <span className="ml-2 rounded-full bg-gray-50 px-2 py-0.5 text-[11px] font-medium text-gray-500">{NOW_LABEL[r.lead_status] ?? `now: ${r.lead_status}`}</span>}
+              </p>
+              <p className="text-[12px] text-gray-400">
+                {new Date(r.created_at).toLocaleString()} · {r.domain}
+                {r.page_url && <> · <a href={r.page_url} target="_blank" rel="noreferrer" className="text-blue-600 hover:underline">form page</a></>}
+              </p>
+              {r.outcome !== 'submitted' && r.reason && <p className="mt-1 text-[12.5px] text-amber-700">{r.reason}</p>}
+              {r.outcome !== 'submitted' && r.lead_status === 'submitted' && <p className="mt-1 text-[12px] text-gray-500">Since marked submitted.</p>}
+              {r.confirmed_by && <p className="mt-1 text-[12px] text-gray-500">{r.confirmed_by}</p>}
             </div>
           ))}
         </>
