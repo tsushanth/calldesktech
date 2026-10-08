@@ -90,7 +90,6 @@ const FORM_STATUS_LABELS: Record<(typeof FORM_STATUSES)[number], string> = {
   skipped: 'skipped',
 };
 
-const SUBMIT_CONFIRM = "This will fill and submit the practice's contact form with this message.";
 
 export default function OutreachQueuePage() {
   const [tab, setTab] = useState<(typeof TABS)[number]>('draft');
@@ -181,18 +180,6 @@ export default function OutreachQueuePage() {
 
   const markForm = (id: string, status: string) => patchForm(id, { status }, `Marked ${status}.`);
 
-  // The ONLY way a lead reaches the worker. The confirm dialog is deliberate: this
-  // sends a real message to a real practice through their own form.
-  const submitForMe = (id: string) => {
-    if (!window.confirm(SUBMIT_CONFIRM)) return;
-    return patchForm(id, { action: 'queue' }, 'Queued. The form worker will submit it on its next pass.');
-  };
-
-  const retryForm = (id: string) => {
-    if (!window.confirm(SUBMIT_CONFIRM)) return;
-    return patchForm(id, { action: 'retry' }, 'Re-queued for another attempt.');
-  };
-
   const patch = (id: string, payload: object) =>
     fetch(`/api/admin/outreach/messages/${id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
 
@@ -247,14 +234,12 @@ export default function OutreachQueuePage() {
       {tab === 'forms' && (
         <>
           <p className="rounded-lg border border-gray-200 bg-white px-4 py-2 text-[13px] text-gray-700">
-            Submitted today: {formCounts.submittedToday ?? 0} · needs manual: {formCounts.needs_manual ?? 0} · queued: {formCounts.queued ?? 0}
-            {formCounts.submitting ? ` · in flight: ${formCounts.submitting}` : ''}
+            Submitted today: {formCounts.submittedToday ?? 0} · needs manual: {formCounts.needs_manual ?? 0}
             {formCounts.failed ? ` · failed: ${formCounts.failed}` : ''}
           </p>
           <p className="text-[13px] text-gray-500">
-            Practices with no public email. <strong>Submit for me</strong> hands one lead to the form worker on the mini, which fills and
-            submits that practice&apos;s own form once. Nothing is submitted until you click it. Anything with a captcha, an unrecognised
-            form, or an unconfirmed result lands in <em>needs manual</em> for you to finish by hand.
+            Companies with no public email. For each one: <strong>Copy message</strong>, open the form link, paste it, send it yourself, then mark it
+            <em> submitted</em>. Nothing is sent automatically.
           </p>
         </>
       )}
@@ -311,24 +296,6 @@ export default function OutreachQueuePage() {
               >
                 Copy message
               </button>
-              {fo.status === 'ready' && !cf.captcha && cf.method !== 'embedded' && (cf.fields?.length ?? 0) > 0 && (
-                <button
-                  disabled={busy === l.id}
-                  onClick={() => submitForMe(l.id)}
-                  className="rounded-lg bg-blue-600 px-3 py-1.5 text-[13px] font-medium text-white hover:bg-blue-700 disabled:opacity-50"
-                >
-                  Submit for me
-                </button>
-              )}
-              {(fo.status === 'failed' || fo.status === 'needs_manual') && (
-                <button
-                  disabled={busy === l.id}
-                  onClick={() => retryForm(l.id)}
-                  className="rounded-lg border border-blue-300 px-3 py-1.5 text-[13px] font-medium text-blue-700 hover:bg-blue-50 disabled:opacity-50"
-                >
-                  Retry with the worker
-                </button>
-              )}
               {(fo.status === 'ready' || fo.status === 'needs_manual' || fo.status === 'failed') && (
                 <button disabled={busy === l.id} onClick={() => markForm(l.id, 'submitted')} className="rounded-lg border border-gray-300 px-3 py-1.5 text-[13px] font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50">Mark submitted</button>
               )}
