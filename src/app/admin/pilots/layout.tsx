@@ -1,10 +1,9 @@
-import { redirect } from 'next/navigation';
-import { requireAdminSession } from '@/lib/outreach/adminAuth';
+import { adminGate, AdminDenied } from '@/lib/outreach/adminGate';
 
 // Server-side gate for /admin/pilots and its detail pages, same as /admin/usage.
 export default async function AdminPilotsLayout({ children }: { children: React.ReactNode }) {
-  const admin = await requireAdminSession();
-  if (!admin) redirect('/auth/signin?callbackUrl=/admin/pilots');
+  const gate = await adminGate('/admin/pilots');
+  if ('deniedFor' in gate) return <AdminDenied email={gate.deniedFor} />;
   return (
     <div className="min-h-screen bg-[#f7f8fa] text-[#1a1d29]">
       <div className="border-b border-gray-200 bg-white px-6 py-4">

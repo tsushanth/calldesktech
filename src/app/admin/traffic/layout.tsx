@@ -1,9 +1,8 @@
-import { redirect } from 'next/navigation';
-import { requireAdminSession } from '@/lib/outreach/adminAuth';
+import { adminGate, AdminDenied } from '@/lib/outreach/adminGate';
 
 export default async function AdminTrafficLayout({ children }: { children: React.ReactNode }) {
-  const admin = await requireAdminSession();
-  if (!admin) redirect('/auth/signin?callbackUrl=/admin/traffic');
+  const gate = await adminGate('/admin/traffic');
+  if ('deniedFor' in gate) return <AdminDenied email={gate.deniedFor} />;
   return (
     <div className="min-h-screen bg-[#f7f8fa] text-[#1a1d29]">
       <div className="border-b border-gray-200 bg-white px-6 py-4">
