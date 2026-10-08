@@ -39,6 +39,7 @@ export async function GET(request: NextRequest) {
   }
   const vertical = request.nextUrl.searchParams.get('vertical') || '';
   const supabase = getSupabaseAdmin();
+  const countsPromise = statusCounts(supabase, vertical);
   const results = await Promise.all(scopes(vertical).map((narrow) => narrow(
     supabase
       .from('calldesk_outreach_leads')
@@ -54,7 +55,7 @@ export async function GET(request: NextRequest) {
   if (failed) return NextResponse.json({ error: (failed as any).error.message }, { status: 500 });
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const leads = results.flatMap((r: any) => r.data ?? []).sort((x: any, y: any) => (y.score ?? 0) - (x.score ?? 0)).slice(0, 100);
-  return NextResponse.json({ leads, counts: await statusCounts(supabase, vertical) });
+  return NextResponse.json({ leads, counts: await countsPromise });
 }
 
 // A small summary line for the forms tab: how many are waiting on a human, how many went out today.
