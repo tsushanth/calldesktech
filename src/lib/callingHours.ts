@@ -36,7 +36,15 @@ export const STATE_ZONES: Record<string, string[]> = {
   // is, so it is held to the window that is lawful on every continental US and Canadian coast at once (Eastern and
   // Pacific, 9:00 start, so roughly noon to 9 PM Eastern).
   TF: ['America/New_York', 'America/Los_Angeles'],
+  // International leads (see intlCalling.ts): one key per local clock, held to business hours, 9:00 to 17:00 Monday to Friday.
+  'AU-SYD': ['Australia/Sydney'], 'AU-BNE': ['Australia/Brisbane'], 'AU-ADL': ['Australia/Adelaide'], 'AU-PER': ['Australia/Perth'],
+  'NZ-AKL': ['Pacific/Auckland'], 'SG-SIN': ['Asia/Singapore'], 'GB-LON': ['Europe/London'], 'IN-IST': ['Asia/Kolkata'], 'IE-DUB': ['Europe/Dublin'],
 };
+
+// Keys above that are not US states or Canadian provinces: a business-hours window instead of the US/Canada one.
+export const INTL_STATES = new Set(['AU-SYD', 'AU-BNE', 'AU-ADL', 'AU-PER', 'NZ-AKL', 'SG-SIN', 'GB-LON', 'IN-IST', 'IE-DUB']);
+const INTL_START_HOUR = 9;
+const INTL_END_HOUR = 17; // exclusive
 
 // Canada's telemarketing rules start the calling day at 9:00 local time; the US window starts at 8:00.
 const CANADA = new Set(['ON', 'QC', 'BC', 'AB', 'SK', 'MB', 'NS', 'NB', 'PE', 'NL', 'TF']);
@@ -61,8 +69,9 @@ export function checkCallingHours(state: string | null | undefined, now: Date = 
   for (const zone of zones) {
     const { weekday, minutes } = localParts(zone, now);
     if (weekday === 'Sat' || weekday === 'Sun') return { ok: false, reason: 'weekend' };
-    if (minutes < (CANADA.has(state as string) ? 9 : CALL_START_HOUR) * 60) return { ok: false, reason: 'too_early' };
-    if (minutes >= CALL_END_HOUR * 60) return { ok: false, reason: 'too_late' };
+    const intl = INTL_STATES.has(state as string);
+    if (minutes < (intl ? INTL_START_HOUR : CANADA.has(state as string) ? 9 : CALL_START_HOUR) * 60) return { ok: false, reason: 'too_early' };
+    if (minutes >= (intl ? INTL_END_HOUR : CALL_END_HOUR) * 60) return { ok: false, reason: 'too_late' };
   }
   return { ok: true };
 }

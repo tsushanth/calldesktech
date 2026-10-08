@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/supabase';
 import { verifyTwilioSignature } from '@/lib/webhookAuth';
-import { buildDialTwiml, buildRejectTwiml, decideDial, normalizeNanp, parseTestNumbers, sipUser } from '@/lib/outboundCalling';
+import { buildDialTwiml, buildRejectTwiml, decideDial, normalizeDialable, parseTestNumbers, sipUser } from '@/lib/outboundCalling';
 import { batchDateEastern, checkCallingHours, startOfEasternDay } from '@/lib/callingHours';
 import { pickPoolNumber, type PoolNumber } from '@/lib/outboundNumbers';
 
@@ -43,7 +43,7 @@ export async function POST(request: NextRequest) {
   const callSid = params.CallSid || null;
   const username = sipUser(params.From || '');
   const dialed = sipUser(params.To || '') ?? params.To ?? null;
-  const toE164 = dialed ? normalizeNanp(dialed) : null;
+  const toE164 = dialed ? normalizeDialable(dialed) : null;
 
   const supabase = getSupabaseAdmin();
   const caller = username

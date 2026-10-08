@@ -1,4 +1,5 @@
 import type { HoursCheck } from '@/lib/callingHours';
+import { intlCallCountries, normalizeIntl } from '@/lib/intlCalling';
 
 // Pure helpers for the human-caller softphone route (/api/twilio/outbound-voice). No I/O so the
 // decisions that matter (what number is being dialed, who is dialing, what TwiML goes back) are unit tested.
@@ -18,6 +19,12 @@ export function normalizeNanp(raw: string): string | null {
   if (!NANP.test(e164)) return null;
   if (BLOCKED_AREA_CODES.has(e164.slice(2, 5))) return null;
   return e164;
+}
+
+// What the sales line may dial: a US/Canada number, or an international number in a country listed in
+// INTL_CALL_COUNTRIES (empty by default, so nothing changes until a country is switched on).
+export function normalizeDialable(raw: string, allowed: Set<string> = intlCallCountries()): string | null {
+  return normalizeNanp(raw) ?? normalizeIntl(raw, allowed)?.e164 ?? null;
 }
 
 // Numbers callers may dial for setup and test calls (the supervisor's own phone): they bypass the
@@ -108,7 +115,7 @@ export function decideDial(i: DialDecisionInput): DialDecision {
   if (!i.sipUsername || !i.caller || !i.caller.enabled) {
     return { ok: false, reason: 'unknown_or_disabled_caller', spoken: 'This line is not set up. Please contact your supervisor.' };
   }
-  const to = i.to ? normalizeNanp(i.to) : null;
+  const to = i.to ? normalizeDialable(i.to) : null;
   if (!to) {
     return { ok: false, reason: 'invalid_number', spoken: 'That number cannot be dialed from this line.' };
   }

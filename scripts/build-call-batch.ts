@@ -13,6 +13,9 @@
 // not flagged as a personal/home line by the registry loaders, not on the do-not-call list, and not already
 // in an earlier batch. Products are taken in the order given, so freight fills a batch first and the next
 // product tops it up. No lead is assigned to two callers the same day.
+//
+// International (INTL_CALL_COUNTRIES=AU,GB,... , empty = off): leads held for a country in that list (signals.intlHold.country) are
+// batched for CALLING only, on their own local business hours (9 to 17, Mon to Fri). The hold still stops email and drafting.
 
 import { getSupabaseAdmin } from '@/lib/supabase';
 import { normalizeNanp } from '@/lib/outboundCalling';
@@ -20,11 +23,13 @@ import { stateFromLocation, batchDateEastern, STATE_ZONES } from '@/lib/callingH
 import { stateFromPhone } from '@/lib/areaCodeState';
 import { isPlatformDomain } from '@/lib/outreach/platformBlocklist';
 import { selectRetries, dealWithQuotas, orderWithRetries, type PreviousRow } from '@/lib/batchPlanning';
+import { intlCallCountries, intlState, normalizeIntl } from '@/lib/intlCalling';
 
 const CALLERS = (process.env.CALLERS || 'mary,mark').split(',').map((s) => s.trim()).filter(Boolean);
 const PER = Math.max(1, Number(process.env.PER) || 100);
 const PRODUCTS = (process.env.PRODUCTS || 'calldesk:freight,calldesk:insurance').split(',').map((s) => s.trim()).filter(Boolean);
 const COMMIT = process.env.COMMIT === '1';
+const INTL = intlCallCountries();
 // Optional: only batch leads in these US states, e.g. STATES=TX (a one-state pilot).
 const STATES = (process.env.STATES || '').split(',').map((s) => s.trim().toUpperCase()).filter(Boolean);
 
@@ -52,7 +57,7 @@ function shuffle<T>(arr: T[], rand: () => number): T[] {
   return a;
 }
 
-type Lead = { id: string; company_name: string; domain?: string | null; phone: string; location: string | null; product: string; signals: Record<string, unknown> | null };
+type Lead = { id: string; company_name: string; domain?: string | null; phone: string; location: string | null; product: string; signals: Record<string, unknown> | null; region_blocked?: boolean };
 // lead_id is nullable in the table (a retry's lead may since have been deleted), so fresh and retry rows share this shape.
 type BatchEntry = { lead_id: string | null; phone: string; company_name: string; state: string | null; attempt: number; hourET: number | null | undefined };
 type Candidate = { lead_id: string; phone: string; company_name: string; state: string; product: string };
@@ -134,16 +139,44 @@ async function main() {
     for (let off = 0; ; off += 1000) {
       const { data, error } = await db
         .from('calldesk_outreach_leads')
-        .select('id, company_name, phone, location, product, signals, domain')
+        .select('id, company_name, phone, location, product, signals, domain, region_blocked')
         .eq('product', product).eq('region_blocked', false).neq('status', 'dead').not('phone', 'is', null)
         .order('id').range(off, off + 999);
       if (error) throw new Error(`${product}: ${error.message}`);
       leads.push(...((data ?? []) as Lead[]));
       if (!data || data.length < 1000) break;
     }
+    // International leads held for a country that is switched on for calling.
+    if (INTL.size) {
+      for (let off = 0; ; off += 1000) {
+        const { data, error } = await db
+          .from('calldesk_outreach_leads')
+          .select('id, company_name, phone, location, product, signals, domain, region_blocked')
+          .eq('product', product).eq('region_blocked', true).neq('status', 'dead').not('phone', 'is', null)
+          .in('signals->intlHold->>country', [...INTL])
+          .order('id').range(off, off + 999);
+        if (error) throw new Error(`${product} (international): ${error.message}`);
+        leads.push(...((data ?? []) as Lead[]));
+        if (!data || data.length < 1000) break;
+      }
+    }
     const eligible: Candidate[] = [];
     for (const l of leads) {
       if (isPlatformDomain(l.domain)) continue;
+      if (l.region_blocked) {
+        // Held international lead, callable because its country is switched on: the number must be a callable line in
+        // THAT country, and the state is the local clock (the lead's city for Australia).
+        const hold = (l.signals as { intlHold?: { country?: string } } | null)?.intlHold?.country ?? '';
+        const intl = normalizeIntl(l.phone, INTL);
+        const dead = (l.signals as { registry?: { callerPhoneExcluded?: string } } | null)?.registry?.callerPhoneExcluded;
+        if (!intl || intl.iso !== hold || dead || dnc.has(intl.e164) || used.has(intl.e164) || seen.has(intl.e164)) continue;
+        if (lookups.get(intl.e164)?.valid === false) continue;
+        const st = intlState(intl.iso, l.location);
+        if (!st || (STATES.length && !STATES.includes(intl.iso))) continue;
+        seen.add(intl.e164);
+        eligible.push({ lead_id: l.id, phone: intl.e164, company_name: l.company_name, state: st, product });
+        continue;
+      }
       const phone = normalizeNanp(l.phone);
       // No state in the location (most web-search leads): read it from the area code, but only for a lead whose
       // own website check says it serves the US or Canada (signals.callRegion). Where the business is based does
