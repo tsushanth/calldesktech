@@ -19,6 +19,7 @@ import {
   emailAddressPart,
   emptyLedger,
   isNonUsCaCountryDomain,
+  isNonUsCaLead,
   isWorkerEligible,
   nextDelayMs,
   planFields,
@@ -488,5 +489,23 @@ describe('isNonUsCaCountryDomain (vertical outreach is US and Canada only)', () 
   });
   it('lets US, Canadian, generic and widely used ccTLD domains through', () => {
     for (const d of ['thekidsplaceinc.com', 'clinic.org', 'x.net', 'a.us', 'b.ca', 'app.io', 'voice.ai', 'brand.co', 'x.me', null, '']) expect(isNonUsCaCountryDomain(d as string)).toBe(false);
+  });
+});
+
+
+describe('isNonUsCaLead (the real leads that slipped past the domain check)', () => {
+  it('flags UK care agencies on plain .com domains by their location and CQC source', () => {
+    expect(isNonUsCaLead({ domain: 'valleywoodcare.com', location: 'Crewe, GB', sourceKey: 'homecare:gb-cqc:1-1066318846' })).toBe(true);
+    expect(isNonUsCaLead({ domain: 'kmlkare.com', location: 'Wallsend, GB' })).toBe(true);
+    expect(isNonUsCaLead({ domain: 'x.com', sourceKey: 'homecare:gb-cqc:1-1' })).toBe(true);
+    expect(isNonUsCaLead({ domain: 'care.co.uk' })).toBe(true);
+  });
+  it('lets US and Canadian leads through, including states and provinces that look like country codes', () => {
+    expect(isNonUsCaLead({ domain: 'ateddybearslearningchildcarepreschool.com', location: 'Laveen, AZ', sourceKey: 'childcare:az:SGH-17816' })).toBe(false);
+    for (const loc of ['Atlanta, GA', 'Chicago, IL', 'Dover, DE', 'Indianapolis, IN', 'Los Angeles, CA', 'Little Rock, AR', 'Toronto, ON', "St. John's, NL", 'Calgary, AB']) {
+      expect(isNonUsCaLead({ domain: 'a.com', location: loc })).toBe(false);
+    }
+    expect(isNonUsCaLead({ domain: 'a.com', location: null, sourceKey: null })).toBe(false);
+    expect(isNonUsCaLead({ domain: 'a.com', sourceKey: 'dental:us-npi:123' })).toBe(false);
   });
 });

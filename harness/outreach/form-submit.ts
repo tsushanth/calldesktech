@@ -8,7 +8,7 @@ import {
   CircuitBreaker,
   capBlock,
   domainOfEmail,
-  isNonUsCaCountryDomain,
+  isNonUsCaLead,
   emptyLedger,
   nextDelayMs,
   preflightNeedsManual,
@@ -66,6 +66,8 @@ interface LeadRow {
   score: number | null;
   product: string | null;
   contact_source_url: string | null;
+  location: string | null;
+  source_key: string | null;
   region_blocked: boolean | null;
   replied_at: string | null;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -159,7 +161,7 @@ async function main(): Promise<number> {
   // OUTREACH_FORM_SCOPE: 'reseller' = the plain 'calldesk' product (agencies and platforms; includes leads whose form was entered by hand and has no
   // stored fields, the worker reads the live page), 'verticals' = 'calldesk:<vertical>' leads, unset = every product, form_only leads only (the old rule).
   const scope = (process.env.OUTREACH_FORM_SCOPE || '').trim().toLowerCase();
-  let q = db.from(leadsTable(product)).select('id, company_name, domain, score, product, contact_source_url, region_blocked, replied_at, signals')
+  let q = db.from(leadsTable(product)).select('id, company_name, domain, score, product, location, source_key, contact_source_url, region_blocked, replied_at, signals')
     .in('signals->formOutreach->>status', auto ? ['queued', 'ready'] : ['queued']);
   if (scope === 'reseller') q = q.eq('product', 'calldesk');
   else if (scope === 'verticals') q = q.like('product', 'calldesk:%').eq('contact_status', 'form_only');
@@ -208,7 +210,7 @@ async function main(): Promise<number> {
       }
 
       // Vertical leads are for US and Canadian businesses (current policy); older leads from other countries are left alone for a human.
-      if (lead.product?.startsWith('calldesk:') && process.env.ALLOW_INTL_FORMS !== '1' && isNonUsCaCountryDomain(lead.domain)) {
+      if (lead.product?.startsWith('calldesk:') && process.env.ALLOW_INTL_FORMS !== '1' && isNonUsCaLead({ domain: lead.domain, location: lead.location, sourceKey: lead.source_key })) {
         const why = 'outside the US and Canada (current outreach policy)';
         log(`skip ${lead.company_name}: ${why}`);
         summary.skipped++;

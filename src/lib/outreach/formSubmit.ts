@@ -497,12 +497,32 @@ export function skipReason(lead: LeadEligibility, suppressedDomains: Set<string>
 }
 
 // Current policy (2026-10-08, see the registry country gate): outreach to vertical leads is for US and Canadian businesses only. Leads that
-// predate it (UK care agencies from the CQC register, for one) are skipped by the form worker. Country-code domains that are used worldwide as
-// ordinary web addresses (.io, .ai, .co ...) are not treated as a country. ALLOW_INTL_FORMS=1 lifts it.
+// predate it (UK care agencies from the CQC register, for one) are skipped by the form worker. The domain alone is NOT enough (a UK care agency
+// is often on a plain .com), so the lead's own recorded location and source count too. ALLOW_INTL_FORMS=1 lifts it.
 const GENERIC_CCTLDS = new Set(['io', 'ai', 'co', 'me', 'tv', 'cc', 'ly', 'gg', 'so', 'to', 'sh', 'fm', 'ws', 'app', 'dev']);
+// Country codes that cannot be mistaken for a US state or Canadian province (no AR, DE, IN, CA, GA, NL ...).
+const FOREIGN_LOCATION_CODES = new Set(['GB', 'UK', 'AU', 'NZ', 'IE', 'NO', 'SE', 'DK', 'FI', 'BE', 'CH', 'AT', 'PL', 'PT', 'ES', 'IT', 'JP', 'KR', 'CN', 'SG', 'ZA', 'AE', 'IS', 'LU', 'CZ', 'GR', 'HU', 'RO', 'TR', 'BR', 'MX', 'HK', 'TW', 'TH', 'MY', 'PH']);
+
 export function isNonUsCaCountryDomain(domain: string | null | undefined): boolean {
   const tld = (domain || '').toLowerCase().replace(/^www\./, '').split('.').pop() || '';
   return tld.length === 2 && tld !== 'us' && tld !== 'ca' && !GENERIC_CCTLDS.has(tld);
+}
+
+export interface CountryEvidence {
+  domain?: string | null;
+  /** The lead's location, e.g. "Crewe, GB" or "Laveen, AZ". */
+  location?: string | null;
+  /** The lead's source key, e.g. "homecare:gb-cqc:1-1066318846" or "childcare:az:SGH-17816". */
+  sourceKey?: string | null;
+}
+
+/** True when anything the lead records says it is outside the US and Canada: its domain's country code, a foreign country code on its location, or a country-prefixed source such as gb-cqc. */
+export function isNonUsCaLead(e: CountryEvidence): boolean {
+  if (isNonUsCaCountryDomain(e.domain)) return true;
+  const code = /,\s*([A-Za-z]{2})\s*$/.exec(e.location || '')?.[1]?.toUpperCase();
+  if (code && FOREIGN_LOCATION_CODES.has(code)) return true;
+  const src = /^[a-z0-9_-]+:([a-z]{2})-/i.exec(e.sourceKey || '')?.[1]?.toLowerCase();
+  return !!src && src !== 'us' && src !== 'ca';
 }
 
 /**
