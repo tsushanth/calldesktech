@@ -25,6 +25,13 @@ const BASIC_FIELDS = `
   <input type="text" name="hp_trap" style="display:none">
   <button type="submit">Send</button>`;
 
+const SUCCESS = `<script>
+      document.getElementById('contact').addEventListener('submit', (e) => {
+        e.preventDefault();
+        document.body.insertAdjacentHTML('beforeend', '<div class="form-success">Your message has been sent.</div>');
+      });
+    </script>`;
+
 // Each route is one scenario the worker has to get right.
 const ROUTES: Record<string, string> = {
   '/thanks': page(BASIC_FIELDS, '<p>Thank you, your message has been sent.</p>'),
@@ -48,6 +55,16 @@ const ROUTES: Record<string, string> = {
   '/phone': page(BASIC_FIELDS.replace('<textarea', '<input name="phone" type="tel" required><textarea')),
   // Required marketing opt-in.
   '/marketing': page(`${BASIC_FIELDS}<label><input type="checkbox" name="mk" required> Send me your newsletter</label>`),
+  // Owner decision 2026-10-08: a page that only LOADS an invisible captcha script is tried, not stopped.
+  '/v3': page(BASIC_FIELDS, `<script src="https://www.google.com/recaptcha/enterprise.js?render=KEY" async></script><!-- captcha -->${SUCCESS}`),
+  // A 300-character box: the full draft does not fit, the short version does.
+  '/limit': page(BASIC_FIELDS.replace('<textarea', '<textarea maxlength="300"'), SUCCESS),
+  // Styled consent box: the real input is invisible behind its label.
+  '/hiddenconsent': page(`${BASIC_FIELDS}<input type="checkbox" id="pp" name="pp" required style="position:absolute;opacity:0;width:1px;height:1px"><label for="pp">I agree to the privacy policy</label>`, SUCCESS),
+  // A transparent overlay swallows normal clicks on the button; the form's own submit still works.
+  '/covered': page(BASIC_FIELDS, `<div style="position:fixed;inset:0;z-index:99;background:transparent"></div>${SUCCESS}`),
+  // Extra required fields we do not recognise: neutral answers.
+  '/extras': page(`${BASIC_FIELDS.replace('<button', '<label for="jt">Job title</label><input id="jt" name="job_title" required><label for="tl">Timeline</label><select id="tl" name="timeline" required><option value="">Select one</option><option>This week</option><option>Flexible</option></select><button')}`, SUCCESS),
   // Required privacy consent: tickable.
   '/consent': page(`${BASIC_FIELDS}<label><input type="checkbox" name="pp" required> I agree to the privacy policy</label>`, `<script>
       document.getElementById('contact').addEventListener('submit', (e) => {
@@ -86,7 +103,7 @@ afterAll(async () => {
   await new Promise<void>((r) => server.close(() => r()));
 });
 
-async function run(path: string) {
+async function run(path: string, over: Record<string, unknown> = {}) {
   const context = await browser!.newContext();
   const p = await context.newPage();
   await p.goto(`${origin}${path}`, { waitUntil: 'load' });
@@ -98,6 +115,7 @@ async function run(path: string) {
     screenshotDir: join(shotDir, path.replace(/\//g, '_')),
     // Screenshots are exercised, but written to a temp dir rather than ~/.calldesk-forms.
     screenshot: async () => undefined,
+    ...over,
   });
   await context.close();
   return result;
@@ -136,6 +154,35 @@ describe.runIf(process.env.VITEST_SKIP_BROWSER !== '1')('submitOnPage (real Chro
     if (!browser) return;
     const r = await run('/captcha');
     expect(r.outcome).toEqual({ status: 'needs_manual', reason: 'captcha' });
+  });
+
+  it('tries a page that only loads an invisible captcha script, and confirms it when the site shows success', async () => {
+    if (!browser) return;
+    expect((await run('/v3')).outcome).toEqual({ status: 'submitted' });
+  });
+
+  it('uses the short message on a 300-character box, and hands over to a human when there is no short version', async () => {
+    if (!browser) return;
+    const longBody = 'We are Calldesk and we build phone agents. '.repeat(12);
+    expect((await run('/limit', { body: longBody, shortBody: 'Calldesk (calldesk.tech): AI phone agents from 2 cents a minute. Open to partnering? Reply STOP to opt out.' })).outcome).toEqual({ status: 'submitted' });
+    const r = await run('/limit', { body: longBody });
+    expect(r.outcome.status).toBe('needs_manual');
+    expect((r.outcome as { reason: string }).reason).toMatch(/message length limit/);
+  }, 30_000);
+
+  it('ticks a required consent box whose real input is hidden behind its label', async () => {
+    if (!browser) return;
+    expect((await run('/hiddenconsent')).outcome).toEqual({ status: 'submitted' });
+  });
+
+  it('submits through the form itself when a button is covered', async () => {
+    if (!browser) return;
+    expect((await run('/covered')).outcome).toEqual({ status: 'submitted' });
+  }, 60_000);
+
+  it('answers unrecognised required fields with neutral placeholders instead of stopping', async () => {
+    if (!browser) return;
+    expect((await run('/extras')).outcome).toEqual({ status: 'submitted' });
   });
 
   it('refuses a required phone number and a required marketing opt-in', async () => {

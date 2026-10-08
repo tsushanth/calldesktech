@@ -74,6 +74,11 @@ const READ_FORMS_SRC = `(() => {
     }
     return undefined;
   };
+  const labelVisible = (el) => {
+    const id = el.getAttribute('id');
+    const l = (id && document.querySelector('label[for="' + CSS.escape(id) + '"]')) || el.closest('label');
+    return !!l && visible(l);
+  };
   const out = [];
   let n = 0;
   for (const form of Array.from(document.querySelectorAll('form'))) {
@@ -95,7 +100,8 @@ const READ_FORMS_SRC = `(() => {
         label: labelFor(el),
         placeholder: el.getAttribute('placeholder') || undefined,
         id: el.getAttribute('id') || undefined,
-        hidden: !visible(el),
+        // A custom-styled checkbox hides the real input (opacity 0 / 1px) behind a visible label: that is a visible checkbox to a person.
+        hidden: !(visible(el) || (el.getAttribute('type') === 'checkbox' && labelVisible(el))),
         maxLength: el.maxLength > 0 ? el.maxLength : undefined,
         options: tag === 'select' ? Array.from(el.options).map((o) => (o.textContent || '').trim()).filter((t) => t).slice(0, 80) : undefined,
       };
@@ -171,6 +177,8 @@ export interface SubmitContext extends Omit<MappingContext, 'message'> {
   body: string;
   /** Field names from signals.contactForm, used to find the same form again. */
   expectedFieldNames: string[];
+  /** A compact complete message (opt-out included) for forms with a character limit the full draft exceeds. */
+  shortBody?: string;
   brandName?: string;
   brandSite?: string;
   /** Where the before/after screenshots go. */
@@ -236,11 +244,19 @@ export async function submitOnPage(page: Page, ctx: SubmitContext): Promise<Subm
   // 2. Build the plan. Refusals (phone required, marketing consent, unknown
   //    required fields) come back as needs_manual with a reason.
   const message = composeMessage(ctx.body, ctx.brandName, ctx.brandSite);
-  const mapping = planFields(picked.form.fields, picked.form.checkboxes, { ...ctx, message });
+  let mapping = planFields(picked.form.fields, picked.form.checkboxes, { ...ctx, message });
   if (mapping.needsManual) {
     return { outcome: { status: 'needs_manual', reason: mapping.needsManual.reason }, screenshots };
   }
-  const tooLong = lengthLimitRefusal(mapping.plan);
+  let tooLong = lengthLimitRefusal(mapping.plan);
+  // A form that caps the message (a 300-character box) gets the compact version instead of a refusal; if even that does not fit, a human decides.
+  if (tooLong && ctx.shortBody) {
+    const shortMapping = planFields(picked.form.fields, picked.form.checkboxes, { ...ctx, message: ctx.shortBody });
+    if (!shortMapping.needsManual && !lengthLimitRefusal(shortMapping.plan)) {
+      mapping = shortMapping;
+      tooLong = null;
+    }
+  }
   if (tooLong) return { outcome: { status: 'needs_manual', reason: tooLong }, screenshots };
 
   // 3. Fill. Typed at a human-ish pace; nothing is clicked that was not planned.
@@ -262,26 +278,44 @@ export async function submitOnPage(page: Page, ctx: SubmitContext): Promise<Subm
   }
   for (const cb of mapping.checkboxes) {
     if (!cb.tick) continue;
+    const box = frame.locator(`[data-cd-field="${(cb.checkbox as MarkedCheckbox).marker}"]`);
     try {
-      await frame.locator(`[data-cd-field="${(cb.checkbox as MarkedCheckbox).marker}"]`).check();
+      await box.check({ timeout: 5_000 });
     } catch {
-      return { outcome: { status: 'needs_manual', reason: `could not tick required consent ${cb.checkbox.name}` }, screenshots };
+      // Custom-styled consent boxes hide the real input behind a label: forcing the check, then clicking the label, is what a person's click does.
+      let ticked = false;
+      try { await box.check({ force: true, timeout: 3_000 }); ticked = true; } catch { /* try the label */ }
+      const id = cb.checkbox.id;
+      if (!ticked && id) {
+        try { await frame.locator(`label[for="${id}"]`).first().click({ timeout: 3_000 }); ticked = await box.isChecked(); } catch { /* give up */ }
+      }
+      if (!ticked) return { outcome: { status: 'needs_manual', reason: `could not tick required consent ${cb.checkbox.name}` }, screenshots };
     }
   }
 
   // 4. Submit and wait for whatever the site does next.
   const urlBefore = page.url();
+  const submitBtn = frame.locator(`[data-cd-submit="${picked.form.marker}"]`);
   try {
     await Promise.all([
       page.waitForLoadState('load', { timeout: 20_000 }).catch(() => undefined),
-      frame.locator(`[data-cd-submit="${picked.form.marker}"]`).click({ timeout: 10_000 }),
+      submitBtn.click({ timeout: 10_000 }),
     ]);
-  } catch (error) {
-    return {
-      outcome: { status: 'needs_manual', reason: 'submit click failed' },
-      screenshots,
-      detail: error instanceof Error ? error.message : String(error),
-    };
+  } catch (firstError) {
+    // A covered or animated button: submit through the form itself, as pressing Enter in a field would (a forced click can land on the
+    // overlay and look like it worked).
+    let submitted = false;
+    try {
+      await frame.locator(`[data-cd-form="${picked.form.marker}"]`).evaluate((f) => { const form = f as HTMLFormElement; if (form.requestSubmit) form.requestSubmit(); else form.submit(); });
+      submitted = true;
+    } catch { /* give up */ }
+    if (!submitted) {
+      return {
+        outcome: { status: 'needs_manual', reason: 'submit click failed' },
+        screenshots,
+        detail: firstError instanceof Error ? firstError.message : String(firstError),
+      };
+    }
   }
   // Many forms post over XHR and swap the markup in without a navigation.
   await page.waitForTimeout(3_000);

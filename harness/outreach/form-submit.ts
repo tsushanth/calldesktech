@@ -55,6 +55,9 @@ const RUNS = join(BASE, 'runs.jsonl');
 const BREAKER = join(BASE, 'circuit-breaker.txt');
 const DEADLINE_MS = 25 * 60_000;
 
+// For forms that cap the message length (the full draft plus opt-out is about 850 characters). Complete on its own, opt-out included.
+const SHORT_BODY = "Calldesk (calldesk.tech): AI phone agents from 2 cents a minute, voice included. Our voices cut a typical call's cost roughly 45% vs ElevenLabs Flash/Turbo, at list prices. Speech API from $0.004 per 1,000 chars. Open to partnering? Reply STOP to opt out.";
+
 interface LeadRow {
   id: string;
   company_name: string;
@@ -159,6 +162,7 @@ async function main(): Promise<number> {
     .in('signals->formOutreach->>status', auto ? ['queued', 'ready'] : ['queued']);
   if (scope === 'reseller') q = q.eq('product', 'calldesk');
   else if (scope === 'verticals') q = q.like('product', 'calldesk:%').eq('contact_status', 'form_only');
+  else if (scope === 'all') q = q.or('contact_status.eq.form_only,product.eq.calldesk');
   else q = q.eq('contact_status', 'form_only');
   if (auto) q = q.is('signals->formOutreach->>skipReason', null);
   const { data } = await scopeToProduct(q, product).order('score', { ascending: false }).limit(100);
@@ -272,6 +276,7 @@ async function main(): Promise<number> {
           email: replyTo,
           expectedFieldNames: cf!.fields.map((f) => f.name),
           phone,
+          shortBody: SHORT_BODY,
           screenshotDir: shotDir,
         });
         const shot = result.screenshots[result.screenshots.length - 1];
