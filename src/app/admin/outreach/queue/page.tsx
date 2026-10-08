@@ -102,6 +102,8 @@ export default function OutreachQueuePage() {
   const [armStats, setArmStats] = useState<{ arm: string; sent: number; replied: number; replyRate: number }[]>([]);
   const [quota, setQuota] = useState<{ sentToday: number; cap: number; resets: string } | null>(null);
   const [vertical, setVertical] = useState<string>('');
+  // The forms tab has its own filter and opens on resellers: the all-verticals lookup scans about half a million leads and takes seconds.
+  const [formVertical, setFormVertical] = useState<string>('reseller');
   const [sampleTitles, setSampleTitles] = useState<Record<string, string | null>>({});
   const [sampleTitle, setSampleTitle] = useState<string | null>(null);
   const [formLeads, setFormLeads] = useState<FormLead[]>([]);
@@ -113,7 +115,7 @@ export default function OutreachQueuePage() {
   const refresh = useCallback(async () => {
     setLoading(true);
     if (tab === 'forms') {
-      const fr = await fetch(`/api/admin/outreach/forms?status=${formStatus}${vertical ? `&vertical=${vertical}` : ''}`);
+      const fr = await fetch(`/api/admin/outreach/forms?status=${formStatus}${formVertical ? `&vertical=${formVertical}` : ''}`);
       if (fr.ok) {
         const fb = await fr.json();
         setFormLeads(fb.leads ?? []);
@@ -132,7 +134,7 @@ export default function OutreachQueuePage() {
       setQuota({ sentToday: body.sentToday, cap: body.cap, resets: body.resets });
     }
     setLoading(false);
-  }, [tab, product, vertical, formStatus]);
+  }, [tab, product, vertical, formVertical, formStatus]);
 
   useEffect(() => {
     // Fetch-on-mount/tab-change, not a render-loop risk (refresh only re-runs when tab/product change).
@@ -209,8 +211,8 @@ export default function OutreachQueuePage() {
         </select>
         {(product === 'calldesk' || tab === 'forms') && (
           <select
-            value={vertical}
-            onChange={(e) => setVertical(e.target.value)}
+            value={tab === 'forms' ? formVertical : vertical}
+            onChange={(e) => (tab === 'forms' ? setFormVertical(e.target.value) : setVertical(e.target.value))}
             className="rounded-lg border border-gray-300 px-2 py-1 text-[13px]"
           >
             {VERTICALS.map((v) => (
@@ -218,6 +220,7 @@ export default function OutreachQueuePage() {
             ))}
           </select>
         )}
+        {tab === 'forms' && formVertical === '' && <span className="text-[12px] text-gray-400">All verticals can take several seconds to load.</span>}
         <div className="flex gap-1">
           {TABS.map((t) => (
             <button
