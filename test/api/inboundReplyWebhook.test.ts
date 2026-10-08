@@ -77,10 +77,33 @@ it('accepts a request with the correct bearer secret and marks the lead replied'
   const body = await response.json();
 
   expect(response.status).toBe(200);
-  expect(body).toEqual({ matched: 1 });
+  expect(body).toEqual({ matched: 1, confirmed: [] });
 });
 
 it('rejects a request missing the email field', async () => {
   const response = await POST(makeRequest({}, 'Bearer correct-secret'));
   expect(response.status).toBe(400);
+});
+
+
+it('confirms an unconfirmed contact-form lead from the company\'s own auto-reply email', async () => {
+  const updates: unknown[] = [];
+  const leadRow = { id: 'lead-7', domain: 'getstream.io', signals: { formOutreach: { status: 'needs_manual', attempts: [{ at: new Date(Date.now() - 45_000).toISOString(), outcome: 'needs_manual', reason: 'unconfirmed' }] } } };
+  const builder: Record<string, unknown> = {};
+  for (const m of ['select', 'eq', 'limit']) builder[m] = () => builder;
+  builder.update = (u: unknown) => { updates.push(u); return builder; };
+  (builder as unknown as PromiseLike<unknown>).then = (resolve: (v: unknown) => unknown) => Promise.resolve({ data: [leadRow], error: null }).then(resolve);
+  vi.mocked(getSupabaseAdmin).mockReturnValue({ from: () => builder, rpc: () => Promise.resolve({ data: 0, error: null }) } as never);
+  const response = await POST(makeRequest({ email: 'bounce@mail.example.net', fromHeader: 'Stream <hello@getstream.io>', subject: 'Thank you for contacting us!' }, 'Bearer correct-secret'));
+  expect(response.status).toBe(200);
+  expect(await response.json()).toEqual({ matched: 0, confirmed: ['getstream.io'] });
+  expect(updates).toHaveLength(1);
+  expect((updates[0] as { signals: { formOutreach: { status: string } } }).signals.formOutreach.status).toBe('submitted');
+});
+
+it('an older worker payload (email only) still works and confirms nothing', async () => {
+  vi.mocked(getSupabaseAdmin).mockReturnValue(makeSupabaseMock({ calldesk_outreach_leads: [{ data: [], error: null }] }) as never);
+  const response = await POST(makeRequest({ email: 'a@b.com' }, 'Bearer correct-secret'));
+  expect(response.status).toBe(200);
+  expect((await response.json()).confirmed).toEqual([]);
 });
