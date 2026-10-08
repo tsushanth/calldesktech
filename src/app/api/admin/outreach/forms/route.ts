@@ -9,12 +9,21 @@ import {
   type FormOutreachStatus,
 } from '@/lib/outreach/formSubmit';
 
-// Contact-form leads: practices with no public email, where the drafted message goes through the
+// Contact-form leads (contact_status form_only, or reseller leads queued by hand with a form on file): practices with no public email, where the drafted message goes through the
 // practice's own form. The draft and its status live on the lead (signals.formOutreach).
 //
 // A submission NEVER happens without a human: the only way into 'queued' (the one status the
 // form-submit worker picks up) is the "Submit for me" click, which sends { action: 'queue' } here.
 // Everything else on this route is bookkeeping for the human doing it by hand.
+
+// Vertical leads are product 'calldesk:<vertical>'; reseller/agency leads are plain 'calldesk'
+// (vertical=reseller). No vertical = all of them.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function byProduct(query: any, vertical: string) {
+  if (vertical === 'reseller') return query.eq('product', 'calldesk');
+  if (/^[a-z]+$/.test(vertical)) return query.eq('product', `calldesk:${vertical}`);
+  return query.or('product.eq.calldesk,product.like.calldesk:*');
+}
 
 export async function GET(request: NextRequest) {
   const admin = await requireAdminSession();
@@ -29,13 +38,11 @@ export async function GET(request: NextRequest) {
   let query = supabase
     .from('calldesk_outreach_leads')
     .select('id, company_name, domain, location, score, product, contact_source_url, signals')
-    .eq('contact_status', 'form_only')
-    .like('product', 'calldesk:%')
     .not('signals->formOutreach', 'is', null)
     .eq('signals->formOutreach->>status', requested)
     .order('score', { ascending: false })
     .limit(100);
-  if (/^[a-z]+$/.test(vertical)) query = query.eq('product', `calldesk:${vertical}`);
+  query = byProduct(query, vertical);
   const { data, error } = await query;
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   return NextResponse.json({ leads: data ?? [], counts: await statusCounts(supabase, vertical) });
@@ -48,11 +55,9 @@ async function statusCounts(supabase: any, vertical: string): Promise<Record<str
   let q = supabase
     .from('calldesk_outreach_leads')
     .select('signals')
-    .eq('contact_status', 'form_only')
-    .like('product', 'calldesk:%')
     .not('signals->formOutreach', 'is', null)
     .limit(2000);
-  if (/^[a-z]+$/.test(vertical)) q = q.eq('product', `calldesk:${vertical}`);
+  q = byProduct(q, vertical);
   const { data } = await q;
   const counts: Record<string, number> = { submittedToday: 0 };
   const today = new Date().toISOString().slice(0, 10);

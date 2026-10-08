@@ -35,6 +35,7 @@ const PRODUCTS = [
 // Verticals live under the Calldesk product; they are a filter and a badge, not separate products.
 const VERTICALS = [
   { key: '', label: 'All verticals' },
+  { key: 'reseller', label: 'Resellers & agencies' },
   { key: 'freight', label: 'Freight brokers' },
   { key: 'homeservices', label: 'Home services' },
   { key: 'dental', label: 'Dental' },
@@ -52,7 +53,7 @@ const VERTICALS = [
   { key: 'taxi', label: 'Taxi & private hire' },
   { key: 'vets', label: 'Veterinary' },
 ] as const;
-const verticalLabel = (product?: string | null) => VERTICALS.find((v) => v.key && product === `calldesk:${v.key}`)?.label ?? null;
+const verticalLabel = (product?: string | null) => (product === 'calldesk' ? 'Reseller / agency' : VERTICALS.find((v) => v.key && product === `calldesk:${v.key}`)?.label ?? null);
 
 interface FormLead {
   id: string;
@@ -62,12 +63,13 @@ interface FormLead {
   score: number | null;
   product: string;
   signals: {
-    contactForm?: { pageUrl: string; captcha: boolean; method: string; embedded?: string };
+    contactForm?: { pageUrl: string; captcha: boolean; method: string; embedded?: string; fields?: unknown[] };
     formOutreach?: {
       subject: string;
       body: string;
       status: string;
       reason?: string;
+      note?: string;
       error?: string;
       submittedAt?: string;
       attempts?: { at: string; outcome: string; reason?: string; screenshot?: string }[];
@@ -281,6 +283,7 @@ export default function OutreachQueuePage() {
             <p className="mb-1 text-[13px] font-medium text-gray-800">{fo.subject}</p>
             <pre className="whitespace-pre-wrap rounded-lg border border-gray-200 bg-gray-50 p-3 text-[13px] leading-relaxed text-gray-800">{fo.body}</pre>
 
+            {fo.note && <p className="mt-2 text-[12.5px] text-gray-500">Note: {fo.note}</p>}
             {fo.reason && (
               <p className="mt-2 text-[12.5px] text-amber-700">Needs a human: {fo.reason}</p>
             )}
@@ -305,7 +308,7 @@ export default function OutreachQueuePage() {
               >
                 Copy message
               </button>
-              {fo.status === 'ready' && !cf.captcha && cf.method !== 'embedded' && (
+              {fo.status === 'ready' && !cf.captcha && cf.method !== 'embedded' && (cf.fields?.length ?? 0) > 0 && (
                 <button
                   disabled={busy === l.id}
                   onClick={() => submitForMe(l.id)}
