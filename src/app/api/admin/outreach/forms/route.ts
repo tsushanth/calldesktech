@@ -16,13 +16,17 @@ import {
 // form-submit worker picks up) is the "Submit for me" click, which sends { action: 'queue' } here.
 // Everything else on this route is bookkeeping for the human doing it by hand.
 
-// Vertical leads are product 'calldesk:<vertical>'; reseller/agency leads are plain 'calldesk'
-// (vertical=reseller). No vertical = all of them.
+// Vertical leads are product 'calldesk:<vertical>' (contact_status form_only); reseller/agency leads are plain
+// 'calldesk' (vertical=reseller). No vertical = both, as separate queries: one OR over product + a JSON-path
+// filter is a full scan that times out.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-function byProduct(query: any, vertical: string) {
-  if (vertical === 'reseller') return query.eq('product', 'calldesk');
-  if (/^[a-z]+$/.test(vertical)) return query.eq('product', `calldesk:${vertical}`);
-  return query.or('product.eq.calldesk,product.like.calldesk:*');
+type Narrow = (q: any) => any;
+function scopes(vertical: string): Narrow[] {
+  const reseller: Narrow = (q) => q.eq('product', 'calldesk');
+  const verticals: Narrow = (q) => q.like('product', 'calldesk:%').eq('contact_status', 'form_only');
+  if (vertical === 'reseller') return [reseller];
+  if (/^[a-z]+$/.test(vertical)) return [(q) => q.eq('product', `calldesk:${vertical}`).eq('contact_status', 'form_only')];
+  return [reseller, verticals];
 }
 
 export async function GET(request: NextRequest) {
@@ -35,30 +39,37 @@ export async function GET(request: NextRequest) {
   }
   const vertical = request.nextUrl.searchParams.get('vertical') || '';
   const supabase = getSupabaseAdmin();
-  let query = supabase
-    .from('calldesk_outreach_leads')
-    .select('id, company_name, domain, location, score, product, contact_source_url, signals')
-    .not('signals->formOutreach', 'is', null)
-    .eq('signals->formOutreach->>status', requested)
-    .order('score', { ascending: false })
-    .limit(100);
-  query = byProduct(query, vertical);
-  const { data, error } = await query;
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return NextResponse.json({ leads: data ?? [], counts: await statusCounts(supabase, vertical) });
+  const results = await Promise.all(scopes(vertical).map((narrow) => narrow(
+    supabase
+      .from('calldesk_outreach_leads')
+      .select('id, company_name, domain, location, score, product, contact_source_url, signals')
+      .not('signals->formOutreach', 'is', null)
+      .eq('signals->formOutreach->>status', requested)
+      .order('score', { ascending: false })
+      .limit(100),
+  )));
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const failed = results.find((r: any) => r.error);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  if (failed) return NextResponse.json({ error: (failed as any).error.message }, { status: 500 });
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const leads = results.flatMap((r: any) => r.data ?? []).sort((x: any, y: any) => (y.score ?? 0) - (x.score ?? 0)).slice(0, 100);
+  return NextResponse.json({ leads, counts: await statusCounts(supabase, vertical) });
 }
 
 // A small summary line for the forms tab: how many are waiting on a human, how many went out today.
 // Counted in code from one bounded read rather than one count query per status.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function statusCounts(supabase: any, vertical: string): Promise<Record<string, number>> {
-  let q = supabase
-    .from('calldesk_outreach_leads')
-    .select('signals')
-    .not('signals->formOutreach', 'is', null)
-    .limit(2000);
-  q = byProduct(q, vertical);
-  const { data } = await q;
+  const results = await Promise.all(scopes(vertical).map((narrow) => narrow(
+    supabase
+      .from('calldesk_outreach_leads')
+      .select('signals')
+      .not('signals->formOutreach', 'is', null)
+      .limit(2000),
+  )));
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const data = results.flatMap((r: any) => r.data ?? []);
   const counts: Record<string, number> = { submittedToday: 0 };
   const today = new Date().toISOString().slice(0, 10);
   for (const row of (data ?? []) as { signals?: { formOutreach?: { status?: string; submittedAt?: string } } }[]) {
