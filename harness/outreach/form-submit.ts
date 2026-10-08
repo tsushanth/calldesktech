@@ -8,6 +8,7 @@ import {
   CircuitBreaker,
   capBlock,
   domainOfEmail,
+  isNonUsCaCountryDomain,
   emptyLedger,
   nextDelayMs,
   preflightNeedsManual,
@@ -201,6 +202,15 @@ async function main(): Promise<number> {
       if (skip) {
         log(`skip ${lead.company_name}: ${skip}`);
         summary.skipped++;
+        continue;
+      }
+
+      // Vertical leads are for US and Canadian businesses (current policy); older leads from other countries are left alone for a human.
+      if (lead.product?.startsWith('calldesk:') && process.env.ALLOW_INTL_FORMS !== '1' && isNonUsCaCountryDomain(lead.domain)) {
+        const why = 'outside the US and Canada (current outreach policy)';
+        log(`skip ${lead.company_name}: ${why}`);
+        summary.skipped++;
+        if (!dryRun && fo?.status === 'ready' && fo.skipReason !== why) await persist(db, lead, 'ready', { skipReason: why });
         continue;
       }
 

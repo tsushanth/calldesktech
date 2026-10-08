@@ -496,6 +496,15 @@ export function skipReason(lead: LeadEligibility, suppressedDomains: Set<string>
   return null;
 }
 
+// Current policy (2026-10-08, see the registry country gate): outreach to vertical leads is for US and Canadian businesses only. Leads that
+// predate it (UK care agencies from the CQC register, for one) are skipped by the form worker. Country-code domains that are used worldwide as
+// ordinary web addresses (.io, .ai, .co ...) are not treated as a country. ALLOW_INTL_FORMS=1 lifts it.
+const GENERIC_CCTLDS = new Set(['io', 'ai', 'co', 'me', 'tv', 'cc', 'ly', 'gg', 'so', 'to', 'sh', 'fm', 'ws', 'app', 'dev']);
+export function isNonUsCaCountryDomain(domain: string | null | undefined): boolean {
+  const tld = (domain || '').toLowerCase().replace(/^www\./, '').split('.').pop() || '';
+  return tld.length === 2 && tld !== 'us' && tld !== 'ca' && !GENERIC_CCTLDS.has(tld);
+}
+
 /**
  * A lead whose statically detected form already showed a captcha, or that is a
  * third-party embed we cannot read, goes straight to needs_manual without

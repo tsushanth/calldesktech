@@ -18,6 +18,7 @@ import {
   domainOfEmail,
   emailAddressPart,
   emptyLedger,
+  isNonUsCaCountryDomain,
   isWorkerEligible,
   nextDelayMs,
   planFields,
@@ -477,5 +478,15 @@ describe('lengthLimitRefusal', () => {
     expect(_limit([field(200)])).toContain('allows 200 characters');
     expect(_limit([field(500)])).toBeNull();
     expect(_limit([field(undefined)])).toBeNull();
+  });
+});
+
+
+describe('isNonUsCaCountryDomain (vertical outreach is US and Canada only)', () => {
+  it('flags country-code domains outside the US and Canada', () => {
+    for (const d of ['olivegreencareservices.co.uk', 'thefirshomecare.co.uk', 'x.com.au', 'care.nz', 'a.ie', 'b.de', 'www.c.jp']) expect(isNonUsCaCountryDomain(d)).toBe(true);
+  });
+  it('lets US, Canadian, generic and widely used ccTLD domains through', () => {
+    for (const d of ['thekidsplaceinc.com', 'clinic.org', 'x.net', 'a.us', 'b.ca', 'app.io', 'voice.ai', 'brand.co', 'x.me', null, '']) expect(isNonUsCaCountryDomain(d as string)).toBe(false);
   });
 });
