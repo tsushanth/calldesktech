@@ -69,10 +69,11 @@ export const BRREG_REGISTRY = 'Norwegian Central Coordinating Register for Legal
 export const BRREG_SEARCH_URL = 'https://virksomhet.brreg.no/';
 const LIST_NOUN = 'register';
 
-// Legal forms queried, in preference order. ENK is the sole proprietorship and is
-// queried last and scored down; KBO (bankruptcy estate), KTRF and ANNA are not
-// operating businesses and are not queried at all.
-export const BRREG_ORG_FORMS = ['AS', 'ASA', 'NUF', 'DA', 'ANS', 'ENK'] as const;
+// Legal forms queried, in preference order. ENK (the sole proprietorship, a one-person business whose
+// registered details are personal data) is NOT queried: 18,000 of the first 23,000 Norwegian leads were
+// ENK and none were voice-AI businesses. KBO (bankruptcy estate), KTRF and ANNA are not operating
+// businesses and are not queried either. The ENK scoring below stays for rows that arrive some other way.
+export const BRREG_ORG_FORMS = ['AS', 'ASA', 'NUF', 'DA', 'ANS'] as const;
 export type BrregOrgForm = (typeof BRREG_ORG_FORMS)[number];
 
 export interface BrregNaceClass {

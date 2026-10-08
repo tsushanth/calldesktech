@@ -67,7 +67,7 @@ import { streamMnDliLeads } from './mnDliContractors';
 import { streamOhOcilbLeads, streamOhRealEstateLeads } from './ohElicenseRegistry';
 import { streamWiChildcareLeads, streamInChildcareLeads } from './childcareMidwest';
 import { discoverWebsite } from './websiteDiscovery';
-import { INTL_HOLD_REASON, intlCountry, type IntlHold, type RegistryLead, type RegistryResult } from './registryCommon';
+import { INTL_HOLD_REASON, intlCountry, registryCountryAllowed, type IntlHold, type RegistryLead, type RegistryResult } from './registryCommon';
 import { calldesk, leadsTable, runsTable, messagesTable, suppressionsTable, scopeToProduct, productInsertFields, type ProductConfig } from '../products';
 import type { FormOutreachStatus, FormAttempt } from '../formSubmit';
 import { sumReadaloudAdjust } from './readaloud/import';
@@ -1183,6 +1183,7 @@ export async function bulkImportRegistry(
   // licence class), so the batch dedupes on source key as well as email.
   const batchKeys = new Set<string>();
   for (const c of res.candidates as RegistryLead[]) {
+    if (!registryCountryAllowed(c.country)) { skipped['not a US or Canada register'] = (skipped['not a US or Canada register'] ?? 0) + 1; continue; }
     if (batchKeys.has(c.sourceKey)) { skipped['duplicate in batch'] = (skipped['duplicate in batch'] ?? 0) + 1; continue; }
     batchKeys.add(c.sourceKey);
     const { email, domain, fields } = registryLeadRow(c, product, now);
@@ -1261,6 +1262,7 @@ async function stageRegistry(
   const now = new Date().toISOString();
   for (const c of res.candidates as RegistryLead[]) {
     if (stop()) break;
+    if (!registryCountryAllowed(c.country)) continue;
     const { email, domain, fields } = registryLeadRow(c, product, now);
     if (index.find({ sourceKey: c.sourceKey, name: c.name, domain })) continue;
     if (email && (knownEmails.has(email) || suppressed.has(email))) continue;

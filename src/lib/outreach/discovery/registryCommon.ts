@@ -143,6 +143,15 @@ export function intlCountry(raw: string | null | undefined): string | null {
   return !c || c === 'US' || c.length !== 2 ? null : c;
 }
 
+// Register loads only produce US and Canadian leads. Every other country is dropped before a row is
+// built, so it cannot be drafted, dialed or sent to even if its hold is later released by mistake.
+// ALLOW_INTL_REGISTRY=1 lifts the gate for a deliberate, reviewed import of another country.
+export function registryCountryAllowed(raw: string | null | undefined, env: Record<string, string | undefined> = process.env): boolean {
+  if (env.ALLOW_INTL_REGISTRY === '1') return true;
+  const c = (raw ?? '').trim().toUpperCase();
+  return !c || c === 'US' || c === 'CA';
+}
+
 // "LYON" + "FR" -> "Lyon, FR". Same shape as cityState (city, comma, uppercase
 // code) on purpose: the lead's `location` is what language.detectDraftLanguage
 // reads to pick the draft language, and what discoverWebsite uses to

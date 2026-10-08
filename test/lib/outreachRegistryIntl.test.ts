@@ -557,7 +557,7 @@ describe('Norway Enhetsregisteret', () => {
 
   it('slices every query by legal form so it stays inside the API\'s 10,000-result window', () => {
     expect(BRREG_PAGE_CAP).toBe(10_000);
-    expect([...BRREG_ORG_FORMS]).toEqual(['AS', 'ASA', 'NUF', 'DA', 'ANS', 'ENK']);
+    expect([...BRREG_ORG_FORMS]).toEqual(['AS', 'ASA', 'NUF', 'DA', 'ANS']);
     const url = brregQueryUrl('49.410', 'AS', 3, 1000);
     expect(url).toContain('naeringskode=49.410');
     expect(url).toContain('organisasjonsform=AS');
@@ -588,7 +588,7 @@ describe('Norway Enhetsregisteret', () => {
     const dentalRes = await findBrregCandidates('dental', 100, { fetchPage });
     expect(dentalRes.candidates.map((c) => c.sourceKey)).toEqual(['dental:no:925820148']);
     expect(dentalRes.rejected['duplicate organisation number']).toBe(1);
-    expect(seenQueries.filter((q) => q.endsWith('/0')).map((q) => q.split('/')[1])).toEqual(['AS', 'ASA', 'NUF', 'DA', 'ANS', 'ENK']);
+    expect(seenQueries.filter((q) => q.endsWith('/0')).map((q) => q.split('/')[1])).toEqual(['AS', 'ASA', 'NUF', 'DA', 'ANS']);
 
     const freightRes = await findBrregCandidates('freight', 100, { fetchPage });
     expect(freightRes.errors.join(' ')).toMatch(/11640 results exceeds the API's 10000-result window/);
