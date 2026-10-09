@@ -71,10 +71,12 @@ async function findForm(ctx: import('playwright').BrowserContext, domain: string
   const { data, error } = await db.from('calldesk_outreach_leads')
     .select('id, company_name, domain, location, source_key, signals')
     .like('product', 'calldesk%').eq('contact_status', 'none').eq('status', 'new').eq('region_blocked', false)
-    .not('domain', 'is', null).is('signals->browserFormCheck->>at', null)
+    .not('domain', 'is', null)
     .order('score', { ascending: false }).limit(1000);
   log(`${data?.length ?? 0} candidate row(s) before filters${error ? `, query error: ${error.message}` : ''}`);
+  // The JSON-path filter for already-checked leads is done here: in SQL it times out on this table.
   const leads = ((data ?? []) as Lead[])
+    .filter((l) => !(l.signals as { browserFormCheck?: unknown } | null)?.browserFormCheck)
     .filter((l) => !isPlatformDomain(l.domain) && !isNonUsCaLead({ domain: l.domain, location: l.location, source_key: l.source_key } as never))
     .slice(0, LIMIT);
   log(`${leads.length} lead(s) to check (${APPLY ? 'APPLY' : 'dry run'})`);
