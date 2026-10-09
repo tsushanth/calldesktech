@@ -68,11 +68,12 @@ async function findForm(ctx: import('playwright').BrowserContext, domain: string
 
 (async () => {
   const db = getSupabaseAdmin();
-  const { data } = await db.from('calldesk_outreach_leads')
+  const { data, error } = await db.from('calldesk_outreach_leads')
     .select('id, company_name, domain, location, source_key, signals')
     .like('product', 'calldesk%').eq('contact_status', 'none').eq('status', 'new').eq('region_blocked', false)
     .not('domain', 'is', null).is('signals->browserFormCheck->>at', null)
-    .order('score', { ascending: false }).limit(LIMIT * 3);
+    .order('score', { ascending: false }).limit(1000);
+  log(`${data?.length ?? 0} candidate row(s) before filters${error ? `, query error: ${error.message}` : ''}`);
   const leads = ((data ?? []) as Lead[])
     .filter((l) => !isPlatformDomain(l.domain) && !isNonUsCaLead({ domain: l.domain, location: l.location, source_key: l.source_key } as never))
     .slice(0, LIMIT);
