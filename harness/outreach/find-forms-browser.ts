@@ -7,6 +7,9 @@
 //   FORM_FINDER_APPLY=1   write results (default: dry run, prints only)
 //   FORM_FINDER_LIMIT=150 leads per run
 //   FORM_FINDER_CONCURRENCY=4
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
 import { chromium } from 'playwright';
 import { getSupabaseAdmin } from '@/lib/supabase';
 import { politeFetchText } from '@/lib/outreach/discovery/http';
@@ -81,6 +84,26 @@ async function findForm(ctx: import('playwright').BrowserContext, domain: string
     .filter((l) => !(l.signals as { browserFormCheck?: unknown } | null)?.browserFormCheck)
     .filter((l) => !isPlatformDomain(l.domain) && !isNonUsCaLead({ domain: l.domain, location: l.location, source_key: l.source_key } as never))
     .slice(0, LIMIT);
+  // Second pool: leads that were never contact-checked but have a website. Walked in id order with a cursor file, because checked leads that show
+  // no form stay 'unknown' and would otherwise be fetched again and again.
+  const cursorFile = process.env.FORM_FINDER_CURSOR || path.join(os.homedir(), '.calldesk-forms', 'find-cursor');
+  let cursor = '';
+  try { cursor = fs.readFileSync(cursorFile, 'utf8').trim(); } catch { /* first run */ }
+  if (leads.length < LIMIT) {
+    const { data: more, error: moreError } = await db.from('calldesk_outreach_leads')
+      .select('id, company_name, domain, location, source_key, product, score, signals')
+      .eq('contact_status', 'unknown').eq('status', 'new').eq('region_blocked', false).not('domain', 'is', null)
+      .gt('id', cursor).order('id', { ascending: true }).limit(LIMIT * 3);
+    if (moreError) log(`unknown-pool query error: ${moreError.message}`);
+    const rowsMore = (more ?? []) as (Lead & { product: string })[];
+    log(`${rowsMore.length} never-checked lead(s) with a website after cursor ${cursor || '(start)'}`);
+    if (APPLY) { try { fs.writeFileSync(cursorFile, rowsMore.length ? rowsMore[rowsMore.length - 1].id : ''); } catch { /* retry next run */ } }
+    leads.push(...rowsMore
+      .filter((l) => l.product.startsWith('calldesk'))
+      .filter((l) => !(l.signals as { browserFormCheck?: unknown } | null)?.browserFormCheck)
+      .filter((l) => !isPlatformDomain(l.domain) && !isNonUsCaLead({ domain: l.domain, location: l.location, source_key: l.source_key } as never))
+      .slice(0, LIMIT - leads.length));
+  }
   log(`${leads.length} lead(s) to check (${APPLY ? 'APPLY' : 'dry run'})`);
 
   const browser = await chromium.launch();
