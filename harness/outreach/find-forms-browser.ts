@@ -115,7 +115,7 @@ async function draftResellerForms(db: Db) {
       .eq('contact_status', 'unknown').eq('status', 'new').eq('region_blocked', false).not('domain', 'is', null)
       .gt('id', cursor).order('id', { ascending: true }).limit(LIMIT * 3);
     if (moreError) log(`unknown-pool query error: ${moreError.message}`);
-    const rowsMore = (more ?? []) as (Lead & { product: string })[];
+    const rowsMore = (more ?? []) as (Lead & { product: string; score: number | null })[];
     log(`${rowsMore.length} never-checked lead(s) with a website after cursor ${cursor}`);
     if (APPLY) { try { fs.writeFileSync(cursorFile, rowsMore.length ? rowsMore[rowsMore.length - 1].id : START); } catch { /* retry next run */ } }
     leads.push(...rowsMore
