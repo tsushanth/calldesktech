@@ -19,6 +19,8 @@ describe('renderProposal', () => {
     expect(r.text).not.toMatch(/[^\x09\x0A\x20-\x7E]/);
     expect(r.html).toContain('href="https://cal.com/calldesk/demo"');
     expect(r.html).toContain('Book a 15-minute demo');
+    expect(r.html).toContain('<a href="https://calldesk.tech"');
+    expect(r.text).toContain('Calldesk (https://calldesk.tech)');
   });
   it('without a booking link it asks for times instead', () => {
     const r = renderProposal(base, 'a@b.com', ADDR);

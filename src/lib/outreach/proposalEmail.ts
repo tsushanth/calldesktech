@@ -68,7 +68,7 @@ export function renderProposal(input: ProposalInput, toEmail: string, postalAddr
     '',
     `You can also reach us at ${REPLY} or ${PHONE}.`, '',
     'Thanks,', 'The Calldesk team', '',
-    '--', `Calldesk (calldesk.tech)`, postalAddress,
+    '--', 'Calldesk (https://calldesk.tech)', postalAddress,
     `You're receiving this because you spoke with our team or asked for details. Not interested? Unsubscribe: ${unsub}`,
   ].join('\n');
 
@@ -95,6 +95,6 @@ export function renderProposal(input: ProposalInput, toEmail: string, postalAddr
     `<ul style="margin:0 0 6px;padding-left:20px">${li}</ul>${speechHtml}${button}` +
     `<p style="margin:6px 0 14px;font-size:13px;color:#4b5563">Prefer to read? <a href="${DECK_URL}" style="color:#2563eb">See our short deck</a>${input.kind === 'direct' ? ` or <a href="${PRICING_URL}" style="color:#2563eb">the pricing page</a>` : ''}. You can also reach us at ${REPLY} or ${PHONE}.</p>` +
     `<p style="margin:0">Thanks,<br/>The Calldesk team</p>` +
-    `<p style="color:#6b7280;font-size:12px;margin-top:22px">Calldesk (calldesk.tech)<br/>${esc(postalAddress)}<br/>You're receiving this because you spoke with our team or asked for details. Not interested? <a href="${esc(unsub)}">Unsubscribe</a></p></div>`;
+    `<p style="color:#6b7280;font-size:12px;margin-top:22px">Calldesk (<a href="https://calldesk.tech" style="color:#2563eb">calldesk.tech</a>)<br/>${esc(postalAddress)}<br/>You're receiving this because you spoke with our team or asked for details. Not interested? <a href="${esc(unsub)}">Unsubscribe</a></p></div>`;
   return { text, html };
 }
