@@ -27,14 +27,14 @@ export const CITIES: Record<string, string[]> = {
   PK: ['Karachi', 'Lahore', 'Islamabad'],
   LK: ['Colombo'],
   ZA: ['Johannesburg', 'Cape Town'],
-  CA: ['Toronto', 'Vancouver', 'Calgary', 'Ottawa'],
-  US: ['New York', 'Los Angeles', 'Chicago', 'Dallas', 'Houston', 'Austin', 'Miami', 'Atlanta', 'Seattle', 'Denver', 'Phoenix', 'Boston', 'San Francisco'],
+  CA: ['Toronto', 'Vancouver', 'Calgary', 'Ottawa', 'Montreal', 'Edmonton', 'Winnipeg', 'Mississauga', 'Halifax', 'Victoria'],
+  US: ['New York', 'Los Angeles', 'Chicago', 'Dallas', 'Houston', 'Austin', 'Miami', 'Atlanta', 'Seattle', 'Denver', 'Phoenix', 'Boston', 'San Francisco', 'Philadelphia', 'San Diego', 'San Jose', 'Minneapolis', 'Tampa', 'Orlando', 'Charlotte', 'Raleigh', 'Nashville', 'Portland', 'Las Vegas', 'Salt Lake City', 'Detroit', 'St. Louis', 'Kansas City', 'Columbus', 'Indianapolis', 'Cleveland', 'Pittsburgh', 'Cincinnati', 'Sacramento', 'San Antonio', 'Baltimore', 'Washington DC', 'Jacksonville', 'Oklahoma City', 'Louisville', 'Milwaukee', 'Richmond', 'Boise', 'Scottsdale', 'Fort Lauderdale', 'New Orleans', 'Honolulu', 'Albuquerque', 'Tucson', 'Fresno', 'Omaha', 'Tulsa', 'Memphis', 'Birmingham', 'Buffalo', 'Rochester', 'Hartford', 'Providence', 'Charleston', 'Greenville', 'Columbia', 'Fort Worth', 'El Paso', 'Irvine', 'Oakland', 'Riverside', 'Colorado Springs', 'Madison', 'Des Moines', 'Lexington', 'Knoxville', 'Chattanooga', 'Little Rock', 'Spokane', 'Reno', 'Anchorage', 'Orange County', 'Long Island', 'Newark', 'Jersey City', 'Stamford', 'Raleigh Durham', 'Savannah', 'Mobile', 'Baton Rouge', 'Lincoln', 'Fargo', 'Sioux Falls', 'Wichita', 'Dayton', 'Akron', 'Toledo', 'Grand Rapids', 'Ann Arbor', 'Chandler', 'Plano', 'Frisco', 'Naples', 'Sarasota', 'Tallahassee'],
 };
 const COUNTRY_NAME: Record<string, string> = {
   AU: 'Australia', NZ: 'New Zealand', SG: 'Singapore', GB: 'United Kingdom', IN: 'India', IE: 'Ireland', PH: 'Philippines',
   PK: 'Pakistan', LK: 'Sri Lanka', ZA: 'South Africa', CA: 'Canada', US: 'United States',
 };
-export const QUERIES = ['AI voice agent company', 'AI receptionist', 'AI automation agency', 'conversational AI company', 'AI call answering service', 'voice AI development'];
+export const QUERIES = ['AI voice agent company', 'AI receptionist', 'AI automation agency', 'conversational AI company', 'AI call answering service', 'voice AI development', 'virtual receptionist service', 'voice AI agency', 'AI chatbot development', 'business automation consultant', 'AI phone answering', 'AI call center'];
 
 // A listing is kept only when its NAME says it is an AI / voice / automation business and its category is not an obvious miss
 // (recruiters, talent and speaker agencies, studios, clinics, shops ...).
