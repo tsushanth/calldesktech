@@ -49,7 +49,7 @@ export function renderProposal(input: ProposalInput, toEmail: string, postalAddr
   const items = bullets(input.kind);
   const speech = input.kind === 'partner' && input.includeSpeechApi !== false;
   const cta = input.bookingUrl
-    ? 'Book a 20-minute demo'
+    ? 'Book a 15-minute demo'
     : 'Reply with two or three times that suit you (and your time zone) and we will send an invite';
   const unsub = unsubscribeUrl(toEmail);
 
@@ -63,7 +63,7 @@ export function renderProposal(input: ProposalInput, toEmail: string, postalAddr
       'Illustrative, at list prices, one call minute with 550 characters of agent speech: premium voice tier $0.0655, ReadAloud standard voices $0.0237.',
     ] : []),
     '',
-    input.bookingUrl ? `Next step: book a 20-minute demo here: ${input.bookingUrl}` : `Next step: ${cta}.`,
+    input.bookingUrl ? `Next step: book a 15-minute demo here: ${input.bookingUrl}` : `Next step: ${cta}.`,
     `The deck, if you prefer to read: ${DECK_URL}`,
     '',
     `You can also reach us at ${REPLY} or ${PHONE}.`, '',

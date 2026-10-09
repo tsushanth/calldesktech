@@ -18,12 +18,12 @@ describe('renderProposal', () => {
     expect(r.text).toMatch(/Unsubscribe: https?:\/\//);
     expect(r.text).not.toMatch(/[^\x09\x0A\x20-\x7E]/);
     expect(r.html).toContain('href="https://cal.com/calldesk/demo"');
-    expect(r.html).toContain('Book a 20-minute demo');
+    expect(r.html).toContain('Book a 15-minute demo');
   });
   it('without a booking link it asks for times instead', () => {
     const r = renderProposal(base, 'a@b.com', ADDR);
     expect(r.text).toContain('Reply with two or three times');
-    expect(r.html).not.toContain('Book a 20-minute demo');
+    expect(r.html).not.toContain('Book a 15-minute demo');
   });
   it('direct: no partner terms and no speech API; mentions the trial cap', () => {
     const r = renderProposal({ kind: 'direct', context: 'Thank you for speaking with our team.' }, 'a@b.com', ADDR);
