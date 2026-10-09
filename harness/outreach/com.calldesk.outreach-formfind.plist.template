@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  Browser-based contact-form finder. TEMPLATE: replace /Users/sushanthtiruvaipati, copy to ~/Library/LaunchAgents/ and
+  `launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.calldesk.outreach-formfind.plist`.
+  Needs the same ~/.calldesk-forms/env as the form worker, plus FORM_FINDER_APPLY=1 to write results (default is a dry run).
+  Kill switch: touch ~/.calldesk-forms/STOP (also pauses the form worker). Runs every 15 minutes, 150 leads per run.
+-->
+<plist version="1.0">
+<dict>
+  <key>Label</key><string>com.calldesk.outreach-formfind</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/bin/bash</string>
+    <string>__HOME__/calldesk-outreach-harness/repo/harness/outreach/form_find_cycle.sh</string>
+  </array>
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>PRODUCT</key><string>calldesk</string>
+  </dict>
+  <key>StartInterval</key><integer>900</integer>
+  <key>RunAtLoad</key><false/>
+  <key>StandardOutPath</key><string>__HOME__/.calldesk-forms/logs/launchagent.log</string>
+  <key>StandardErrorPath</key><string>__HOME__/.calldesk-forms/logs/launchagent.log</string>
+</dict>
+</plist>
