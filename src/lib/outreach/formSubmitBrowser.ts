@@ -90,8 +90,8 @@ const READ_FORMS_SRC = `(() => {
     for (const el of Array.from(form.querySelectorAll('input, textarea, select'))) {
       const tag = el.tagName.toLowerCase();
       const type = tag === 'input' ? (el.getAttribute('type') || 'text').toLowerCase() : tag;
-      const name = el.getAttribute('name') || el.getAttribute('id');
-      if (!name) continue;
+      // Page builders often emit inputs with no name and no id; they are still real fields. Fall back to the label, the placeholder, then a position.
+      const name = el.getAttribute('name') || el.getAttribute('id') || labelFor(el) || el.getAttribute('placeholder') || (type === 'textarea' ? 'message' : tag + '_' + form.querySelectorAll('input, textarea, select').length + '_' + Array.from(form.querySelectorAll('input, textarea, select')).indexOf(el));
       if (['submit', 'button', 'image', 'reset', 'file', 'radio'].includes(type)) continue;
       const desc = {
         name: name,

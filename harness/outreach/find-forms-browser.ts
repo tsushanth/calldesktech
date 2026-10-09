@@ -38,7 +38,7 @@ function inspectPage() {
     if (!f.querySelector('textarea') || /search|login|password|signin/i.test(f.outerHTML.slice(0, 400))) continue;
     const fields = Array.from(f.querySelectorAll('input,textarea,select'))
       .filter((i) => !['hidden', 'submit', 'button', 'image', 'checkbox', 'radio'].includes((i as HTMLInputElement).type))
-      .map((i) => ({ name: (i as HTMLInputElement).name || i.id || (i.getAttribute('aria-label') ?? ''), type: i.tagName === 'INPUT' ? (i as HTMLInputElement).type : i.tagName.toLowerCase(), required: (i as HTMLInputElement).required }))
+      .map((i) => ({ name: (i as HTMLInputElement).name || i.id || i.getAttribute('aria-label') || i.getAttribute('placeholder') || (i.tagName === 'TEXTAREA' ? 'message' : (i as HTMLInputElement).type), type: i.tagName === 'INPUT' ? (i as HTMLInputElement).type : i.tagName.toLowerCase(), required: (i as HTMLInputElement).required }))
       .filter((x) => x.name);
     return {
       fields,

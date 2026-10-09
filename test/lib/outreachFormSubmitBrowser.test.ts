@@ -49,6 +49,15 @@ const ROUTES: Record<string, string> = {
   '/silent': page(BASIC_FIELDS, `<script>
       document.getElementById('contact').addEventListener('submit', (e) => e.preventDefault());
     </script>`),
+  // Page builders that emit inputs with no name and no id: the fields are real, identified by their placeholder.
+  '/unnamed': page(`<input type="text" placeholder="Your name" required><input type="email" placeholder="Email address" required>
+    <textarea placeholder="How can we help?" required></textarea><button type="submit">Send</button>`, `<script>
+      document.getElementById('contact').addEventListener('submit', (e) => {
+        e.preventDefault();
+        document.getElementById('contact').remove();
+        document.body.insertAdjacentHTML('beforeend', '<p>Thanks for contacting us, we will be in touch.</p>');
+      });
+    </script>`),
   // Builders like Wix blank the fields after a send and show nothing durable: unconfirmed, but worth a hint.
   '/cleared': page(BASIC_FIELDS, `<script>
       document.getElementById('contact').addEventListener('submit', (e) => { e.preventDefault(); document.getElementById('contact').reset(); });
@@ -201,6 +210,11 @@ describe.runIf(process.env.VITEST_SKIP_BROWSER !== '1')('submitOnPage (real Chro
     if (!browser) return;
     expect((await run('/lazy')).outcome).toEqual({ status: 'submitted' });
   }, 30_000);
+
+  it('fills a form whose fields have no name and no id, from their placeholders', async () => {
+    if (!browser) return;
+    expect((await run('/unnamed')).outcome).toEqual({ status: 'submitted' });
+  });
 
   it('says so when the form emptied itself after submit, and still hands it to a human', async () => {
     if (!browser) return;
