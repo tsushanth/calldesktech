@@ -87,8 +87,9 @@ async function findForm(ctx: import('playwright').BrowserContext, domain: string
   // Second pool: leads that were never contact-checked but have a website. Walked in id order with a cursor file, because checked leads that show
   // no form stay 'unknown' and would otherwise be fetched again and again.
   const cursorFile = process.env.FORM_FINDER_CURSOR || path.join(os.homedir(), '.calldesk-forms', 'find-cursor');
-  let cursor = '';
-  try { cursor = fs.readFileSync(cursorFile, 'utf8').trim(); } catch { /* first run */ }
+  const START = '00000000-0000-0000-0000-000000000000';
+  let cursor = START;
+  try { cursor = fs.readFileSync(cursorFile, 'utf8').trim() || START; } catch { /* first run */ }
   if (leads.length < LIMIT) {
     const { data: more, error: moreError } = await db.from('calldesk_outreach_leads')
       .select('id, company_name, domain, location, source_key, product, score, signals')
@@ -96,8 +97,8 @@ async function findForm(ctx: import('playwright').BrowserContext, domain: string
       .gt('id', cursor).order('id', { ascending: true }).limit(LIMIT * 3);
     if (moreError) log(`unknown-pool query error: ${moreError.message}`);
     const rowsMore = (more ?? []) as (Lead & { product: string })[];
-    log(`${rowsMore.length} never-checked lead(s) with a website after cursor ${cursor || '(start)'}`);
-    if (APPLY) { try { fs.writeFileSync(cursorFile, rowsMore.length ? rowsMore[rowsMore.length - 1].id : ''); } catch { /* retry next run */ } }
+    log(`${rowsMore.length} never-checked lead(s) with a website after cursor ${cursor}`);
+    if (APPLY) { try { fs.writeFileSync(cursorFile, rowsMore.length ? rowsMore[rowsMore.length - 1].id : START); } catch { /* retry next run */ } }
     leads.push(...rowsMore
       .filter((l) => l.product.startsWith('calldesk'))
       .filter((l) => !(l.signals as { browserFormCheck?: unknown } | null)?.browserFormCheck)
