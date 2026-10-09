@@ -69,6 +69,25 @@ async function findForm(ctx: import('playwright').BrowserContext, domain: string
   return null;
 }
 
+type Db = ReturnType<typeof getSupabaseAdmin>;
+async function draftResellerForms(db: Db) {
+  const { data: ref } = await db.from('calldesk_outreach_leads').select('signals').eq('product', 'calldesk')
+    .eq('signals->formOutreach->>status', 'submitted').limit(1).maybeSingle();
+  const base = (ref?.signals as { formOutreach?: { subject?: string; body?: string } } | null)?.formOutreach;
+  if (!base?.subject || !base?.body) { log('no reference reseller message found; reseller form leads not drafted'); return; }
+  const { data } = await db.from('calldesk_outreach_leads').select('id, signals, replied_at')
+    .eq('product', 'calldesk').eq('contact_status', 'form_only').eq('status', 'new').limit(500);
+  let n = 0;
+  for (const l of (data ?? []) as { id: string; signals: Record<string, unknown> | null; replied_at: string | null }[]) {
+    if (l.replied_at || l.signals?.formOutreach || !(l.signals?.contactForm as { pageUrl?: string } | undefined)?.pageUrl) continue;
+    const now = new Date().toISOString();
+    const { error } = await db.from('calldesk_outreach_leads')
+      .update({ signals: { ...l.signals, formOutreach: { subject: base.subject, body: base.body, status: 'ready', draftedAt: now } }, updated_at: now }).eq('id', l.id);
+    if (!error) n++;
+  }
+  log(`drafted ${n} reseller form lead(s) with the reseller message`);
+}
+
 (async () => {
   const db = getSupabaseAdmin();
   const { data, error } = await db.from('calldesk_outreach_leads')
@@ -106,6 +125,10 @@ async function findForm(ctx: import('playwright').BrowserContext, domain: string
       .slice(0, LIMIT - leads.length));
   }
   log(`${leads.length} lead(s) to check (${APPLY ? 'APPLY' : 'dry run'})`);
+
+  // Reseller leads are not drafted by the daily vertical pipeline, so give every reseller form lead (new finds and any earlier ones without a draft)
+  // the message already used for the reseller form submissions, so the form worker can send it. Vertical leads are drafted by that pipeline.
+  if (APPLY) await draftResellerForms(db);
 
   const browser = await chromium.launch();
   const tally = { checked: 0, form: 0, formWithEmail: 0, none: 0, errors: 0 };
