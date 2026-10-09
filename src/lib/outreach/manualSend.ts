@@ -2,6 +2,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { sendEmail as defaultSendEmail, type SendEmailParams, type SendEmailResult } from '@/lib/email';
 import { oneClickUnsubscribeUrl } from './unsubscribe';
 import { adminEmails } from './config';
+import { renderProposal, type ProposalInput } from './proposalEmail';
 
 // One-off emails from the outreach address: replies to prospects and partners, sent through the same
 // Resend sender and domain as the automated outreach (so the main domain keeps its reputation), copied
@@ -24,6 +25,8 @@ export interface ManualReplyInput {
   leadId?: string;
   bcc?: string[];
   allowNonAscii?: boolean;
+  /** Send a formatted proposal (calldesk brand only) instead of a plain body; `body` is then ignored. */
+  proposal?: ProposalInput;
 }
 
 export interface ValidReply {
@@ -34,6 +37,7 @@ export interface ValidReply {
   inReplyTo?: string;
   leadId?: string;
   bcc: string[];
+  html?: string;
 }
 
 const EMAIL_RE = /^[^\s@<>,;]+@[^\s@<>,;]+\.[^\s@<>,;]+$/;
@@ -76,7 +80,22 @@ export async function sendManualReply(
 ): Promise<ManualSendResult> {
   const env = opts.env ?? process.env;
   const send = opts.send ?? defaultSendEmail;
-  const v = validateReply(input, env);
+  let effective = input;
+  let proposalHtml: string | undefined;
+  if (input?.proposal) {
+    const p = input.proposal;
+    if ((input.brand ?? 'calldesk') !== 'calldesk') return { ok: false, error: 'proposal is only available for the calldesk brand' };
+    if (p.kind !== 'partner' && p.kind !== 'direct') return { ok: false, error: 'proposal.kind must be partner or direct' };
+    if (!String(p.context ?? '').trim() || String(p.context).length > 600) return { ok: false, error: 'proposal.context is required, 600 characters at most' };
+    if (p.bookingUrl && !/^https:\/\/[^\s"<>]+$/.test(p.bookingUrl)) return { ok: false, error: 'proposal.bookingUrl must be an https URL' };
+    const postal = env.OUTREACH_POSTAL_ADDRESS;
+    if (!postal) return { ok: false, error: 'OUTREACH_POSTAL_ADDRESS is not configured' };
+    const to = String(input.to ?? '').trim().toLowerCase();
+    const rendered = renderProposal(p, to, postal);
+    effective = { ...input, body: rendered.text };
+    proposalHtml = rendered.html;
+  }
+  const v = validateReply(effective, env);
   if (!v.ok) return v;
   const r = v.value;
   const cfg = BRAND_ENV[r.brand];
@@ -90,7 +109,7 @@ export async function sendManualReply(
   const headers: Record<string, string> = { 'List-Unsubscribe': `<${oneClickUnsubscribeUrl(r.to)}>`, 'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click' };
   if (r.inReplyTo) { headers['In-Reply-To'] = r.inReplyTo; headers['References'] = r.inReplyTo; }
   const result = await send({
-    to: r.to, subject: r.subject, html: replyHtml(r.body), text: r.body, from, replyTo, headers,
+    to: r.to, subject: r.subject, html: proposalHtml ?? replyHtml(r.body), text: r.body, from, replyTo, headers,
     ...(r.bcc.length ? { bcc: r.bcc } : {}),
     apiKey: (cfg.apiKey && env[cfg.apiKey]) || undefined,
   });

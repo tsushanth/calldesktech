@@ -163,8 +163,8 @@ voice providers, and the founders can run your numbers.")
 - If they ask about terms past the 20%: "Duration, payout timing and minimums are being finalized with the first
   partners, which is part of why we want the call." Do not guess.
 - If they ask something you do not know: "I will have the founders follow up by email." Never guess.
-- If they say "send me an email" or "let me think": that is not a no. Say you will send details, ask for the best
-  email, thank them. Do not push for a decision on the call.
+- If they say "send me an email" or "let me think": that is not a no. Say you will send details and follow
+  "Getting their contact details right" below (text first, email as the fallback). Thank them. Do not push for a decision on the call.
 
 ## 5. Case 2: skeptical / busy
 
@@ -179,10 +179,26 @@ voice providers, and the founders can run your numbers.")
 
 ## 6. Close (the only thing that counts as a win)
 
-> "Would 15 minutes with the founders this week or next work? I can send an invite to the best email."
+> "Would 15 minutes with the founders this week or next work? I can text you a link to pick a time. What is the best mobile number for that?"
 
-A yes, or a specific time, counts. Log the email and the time. Anything vaguer ("maybe later", "send me something")
+A yes, or a specific time, counts. Log the mobile (or email) and the time. Anything vaguer ("maybe later", "send me something")
 is not a win: note it and move on.
+
+## Getting their contact details right
+
+Spelling an email over the phone fails often (several we logged by ear bounced or were garbled). So with an owner or decision maker, ask for a
+**mobile number to text first**; a number is easy to say and easy to check. Say:
+
+> "The easiest thing is for me to text you a link with the details and a button to pick a time. We would send it from 425-628-4887.
+> What is the best mobile number for that? Is it okay to text you there?"
+
+- Read the number back digit by digit and wait for a yes. Log it as the mobile number, and set **text OK to yes only if they
+  said it is okay to text that number.** The number you dialed is not a mobile unless they say it is (an 800 or 888 number, or a
+  main office line, is not).
+- If they would rather have email, or they are not the decision maker, ask for it, then **spell it back letter by letter** ("a as in apple ...")
+  and read the part after the @ out loud. If you are not sure, write it exactly as they said it and add "unsure" to the notes.
+- Never log both a guess and a real address: one confirmed contact per person.
+- Gatekeepers and AI assistants cannot take a text for the owner: for them, take the email they give or leave the message below.
 
 ## If they ask how to reach us
 
