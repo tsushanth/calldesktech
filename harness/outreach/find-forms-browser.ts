@@ -20,6 +20,13 @@ import { isNonUsCaLead } from '@/lib/outreach/formSubmit';
 const APPLY = process.env.FORM_FINDER_APPLY === '1';
 const LIMIT = Number(process.env.FORM_FINDER_LIMIT || 150);
 const CONCURRENCY = Number(process.env.FORM_FINDER_CONCURRENCY || 4);
+// A page that never finishes (a script loop, a dialog) once froze a whole run for 22 hours and blocked every later run through the lock.
+// Each lead gets a fresh browser context with a hard time limit, and the whole run stops taking new leads after a deadline.
+const LEAD_TIMEOUT_MS = Number(process.env.FORM_FINDER_LEAD_TIMEOUT_S || 90) * 1000;
+const DEADLINE_MS = Number(process.env.FORM_FINDER_MAX_MINUTES || 20) * 60_000;
+const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
+const withTimeout = <T,>(p: Promise<T>, ms: number): Promise<T> =>
+  Promise.race([p, new Promise<T>((_, reject) => setTimeout(() => reject(new Error(`timed out after ${ms / 1000}s`)), ms))]);
 const PATHS = ['/contact', '/contact-us', '/'];
 const log = (m: string) => console.log(`[${new Date().toISOString()}] ${m}`);
 
@@ -133,13 +140,15 @@ async function draftResellerForms(db: Db) {
   const browser = await chromium.launch();
   const tally = { checked: 0, form: 0, formWithEmail: 0, none: 0, errors: 0 };
   let next = 0;
+  const startedAt = Date.now();
   async function worker() {
-    const ctx = await browser.newContext({ viewport: { width: 1280, height: 900 } });
     for (;;) {
+      if (Date.now() - startedAt > DEADLINE_MS) { log('deadline reached, not taking new leads'); break; }
       const lead = leads[next++];
       if (!lead) break;
+      const ctx = await browser.newContext({ viewport: { width: 1280, height: 900 } });
       try {
-        const found = await findForm(ctx, lead.domain);
+        const found = await withTimeout(findForm(ctx, lead.domain), LEAD_TIMEOUT_MS);
         tally.checked++;
         const now = new Date().toISOString();
         // A page that also lists an email is left for the email pipeline; only the check is recorded.
@@ -151,11 +160,22 @@ async function draftResellerForms(db: Db) {
         const patch = useForm ? { contact_status: 'form_only', contact_source_url: found.form.pageUrl, signals, updated_at: now } : { signals, updated_at: now };
         const { error } = await db.from('calldesk_outreach_leads').update(patch).eq('id', lead.id);
         if (error) { tally.errors++; log(`update failed for ${lead.domain}: ${error.message}`); }
-      } catch (error) { tally.errors++; log(`error ${lead.domain}: ${error instanceof Error ? error.message : String(error)}`); }
+      } catch (error) {
+        tally.errors++;
+        const message = error instanceof Error ? error.message : String(error);
+        log(`error ${lead.domain}: ${message}`);
+        // A site that hangs would hang again on every run: record the check so it is not retried.
+        if (APPLY && message.startsWith('timed out')) {
+          const now = new Date().toISOString();
+          await db.from('calldesk_outreach_leads').update({ signals: { ...(lead.signals ?? {}), browserFormCheck: { at: now, found: false, email: false, timeout: true } }, updated_at: now }).eq('id', lead.id);
+        }
+      } finally {
+        await Promise.race([ctx.close().catch(() => undefined), sleep(5_000)]);
+      }
     }
-    await ctx.close();
   }
   await Promise.all(Array.from({ length: CONCURRENCY }, worker));
-  await browser.close();
+  await Promise.race([browser.close().catch(() => undefined), sleep(10_000)]);
   log(`done ${JSON.stringify(tally)}`);
+  process.exit(0); // never let a stray handle keep the process (and the lock) alive
 })();
