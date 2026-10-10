@@ -82,9 +82,9 @@ export default function HighLevelDocsPage() {
             <OL>
               <li>In HighLevel create a new workflow with the trigger <b>Inbound Webhook</b>. Copy the webhook URL it shows. It accepts a JSON POST.</li>
               <li>In Calldesk open Integrations, Webhooks, Add endpoint. Paste the HighLevel URL, tick <b>Call completed</b>, tick <b>Flat payload</b>, and add it. (Registering webhooks needs a signed-in owner or admin; API keys cannot create webhooks. The API field is <C>format: &quot;flat&quot;</C>.)</li>
-              <li>Use the endpoint&apos;s Test button, or place one real call, so HighLevel receives sample data. In the trigger click Test Trigger, select the received request as sample data and save.</li>
-              <li>Add the action <b>Create/Update Contact</b> and map <C>phone</C> to Phone, <C>email</C> to Email, <C>name</C> to name. HighLevel needs an email or phone in the payload to create or match a contact; <C>phone</C> is always present on call events.</li>
-              <li>Add <b>Add Note</b> (or Send Internal Notification) using the received <C>summary</C>, <C>outcome</C>, <C>duration_seconds</C> and <C>transcript_url</C> from the value picker.</li>
+              <li>Use the endpoint&apos;s Test button, or place one real call, so HighLevel receives sample data. In the trigger click <b>Fetch sample requests</b> (the sample list can sit below the button, so scroll), select the received request as the Mapping Reference and save the trigger. HighLevel will not let the workflow save until a mapping reference is chosen.</li>
+              <li>Add the action <b>Create/Update Contact</b> and map <C>phone</C> to Phone, <C>email</C> to Email and <C>name</C> to First name (use <b>Add field</b> for First name). Without the name mapping, new contacts are created with the phone number only. HighLevel needs an email or phone in the payload to create or match a contact; <C>phone</C> is always present on call events.</li>
+              <li>Add <b>Add Note</b> (or Send Internal Notification) using the received <C>summary</C>, <C>outcome</C>, <C>duration_seconds</C> and <C>transcript_url</C>. Insert them with the tag icon in the note editor so they appear as field pills; text typed by hand is saved literally.</li>
               <li>Add an <b>If/Else</b> on <C>outcome</C> (values such as answered, voicemail, transferred, no_answer) and <b>Add Tag</b> per branch; custom variables arrive as <C>var_&lt;name&gt;</C> and can feed custom fields.</li>
             </OL>
             <P>

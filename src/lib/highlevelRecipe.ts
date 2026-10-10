@@ -37,7 +37,7 @@ export const WORKFLOW_B = {
     { type: 'If/Else', condition: 'outcome equals transferred', then: [{ type: 'Add Tag', tag: 'calldesk-transferred' }] },
     { type: 'Add Tag', tag: 'calldesk-called' },
   ],
-  note: 'The exact merge-field names for received data come from the picker in your workflow after you send a test event; the inboundWebhookRequest.* names above are indicative.',
+  note: 'Verified in a HighLevel sub-account: the received fields are available as inboundWebhookRequest.<key> (direction, duration_seconds, summary, transcript_url, ...). Choose them from the field picker after sending a sample event; they appear as pills such as "Inbound Webhook Trigger . Summary".',
 };
 
 export const FLAT_EXAMPLE = {
