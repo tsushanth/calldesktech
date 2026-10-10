@@ -4,6 +4,7 @@ import { getRetellClient } from '@/lib/retell';
 import { authorizeResource } from '@/lib/authz';
 import { tryAcquireToken, TWILIO_TENANT } from '@/lib/rateLimiter';
 import { pilotBlockResponse } from '@/lib/pilotBlock';
+import { parseCallVariables } from '@/lib/callVariables';
 
 // POST /api/phone-numbers/[id]/call — places a real outbound call FROM this
 // number, to test what its own outbound_agent_version_id actually says.
@@ -34,9 +35,19 @@ export async function POST(
   if (__auth.tenantId && !(await tryAcquireToken(`twilio-tenant-${__auth.tenantId}`, TWILIO_TENANT))) {
     return NextResponse.json({ error: 'Too many calls placed too quickly — retry shortly' }, { status: 429 });
   }
-  const { toNumber } = await request.json();
+  let reqBody: { toNumber?: unknown; variables?: unknown };
+  try {
+    reqBody = await request.json();
+  } catch {
+    return NextResponse.json({ error: 'Request body must be JSON' }, { status: 400 });
+  }
+  const toNumber = (reqBody ?? {}).toNumber;
+  // Optional per-call dynamic variables ({{name}} placeholders), same semantics as batch-call CSV columns.
+  const parsedVars = parseCallVariables(reqBody?.variables);
+  if (!parsedVars.ok) return NextResponse.json({ error: parsedVars.error }, { status: 400 });
+  const variables = parsedVars.variables;
 
-  if (!toNumber || typeof toNumber !== 'string' || !toNumber.trim()) {
+  if (typeof toNumber !== 'string' || !toNumber.trim()) {
     return NextResponse.json({ error: 'toNumber is required (E.164 format)' }, { status: 400 });
   }
 
@@ -78,6 +89,7 @@ export async function POST(
         fromNumber: phoneNumber.number,
         toNumber: toNumber.trim(),
         agentId: version.retell_agent_id,
+        dynamicVariables: variables,
       });
       return NextResponse.json({ call: { sid: call.call_id, to: toNumber.trim() } }, { status: 201 });
     } catch (err) {
@@ -100,6 +112,7 @@ export async function POST(
         toNumber: toNumber.trim(),
         routeAs: phoneNumber.number,
         direction: 'outbound',
+        ...(variables ? { variables } : {}),
       }),
     });
     const body = await res.json();

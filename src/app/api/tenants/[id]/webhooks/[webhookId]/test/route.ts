@@ -19,7 +19,7 @@ export async function POST(
 
   const { data: webhook, error } = await supabase
     .from('calldesk_webhooks')
-    .select('id, url, secret')
+    .select('*')
     .eq('id', webhookId)
     .eq('tenant_id', tenantId)
     .single();

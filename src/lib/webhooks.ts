@@ -1,6 +1,7 @@
 import { safeFetch } from '@/lib/safeFetch';
 import crypto from 'crypto';
 import { getSupabaseAdmin } from '@/lib/supabase';
+import { buildFlatPayload, type WebhookFormat } from '@/lib/webhookFlat';
 
 // The authoritative list of events a tenant can subscribe an outbound webhook
 // to. Keep this in sync with the checkboxes on the Integrations page and the
@@ -52,6 +53,8 @@ export interface WebhookRow {
   events: string[];
   enabled: boolean;
   secret: string;
+  /** 'nested' (default) or 'flat'; absent on rows from before the column existed. */
+  format?: WebhookFormat | null;
 }
 
 // A `whsec_`-prefixed random secret, mirroring Stripe's signing-secret shape.
@@ -71,15 +74,16 @@ export function signWebhookPayload(secret: string, body: string): string {
 // A single delivery. Returns whether the endpoint accepted it (2xx) plus the
 // status, so callers (notably the "Send test event" button) can report back.
 export async function deliverWebhook(
-  webhook: Pick<WebhookRow, 'url' | 'secret'>,
+  webhook: Pick<WebhookRow, 'url' | 'secret'> & { format?: WebhookFormat | null },
   event: string,
   data: Record<string, unknown>
 ): Promise<{ ok: boolean; status: number | null; error?: string }> {
-  const payload = {
-    event,
-    created_at: new Date().toISOString(),
-    data,
-  };
+  const createdAt = new Date().toISOString();
+  // Opt-in flat shape for no-code tools; the default nested shape is unchanged. Signing and headers are
+  // identical either way: HMAC over the exact bytes sent.
+  const payload = webhook.format === 'flat'
+    ? buildFlatPayload(event, createdAt, data)
+    : { event, created_at: createdAt, data };
   // Sign the exact serialized string we're about to send — signing a
   // re-serialization would risk key-ordering drift between what we signed and
   // what we transmitted.
@@ -121,13 +125,15 @@ export async function deliverWebhook(
 export async function dispatchWebhookEvent(
   tenantId: string,
   event: WebhookEventId,
-  data: Record<string, unknown>
+  data: Record<string, unknown>,
+  // Merged into the payload only for webhooks registered with format "flat" (e.g. call_log_id, variables).
+  flatExtras?: Record<string, unknown>
 ): Promise<void> {
   try {
     const supabase = getSupabaseAdmin();
     const { data: webhooks, error } = await supabase
       .from('calldesk_webhooks')
-      .select('id, url, secret, events, enabled')
+      .select('*') // '*' so a deploy before the `format` migration still works (format then reads as undefined = nested)
       .eq('tenant_id', tenantId)
       .eq('enabled', true)
       .contains('events', [event]);
@@ -139,8 +145,8 @@ export async function dispatchWebhookEvent(
     if (!webhooks || webhooks.length === 0) return;
 
     await Promise.all(
-      webhooks.map(async (wh: Pick<WebhookRow, 'id' | 'url' | 'secret'>) => {
-        const result = await deliverWebhook(wh, event, data);
+      webhooks.map(async (wh: Pick<WebhookRow, 'id' | 'url' | 'secret' | 'format'>) => {
+        const result = await deliverWebhook(wh, event, wh.format === 'flat' && flatExtras ? { ...data, ...flatExtras } : data);
         if (!result.ok) {
           console.error(
             `Webhook ${wh.id} delivery failed (${event}):`,

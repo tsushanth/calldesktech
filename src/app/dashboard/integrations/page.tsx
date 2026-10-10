@@ -293,6 +293,7 @@ function WebhooksSection() {
   const [url, setUrl] = useState('');
   const [selectedEvents, setSelectedEvents] = useState<string[]>(WEBHOOK_EVENTS.map((e) => e.id));
   const [isCreating, setIsCreating] = useState(false);
+  const [flatFormat, setFlatFormat] = useState(false);
 
   // The plaintext secret is only surfaced once, right after creating an
   // endpoint — thereafter it lives server-side for signing.
@@ -331,13 +332,14 @@ function WebhooksSection() {
       const res = await fetch(`/api/tenants/${tenantId}/webhooks`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url: url.trim(), events: selectedEvents }),
+        body: JSON.stringify({ url: url.trim(), events: selectedEvents, ...(flatFormat ? { format: 'flat' } : {}) }),
       });
       const body = await res.json();
       if (!res.ok) throw new Error(body.error);
       setWebhooks((prev) => [body.webhook, ...prev]);
       setNewSecret({ url: body.webhook.url, secret: body.webhook.secret });
       setUrl('');
+      setFlatFormat(false);
       setSelectedEvents(WEBHOOK_EVENTS.map((e) => e.id));
       setShowAdd(false);
     } catch (err) {
@@ -476,6 +478,18 @@ function WebhooksSection() {
               </label>
             ))}
           </div>
+          <label className="mt-4 flex cursor-pointer items-start gap-2.5">
+            <input
+              type="checkbox"
+              checked={flatFormat}
+              onChange={() => setFlatFormat((v) => !v)}
+              className="mt-0.5 h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-400"
+            />
+            <span>
+              <code className="text-[13px] font-medium text-[#1a1d29]">Flat payload</code>
+              <span className="ml-2 text-[12.5px] text-gray-500">Single-level JSON for HighLevel, Zapier and Make (phone, name, summary, outcome, ...).</span>
+            </span>
+          </label>
           <div className="mt-4 flex items-center gap-2">
             <button
               onClick={handleCreate}

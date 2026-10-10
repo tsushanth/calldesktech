@@ -2,6 +2,7 @@ import { validateUrlShape } from '@/lib/safeFetch';
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/supabase';
 import { generateWebhookSecret, WEBHOOK_EVENT_IDS } from '@/lib/webhooks';
+import { parseWebhookFormat } from '@/lib/webhookFlat';
 import { authorizeTenant, requireTenantRole } from '@/lib/authz';
 
 // GET /api/tenants/[id]/webhooks — list a tenant's outbound webhooks.
@@ -37,7 +38,12 @@ export async function POST(
 
   const { id: tenantId } = await params;
   const supabase = getSupabaseAdmin();
-  const { url, events } = await request.json();
+  const { url, events, format } = await request.json();
+  // Optional payload format; omitted = the default nested payload. Only sent to the DB when non-default so
+  // registering a default webhook never depends on the `format` column existing.
+  if (format !== undefined && parseWebhookFormat(format) === null) {
+    return NextResponse.json({ error: 'format must be "nested" or "flat"' }, { status: 400 });
+  }
 
   if (!url || typeof url !== 'string') {
     return NextResponse.json({ error: 'A webhook URL is required' }, { status: 400 });
@@ -79,6 +85,7 @@ export async function POST(
       events: validEvents,
       secret: generateWebhookSecret(),
       enabled: true,
+      ...(format === 'flat' ? { format: 'flat' } : {}),
     })
     .select()
     .single();

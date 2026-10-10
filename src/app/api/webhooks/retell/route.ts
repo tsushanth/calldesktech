@@ -71,7 +71,7 @@ export async function POST(request: NextRequest) {
         const finalizedOutcome = deriveOutcome(event.call);
         const transferStatus = deriveTransferStatus(event.call);
 
-        await supabase
+        const { data: finalizedLog } = await supabase
           .from('calldesk_call_logs')
           .update({
             duration_seconds: duration,
@@ -86,7 +86,9 @@ export async function POST(request: NextRequest) {
             // ring/connect timing (see deriveTransferStatus's own comment).
             ...(transferStatus ? { transfer_status: transferStatus } : {}),
           })
-          .eq('retell_call_id', event.call.call_id);
+          .eq('retell_call_id', event.call.call_id)
+          .select('id')
+          .maybeSingle();
 
         // AI Quality Assurance: score the just-saved transcript with Claude and
         // store sentiment/quality/critique on the same row. Run inline (not
@@ -150,7 +152,13 @@ export async function POST(request: NextRequest) {
             ? new Date(event.call.end_timestamp).toISOString()
             : null,
         };
-        await dispatchWebhookEvent(tenant.id, 'call.completed', webhookData);
+        // Extra context used ONLY by webhooks registered with format "flat" (the nested payload is unchanged).
+        const retellVars = (event.call as { retell_llm_dynamic_variables?: Record<string, unknown> }).retell_llm_dynamic_variables;
+        const flatExtras = {
+          call_log_id: finalizedLog?.id ?? null,
+          variables: retellVars && typeof retellVars === 'object' ? retellVars : {},
+        };
+        await dispatchWebhookEvent(tenant.id, 'call.completed', webhookData, flatExtras);
 
         // CRM sync (us→HubSpot), same call.completed hook point as the
         // outbound webhooks above. Best-effort like everything else in this
@@ -173,10 +181,10 @@ export async function POST(request: NextRequest) {
         }
 
         if (finalizedOutcome === 'transferred') {
-          await dispatchWebhookEvent(tenant.id, 'call.transferred', webhookData);
+          await dispatchWebhookEvent(tenant.id, 'call.transferred', webhookData, flatExtras);
         }
         if (analysis) {
-          await dispatchWebhookEvent(tenant.id, 'call.analyzed', { ...webhookData, analysis });
+          await dispatchWebhookEvent(tenant.id, 'call.analyzed', { ...webhookData, analysis }, flatExtras);
         }
         break;
       }

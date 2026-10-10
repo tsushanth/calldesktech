@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/supabase';
 import { WEBHOOK_EVENT_IDS } from '@/lib/webhooks';
+import { parseWebhookFormat } from '@/lib/webhookFlat';
 import { requireTenantRole } from '@/lib/authz';
 
 // PATCH /api/tenants/[id]/webhooks/[webhookId] — toggle enabled or edit events.
@@ -15,7 +16,12 @@ export async function PATCH(
   const supabase = getSupabaseAdmin();
   const body = await request.json();
 
-  const updates: { enabled?: boolean; events?: string[] } = {};
+  const updates: { enabled?: boolean; events?: string[]; format?: string } = {};
+  if (body.format !== undefined) {
+    const f = parseWebhookFormat(body.format);
+    if (!f) return NextResponse.json({ error: 'format must be "nested" or "flat"' }, { status: 400 });
+    updates.format = f;
+  }
   if (typeof body.enabled === 'boolean') updates.enabled = body.enabled;
   if (Array.isArray(body.events)) {
     const validEvents = body.events.filter((e: string) =>

@@ -85,6 +85,7 @@ export default function DocsPage() {
                 <li><a href="#mcp-tools" className="block rounded-md px-3 py-1.5 text-[14px] text-gray-600 transition-colors hover:bg-white hover:text-[#1a1d29]">MCP tools</a></li>
                 <li><a href="#pricing-tiers" className="block rounded-md px-3 py-1.5 text-[14px] text-gray-600 transition-colors hover:bg-white hover:text-[#1a1d29]">Pricing tiers</a></li>
                 <li><a href="#models" className="block rounded-md px-3 py-1.5 text-[14px] text-gray-600 transition-colors hover:bg-white hover:text-[#1a1d29]">Advanced: choose models yourself</a></li>
+                <li><a href="/docs/highlevel" className="block rounded-md px-3 py-1.5 text-[14px] text-gray-600 transition-colors hover:bg-white hover:text-[#1a1d29]">Use with HighLevel</a></li>
                 <li><a href="#sdks" className="block rounded-md px-3 py-1.5 text-[14px] text-gray-600 transition-colors hover:bg-white hover:text-[#1a1d29]">Official SDKs</a></li>
                 {tags.map((t) => (
                   <li key={t}><a href={`#${slug(t)}`} className="block rounded-md px-3 py-1.5 text-[14px] text-gray-600 transition-colors hover:bg-white hover:text-[#1a1d29]">{t}</a></li>
