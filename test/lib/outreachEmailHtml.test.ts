@@ -87,3 +87,29 @@ describe('site link', () => {
     expect(text.startsWith('https://calldesk.tech\n\nHi there,')).toBe(true);
   });
 });
+
+describe('renderOutreachEmail v2 layout', () => {
+  const footer = { text: '\n--\nF', html: '<p>F</p>' };
+  const body = 'Hi there,\n\nWe built GymLog: https://play.google.com/store/apps/details?id=com.x.\n\n- fast logging\n- no signup\n\nSushanth & Deepika\nKreative Koala LLC';
+  it('adds a header, a linked URL, bullets and the button before the sign-off', () => {
+    const r = renderOutreachEmail({ bodyText: body, footer, v2: { brand: 'GymLog', color: '#111111', cta: { label: 'Get it on Google Play', url: 'https://play.google.com/store/apps/details?id=com.x' } } });
+    expect(r.html).toContain('GymLog</td>');
+    expect(r.html).toContain('<ul');
+    expect(r.html).toContain('<li style="margin:0 0 6px">fast logging</li>');
+    expect(r.html).toContain('<a href="https://play.google.com/store/apps/details?id=com.x" style="color:#2563eb">');
+    expect(r.html.indexOf('Get it on Google Play')).toBeLessThan(r.html.indexOf('Sushanth &amp; Deepika'));
+    expect(r.text).toContain('Get it on Google Play: https://play.google.com/store/apps/details?id=com.x');
+  });
+  it('without v2 the output is unchanged: no header, no list, no button', () => {
+    const r = renderOutreachEmail({ bodyText: body, footer });
+    expect(r.html).not.toContain('<ul');
+    expect(r.html).not.toContain('border-bottom:3px');
+    expect(r.html).not.toContain('Get it on');
+  });
+  it('escapes HTML in the body and in the button label', () => {
+    const r = renderOutreachEmail({ bodyText: '<script>x</script>\n\nSushanth', footer, v2: { brand: 'A&B', cta: { label: '<b>go</b>', url: 'https://e.com' } } });
+    expect(r.html).not.toContain('<script>');
+    expect(r.html).toContain('A&amp;B');
+    expect(r.html).toContain('&lt;b&gt;go&lt;/b&gt;');
+  });
+});

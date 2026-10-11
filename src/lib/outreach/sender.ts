@@ -57,8 +57,11 @@ const READALOUD_BRAND: Brand = { name: 'readaloudai.org', siteUrl: 'readaloudai.
 // Fallback for any Kreative Koala product key not yet in the map above.
 const KREATIVE_KOALA_BRAND: Brand = { name: 'KreativeKoalaSolutions LLC', siteUrl: 'kreativekoala.llc', fromEnvVar: 'OUTREACH_FROM_EMAIL_KK', postalEnvVar: KK_POSTAL_ENV, capEnvVar: KK_CAP_ENV, replyToEnvVar: 'OUTREACH_REPLYTO_EMAIL_KK' };
 
+// DB-stored ReadAloud products are 'readaloud:api' (see products.ts); the bare 'readaloud' is the CLI id. Both are ReadAloud.
+const isReadaloud = (product: string) => product === 'readaloud' || product.startsWith('readaloud:');
+
 export function brandFor(product: string): Brand {
-  if (product === 'readaloud') return READALOUD_BRAND;
+  if (isReadaloud(product)) return READALOUD_BRAND;
   if (!product.startsWith('kreativekoala')) return CALLDESK_BRAND;
   const key = product.split(':')[1];
   const appBrand = key && KK_APP_BRANDS[key];
@@ -85,7 +88,7 @@ export function capResetLabel(now = new Date(), tz = process.env.OUTREACH_TZ || 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export type Lane = 'calldesk' | 'kk' | 'readaloud';
 export function laneOf(product: string): Lane {
-  if (product === 'readaloud') return 'readaloud';
+  if (isReadaloud(product)) return 'readaloud';
   return product.startsWith('kreativekoala') ? 'kk' : 'calldesk';
 }
 // PostgREST .or() filter matching every product in a lane.
@@ -170,8 +173,21 @@ export async function buildOutreachEmail(
   const appBase = (process.env.NEXT_PUBLIC_APP_URL || 'https://calldesk.tech').replace(/\/$/, '');
   // The trial-coupon form is a Calldesk offer: not for the app brands or ReadAloud. OUTREACH_TRY_LINK=off removes it everywhere.
   const tryUrl = brand === CALLDESK_BRAND && process.env.OUTREACH_TRY_LINK !== 'off' ? `${appBase}/try?t=${encodeURIComponent(sampleTokenFor(String(msg.id)))}` : null;
-  const { html, text } = renderOutreachEmail({ bodyText: String(msg.body_text), footer, sample: emailSample, deckUrl, tryUrl, utm: { campaign: campaignFor(product), step: Number(msg.step) || 1 }, site: { label: brand.siteUrl, url: /^https?:\/\//.test(brand.siteUrl) ? brand.siteUrl : `https://${brand.siteUrl}` } });
+  const v2 = v2LayoutFor(brand, String(msg.body_text));
+  const { html, text } = renderOutreachEmail({ bodyText: String(msg.body_text), footer, sample: emailSample, deckUrl, tryUrl, v2, utm: { campaign: campaignFor(product), step: Number(msg.step) || 1 }, site: { label: brand.siteUrl, url: /^https?:\/\//.test(brand.siteUrl) ? brand.siteUrl : `https://${brand.siteUrl}` } });
   return { html, text, variant, sampleId };
+}
+
+
+// Formatted (v2) layout for the app and ReadAloud lanes: a brand header, linked URLs, bullets and one button. OUTREACH_HTML_V2 =
+// off | apps (default: every brand except Calldesk, whose emails keep their existing sample-card layout) | all.
+export function v2LayoutFor(brand: Brand, bodyText: string, mode = process.env.OUTREACH_HTML_V2): { brand: string; color?: string; cta: { label: string; url: string } | null } | undefined {
+  const m = (mode || 'apps').toLowerCase();
+  if (m === 'off' || (m !== 'all' && brand === CALLDESK_BRAND)) return undefined;
+  if (brand === READALOUD_BRAND) return { brand: brand.name, color: '#2563eb', cta: { label: 'Hear a sample voice', url: 'https://readaloudai.org/samples/compare/new-voice.mp3' } };
+  const url = bodyText.match(/https?:\/\/[^\s<>"]+[^\s<>".,;:!?)\]]/)?.[0] ?? null;
+  const cta = url ? { label: /play\.google\.com/.test(url) ? 'Get it on Google Play' : `Open ${brand.name}`, url } : null;
+  return { brand: brand.name, color: '#1a1d29', cta };
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any

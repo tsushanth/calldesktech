@@ -28,6 +28,9 @@ export interface RenderInput {
   // When set, every link above (sample, deck, site) is UTM-tagged by the one helper in utm.ts, in both the
   // HTML and the text alternative. The footer (unsubscribe) is never tagged. Unset = links untouched.
   utm?: UtmContext;
+  // v2 layout (app and ReadAloud emails): brand header band, bullets, linked URLs and one call-to-action button placed before the sign-off.
+  // Without `v2` the output is exactly what it always was.
+  v2?: { brand: string; color?: string; cta?: { label: string; url: string } | null };
 }
 
 const CARD_MAX_LINES = 6;
@@ -84,16 +87,45 @@ function tagLinks(input: RenderInput): RenderInput {
     deckUrl: input.deckUrl ? tag(input.deckUrl) : input.deckUrl,
     tryUrl: input.tryUrl ? tag(input.tryUrl) : input.tryUrl,
     site: input.site ? { ...input.site, url: tag(input.site.url) } : input.site,
+    v2: input.v2 ? { ...input.v2, cta: input.v2.cta ? { ...input.v2.cta, url: tag(input.v2.cta.url) } : input.v2.cta } : input.v2,
   };
+}
+
+const URL_RE = /(https?:\/\/[^\s<>"]+[^\s<>".,;:!?)\]])/g;
+function linkify(escaped: string): string {
+  return escaped.replace(URL_RE, (u) => `<a href="${u}" style="color:#2563eb">${u}</a>`);
+}
+
+// Splits the body into paragraphs and "- " bullet groups; the CTA button goes before a short final sign-off paragraph.
+function v2Body(bodyText: string, cta: { label: string; url: string } | null | undefined, color: string): string {
+  const blocks = String(bodyText).split(/\n{2,}/).map((b) => b.trim()).filter(Boolean);
+  const isSignoff = (b: string) => b.split('\n').length <= 3 && /(sushanth|deepika|co-?founder|thanks|best regards)/i.test(b);
+  const render = (b: string) => {
+    const lines = b.split('\n');
+    if (lines.length > 1 && lines.every((l) => /^\s*[-*\u2022]\s+/.test(l))) {
+      return `<ul style="margin:0 0 14px;padding-left:20px">${lines.map((l) => `<li style="margin:0 0 6px">${linkify(escapeHtml(l.replace(/^\s*[-*\u2022]\s+/, '')))}</li>`).join('')}</ul>`;
+    }
+    return `<p style="margin:0 0 14px">${linkify(escapeHtml(b)).replace(/\n/g, '<br/>')}</p>`;
+  };
+  const button = cta
+    ? `<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:6px 0 18px"><tr><td bgcolor="${color}" style="background-color:${color};border-radius:6px;padding:11px 20px"><a href="${escapeAttr(cta.url)}" style="font-family:${FONT};font-size:15px;font-weight:bold;color:#ffffff;text-decoration:none;display:inline-block">${escapeHtml(cta.label)}</a></td></tr></table>`
+    : '';
+  const last = blocks[blocks.length - 1];
+  if (blocks.length > 1 && isSignoff(last)) return blocks.slice(0, -1).map(render).join('') + button + render(last);
+  return blocks.map(render).join('') + button;
 }
 
 export function renderOutreachEmail(rawInput: RenderInput): { html: string; text: string } {
   const input = tagLinks(rawInput);
   const { bodyText, footer, sample, site } = input;
-  const paragraphs = String(bodyText)
-    .split(/\n{2,}/)
-    .map((p) => `<p style="margin:0 0 14px">${escapeHtml(p).replace(/\n/g, '<br/>')}</p>`)
-    .join('');
+  const v2 = input.v2;
+  const v2Color = v2?.color || '#1a1d29';
+  const paragraphs = v2
+    ? v2Body(bodyText, v2.cta, v2Color)
+    : String(bodyText)
+        .split(/\n{2,}/)
+        .map((p) => `<p style="margin:0 0 14px">${escapeHtml(p).replace(/\n/g, '<br/>')}</p>`)
+        .join('');
   const lines = sample ? sample.lines.slice(0, CARD_MAX_LINES) : [];
   const card = sample && lines.length > 0 ? renderCard(sample, lines) : '';
   const standaloneDeckUrl = input.deckUrl && !(sample && lines.length > 0 && sample.deckUrl) ? input.deckUrl : null;
@@ -103,8 +135,11 @@ export function renderOutreachEmail(rawInput: RenderInput): { html: string; text
   const tryHtml = input.tryUrl
     ? `<p style="margin:0 0 14px;font-size:13px;color:#4b5563">Want to try it? <a href="${escapeAttr(input.tryUrl)}" style="color:#2563eb">Get a trial coupon</a>.</p>`
     : '';
-  const siteHtml = site ? `<p style="margin:0 0 18px"><a href="${escapeAttr(site.url)}" style="color:#2563eb;font-weight:600;text-decoration:none">${escapeHtml(site.label)}</a></p>` : '';
-  const html = `<div style="font-family:-apple-system,Segoe UI,sans-serif;font-size:15px;line-height:1.6;color:#1a1d29;max-width:560px">${siteHtml}${paragraphs}${card}${deckHtml}${tryHtml}${footer.html}</div>`;
+  const headerHtml = v2
+    ? `<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="margin:0 0 18px"><tr><td style="border-bottom:3px solid ${v2Color};padding:0 0 8px;font-family:${FONT};font-size:16px;font-weight:bold;color:#1a1d29">${escapeHtml(v2.brand)}</td></tr></table>`
+    : '';
+  const siteHtml = !v2 && site ? `<p style="margin:0 0 18px"><a href="${escapeAttr(site.url)}" style="color:#2563eb;font-weight:600;text-decoration:none">${escapeHtml(site.label)}</a></p>` : '';
+  const html = `<div style="font-family:-apple-system,Segoe UI,sans-serif;font-size:15px;line-height:1.6;color:#1a1d29;max-width:560px">${headerHtml}${siteHtml}${paragraphs}${card}${deckHtml}${tryHtml}${footer.html}</div>`;
 
   let textSample = '';
   const deckText = standaloneDeckUrl ? `\nShort deck: ${standaloneDeckUrl}\n` : '';
@@ -115,5 +150,6 @@ export function renderOutreachEmail(rawInput: RenderInput): { html: string; text
   }
   const tryText = input.tryUrl ? `\nTrial coupon: ${input.tryUrl}\n` : '';
   const siteText = site ? `${site.url}\n\n` : '';
-  return { html, text: `${siteText}${bodyText}${textSample}${deckText}${tryText}${footer.text}` };
+  const ctaText = v2?.cta ? `\n${v2.cta.label}: ${v2.cta.url}\n` : '';
+  return { html, text: `${v2 ? '' : siteText}${bodyText}${ctaText}${textSample}${deckText}${tryText}${footer.text}` };
 }

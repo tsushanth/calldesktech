@@ -232,3 +232,22 @@ describe('sendApprovedMessage sample integration', () => {
     expect(updates).toContainEqual({ variant: 'sample', sample_id: 's1' });
   });
 });
+
+describe('ReadAloud brand and lane (DB product is readaloud:api)', async () => {
+  const { brandFor, laneOf, v2LayoutFor } = await import('@/lib/outreach/sender');
+  it('readaloud:api is ReadAloud, not Calldesk', () => {
+    expect(brandFor('readaloud:api').name).toBe('readaloudai.org');
+    expect(brandFor('readaloud').name).toBe('readaloudai.org');
+    expect(brandFor('calldesk:freight').name).toBe('Calldesk');
+    expect(laneOf('readaloud:api')).toBe('readaloud');
+    expect(laneOf('calldesk:dental')).toBe('calldesk');
+  });
+  it('v2 layout: apps and ReadAloud by default, never Calldesk, off switch works', () => {
+    const body = 'Hi, we built GymLog: https://play.google.com/store/apps/details?id=com.kreativekoala.gymlog.\n\nSushanth';
+    expect(v2LayoutFor(brandFor('kreativekoala:gymlog'), body)?.cta).toEqual({ label: 'Get it on Google Play', url: 'https://play.google.com/store/apps/details?id=com.kreativekoala.gymlog' });
+    expect(v2LayoutFor(brandFor('readaloud:api'), 'x')?.cta?.label).toBe('Hear a sample voice');
+    expect(v2LayoutFor(brandFor('calldesk:dental'), body)).toBeUndefined();
+    expect(v2LayoutFor(brandFor('calldesk:dental'), body, 'all')).toBeDefined();
+    expect(v2LayoutFor(brandFor('kreativekoala:gymlog'), body, 'off')).toBeUndefined();
+  });
+});
