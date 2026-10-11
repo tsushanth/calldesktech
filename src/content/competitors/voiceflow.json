@@ -1,0 +1,152 @@
+{
+  "slug": "voiceflow",
+  "name": "Voiceflow",
+  "url": "https://www.voiceflow.com",
+  "status": "active",
+  "category": "no-code-builder",
+  "positioning": "Voiceflow is a collaborative agent-building platform for customer-experience teams and agencies that deploys chat and phone agents.",
+  "pricing": {
+    "model": "Monthly plan fee (Free, Pro, Business, Enterprise) plus add-ons (editor seats, extra phone numbers, concurrent calls) and credit-based usage for phone minutes, LLM, STT and TTS.",
+    "headline": "Phone usage is listed at $0.05 per minute in the credits table, with LLM, speech-to-text and text-to-speech charged separately by vendor and model, on top of a monthly plan fee whose amount is not shown on the public pages read.",
+    "perMinuteUsd": 0.05,
+    "currency": "USD",
+    "planNotes": [
+      "Plans named in billing docs: Free, Pro (individual builders), Business (teams), Enterprise (custom).",
+      "Plan prices and credit bundle sizes are shown inside the app (Plans and Billing); the public pricing page offers 'Start building for clients' for agencies and 'Request pricing' for businesses.",
+      "One Voiceflow phone number per workspace is included; extra numbers and extra concurrent calls are add-ons.",
+      "Free plan has a one-time credit grant that does not renew and is described by Voiceflow as not suitable for production.",
+      "The $0.05/min figure comes from a single docs page (credits pricing table, 'Self-serve pricing' tab); the marketing pricing page does not list it (single-source)."
+    ],
+    "freeTrial": "Free plan with a one-time credit grant; the pricing page says free trial, no credit card required (agency track).",
+    "whatIsExtra": [
+      "LLM usage per token by model (for example listed per 1K input and output tokens)",
+      "Speech-to-text per minute by vendor (for example Deepgram, AssemblyAI, Google)",
+      "Text-to-speech per 1K characters by vendor (for example ElevenLabs, Cartesia, Amazon)",
+      "Chat messages at $0.005 each",
+      "Additional editor seats, phone numbers and concurrent calls"
+    ],
+    "sourceUrls": [
+      "https://www.voiceflow.com/docs/documentation/account-management/billing/credits-pricing-table",
+      "https://www.voiceflow.com/docs/documentation/account-management/billing.md",
+      "https://www.voiceflow.com/pricing"
+    ]
+  },
+  "strengths": [
+    {
+      "claim": "Visual, collaborative builder with environments (development, staging, production) and traffic splitting that also applies to phone numbers.",
+      "sourceUrl": "https://www.voiceflow.com/docs/documentation/deploy/phone/connect-a-phone-number.md"
+    },
+    {
+      "claim": "Lets you connect numbers from Twilio, Vonage or Telnyx, or have Voiceflow provision a US or Canadian number, for inbound and outbound calls and SMS.",
+      "sourceUrl": "https://www.voiceflow.com/docs/documentation/deploy/phone/connect-a-phone-number.md"
+    },
+    {
+      "claim": "Model choice across the large LLM vendors, and the pricing page says you can bring your own model.",
+      "sourceUrl": "https://www.voiceflow.com/pricing"
+    },
+    {
+      "claim": "Lists SOC 2 Type II, ISO 27001, GDPR and HIPAA on its security page and says customer data is not used to train models.",
+      "sourceUrl": "https://www.voiceflow.com/security"
+    },
+    {
+      "claim": "Agencies get multi-client workspaces, white-labelling and client handoff tools according to the pricing page.",
+      "sourceUrl": "https://www.voiceflow.com/pricing"
+    }
+  ],
+  "limitations": [
+    {
+      "claim": "Plan prices, credit bundles and add-on prices are viewed inside the product, so total cost is harder to estimate from public pages alone.",
+      "sourceUrl": "https://www.voiceflow.com/docs/documentation/account-management/billing.md"
+    },
+    {
+      "claim": "Each plan has a concurrent calls limit for phone; more capacity is an add-on.",
+      "sourceUrl": "https://www.voiceflow.com/docs/documentation/account-management/billing.md"
+    },
+    {
+      "claim": "The Free plan's credit grant is one-time and described as not suitable for production use.",
+      "sourceUrl": "https://www.voiceflow.com/docs/documentation/account-management/billing.md"
+    }
+  ],
+  "integrations": [
+    "Twilio, Vonage and Telnyx phone numbers",
+    "HubSpot",
+    "Salesforce",
+    "Zendesk",
+    "Google Sheets",
+    "Gmail",
+    "Airtable",
+    "Shopify",
+    "Make",
+    "MCP tool",
+    "API and function tools",
+    "Call forwarding step"
+  ],
+  "compliance": {
+    "hipaa": "stated",
+    "soc2": "stated",
+    "gdpr": "stated",
+    "note": "Stated by vendor, self-attested: the security page lists SOC 2 Type II, ISO 27001, GDPR and HIPAA with links to a Trust Center. Whether a BAA is offered and on which plan was not stated on the pages read; billing docs mention advanced security and compliance features on Enterprise.",
+    "sourceUrl": "https://www.voiceflow.com/security"
+  },
+  "telephony": {
+    "bringYourOwnCarrier": "yes",
+    "providedNumbers": "Voiceflow can provision US or Canadian numbers (one included per workspace, more as add-on); numbers can also be connected from Twilio, Vonage or Telnyx using account credentials.",
+    "sourceUrl": "https://www.voiceflow.com/docs/documentation/deploy/phone/connect-a-phone-number.md"
+  },
+  "migration": {
+    "exportAgentsPossible": "yes",
+    "stepsToLeave": [
+      "Call the Export environment API (GET /v1/stable/environment/{environmentAlias}/export with projectID) to serialise the agent, playbooks, tools and knowledge base into one JSON document.",
+      "The export is described as a document you can archive or move to another Voiceflow project; mapping it to another platform is not documented by Voiceflow."
+    ],
+    "sourceUrls": [
+      "https://www.voiceflow.com/docs/api-reference/environment/export-environment.md",
+      "https://www.voiceflow.com/docs/llms.txt"
+    ]
+  },
+  "bestFor": "Product and CX teams and agencies that want a visual, collaborative builder for chat and phone agents and are fine with usage credits on top of a plan fee.",
+  "sources": [
+    {
+      "url": "https://www.voiceflow.com/pricing",
+      "title": "Voiceflow pricing page",
+      "retrievedAt": "2026-10-10"
+    },
+    {
+      "url": "https://www.voiceflow.com/docs/documentation/account-management/billing/credits-pricing-table",
+      "title": "Voiceflow docs: Credits pricing table",
+      "retrievedAt": "2026-10-10"
+    },
+    {
+      "url": "https://www.voiceflow.com/docs/documentation/account-management/billing.md",
+      "title": "Voiceflow docs: Billing overview",
+      "retrievedAt": "2026-10-10"
+    },
+    {
+      "url": "https://www.voiceflow.com/docs/documentation/deploy/phone/connect-a-phone-number.md",
+      "title": "Voiceflow docs: Connecting a phone number",
+      "retrievedAt": "2026-10-10"
+    },
+    {
+      "url": "https://www.voiceflow.com/security",
+      "title": "Voiceflow security page",
+      "retrievedAt": "2026-10-10"
+    },
+    {
+      "url": "https://www.voiceflow.com/docs/api-reference/environment/export-environment.md",
+      "title": "Voiceflow API reference: Export environment",
+      "retrievedAt": "2026-10-10"
+    },
+    {
+      "url": "https://www.voiceflow.com/docs/llms.txt",
+      "title": "Voiceflow docs index (llms.txt)",
+      "retrievedAt": "2026-10-10"
+    }
+  ],
+  "unknowns": [
+    "Monthly plan prices (Pro, Business) and credit bundle sizes; shown only inside the app.",
+    "Whether a BAA is available and on which plan.",
+    "What share of phone-call cost is Voiceflow's $0.05/min versus passed-through telephony for Voiceflow-provisioned numbers.",
+    "Whether Voiceflow-provisioned numbers can be ported out."
+  ],
+  "retrievedAt": "2026-10-10"
+}

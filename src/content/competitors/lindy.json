@@ -1,0 +1,136 @@
+{
+  "slug": "lindy",
+  "name": "Lindy",
+  "url": "https://www.lindy.ai",
+  "status": "unclear",
+  "category": "no-code-builder",
+  "positioning": "Lindy presents itself today as a shared AI teammate for email, meetings, Slack and business tools, billed per seat with usage credits.",
+  "pricing": {
+    "model": "Per-user monthly subscription with a pool of usage credits (about $0.01 per credit); no per-minute voice pricing found.",
+    "headline": "Team plan from $49.99 per user per month for 5,000 credits; $50 free credits for 7 days; no per-minute phone-call rate published on the pages read.",
+    "perMinuteUsd": null,
+    "currency": "USD",
+    "planNotes": [
+      "Pricing page: Free ($50 in credits, last 7 days), Team from $49.99/month for 5,000 credits (larger credit bundles up to $9,999.50/month), Enterprise custom.",
+      "Docs pricing page names plans Plus, Pro and Max and says credits cost $0.01 on base plans; the public pricing page names the paid plan Team. Naming differs between the two pages.",
+      "Top-ups at $10 per 1,000 credits; unused monthly credits do not roll over.",
+      "Enterprise adds HIPAA with signed BAA, SSO and SCIM, audit logs.",
+      "No page read described a phone-call (inbound or outbound voice agent) product or per-minute price, so no per-minute number is recorded."
+    ],
+    "freeTrial": "$50 in free credits, no credit card required; free credits last 7 days.",
+    "whatIsExtra": [
+      "Credit top-ups at $10 per 1,000 credits",
+      "Each active user in the workspace is billed as a seat"
+    ],
+    "sourceUrls": [
+      "https://www.lindy.ai/pricing",
+      "https://docs.lindy.ai/pricing.md"
+    ]
+  },
+  "strengths": [
+    {
+      "claim": "Connects to 1,500+ integrations and supports MCP servers, per the pricing page.",
+      "sourceUrl": "https://www.lindy.ai/pricing"
+    },
+    {
+      "claim": "Approval step is built in: actions with outside impact such as sending an email wait for user approval.",
+      "sourceUrl": "https://www.lindy.ai/pricing"
+    },
+    {
+      "claim": "States SOC 2 Type II and GDPR compliance, with HIPAA and a signed BAA on Enterprise.",
+      "sourceUrl": "https://docs.lindy.ai/resources/security.md"
+    },
+    {
+      "claim": "Lets users choose the model per task and pools credits across the team.",
+      "sourceUrl": "https://www.lindy.ai/pricing"
+    }
+  ],
+  "limitations": [
+    {
+      "claim": "Monthly credits refresh each cycle and do not roll over; credit-using actions pause when the pool runs out.",
+      "sourceUrl": "https://docs.lindy.ai/pricing.md"
+    },
+    {
+      "claim": "Setup docs describe the phone connection as a way to message Lindy by iMessage, SMS or voice notes, not as a line that places or answers calls for a business.",
+      "sourceUrl": "https://docs.lindy.ai/export-full-docs.md"
+    }
+  ],
+  "integrations": [
+    "Slack",
+    "Gmail and Google Calendar",
+    "Microsoft email and calendar",
+    "Notion",
+    "HubSpot",
+    "MCP servers",
+    "1,500+ integrations in total (per vendor)"
+  ],
+  "compliance": {
+    "hipaa": "stated",
+    "soc2": "stated",
+    "gdpr": "stated",
+    "note": "Stated by vendor, self-attested: security doc says SOC 2 Type II, GDPR, HIPAA and PIPEDA; HIPAA with a signed BAA is listed under Enterprise only.",
+    "sourceUrl": "https://docs.lindy.ai/resources/security.md"
+  },
+  "telephony": {
+    "bringYourOwnCarrier": "unknown",
+    "providedNumbers": "Docs mention an assigned Lindy phone number and email address for the assistant, used for texting; no phone-call numbers for business callers were found.",
+    "sourceUrl": "https://docs.lindy.ai/export-full-docs.md"
+  },
+  "migration": {
+    "exportAgentsPossible": "unknown",
+    "stepsToLeave": [
+      "Docs describe a versioned memory and skills file system that users can view, edit and share; an explicit export procedure for agents was not found.",
+      "The docs site offers a full-docs export for LLMs, which is documentation rather than customer data."
+    ],
+    "sourceUrls": [
+      "https://docs.lindy.ai/export-full-docs.md",
+      "https://docs.lindy.ai/llms.txt"
+    ]
+  },
+  "bestFor": "Individuals and teams that want a general-purpose AI assistant working across email, calendar, meetings and Slack, rather than a dedicated phone-agent platform.",
+  "sources": [
+    {
+      "url": "https://www.lindy.ai/pricing",
+      "title": "Lindy pricing page",
+      "retrievedAt": "2026-10-10"
+    },
+    {
+      "url": "https://www.lindy.ai/",
+      "title": "Lindy home page",
+      "retrievedAt": "2026-10-10"
+    },
+    {
+      "url": "https://docs.lindy.ai/pricing.md",
+      "title": "Lindy docs: Pricing",
+      "retrievedAt": "2026-10-10"
+    },
+    {
+      "url": "https://docs.lindy.ai/resources/security.md",
+      "title": "Lindy docs: Security",
+      "retrievedAt": "2026-10-10"
+    },
+    {
+      "url": "https://docs.lindy.ai/export-full-docs.md",
+      "title": "Lindy docs: full documentation export",
+      "retrievedAt": "2026-10-10"
+    },
+    {
+      "url": "https://docs.lindy.ai/llms.txt",
+      "title": "Lindy docs index (llms.txt)",
+      "retrievedAt": "2026-10-10"
+    },
+    {
+      "url": "https://www.lindy.ai/sitemap.xml",
+      "title": "Lindy sitemap (lists blog posts about AI voice agents)",
+      "retrievedAt": "2026-10-10"
+    }
+  ],
+  "unknowns": [
+    "Whether Lindy currently sells an AI phone-agent product that answers or places calls for businesses; the home page, pricing page and docs read describe an AI teammate, though the home page role menu lists 'Calls & bookings' and the sitemap still has voice-agent blog posts.",
+    "Any per-minute pricing for phone calls.",
+    "Bring-your-own-carrier support.",
+    "Agent export procedure.",
+    "Whether the 'Calls & bookings' role page exists (the guessed URL returned 404)."
+  ],
+  "retrievedAt": "2026-10-10"
+}
