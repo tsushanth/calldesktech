@@ -1,0 +1,107 @@
+{
+  "slug": "slang-ai",
+  "name": "Slang.ai",
+  "url": "https://www.slang.ai",
+  "status": "active",
+  "retrievedAt": "2026-10-10",
+  "category": "answering-service",
+  "positioning": "A voice AI concierge built specifically for restaurants and hospitality groups, handling reservations, questions and private-event leads by phone.",
+  "pricing": {
+    "model": "Per-location plans (Core, Premium) plus custom Enterprise; quote-based",
+    "headline": "Core from $399 per location and Premium from $599 per location (billing period not stated on the page); Enterprise custom.",
+    "perMinuteUsd": null,
+    "currency": "USD",
+    "planNotes": [
+      "Core: 'Starting at $399 per location' (also shown in CAD and AUD at the same numbers).",
+      "Premium: 'Starting at $599 per location'; adds Superhost conversations, 97 languages, custom branding, QA, cross-selling, real-time alerts.",
+      "Enterprise: custom pricing with custom workflows/integrations, reporting, SSO/MFA controls.",
+      "Each plan button reads 'Get a quote', so final price is quote-based.",
+      "The page does not state whether the per-location price is monthly or annual, or whether usage/minute limits apply."
+    ],
+    "freeTrial": null,
+    "whatIsExtra": [
+      "Private Events capture is listed as an a-la-carte product (price not shown)."
+    ],
+    "sourceUrls": [
+      "https://www.slang.ai/pricing"
+    ]
+  },
+  "strengths": [
+    {
+      "claim": "Purpose-built for restaurants with listed reservation integrations: OpenTable, SevenRooms, Yelp and Resy.",
+      "sourceUrl": "https://www.slang.ai/pricing"
+    },
+    {
+      "claim": "Private-event lead capture via Tripleseat and Perfect Venue integrations.",
+      "sourceUrl": "https://www.slang.ai/pricing"
+    },
+    {
+      "claim": "States setup takes under 30 minutes of the customer's time with same-day go-live possible.",
+      "sourceUrl": "https://www.slang.ai/pricing"
+    },
+    {
+      "claim": "Premium plan lists 97 languages with automatic switching mid-call, 20 premium voices and custom greetings.",
+      "sourceUrl": "https://www.slang.ai/"
+    },
+    {
+      "claim": "Vendor states VIP call routing, CSAT capture on every call and call recordings with summaries.",
+      "sourceUrl": "https://www.slang.ai/pricing"
+    }
+  ],
+  "limitations": [
+    {
+      "claim": "Per-location, quote-based pricing; the page shows 'Starting at' figures rather than usage rates.",
+      "sourceUrl": "https://www.slang.ai/pricing"
+    },
+    {
+      "claim": "The FAQ says Slang provides a new phone number, and keeping an existing number should be discussed with onboarding.",
+      "sourceUrl": "https://www.slang.ai/pricing"
+    }
+  ],
+  "integrations": [
+    "OpenTable",
+    "SevenRooms",
+    "Yelp",
+    "Resy",
+    "Tripleseat",
+    "Perfect Venue"
+  ],
+  "compliance": {
+    "hipaa": "not-stated",
+    "soc2": "stated",
+    "gdpr": "not-stated",
+    "note": "Stated by vendor, self-attested: the pricing page comparison table says 'SOC II compliant'. No HIPAA or GDPR statement found on the pages read; a Trust Center link exists but was not read.",
+    "sourceUrl": "https://www.slang.ai/pricing"
+  },
+  "telephony": {
+    "bringYourOwnCarrier": "unknown",
+    "providedNumbers": "Slang provides a new local or toll-free number; keeping an existing number is described as possible after discussion with onboarding.",
+    "sourceUrl": "https://www.slang.ai/pricing"
+  },
+  "migration": {
+    "exportAgentsPossible": "unknown",
+    "stepsToLeave": [],
+    "sourceUrls": []
+  },
+  "bestFor": "Restaurants and hospitality groups that want a managed, restaurant-specific phone concierge tied to reservation systems.",
+  "sources": [
+    {
+      "url": "https://www.slang.ai/pricing",
+      "title": "Slang AI Pricing",
+      "retrievedAt": "2026-10-10"
+    },
+    {
+      "url": "https://www.slang.ai/",
+      "title": "Slang AI home (Superhost)",
+      "retrievedAt": "2026-10-10"
+    }
+  ],
+  "unknowns": [
+    "Billing period (monthly/annual) of the per-location price",
+    "Included call volume or overage rates",
+    "Free trial availability",
+    "HIPAA and GDPR statements (Trust Center not read)",
+    "Bring-your-own-carrier support",
+    "Agent export or data portability terms"
+  ]
+}

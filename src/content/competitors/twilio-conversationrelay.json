@@ -1,0 +1,128 @@
+{
+  "slug": "twilio-conversationrelay",
+  "name": "Twilio ConversationRelay",
+  "url": "https://www.twilio.com/en-us/products/conversational-ai/conversationrelay",
+  "status": "active",
+  "retrievedAt": "2026-10-10",
+  "category": "cpaas",
+  "positioning": "A developer building block from Twilio that streams call audio as text over a WebSocket (with speech-to-text and text-to-speech) so teams can connect their own LLM and logic.",
+  "pricing": {
+    "model": "Pay-as-you-go per minute, plus separate Twilio voice charges",
+    "headline": "$0.07 per minute for ConversationRelay, with voice (carrier/number) costs billed separately.",
+    "perMinuteUsd": 0.07,
+    "currency": "USD",
+    "planNotes": [
+      "Conversational AI pricing page: 'Conversation Relay $0.07 / minute'; 'Voice costs are calculated separately'.",
+      "Another section says 'starting at $0.07 per minute' and custom pricing for high volume via contact sales.",
+      "Real-time transcription is included in the per-minute cost per the Conversation Intelligence integration docs.",
+      "Pay-as-you-go with no commitment is the stated default; pricing marked current as of August 2026.",
+      "The LLM is the customer's own (bring your own LLM), so model costs are outside this price."
+    ],
+    "freeTrial": "New accounts get $15 in trial credits, per the pricing page FAQ.",
+    "whatIsExtra": [
+      "Twilio voice: US local numbers receive at $0.0085/min plus $1.15/month; outbound US/Canada $0.0140/min",
+      "Your own LLM usage",
+      "Conversation Intelligence language operators if used",
+      "BYOC trunking is $0.0040/min for either direction on Twilio's voice pricing page"
+    ],
+    "sourceUrls": [
+      "https://www.twilio.com/en-us/products/conversational-ai/pricing",
+      "https://www.twilio.com/docs/conversational-intelligence/conversation-relay-integration",
+      "https://www.twilio.com/en-us/voice/pricing/us"
+    ]
+  },
+  "strengths": [
+    {
+      "claim": "Transparent public per-minute price ($0.07) with pay-as-you-go and no commitment.",
+      "sourceUrl": "https://www.twilio.com/en-us/products/conversational-ai/pricing"
+    },
+    {
+      "claim": "Bring your own LLM and optionally your own text-to-speech, keeping control of the model and logic.",
+      "sourceUrl": "https://www.twilio.com/en-us/products/conversational-ai/conversationrelay"
+    },
+    {
+      "claim": "Runs on Twilio's global voice network with number provisioning and porting.",
+      "sourceUrl": "https://www.twilio.com/en-us/products/conversational-ai/conversationrelay"
+    },
+    {
+      "claim": "Adjustable interruption sensitivity, plus Deepgram (STT) and ElevenLabs (TTS) listed as speech options in Twilio's docs.",
+      "sourceUrl": "https://www.twilio.com/docs/voice/conversationrelay"
+    },
+    {
+      "claim": "Vendor states PCI-compliant workflows and HIPAA-eligible architectures are possible.",
+      "sourceUrl": "https://www.twilio.com/en-us/products/conversational-ai/conversationrelay"
+    }
+  ],
+  "limitations": [
+    {
+      "claim": "Voice costs are billed separately from the $0.07 per-minute ConversationRelay price.",
+      "sourceUrl": "https://www.twilio.com/en-us/products/conversational-ai/pricing"
+    },
+    {
+      "claim": "It is a developer service: the customer supplies the LLM and application logic over a WebSocket.",
+      "sourceUrl": "https://www.twilio.com/en-us/products/conversational-ai/conversationrelay"
+    }
+  ],
+  "integrations": [
+    "Deepgram (STT)",
+    "ElevenLabs (TTS)",
+    "Twilio Programmable Voice",
+    "Twilio Conversation Intelligence",
+    "Any LLM via WebSocket"
+  ],
+  "compliance": {
+    "hipaa": "stated",
+    "soc2": "not-stated",
+    "gdpr": "not-stated",
+    "note": "Stated by vendor, self-attested: product page mentions 'HIPAA-eligible architectures' and 'PCI-compliant workflows' (eligibility, not a certification of the customer's app). No SOC 2 or GDPR statement on the pages read.",
+    "sourceUrl": "https://www.twilio.com/en-us/products/conversational-ai/conversationrelay"
+  },
+  "telephony": {
+    "bringYourOwnCarrier": "unknown",
+    "providedNumbers": "Twilio sells numbers (US local $1.15/month, toll-free $2.15/month) and lists BYOC trunking at $0.0040/min; whether ConversationRelay works over BYOC trunks was not verified.",
+    "sourceUrl": "https://www.twilio.com/en-us/voice/pricing/us"
+  },
+  "migration": {
+    "exportAgentsPossible": "yes",
+    "stepsToLeave": [
+      "Agent logic lives in the customer's own WebSocket application (bring your own LLM per the product page), so it is portable by design; Twilio does not hold a hosted agent definition per the pages read."
+    ],
+    "sourceUrls": [
+      "https://www.twilio.com/en-us/products/conversational-ai/conversationrelay"
+    ]
+  },
+  "bestFor": "Developers who want to build a custom voice agent with their own LLM on top of Twilio's voice network.",
+  "sources": [
+    {
+      "url": "https://www.twilio.com/en-us/products/conversational-ai/pricing",
+      "title": "Conversational AI solutions pricing",
+      "retrievedAt": "2026-10-10"
+    },
+    {
+      "url": "https://www.twilio.com/en-us/products/conversational-ai/conversationrelay",
+      "title": "ConversationRelay",
+      "retrievedAt": "2026-10-10"
+    },
+    {
+      "url": "https://www.twilio.com/docs/conversational-intelligence/conversation-relay-integration",
+      "title": "Conversation Relay integration (billing structure)",
+      "retrievedAt": "2026-10-10"
+    },
+    {
+      "url": "https://www.twilio.com/en-us/voice/pricing/us",
+      "title": "Programmable Voice Pricing in United States",
+      "retrievedAt": "2026-10-10"
+    },
+    {
+      "url": "https://www.twilio.com/docs/voice/conversationrelay",
+      "title": "ConversationRelay docs",
+      "retrievedAt": "2026-10-10"
+    }
+  ],
+  "unknowns": [
+    "Volume discount tiers",
+    "BYOC support for ConversationRelay",
+    "SOC 2 and GDPR statements on pages read",
+    "Supported languages list"
+  ]
+}
