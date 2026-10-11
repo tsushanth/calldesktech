@@ -172,7 +172,7 @@ export async function POST(
     }
   }
 
-  // Optional pricing tier (src/lib/pricingTiers.ts): validated here (an unknown tier, or Lite while it is coming soon, is a 400) and
+  // Optional pricing tier (src/lib/pricingTiers.ts): validated here (an unknown tier, or a tier whose availability is not 'live', is a 400) and
   // turned into the models the engine should use. Anything the caller set explicitly wins and is recorded in tier_overrides.
   // With no tier this is a pass-through, so the request behaves exactly as it did before tiers existed.
   const tierResult = resolveTierForPublish({ tier: requestedTier, voiceEngine, llmModel: requestedLlmModel, ttsModel: requestedTtsModel, ttsBackend: requestedTtsBackend, acceptLowerQuality });

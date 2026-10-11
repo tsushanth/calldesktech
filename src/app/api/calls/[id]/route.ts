@@ -34,6 +34,42 @@ export async function GET(
 // it), or 'failed' (a genuine Twilio error — 401/500/network) so the caller
 // can record that in the audit trail rather than silently pretending it
 // worked.
+// Telnyx recordings are stored as 'telnyx:<id>' (realtime-tts
+// call-loop-poc/telnyxRecording.js TELNYX_SID_PREFIX). They must never be sent
+// to Twilio: Twilio answers 404 for an unknown sid, which would otherwise be
+// mistaken for "already gone" while the Telnyx audio survives.
+const TELNYX_SID_PREFIX = 'telnyx:';
+
+type RecordingPurgeResult = 'purged' | 'failed' | 'pending' | 'not_applicable';
+
+// Deletes a Telnyx recording through the Telnyx API (same call the engine's
+// retention sweep makes). Returns 'pending' when this app has no
+// TELNYX_API_KEY: deletion has NOT happened and must be done by the engine or
+// an operator; the sid is kept in the audit metadata for that purpose.
+async function deleteTelnyxRecording(recordingSid: string): Promise<'purged' | 'failed' | 'pending'> {
+  const apiKey = process.env.TELNYX_API_KEY;
+  if (!apiKey) {
+    console.error('[calls.delete] TELNYX_API_KEY not configured; Telnyx recording deletion pending', recordingSid);
+    return 'pending';
+  }
+  const id = recordingSid.slice(TELNYX_SID_PREFIX.length);
+  if (!id) return 'failed';
+  try {
+    const res = await fetch(`https://api.telnyx.com/v2/recordings/${encodeURIComponent(id)}`, {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${apiKey}` },
+    });
+    // Here (and only here) a 404 comes from the provider that owns the
+    // recording, so it genuinely means already deleted.
+    if (res.ok || res.status === 404) return 'purged';
+    console.error(`[calls.delete] failed to delete Telnyx recording ${id}: HTTP ${res.status}`);
+    return 'failed';
+  } catch (err) {
+    console.error(`[calls.delete] failed to delete Telnyx recording ${id}`, err);
+    return 'failed';
+  }
+}
+
 async function deleteTwilioRecording(recordingSid: string): Promise<'purged' | 'failed'> {
   const accountSid = process.env.TWILIO_ACCOUNT_SID;
   const authToken = process.env.TWILIO_AUTH_TOKEN;
@@ -103,9 +139,11 @@ export async function DELETE(
     .maybeSingle();
   const recordingSid: string | null = callLog?.recording_sid ?? null;
 
-  let recordingPurgeResult: 'purged' | 'failed' | 'not_applicable' = 'not_applicable';
+  let recordingPurgeResult: RecordingPurgeResult = 'not_applicable';
   if (recordingSid) {
-    recordingPurgeResult = await deleteTwilioRecording(recordingSid);
+    recordingPurgeResult = recordingSid.startsWith(TELNYX_SID_PREFIX)
+      ? await deleteTelnyxRecording(recordingSid)
+      : await deleteTwilioRecording(recordingSid);
   }
 
   const { error } = await supabase.from('calldesk_call_logs').delete().eq('id', id);
@@ -123,5 +161,9 @@ export async function DELETE(
     },
   });
 
+  // Surface an unconfirmed recording deletion instead of implying success.
+  if (recordingPurgeResult === 'pending' || recordingPurgeResult === 'failed') {
+    return NextResponse.json({ success: true, recordingDeletion: recordingPurgeResult });
+  }
   return NextResponse.json({ success: true });
 }

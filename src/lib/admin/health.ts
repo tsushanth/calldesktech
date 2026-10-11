@@ -24,7 +24,7 @@ async function ping(url: string): Promise<{ level: Level; detail: string }> {
 }
 
 // Whether an integration's credentials are present. Never reads or returns the values.
-// `builtin`: variables the code falls back to a built-in default for (src/lib/failureReporter.ts), so a missing one is not a gap.
+// `builtin`: variables the code falls back to a built-in default for, so a missing one is not a gap (none today; the failure reporter has no default and is a no-op without both vars).
 export const INTEGRATIONS: { name: string; vars: string[]; builtin?: string[] }[] = [
   { name: 'Twilio (calls, SMS)', vars: ['TWILIO_ACCOUNT_SID', 'TWILIO_AUTH_TOKEN'] },
   { name: 'Anthropic (agent brain)', vars: ['ANTHROPIC_API_KEY'] },
@@ -32,7 +32,7 @@ export const INTEGRATIONS: { name: string; vars: string[]; builtin?: string[] }[
   { name: 'Retell', vars: ['RETELL_API_KEY'] },
   { name: 'Stripe (billing)', vars: ['STRIPE_SECRET_KEY', 'STRIPE_WEBHOOK_SECRET'] },
   { name: 'Resend (email)', vars: ['RESEND_API_KEY'] },
-  { name: 'Failure reporter', vars: ['FAILURE_REPORTER_URL', 'FAILURE_REPORTER_KEY'], builtin: ['FAILURE_REPORTER_URL', 'FAILURE_REPORTER_KEY'] },
+  { name: 'Failure reporter', vars: ['FAILURE_REPORTER_URL', 'FAILURE_REPORTER_KEY'] },
   { name: 'PostHog read key (visitor list)', vars: ['POSTHOG_PERSONAL_API_KEY'] },
 ];
 

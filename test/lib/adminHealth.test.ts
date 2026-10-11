@@ -22,9 +22,9 @@ describe('integrationStatus', () => {
   });
 });
 
-describe('integrationStatus: built-in defaults', () => {
-  it('reports the failure reporter as on when its variables are unset, because the code has built-in defaults', () => {
-    expect(integrationStatus({}).find((x) => x.name === 'Failure reporter')).toMatchObject({ level: 'ok', detail: 'configured (built-in defaults)' });
+describe('integrationStatus: failure reporter has no built-in key', () => {
+  it('reports the failure reporter as off when its variables are unset', () => {
+    expect(integrationStatus({}).find((x) => x.name === 'Failure reporter')).toMatchObject({ level: 'off', detail: 'missing FAILURE_REPORTER_URL, FAILURE_REPORTER_KEY' });
     expect(integrationStatus({ FAILURE_REPORTER_URL: 'u', FAILURE_REPORTER_KEY: 'k' }).find((x) => x.name === 'Failure reporter')).toMatchObject({ level: 'ok', detail: 'configured' });
   });
 });

@@ -1,4 +1,4 @@
-import { it, expect, vi, beforeEach } from 'vitest';
+import { it, expect, vi, beforeEach, afterEach, describe } from 'vitest';
 import { NextRequest } from 'next/server';
 
 vi.mock('@/lib/supabase', () => ({ getSupabaseAdmin: vi.fn() }));
@@ -118,4 +118,87 @@ it('member gets 403 and the call is not deleted', async () => {
   const response = await DELETE(makeRequest(), makeContext());
   expect(response.status).toBe(403);
   expect(logAudit).not.toHaveBeenCalled();
+});
+
+// ---- recording deletion routing ----
+function ownerMock(recordingSid: string | null) {
+  vi.mocked(getServerSession).mockResolvedValue({ user: { id: 'owner-user' } } as never);
+  vi.mocked(getSupabaseAdmin).mockReturnValue(
+    makeSupabaseMock({
+      calldesk_call_logs: [
+        { data: { tenant_id: 'tenant-1' }, error: null },
+        { data: { recording_sid: recordingSid }, error: null },
+        { data: null, error: null },
+      ],
+      calldesk_tenants: [
+        { data: { id: 'tenant-1' }, error: null },
+        { data: { id: 'tenant-1' }, error: null },
+        { data: { id: 'tenant-1' }, error: null },
+      ],
+    }) as never
+  );
+}
+
+describe('recording deletion', () => {
+  const fetchMock = vi.fn();
+  beforeEach(() => {
+    fetchMock.mockReset();
+    vi.stubGlobal('fetch', fetchMock);
+    vi.stubEnv('TWILIO_ACCOUNT_SID', 'ACtest');
+    vi.stubEnv('TWILIO_AUTH_TOKEN', 'tok');
+    vi.stubEnv('TELNYX_API_KEY', 'tkey');
+  });
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.unstubAllEnvs();
+  });
+
+  it('sends a twilio sid to Twilio and records purged', async () => {
+    ownerMock('RE123');
+    fetchMock.mockResolvedValue(new Response(null, { status: 204 }));
+    const res = await DELETE(makeRequest(), makeContext());
+    expect(res.status).toBe(200);
+    expect(fetchMock.mock.calls[0][0]).toContain('api.twilio.com');
+    expect(fetchMock.mock.calls[0][0]).toContain('/Recordings/RE123.json');
+    expect(logAudit).toHaveBeenCalledWith(
+      expect.objectContaining({ metadata: { recording_sid: 'RE123', recording_purge_result: 'purged' } })
+    );
+  });
+
+  it('never sends a telnyx sid to Twilio; deletes via Telnyx', async () => {
+    ownerMock('telnyx:abc-12345678');
+    fetchMock.mockResolvedValue(new Response(null, { status: 204 }));
+    await DELETE(makeRequest(), makeContext());
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0][0]).toBe('https://api.telnyx.com/v2/recordings/abc-12345678');
+    expect(fetchMock.mock.calls.some((c) => String(c[0]).includes('twilio'))).toBe(false);
+  });
+
+  it('without a Telnyx key the telnyx recording is pending, not purged, and Twilio is not called', async () => {
+    vi.stubEnv('TELNYX_API_KEY', '');
+    ownerMock('telnyx:abc-12345678');
+    const res = await DELETE(makeRequest(), makeContext());
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(await res.json()).toEqual({ success: true, recordingDeletion: 'pending' });
+    expect(logAudit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: 'call.delete',
+        metadata: { recording_sid: 'telnyx:abc-12345678', recording_purge_result: 'pending' },
+      })
+    );
+  });
+
+  it('a Telnyx server error is failed, not purged', async () => {
+    ownerMock('telnyx:abc-12345678');
+    fetchMock.mockResolvedValue(new Response(null, { status: 500 }));
+    const res = await DELETE(makeRequest(), makeContext());
+    expect(await res.json()).toEqual({ success: true, recordingDeletion: 'failed' });
+  });
+
+  it('a Twilio 404 is still success for a twilio sid', async () => {
+    ownerMock('RE404');
+    fetchMock.mockResolvedValue(new Response(null, { status: 404 }));
+    const res = await DELETE(makeRequest(), makeContext());
+    expect(await res.json()).toEqual({ success: true });
+  });
 });
