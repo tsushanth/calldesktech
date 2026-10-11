@@ -22,7 +22,7 @@ import { normalizeNanp } from '@/lib/outboundCalling';
 import { stateFromLocation, batchDateEastern, STATE_ZONES } from '@/lib/callingHours';
 import { stateFromPhone } from '@/lib/areaCodeState';
 import { isPlatformDomain } from '@/lib/outreach/platformBlocklist';
-import { selectRetries, dealWithQuotas, orderWithRetries, shiftWindow, type PreviousRow } from '@/lib/batchPlanning';
+import { selectRetries, dealWithQuotas, orderWithRetries, shiftWindow, takeWithinCapacity, type PreviousRow } from '@/lib/batchPlanning';
 import { intlCallCountries, intlState, normalizeIntl } from '@/lib/intlCalling';
 
 const CALLERS = (process.env.CALLERS || 'mary,mark').split(',').map((s) => s.trim()).filter(Boolean);
@@ -34,6 +34,7 @@ const COMMIT = process.env.COMMIT === '1';
 // numbers that are about to close get dialed first and nothing is wasted on a blocked number. Unset = the old behaviour.
 const SHIFT_START = process.env.SHIFT_START ? new Date(process.env.SHIFT_START) : null;
 const SHIFT_HOURS = Number(process.env.SHIFT_HOURS) || 5;
+const DIALS_PER_HOUR = Number(process.env.DIALS_PER_HOUR) || 30; // what one caller dials in an hour (about 30 in practice)
 const MIN_OPEN_MIN = Number(process.env.MIN_OPEN_MIN) || 30;
 const INTL = intlCallCountries();
 // Optional: only batch leads in these US states, e.g. STATES=TX (a one-state pilot).
@@ -200,7 +201,13 @@ async function main() {
       seen.add(phone);
       eligible.push({ lead_id: l.id, phone, company_name: l.company_name, state, product });
     }
-    const take = shuffle(eligible, rng(`${DATE}:${product}`)).slice(0, need - picked.length);
+    const shuffled = shuffle(eligible, rng(`${DATE}:${product}`));
+    const take = SHIFT_START
+      ? takeWithinCapacity(
+          shuffled, need - picked.length, (c) => shiftWindow(c.state as string, SHIFT_START, SHIFT_HOURS).closeAt,
+          [...retries, ...carry].map((r) => shiftWindow(r.state as string, SHIFT_START, SHIFT_HOURS)).filter((w) => w.openMin >= MIN_OPEN_MIN).map((w) => w.closeAt),
+          SHIFT_START.getTime(), DIALS_PER_HOUR * CALLERS.length)
+      : shuffled.slice(0, need - picked.length);
     picked.push(...take);
     perProduct[product] = { eligible: eligible.length, taken: take.length };
   }

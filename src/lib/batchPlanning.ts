@@ -77,3 +77,29 @@ export function shiftWindow(state: string, start: Date, hours: number): { openMi
   windowCache.set(key, w);
   return w;
 }
+
+// Picks up to `n` numbers so that the callers can actually dial them before each business closes. `preload` holds the close
+// times of rows already committed to the shift (retries, carryover). At every close time T, the numbers closing by T must fit
+// in the dials available until T: ratePerHour * hours since the shift started (the whole team's rate). Numbers are taken
+// earliest-closing first, so the scarce late-closing (West Coast) numbers are kept for the days that need them.
+export function takeWithinCapacity<T>(cands: T[], n: number, closeOf: (t: T) => number, preload: number[], startMs: number, ratePerHour: number): T[] {
+  const cap = (t: number) => ratePerHour * ((t - startMs) / 3600000 + 5 / 60);
+  const sorted = cands.map((c, i) => ({ c, i, close: closeOf(c) })).sort((a, b) => a.close - b.close || a.i - b.i);
+  const closes = [...new Set([...sorted.map((s) => s.close), ...preload])].sort((a, b) => a - b);
+  const counts = new Map<number, number>(); // numbers (accepted + preload) closing exactly at each time
+  for (const p of preload) counts.set(p, (counts.get(p) ?? 0) + 1);
+  const out: T[] = [];
+  for (const s of sorted) {
+    if (out.length >= n) break;
+    let ok = true, run = 0;
+    for (const t of closes) {
+      run += counts.get(t) ?? 0;
+      if (t >= s.close && run + 1 > cap(t) + 1e-9) { ok = false; break; }
+      if (t >= s.close) run += 0;
+    }
+    if (!ok) continue;
+    counts.set(s.close, (counts.get(s.close) ?? 0) + 1);
+    out.push(s.c);
+  }
+  return out;
+}

@@ -65,3 +65,25 @@ describe('shiftWindow (evening Pacific shift, 5 PM to 10 PM PDT)', async () => {
     expect(shiftWindow('CA', new Date('2026-10-12T00:00:00Z'), 5).openMin).toBe(0); // Sunday 5 PM PDT
   });
 });
+
+describe('takeWithinCapacity', async () => {
+  const { shiftWindow, takeWithinCapacity } = await import('@/lib/batchPlanning');
+  const start = new Date('2026-10-13T00:00:00Z');
+  const close = (st: string) => shiftWindow(st, start, 5).closeAt;
+  const mk = (st: string, n: number) => Array.from({ length: n }, (_, i) => ({ st, i }));
+  it('caps East at what can be dialed in the first hour, keeps the rest for West', () => {
+    const cands = [...mk('NY', 200), ...mk('TX', 200), ...mk('CO', 200), ...mk('CA', 200)];
+    const out = takeWithinCapacity(cands, 200, (c) => close(c.st), [], start.getTime(), 60); // 2 callers x 30 per hour
+    const by = (st: string) => out.filter((c) => c.st === st).length;
+    expect(by('NY')).toBeLessThanOrEqual(60 + 5);
+    expect(by('NY') + by('TX')).toBeLessThanOrEqual(120 + 5);
+    expect(out.length).toBeGreaterThan(190);
+    expect(by('CA')).toBeGreaterThan(0);
+  });
+  it('counts rows already committed (retries) against the same capacity', () => {
+    const cands = mk('NY', 200);
+    const full = takeWithinCapacity(cands, 100, (c) => close(c.st), [], start.getTime(), 60).length;
+    const pre = takeWithinCapacity(cands, 100, (c) => close(c.st), Array(30).fill(close('NY')), start.getTime(), 60).length;
+    expect(pre).toBe(full - 30);
+  });
+});
