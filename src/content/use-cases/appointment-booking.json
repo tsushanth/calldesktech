@@ -29,7 +29,7 @@
     { "feature": "Structured field extraction", "howItHelps": "Service type, vehicle, name and phone number are saved as fields on the call record." },
     { "feature": "Publish warnings and requireBookingTools", "howItHelps": "Publishing warns, or can refuse, when a flow collects appointments but no calendar is connected." },
     { "feature": "Call summary and full transcript", "howItHelps": "You can compare what the caller was told against the calendar entry." },
-    { "feature": "Call testing and live call monitoring", "howItHelps": "Test calls and simulation test cases let you exercise taken slots and caller changes of mind before launch." },
+    { "feature": "Call testing and simulation test cases", "howItHelps": "Test calls and simulation test cases let you exercise taken slots and caller changes of mind before launch." },
     { "feature": "API and webhooks", "howItHelps": "A call-completed webhook can push the booking details into a CRM or job system." }
   ],
   "considerations": [
@@ -38,7 +38,7 @@
     "Check booked slots against the calendar for the first days of live use so a mismatch is caught early."
   ],
   "faq": [
-    { "q": "Which calendars does it work with?", "a": "Live booking uses a Cal.com connection. Other calendar systems can be reached through a function step that calls your own endpoint, which you would need to build." },
+    { "q": "Which calendars does it work with?", "a": "Live booking goes through a Cal.com account, which can connect Google, Outlook and iCal calendars. Other calendar systems can be reached through a function step that calls your own endpoint, which you would need to build." },
     { "q": "What if the caller wants a time that is not free?", "a": "The agent reads availability and offers open slots. You can instruct it to offer the nearest alternatives or to take a request for staff to confirm." },
     { "q": "What happens if I forget to connect the calendar?", "a": "The version is published with a booking_without_calendar warning, and the agent takes a request instead of booking. Set requireBookingTools to true to have the publish refused instead." },
     { "q": "Can it collect job details before the visit?", "a": "Yes. Extraction steps collect named fields, such as service type or address, and they appear on the call record and in webhooks." },

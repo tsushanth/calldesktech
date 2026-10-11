@@ -16,8 +16,7 @@
       "Enterprise: custom pricing, custom MSA/DPA, SSO, role-based access control, no cap on concurrent calls.",
       "Example from the page: Retell platform voice $0.015, LLM about $0.04 (varies by model), voice infrastructure $0.055 = $0.11 per minute.",
       "Phone numbers: $2 per month for US and Canada numbers purchased from Retell; US toll-free $5 per month (docs).",
-      "Testing is billed at production rates (docs).",
-      "perMinuteUsd is the low end of the advertised range."
+      "Testing is billed at production rates (docs)."
     ],
     "freeTrial": "$10 in free credits on sign-up.",
     "whatIsExtra": [
@@ -160,7 +159,7 @@
     }
   ],
   "unknowns": [
-    "Exact HIPAA/BAA availability by plan is shown in a comparison table whose cell values were not legible in the extracted text; the compliance doc says BAA/DPA self-signing has no additional fee.",
+    "Exact HIPAA/BAA availability by plan is shown in a comparison table whose cell values we could not read; the compliance documentation says BAA/DPA self-signing has no additional fee.",
     "Whether Retell-provided numbers can be ported out was not found.",
     "The Vanta trust center was not opened.",
     "The pricing page lists future-dated model names; per-model rates should be re-checked on the live page before quoting a specific model price."

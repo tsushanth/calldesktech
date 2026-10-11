@@ -1,10 +1,11 @@
 import {
-  BILLING, CALLDESK_NAME, COMPLIANCE_FACTS, DEVELOPER, EXPERT_BACKUP_FACT, LANGUAGES, PHONE_NUMBERS, TIER_RANGE_LABEL,
+  BILLING, CALLDESK_NAME, DEVELOPER, LANGUAGES, PHONE_NUMBERS, TIERS, TIER_RANGE_LABEL, VERIFIED_STATEMENTS,
 } from '@/content/calldeskFacts';
 import type { Competitor } from './schema';
 import type { Library } from './load';
 import type { Block } from './model';
-import { NOT_STATED, joinList, longDate, lowerFirst, sentence } from './helpers';
+import { NOT_STATED, itemLabel, lowerLead, joinList, joinOr, longDate, lowerFirst, poss, sentence } from './helpers';
+import { usesSip } from './migrate';
 
 // The body of every /alternatives/<slug>-alternatives page. Three rules keep these pages from becoming thin, near-duplicate
 // programmatic pages:
@@ -29,15 +30,12 @@ export function categoryOf(c: Competitor): Category {
   return (c.category in CATEGORY_LABEL ? c.category : 'platform') as Category;
 }
 
-/** Possessive that copes with names ending in s ("Dialpad AI Agents'"). */
-const poss = (name: string): string => (name.endsWith('s') ? `${name}'` : `${name}'s`);
 const withArticle = (label: string): string => `${/^[aeiou]/i.test(label) ? 'an' : 'a'} ${label}`;
 const hash = (s: string): number => { let h = 0; for (const ch of s) h = (h * 31 + ch.charCodeAt(0)) >>> 0; return h; };
 const pick = <T,>(items: T[], key: string, n: number): T[] => {
   const scored = items.map((it, i) => ({ it, k: hash(`${key}:${i}`) })).sort((a, b) => a.k - b.k).slice(0, n).map((x) => x.it);
   return items.filter((it) => scored.includes(it));
 };
-const joinOr = (items: string[]): string => (items.length <= 1 ? items.join('') : `${items.slice(0, -1).join(', ')} or ${items[items.length - 1]}`);
 const hasText = (s: string | undefined | null): s is string => !!s && !/^not stated\b/i.test(s.trim());
 
 /** The first clause of a pricing model, kept short enough to quote inside a sentence. */
@@ -48,6 +46,9 @@ function shortModel(c: Competitor): string {
   const comma = cut.lastIndexOf(',');
   return comma > 60 ? cut.slice(0, comma) : cut.replace(/\s+\S*$/, '');
 }
+
+/** The competitor's pricing model as one stated sentence, introduced so it reads as theirs. */
+const modelLine = (c: Competitor): string => `Its pricing model, in ${poss(c.name)} words: ${sentence(shortModel(c))}`;
 
 const priceSrc = (c: Competitor) => c.pricing.sourceUrls[0];
 const realExtras = (c: Competitor) => c.pricing.whatIsExtra.filter(hasText);
@@ -159,7 +160,7 @@ function relationSentence(a: Competitor, o: Competitor): string {
     parts.push(`${said(o, so)}, while ${said(a, sa)}.`);
   }
   if (o.telephony.bringYourOwnCarrier === 'yes' && a.telephony.bringYourOwnCarrier !== 'yes') parts.push(`${poss(o.name)} pages say bringing your own carrier is supported, which ${poss(a.name)} pages do not settle.`);
-  if (hasText(trialText(o)) && !hasText(trialText(a))) parts.push(`${o.name} also lists a free way to start, which gives you something to test against ${a.name}.`);
+  if (hasText(trialText(o)) && !hasText(trialText(a))) parts.push(`${o.name} also lists a free way to start, so you can try it with your own script.`);
   return parts.join(' ');
 }
 
@@ -175,7 +176,7 @@ function whoSuits(c: Competitor, cat: Category): Block[] {
       out.push({ kind: 'p', text: `We file ${c.name} under answering services, which usually means a managed arrangement rather than software you configure yourself, and it ${family}. ${audience}` });
       break;
     case 'enterprise':
-      out.push({ kind: 'p', text: `We file ${c.name} under enterprise providers, which usually means a sales-led, managed deployment rather than a self-serve tool, and it ${family}. ${audience}` });
+      out.push({ kind: 'p', text: `We file ${c.name} under enterprise providers, vendors aimed at larger organisations that often sell through contracts and managed rollouts as well as, or instead of, self-serve plans, and it ${family}. ${audience}` });
       break;
     case 'no-code-builder':
       out.push({ kind: 'p', text: `We file ${c.name} under no-code builders, where an agent is assembled without writing code, and it ${family}. ${audience}` });
@@ -184,7 +185,7 @@ function whoSuits(c: Competitor, cat: Category): Block[] {
       out.push({ kind: 'p', text: `We file ${c.name} under communications platform services, where voice AI sits beside other telephony products, and it ${family}. ${audience}` });
       break;
     case 'model-vendor':
-      out.push({ kind: 'p', text: `We file ${c.name} under speech and model vendors, which supply one layer of the stack rather than a finished phone line, and it ${family}. ${audience}` });
+      out.push({ kind: 'p', text: `We file ${c.name} under speech and model vendors, companies that started from speech or language models and offer agents on top of them, and it ${family}. ${audience}` });
       break;
     default:
       out.push({ kind: 'p', text: `We file ${c.name} under voice AI platforms, where you build and run agents yourself, and it ${family}. ${audience}` });
@@ -212,12 +213,12 @@ function pricingBlocks(c: Competitor, cat: Category): Block[] {
       out.push({ kind: 'p', text: `A communications platform price usually covers one layer of the call, with carrier, number and model charges arriving on other lines of the bill. ${c.name} describes its model as: ${model}` });
       break;
     case 'model-vendor':
-      out.push({ kind: 'p', text: `A speech or model vendor prices the part it supplies, so the question is what the quoted rate leaves for you to buy elsewhere. ${c.name} describes its model as: ${model}` });
+      out.push({ kind: 'p', text: `A speech or model vendor prices what it supplies, so the question is what the quoted rate leaves for you to buy elsewhere. ${c.name} describes its model as: ${model}` });
       break;
     default:
-      out.push({ kind: 'p', text: `On a platform that bills by usage, the headline rate is rarely the whole bill. ${c.name} describes its model as: ${model}` });
+      out.push({ kind: 'p', text: `On a platform that bills by usage, check what the headline rate covers. ${c.name} describes its model as: ${model}` });
   }
-  if (headline) out.push({ kind: 'p', text: `What the published figure says: ${headline}${hasPublicRate(c) ? ` The data records a single per-minute number of ${c.pricing.perMinuteUsd} ${c.pricing.currency} for it, so read it as the figure the page shows rather than a total for a finished call.` : ' It does not give a single per-minute rate we could compare directly.'}` });
+  if (headline) out.push({ kind: 'p', text: `What the published figure says: ${headline}${hasPublicRate(c) ? `${/\bplus\b|separately|on top|beyond/i.test(c.pricing.headline) ? ' Read the per-minute figure as the number the page shows, not as a total for a finished call.' : ''}` : ' It does not give a single per-minute rate we could compare directly.'}` });
   if (c.pricing.planNotes.length) {
     out.push({ kind: 'list', items: c.pricing.planNotes.map((text) => ({ text, sourceUrl: src })) });
   }
@@ -253,7 +254,7 @@ function integrationBlocks(c: Competitor, cat: Category): Block[] {
   if (c.integrations.length) {
     const shown = c.integrations.slice(0, 12);
     const rest = c.integrations.length - shown.length;
-    out.push({ kind: 'p', text: `${poss(c.name)} pages name these connections: ${joinList(shown)}${rest > 0 ? `, and ${rest} more recorded in our data` : ''}. Test the one you depend on.` });
+    out.push({ kind: 'p', text: `${poss(c.name)} pages name these connections: ${joinList(shown)}${rest > 0 ? `, and ${rest} more` : ''}. Test the one you depend on.` });
   } else {
     out.push({ kind: 'p', text: `${poss(c.name)} pages did not give us a list of integrations.` });
   }
@@ -297,14 +298,14 @@ type Q = { id: string; when: (c: Competitor) => boolean; text: (c: Competitor) =
 const CATEGORY_QUESTIONS: Record<Category, ((c: Competitor) => string)[]> = {
   'answering-service': [
     (c) => `Who answers: ask each option, including ${c.name}, which calls are handled by software, which by people, and what happens when a call is neither.`,
-    (c) => `Billing unit: ${c.name} bills by "${shortModel(c)}". Ask each alternative what its unit is (call, minute, location or seat) and what a quiet month and a busy month would cost.`,
+    (c) => `Billing unit: ${modelLine(c)} Ask each alternative what its unit is (call, minute, location or seat) and what a quiet month and a busy month would cost.`,
     (c) => `Script changes: ask how you change what the agent says on ${c.name} and on each alternative, how long a change takes, and who makes it.`,
     (c) => `After-hours and overflow: decide whether you need the service to take all calls or only the ones you miss, and ask each option, ${c.name} included, how it handles each.`,
     (c) => `Handing a call to a person: ask each option how a caller reaches you or your staff mid-call, because ${poss(c.name)} model and an AI-first tool may handle that differently.`,
     (c) => `Call records: ask what you receive after each call on ${c.name} and on each alternative (summary, transcript, recording) and where it is delivered.`,
   ],
   enterprise: [
-    (c) => `Contract shape: ${c.name} is sold on "${shortModel(c)}". Ask each option about minimum commitment, term and pilots.`,
+    (c) => `Contract shape: ${modelLine(c)} Ask each option about minimum commitment, term and pilots.`,
     (c) => `Deployment ownership: ask who builds, tunes and monitors the agents on ${c.name} and on each alternative, your team or the vendor's.`,
     (c) => `Time to a live line: ask each option, ${c.name} included, how long a first production deployment normally takes and what you must provide.`,
     (c) => `Support and service levels: ask for the support hours, response targets and any uptime commitment in writing for ${c.name} and for each alternative.`,
@@ -313,7 +314,7 @@ const CATEGORY_QUESTIONS: Record<Category, ((c: Competitor) => string)[]> = {
   ],
   platform: [
     (c) => `Concurrency: ask each option, ${c.name} included, how many calls can run at once on the plan you would choose and what raising that costs.`,
-    (c) => `Component choice: ${c.name} lets you work with its parts in the way its pages describe. Decide whether you want that control, and check whether each alternative gives it or decides for you.`,
+    (c) => `Component choice: decide how much control you want over the pieces of a call, then ask what ${c.name} lets you swap and what each alternative decides for you.`,
     (c) => `Debugging a failed call: ask how you replay a call, see the transcript and find which step failed on ${c.name} and on each alternative.`,
     (c) => `Versioning and testing: ask how you change an agent safely, with a draft, a test call and a rollback, on ${c.name} and on each alternative.`,
     (c) => `Who owns the prompt and the data: confirm you can read and export your agent configuration and call data on ${c.name} and on each option you shortlist.`,
@@ -321,7 +322,7 @@ const CATEGORY_QUESTIONS: Record<Category, ((c: Competitor) => string)[]> = {
   'no-code-builder': [
     (c) => `Ceiling of the builder: build the hardest call you expect (a transfer, a lookup, a booking) in ${c.name} and in each alternative before committing.`,
     (c) => `Who edits it later: ask whether a non-engineer on your team can change the agent on ${c.name} and on each option without breaking it.`,
-    (c) => `Pricing unit: ${c.name} bills by "${shortModel(c)}". Work out what your own volume costs under each option's unit before comparing headline numbers.`,
+    (c) => `Pricing unit: ${modelLine(c)} Work out what your own volume costs under each option's unit before comparing headline numbers.`,
     (c) => `Limits on tools and seats: ask how many connected tools, agents or team members each plan allows on ${c.name} and on each alternative.`,
     (c) => `Testing before launch: ask how you rehearse calls on ${c.name} and on each alternative before a real caller reaches the agent.`,
   ],
@@ -333,8 +334,8 @@ const CATEGORY_QUESTIONS: Record<Category, ((c: Competitor) => string)[]> = {
     (c) => `Operations: ask who is on call when a call path fails on ${c.name} or an alternative, and what logs you can see yourself.`,
   ],
   'model-vendor': [
-    (c) => `What is not included: ${c.name} supplies the part it sells. List what you must still buy for a finished phone line and ask each alternative the same.`,
-    (c) => `Telephony source: confirm where phone numbers and call routing come from for ${c.name} and for each option, since the model layer alone does not answer a call.`,
+    (c) => `What is not included: ask ${c.name} and each alternative what you must still buy or connect (telephony, models, tools) before you have a finished phone line.`,
+    (c) => `Telephony source: confirm where phone numbers and call routing come from for ${c.name} and for each option.`,
     (c) => `Switching the model: ask whether you can change the language model or voice on ${c.name} and on each alternative without rebuilding the agent.`,
     (c) => `Latency in your own setup: test a real call end to end on ${c.name} and on each alternative instead of relying on component figures.`,
     (c) => `Usage tiers: ask how ${poss(c.name)} rate changes with volume and what the equivalent is for each alternative.`,
@@ -349,25 +350,25 @@ function checklist(c: Competitor, cat: Category): Item[] {
   const mig = c.migration.stepsToLeave[0];
   const unk = c.unknowns;
   const pool: Q[] = [
-    { id: 'extras', weight: 9, when: () => extras.length > 0, text: () => ({ text: `Whole bill: ${poss(c.name)} pages note ${joinList(extras.slice(0, 2).map((x) => `"${x.replace(/\.$/, '')}"`))} as billed separately or extra, so price a full month with every charge in it.`, sourceUrl: priceSrc(c) }) },
+    { id: 'extras', weight: 9, when: () => extras.length > 0, text: () => ({ text: `Whole bill: ${poss(c.name)} pages list ${joinList(extras.slice(0, 3).map((x) => lowerLead(itemLabel(x))))} as billed separately or extra, so price a full month with every charge in it.`, sourceUrl: priceSrc(c) }) },
     { id: 'no-extras', weight: 9, when: () => extras.length === 0, text: () => ({ text: `Whole bill: ${poss(c.name)} pages did not itemise what is billed on top of its rate, so ask for a full month at your volume.` }) },
-    { id: 'rate', weight: 7, when: () => hasPublicRate(c), text: () => ({ text: `What the rate covers: ${c.name} publishes ${c.pricing.perMinuteUsd} ${c.pricing.currency} per minute. Find out which parts of a call each option's own figure includes before comparing numbers.`, sourceUrl: priceSrc(c) }) },
+    { id: 'rate', weight: 7, when: () => hasPublicRate(c), text: () => ({ text: `What the rate covers: ask what ${poss(c.name)} per-minute figure includes and what it leaves out, and ask the same of each option's own figure, before comparing numbers.`, sourceUrl: priceSrc(c) }) },
     { id: 'no-rate', weight: 7, when: () => !hasPublicRate(c), text: () => ({ text: `Comparable rate: ${c.name} does not publish one per-minute rate, so ask for a worked example in writing.`, sourceUrl: priceSrc(c) }) },
-    { id: 'trial', weight: 6, when: () => !!trial, text: () => ({ text: `Hands-on test: ${c.name} lists "${trial.replace(/\.$/, '')}". Ask for a test of the same depth, with your own script.`, sourceUrl: priceSrc(c) }) },
+    { id: 'trial', weight: 6, when: () => !!trial, text: () => ({ text: `Hands-on test: ${c.name} states: ${sentence(trial)} Ask each option for a test of the same depth, with your own script.`, sourceUrl: priceSrc(c) }) },
     { id: 'byoc-yes', weight: 7, when: () => c.telephony.bringYourOwnCarrier === 'yes', text: () => ({ text: `Keeping your numbers: ${c.name} supports bringing your own carrier, so check that every option on your list accepts the carrier you have.`, sourceUrl: c.telephony.sourceUrl }) },
     { id: 'byoc-no', weight: 7, when: () => c.telephony.bringYourOwnCarrier === 'no', text: () => ({ text: `Keeping your numbers: ${poss(c.name)} pages describe bringing your own carrier as unsupported, so ask how your current numbers would be connected.`, sourceUrl: c.telephony.sourceUrl }) },
     { id: 'byoc-unknown', weight: 7, when: () => c.telephony.bringYourOwnCarrier === 'unknown', text: () => ({ text: `Keeping your numbers: whether ${c.name} accepts your own carrier is ${NOT_STATED}, so settle that before you plan around your current numbers.` }) },
-    { id: 'numbers', weight: 4, when: () => !!numbersText(c), text: () => ({ text: `Number setup: ${c.name} describes it as "${numbersText(c).replace(/\.$/, '')}". Check whether a new number, a forwarded line or your own carrier is the normal route elsewhere.`, sourceUrl: c.telephony.sourceUrl }) },
+    { id: 'numbers', weight: 4, when: () => !!numbersText(c), text: () => ({ text: `Number setup: ${sentence(numbersText(c))} Check whether a new number, a forwarded line or your own carrier is the normal route with each option.`, sourceUrl: c.telephony.sourceUrl }) },
     { id: 'certs', weight: 6, when: () => stated.length > 0, text: () => ({ text: `Compliance paperwork: ${poss(c.name)} pages mention ${joinList(stated)}. Ask for the documents behind that wording and for what applies to your plan.`, sourceUrl: c.compliance.sourceUrl }) },
     { id: 'no-certs', weight: 6, when: () => stated.length === 0, text: () => ({ text: `Compliance paperwork: ${poss(c.name)} pages did not mention HIPAA, SOC 2 or GDPR where we looked, so ask what it can show you if your industry needs one.` }) },
     { id: 'integrations', weight: 6, when: () => c.integrations.length >= 3, text: () => ({ text: `Your tools: ${c.name} names ${joinList(c.integrations.slice(0, 3))} among its integrations. Check your own list of systems against each option, not a count.` }) },
     { id: 'few-integrations', weight: 6, when: () => c.integrations.length > 0 && c.integrations.length < 3, text: () => ({ text: `Your tools: ${poss(c.name)} pages name ${joinList(c.integrations)} and little else, so check the systems you depend on and ask about an API for the rest.` }) },
-    { id: 'leaving', weight: 5, when: () => !!mig, text: () => ({ text: `Leaving ${c.name}: its pages give this as a first step: ${sentence(mig!)} Ask what moving in would involve elsewhere.`, sourceUrl: c.migration.sourceUrls[0] }) },
-    { id: 'export', weight: 4, when: () => !!exp, text: () => ({ text: `Taking your agents with you: ${poss(c.name)} pages describe exporting as "${exp.replace(/\.$/, '')}", so ask what you would need to rebuild.`, sourceUrl: c.migration.sourceUrls[0] ?? priceSrc(c) }) },
-    { id: 'limit0', weight: 6, when: () => c.limitations.length > 0, text: () => ({ text: `A stated condition: "${c.limitations[0].claim.replace(/\.$/, '')}". Decide whether it applies to your calls.`, sourceUrl: c.limitations[0].sourceUrl }) },
+    { id: 'leaving', weight: 5, when: () => !!mig, text: () => ({ text: `Leaving ${c.name}: ${/^(read|retrieve|list|call|export|download|recreate|use|contact|open|request|look)\b/i.test(mig!) ? `the first step its pages give is to ${lowerFirst(sentence(mig!))}` : sentence(mig!)} Ask each option what moving in would involve.`, sourceUrl: c.migration.sourceUrls[0] }) },
+    { id: 'export', weight: 4, when: () => !!exp, text: () => ({ text: `Taking your agents with you: ${sentence(exp)} Ask what you would need to rebuild.`, sourceUrl: c.migration.sourceUrls[0] ?? priceSrc(c) }) },
+    { id: 'limit0', weight: 6, when: () => c.limitations.length > 0, text: () => ({ text: `A condition on ${poss(c.name)} pages: ${sentence(c.limitations[0].claim)} Decide whether it applies to your calls.`, sourceUrl: c.limitations[0].sourceUrl }) },
     { id: 'limit1', weight: 3, when: () => c.limitations.length > 1, text: () => ({ text: `Another condition: ${sentence(c.limitations[1].claim)} Check whether it changes your plan.`, sourceUrl: c.limitations[1].sourceUrl }) },
-    { id: 'unknown0', weight: 5, when: () => unk.length > 0, text: () => ({ text: `An open point: we could not confirm "${unk[0].replace(/\.$/, '')}" for ${c.name}, so ask for it directly.` }) },
-    { id: 'unknown1', weight: 3, when: () => unk.length > 1, text: () => ({ text: `A second open point, "${unk[1].replace(/\.$/, '')}", was not clear to us either and is worth a question before you decide to stay or leave.` }) },
+    { id: 'unknown0', weight: 5, when: () => unk.length > 0, text: () => ({ text: `An open point we could not settle from ${poss(c.name)} pages: ${sentence(unk[0])} Ask ${c.name} directly.` }) },
+    { id: 'unknown1', weight: 3, when: () => unk.length > 1, text: () => ({ text: `A second open point: ${sentence(unk[1])} It is worth a question before you decide to stay or leave.` }) },
     { id: 'languages', weight: 3, when: () => true, text: () => ({ text: `Languages and voice: listen to each shortlisted option in the language and accent your callers use; for reference, ${CALLDESK_NAME} lists ${LANGUAGES.headline}.` }) },
   ];
   const catQs = CATEGORY_QUESTIONS[cat].map((f, i) => ({ id: `cat${i}`, weight: 8, when: () => true, text: (x: Competitor) => ({ text: f(x) }) }) as Q);
@@ -387,15 +388,21 @@ function fitBlocks(c: Competitor, cat: Category): Block[] {
 
   const fits: Item[] = [];
   const family = priceFamily(c);
-  const rates = `${TIER_RANGE_LABEL} per minute depending on the plan${BILLING.noMonthlyMinimum ? ', with no monthly minimum' : ''}`;
-  if (family === 'per-minute') fits.push({ text: `${c.name} is priced as "${shortModel(c)}". ${CALLDESK_NAME} bills one per-minute rate per plan (${rates}), which may be easier to total without separate component lines.` });
-  else if (family === 'sales-led') fits.push({ text: `${c.name} prices through "${shortModel(c)}". ${CALLDESK_NAME} publishes its per-minute rates, so a small team can see a price without a sales call.` });
-  else fits.push({ text: `${c.name} is priced as "${shortModel(c)}". ${CALLDESK_NAME} charges per minute instead (${rates}), which may suit you if your call volume swings from month to month.` });
+  const rates = `${TIER_RANGE_LABEL} per minute depending on the plan${BILLING.noMonthlyMinimum ? ', with no monthly minimum' : ''}, plus phone carrier charges`;
+  // "Easier to total" is only fair when the competitor bills the parts of a call on separate lines.
+  const componentBilling = realExtras(c).filter((x) => /\b(LLM|language model|transcri\w*|speech|voice)\b/i.test(x)).length >= 2;
+  const lowRate = TIERS[0].centsPerMinute / 100;
+  const highRate = TIERS[TIERS.length - 1].centsPerMinute / 100;
+  const overlaps = c.pricing.perMinuteUsd !== null && c.pricing.perMinuteUsd >= lowRate && c.pricing.perMinuteUsd <= highRate;
+  if (family === 'per-minute' && componentBilling) fits.push({ text: `${modelLine(c)} ${CALLDESK_NAME} bills one per-minute rate per plan (${rates}), which may be easier to total without separate lines for the parts of a call.` });
+  else if (family === 'per-minute') fits.push({ text: `${modelLine(c)} ${CALLDESK_NAME} also bills per minute (${rates}). ${overlaps ? 'The headline per-minute figures overlap, so compare' : 'Compare'} what each one includes on a month of your own calls.` });
+  else if (family === 'sales-led') fits.push({ text: `${modelLine(c)} ${CALLDESK_NAME} publishes its per-minute rates, so a small team can see a price without a sales call.` });
+  else fits.push({ text: `${modelLine(c)} ${CALLDESK_NAME} charges per minute instead (${rates}), which may suit you if your call volume swings from month to month.` });
   if (c.telephony.bringYourOwnCarrier !== 'yes') {
-    fits.push({ text: `${c.telephony.bringYourOwnCarrier === 'no' ? `${poss(c.name)} pages describe bringing your own carrier as unsupported; ` : ''}${CALLDESK_NAME} accepts your own number or carrier at no extra charge${PHONE_NUMBERS.options.length ? ` and also sells numbers through ${joinList(PHONE_NUMBERS.options.map((o) => o.carrier))}` : ''}.` });
+    fits.push({ text: `${c.telephony.bringYourOwnCarrier === 'no' ? `${poss(c.name)} pages describe bringing your own carrier as unsupported; ` : ''}${CALLDESK_NAME} lets you register a number you own and forward calls to it at no extra charge${PHONE_NUMBERS.options.length ? `, and also sells numbers through ${joinList(PHONE_NUMBERS.options.map((o) => o.carrier))}` : ''}.` });
   }
   if (cat === 'platform' || cat === 'cpaas' || cat === 'model-vendor') {
-    fits.push({ text: `${CALLDESK_NAME} has a REST API${DEVELOPER.mcpServer ? ', an MCP server' : ''} and ${DEVELOPER.webhooksSigned ? 'signed ' : ''}webhooks (${DEVELOPER.docsPath}), but it is a packaged agent, not a set of parts to assemble the way ${c.name} describes.` });
+    fits.push({ text: `${CALLDESK_NAME} has a REST API${DEVELOPER.mcpServer ? ', an MCP server' : ''} and ${DEVELOPER.webhooksSigned ? 'signed ' : ''}webhooks (${DEVELOPER.docsPath}) if you want to drive agents from code${componentBilling ? ', but it is a packaged agent, not a set of parts to assemble' : ''}.` });
   } else if (cat === 'no-code-builder') {
     fits.push({ text: `${CALLDESK_NAME} has a flow builder and agent templates, and agents can also be managed by API. Build the hardest call you expect in both ${c.name} and ${CALLDESK_NAME} before choosing.` });
   } else if (cat === 'answering-service') {
@@ -414,7 +421,8 @@ function fitBlocks(c: Competitor, cat: Category): Block[] {
   if (s1) better.push({ text: `${sentence(s1.claim)} Check whether ${CALLDESK_NAME} offers the same before you leave ${c.name}.`, sourceUrl: s1.sourceUrl });
   if (s2) better.push({ text: `${sentence(s2.claim)} Compare this with the ${CALLDESK_NAME} pricing page and docs before you decide.`, sourceUrl: s2.sourceUrl });
   if (stated.length) better.push({ text: `${poss(c.name)} pages mention ${joinList(stated)}, while ${CALLDESK_NAME} claims no certification. If that wording matters to your buyers, ${c.name} may be the safer starting point.`, sourceUrl: c.compliance.sourceUrl });
-  else if (c.integrations.length) better.push({ text: `If you need ${joinList(c.integrations.slice(0, 2))}, which ${c.name} names, confirm that ${CALLDESK_NAME} connects to it through calendar booking, the API or webhooks before assuming it does.` });
+  if (usesSip(c)) better.push({ text: `${poss(c.name)} pages describe SIP trunking, and ${CALLDESK_NAME} does not offer it. If you connect your phone system by SIP trunk, ${c.name} may be the better match.`, sourceUrl: c.telephony.sourceUrl });
+  if (!stated.length && c.integrations.length) better.push({ text: `If you need ${joinList(c.integrations.slice(0, 2))}, which ${c.name} names, confirm that ${CALLDESK_NAME} connects to it through calendar booking, the API or webhooks before assuming it does.` });
   out.push({ kind: 'p', text: `Where ${c.name} may fit better:` });
   out.push({ kind: 'list', items: better });
   return out;
@@ -425,7 +433,7 @@ function fitBlocks(c: Competitor, cat: Category): Block[] {
 function optionCards(lib: Library, c: Competitor, planPriceList: string): Block[] {
   const rel = relatedOptions(lib, c);
   const cards = [
-    { name: CALLDESK_NAME, card: { title: CALLDESK_NAME, text: `Per-minute plans (${planPriceList}) with ${PHONE_NUMBERS.bringYourOwnIsFree ? 'bring-your-own carrier on every plan' : 'carrier included'}. Our own product.`, href: '/pricing', meta: 'Made by the publisher of this page', sourceUrl: undefined as string | undefined } },
+    { name: CALLDESK_NAME, card: { title: CALLDESK_NAME, text: `Per-minute plans (${planPriceList}), with phone carrier charges billed separately. You can register a number you own and forward calls to it; ${VERIFIED_STATEMENTS.sipTrunking ? 'SIP trunking is offered' : 'SIP trunking is not offered'}. Our own product.`, href: '/pricing', meta: 'Made by the publisher of this page', sourceUrl: undefined as string | undefined } },
     ...rel.map((r) => ({
       name: r.competitor.name,
       card: { title: r.competitor.name, text: r.why, href: r.competitor.url, external: true, meta: `Verified ${r.competitor.retrievedAt}`, sourceUrl: r.competitor.pricing.sourceUrls[0] },

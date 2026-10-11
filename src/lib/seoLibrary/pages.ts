@@ -1,14 +1,15 @@
 import {
   BILLING, CALLDESK_CERTIFICATION_ALLOW_LIST, CALLDESK_NAME, CALLDESK_SUPPORT_EMAIL, COMPLIANCE_FACTS, DEVELOPER, EXPERT_BACKUP_FACT,
-  INCLUDED_ON_EVERY_PLAN, LANGUAGES, PHONE_NUMBERS, TIERS, TIER_RANGE_LABEL, TIER_SUMMARY_LINE,
+  INCLUDED_ON_EVERY_PLAN, LANGUAGES, PHONE_NUMBERS, TIERS, TIER_RANGE_LABEL, TIER_SUMMARY_LINE, VERIFIED_STATEMENTS,
 } from '@/content/calldeskFacts';
 import type { Competitor, Industry, UseCase } from './schema';
 import type { Library } from './load';
 import type { Block, Cell, Crumb, HubModel, LibraryPageModel, PageType } from './model';
 import { MIGRATE_CAP, MIGRATE_PRIORITY, pathFor, paths } from './routes';
 import { isPublished, publishKey } from './publish';
+import { calldeskSteps, categoryParagraph, usesSip, keepChecklistBlocks, costsBlocks, mayNotCarryOverBlocks, phoneNumberBlocks } from './migrate';
 import { alternativesBody, alternativesDescription, alternativesLede } from './alternatives';
-import { NOT_STATED, NOT_STATED_CAP, joinList, longDate, lowerFirst, sentence } from './helpers';
+import { NOT_STATED, NOT_STATED_CAP, fitDescription, fitTitle, itemLabel, lowerLead, joinList, joinOr, longDate, lowerFirst, poss, sentence } from './helpers';
 
 // Everything a page says about Calldesk comes from src/content/calldeskFacts.ts (imported above). Everything it says about a
 // competitor comes from that competitor's JSON. No price, plan name or feature is typed in this file. test/lib/seoLibrary/templates.test.ts
@@ -21,9 +22,9 @@ const HOME: Crumb = { name: 'Home', path: '/' };
 /** "Lite 2¢, Standard 5¢ and Pro 9¢ per minute" */
 const planPriceList = `${joinList(TIERS.map((t) => `${t.name} ${t.priceLabel}`))} per minute`;
 
-const calldeskPricingCell = `Per minute of call time on three plans: ${TIER_SUMMARY_LINE}. ${BILLING.noMonthlyMinimum ? 'No monthly minimum.' : ''}`.trim();
+const calldeskPricingCell = `Per minute of call time on three plans: ${TIER_SUMMARY_LINE}. ${BILLING.noMonthlyMinimum ? 'No monthly minimum.' : ''} Phone carrier charges are billed separately.`.replace(/\s+/g, ' ').trim();
 
-const phoneNumberCell = `A paid extra on every plan: ${PHONE_NUMBERS.options.map((o) => `${o.carrier} ${o.monthly} plus ${o.inbound}`).join('; ')}. Bringing your own number or carrier costs nothing extra.`;
+const phoneNumberCell = `A paid extra on every plan: ${PHONE_NUMBERS.options.map((o) => `${o.carrier} ${o.monthly} plus ${o.inbound}`).join('; ')}. Registering a number you already own costs nothing extra.`;
 
 function tierBullets(): { text: string }[] {
   return TIERS.map((t) => ({
@@ -37,14 +38,14 @@ function costBlocks(): Block[] {
     { kind: 'h2', text: 'What Calldesk costs' },
     { kind: 'p', text: `Calldesk charges per minute of call time, with three plans. ${BILLING.noMonthlyMinimum ? 'There is no monthly minimum' : ''}${BILLING.noPerBookingOrTransferFees ? ' and no per-booking or per-transfer fees' : ''}${BILLING.cancelAnytime ? ', and you can cancel any time.' : '.'}` },
     { kind: 'list', items: tiers },
-    { kind: 'p', text: `Phone carrier charges are separate. ${phoneNumberCell} Outbound calls use your own carrier. ${EXPERT_BACKUP_FACT.label} is an optional extra on ${EXPERT_BACKUP_FACT.tiers} at ${EXPERT_BACKUP_FACT.price}; it ${EXPERT_BACKUP_FACT.summary}.` },
+    { kind: 'p', text: `Phone carrier charges are separate. Phone numbers from ${CALLDESK_NAME} are ${lowerFirst(phoneNumberCell)} Outbound calls use your own carrier. ${EXPERT_BACKUP_FACT.label} is an optional extra on ${EXPERT_BACKUP_FACT.tiers} at ${EXPERT_BACKUP_FACT.price}; it ${EXPERT_BACKUP_FACT.summary}.` },
     { kind: 'p', text: `Prices on this page are read from the same source as the live pricing page. Check the pricing page (/pricing) for the current figures before you decide.` },
   ];
 }
 
 function languageSentence(): string {
   const rule = LANGUAGES.nonEnglishNeedsStandardOrPro && LANGUAGES.englishOnlyTierNames.length
-    ? `; agents in a language other than English need the ${joinList(LANGUAGES.nonEnglishTierNames)} voice, because the ${joinList(LANGUAGES.englishOnlyTierNames)} voice speaks English only`
+    ? `; agents in a language other than English need the ${joinOr(LANGUAGES.nonEnglishTierNames)} voice, because the ${joinList(LANGUAGES.englishOnlyTierNames)} voice speaks English only`
     : '';
   return `Calldesk supports ${LANGUAGES.headline}, including English${rule}.`;
 }
@@ -60,12 +61,6 @@ const DISCLAIMER = (name: string, date: string) =>
 
 function sourcesBlock(c: Competitor): Block {
   return { kind: 'sources', items: c.sources.map((s) => ({ title: s.title, url: s.url, retrievedAt: s.retrievedAt })) };
-}
-
-function priceText(c: Competitor): string | null {
-  const p = c.pricing.perMinuteUsd;
-  if (p === null) return null;
-  return c.pricing.currency.toUpperCase() === 'USD' ? `$${p} per minute` : `${p} ${c.pricing.currency} per minute`;
 }
 
 function providedNumbersText(c: Competitor): string | null {
@@ -117,31 +112,30 @@ function compareRows(c: Competitor): Cell[][] {
   const compSrc = c.compliance.sourceUrl;
 
   rows.push([{ text: 'How pricing works' }, { text: calldeskPricingCell }, { text: c.pricing.model, sourceUrl: priceSrc }]);
-  if (c.pricing.headline) rows.push([{ text: 'Published starting price' }, { text: `${TIER_RANGE_LABEL} per minute depending on the plan` }, { text: c.pricing.headline, sourceUrl: priceSrc }]);
-  const pm = priceText(c);
-  if (pm) rows.push([{ text: 'Listed price per minute' }, { text: `${TIER_RANGE_LABEL} per minute depending on the plan` }, { text: pm, sourceUrl: priceSrc }]);
-  if (c.pricing.whatIsExtra.length) rows.push([{ text: 'Billed separately or extra' }, { text: `The phone carrier is billed separately unless you buy numbers from us; ${EXPERT_BACKUP_FACT.label} is an optional extra at ${EXPERT_BACKUP_FACT.price}` }, { text: joinList(c.pricing.whatIsExtra), sourceUrl: priceSrc }]);
+  if (c.pricing.headline) rows.push([{ text: 'Published starting price' }, { text: `${TIER_RANGE_LABEL} per minute depending on the plan, before phone carrier charges` }, { text: c.pricing.headline, sourceUrl: priceSrc }]);
+  if (c.pricing.whatIsExtra.length) rows.push([{ text: 'Billed separately or extra' }, { text: `The phone carrier is billed separately unless you buy numbers from us; ${EXPERT_BACKUP_FACT.label} is an optional extra on ${EXPERT_BACKUP_FACT.tiers} at ${EXPERT_BACKUP_FACT.price}` }, { text: c.pricing.whatIsExtra.map((x) => x.replace(/[.;]$/, '')).join('; '), sourceUrl: priceSrc }]);
   if (c.pricing.freeTrial) rows.push([{ text: 'Trying it first' }, { text: 'A free demo call on the Calldesk site' }, { text: c.pricing.freeTrial, sourceUrl: priceSrc }]);
-  if (c.telephony.bringYourOwnCarrier !== 'unknown') rows.push([{ text: 'Bring your own carrier' }, { text: PHONE_NUMBERS.bringYourOwnIsFree ? 'Yes, on every plan, at no extra charge' : 'No' }, { text: c.telephony.bringYourOwnCarrier === 'yes' ? 'Yes' : 'No', sourceUrl: telSrc }]);
+  if (c.telephony.bringYourOwnCarrier !== 'unknown') rows.push([{ text: 'Bring your own carrier' }, { text: PHONE_NUMBERS.bringYourOwnIsFree ? `Yes, on every plan, at no extra charge, by forwarding calls to a number you register${VERIFIED_STATEMENTS.sipTrunking ? '' : ' (no SIP trunking)'}` : 'No' }, { text: c.telephony.bringYourOwnCarrier === 'yes' ? 'Yes' : 'No', sourceUrl: telSrc }]);
   const pn = providedNumbersText(c);
   if (pn) rows.push([{ text: 'Phone numbers from the provider' }, { text: phoneNumberCell }, { text: pn, sourceUrl: telSrc }]);
   rows.push([{ text: 'HIPAA' }, { text: certCell('hipaa') }, { text: statedCell(c.compliance.hipaa), sourceUrl: compSrc }]);
   rows.push([{ text: 'SOC 2' }, { text: certCell('soc2') }, { text: statedCell(c.compliance.soc2), sourceUrl: compSrc }]);
   rows.push([{ text: 'GDPR' }, { text: certCell('gdpr') }, { text: statedCell(c.compliance.gdpr), sourceUrl: compSrc }]);
-  if (c.integrations.length) rows.push([{ text: 'Integrations they list' }, { text: `${joinList(['REST API', ...(DEVELOPER.mcpServer ? ['MCP server'] : []), 'signed webhooks'])}, plus calendar booking` }, { text: joinList(c.integrations) }]);
+  if (c.integrations.length) rows.push([{ text: 'Integrations and developer tools' }, { text: `${joinList(['REST API', ...(DEVELOPER.mcpServer ? ['MCP server'] : []), 'signed webhooks'])}, plus calendar booking` }, { text: joinList(c.integrations) }]);
   return rows;
 }
 
 function differenceBullets(c: Competitor): { text: string }[] {
   const out: { text: string }[] = [];
   if (c.pricing.whatIsExtra.length) {
-    out.push({ text: `Billing: ${c.name}'s pages list ${joinList(c.pricing.whatIsExtra)} as billed separately or extra. Calldesk bills one per-minute rate for the plan you choose (${planPriceList}), and the phone carrier is billed separately unless you buy numbers from us.` });
+    out.push({ text: `Billing: ${poss(c.name)} headline price does not cover ${joinList(c.pricing.whatIsExtra.slice(0, 4).map((x) => lowerLead(itemLabel(x))))}${c.pricing.whatIsExtra.length > 4 ? ' and more' : ''}, which its pages bill separately or as extras (the table above has the details). Calldesk bills one per-minute rate for the plan you choose (${planPriceList}), and the phone carrier is billed separately unless you buy numbers from us. Compare the two on a month of your own calls.` });
   } else {
-    out.push({ text: `Billing: Calldesk bills one per-minute rate for the plan you choose (${planPriceList}), with the phone carrier billed separately. We did not find a list of separate charges on ${c.name}'s pages, so ask ${c.name} what a month at your volume would include.` });
+    out.push({ text: `Billing: Calldesk bills one per-minute rate for the plan you choose (${planPriceList}), with the phone carrier billed separately. We did not find a list of separate charges on ${poss(c.name)} pages, so ask ${c.name} what a month at your volume would include.` });
   }
-  if (c.telephony.bringYourOwnCarrier === 'yes') out.push({ text: `Phone setup: both support bringing your own carrier. Calldesk also sells numbers from ${joinList(PHONE_NUMBERS.options.map((o) => o.carrier))} if you prefer not to bring one.` });
-  else if (c.telephony.bringYourOwnCarrier === 'no') out.push({ text: `Phone setup: ${c.name}'s pages do not describe bringing your own carrier. Calldesk lets you bring your own number or carrier at no extra charge on every plan.` });
-  else out.push({ text: `Phone setup: we could not tell from ${c.name}'s pages whether you can bring your own carrier. On Calldesk you can, on every plan, at no extra charge.` });
+  const sipNote = VERIFIED_STATEMENTS.sipTrunking ? '' : ` ${CALLDESK_NAME} does not offer SIP trunking${usesSip(c) ? `, which ${poss(c.name)} pages describe` : ''}.`;
+  if (c.telephony.bringYourOwnCarrier === 'yes') out.push({ text: `Phone setup: both support bringing your own carrier. With ${CALLDESK_NAME} you register a number you own and forward calls to it.${sipNote} ${CALLDESK_NAME} also sells numbers from ${joinList(PHONE_NUMBERS.options.map((o) => o.carrier))} if you prefer not to bring one.` });
+  else if (c.telephony.bringYourOwnCarrier === 'no') out.push({ text: `Phone setup: ${poss(c.name)} pages do not describe bringing your own carrier. Calldesk lets you register a number you own and forward calls to it, at no extra charge on every plan.${sipNote}` });
+  else out.push({ text: `Phone setup: we could not tell from ${poss(c.name)} pages whether you can bring your own carrier. On Calldesk you can register a number you own and forward calls to it, on every plan, at no extra charge.${sipNote}` });
   out.push({ text: `Languages: ${languageSentence()}` });
   out.push({ text: `Developer tools: ${developerSentence()}` });
   out.push({ text: `Compliance: ${COMPLIANCE_FACTS.statement}` });
@@ -149,29 +143,29 @@ function differenceBullets(c: Competitor): { text: string }[] {
 }
 
 function compareFitBlocks(c: Competitor): Block[] {
-  const theirs = c.bestFor ? `${c.name} may suit you if this describes you: ${lowerFirst(sentence(c.bestFor))}` : `We did not find a statement on ${c.name}'s pages about who it is built for.`;
+  const theirs = c.bestFor ? `${c.name} may suit you if this describes you: ${lowerFirst(sentence(c.bestFor))}` : `We did not find a statement on ${poss(c.name)} pages about who it is built for.`;
   const ours = TIERS.map((t) => `${t.name} is for ${lowerFirst(sentence(t.whoItsFor))}`);
   return [
     { kind: 'h2', text: `Which one fits` },
     { kind: 'p', text: theirs },
-    { kind: 'p', text: `Calldesk may suit you if your calls match one of its plans (${ours.join(' ')}). Current prices are on the pricing page at /pricing.` },
+    { kind: 'p', text: `Calldesk may suit you if your calls match one of its plans. ${ours.join(' ')} Current prices are on the pricing page at /pricing.` },
   ];
 }
 
 function compareModel(lib: Library, c: Competitor): LibraryPageModel {
   const path = paths.compare(c.slug);
   const date = longDate(c.retrievedAt);
-  const lede = `A sourced comparison of ${CALLDESK_NAME} and ${c.name} (${lowerFirst(c.category)}), built from ${c.name}'s public pages as of ${date}.`;
+  const lede = `A sourced comparison of ${CALLDESK_NAME} and ${c.name} (${lowerFirst(c.category)}), built from ${poss(c.name)} public pages as of ${date}.`;
   const blocks: Block[] = [
     { kind: 'verified', text: `Last verified ${date}.` },
     { kind: 'p', tone: 'note', text: DISCLAIMER(c.name, c.retrievedAt) },
     { kind: 'h2', text: `About ${c.name}` },
     { kind: 'p', text: `How ${c.name} positions itself: ${sentence(c.positioning)}` },
     { kind: 'h2', text: 'Side by side' },
-    { kind: 'p', text: `A row is shown when we could read both sides. Where ${c.name}'s pages did not say, a cell reads "${NOT_STATED}" rather than a guess.` },
+    { kind: 'p', text: `A row is shown when we could read both sides. Where ${poss(c.name)} pages did not say, a cell reads "${NOT_STATED}" rather than a guess. It rests on published pricing, setup and wording, and does not use call-quality or benchmark results.` },
     { kind: 'table', caption: `${CALLDESK_NAME} and ${c.name} compared`, columns: ['', CALLDESK_NAME, c.name], rows: compareRows(c) },
   ];
-  if (c.compliance.note) blocks.push({ kind: 'p', text: `About ${c.name}'s compliance wording: ${sentence(c.compliance.note)}` });
+  if (c.compliance.note) blocks.push({ kind: 'p', text: `About ${poss(c.name)} compliance wording: ${sentence(c.compliance.note)}` });
   if (c.pricing.planNotes.length) {
     blocks.push({ kind: 'h2', text: `${c.name} pricing details` });
     blocks.push({ kind: 'list', items: c.pricing.planNotes.map((text) => ({ text, sourceUrl: c.pricing.sourceUrls[0] })) });
@@ -200,8 +194,8 @@ function compareModel(lib: Library, c: Competitor): LibraryPageModel {
   blocks.push({ kind: 'h2', text: 'Sources', id: 'sources' }, sourcesBlock(c));
   return {
     type: 'compare', slug: c.slug, key: publishKey('compare', c.slug), path,
-    title: `${CALLDESK_NAME} vs ${c.name}: pricing and phone setup compared | CallDeskTech`,
-    description: `Compare ${CALLDESK_NAME} and ${c.name} on pricing, phone setup and compliance wording, using ${c.name}'s public pages reviewed ${date}.`,
+    title: fitTitle(`${CALLDESK_NAME} vs ${c.name}: pricing and phone setup`, `${CALLDESK_NAME} vs ${c.name}: pricing and setup`, `${CALLDESK_NAME} vs ${c.name}`),
+    description: fitDescription(`Compare ${CALLDESK_NAME} and ${c.name} on pricing, phone setup and compliance wording, using ${poss(c.name)} public pages reviewed ${date}.`, `${CALLDESK_NAME} and ${c.name} compared on pricing, phone setup and compliance wording, from ${poss(c.name)} pages reviewed ${date}.`, `${CALLDESK_NAME} and ${c.name} compared on pricing and phone setup, from ${poss(c.name)} pages reviewed ${date}.`),
     h1: `${CALLDESK_NAME} vs ${c.name}`, lede,
     breadcrumbs: [HOME, { name: 'Compare', path: '/compare' }, { name: `${CALLDESK_NAME} vs ${c.name}`, path }],
     blocks, competitorSlug: c.slug, competitorName: c.name, lastVerified: c.retrievedAt,
@@ -245,40 +239,31 @@ function migrateModel(lib: Library, c: Competitor): LibraryPageModel {
   const date = longDate(c.retrievedAt);
   const exp = exportText(c);
   const before: { text: string }[] = [];
-  before.push({ text: exp ? `Exporting your agents: ${c.name}'s pages describe it as: ${sentence(exp)}` : `Exporting your agents: we did not find a statement on ${c.name}'s pages about exporting agents, so ask ${c.name} what you can take with you.` });
-  if (c.telephony.bringYourOwnCarrier === 'yes') before.push({ text: `Phone numbers: ${c.name} supports bringing your own carrier, so your numbers may still be with your own carrier. Calldesk also works with a number or carrier you bring, at no extra charge on every plan.` });
-  else if (c.telephony.bringYourOwnCarrier === 'no') before.push({ text: `Phone numbers: ${c.name}'s pages do not describe bringing your own carrier, so check where your numbers are held before you plan the switch. Calldesk works with a number or carrier you bring, or you can buy numbers from us.` });
-  else before.push({ text: `Phone numbers: we could not tell from ${c.name}'s pages where your numbers are held. Check that before you plan the switch.` });
+  before.push({ text: exp ? (/^(yes|true)$/i.test(exp) ? `Exporting your agents: ${c.name} documents a way to read your agents back out (the steps below list it).` : /^(no|false)$/i.test(exp) ? `Exporting your agents: ${poss(c.name)} pages say agents cannot be exported, so plan a full rebuild.` : `Exporting your agents: ${poss(c.name)} pages describe it as: ${sentence(exp)}`) : `Exporting your agents: we did not find a statement on ${poss(c.name)} pages about exporting agents, so ask ${c.name} what you can take with you.` });
   if (c.integrations.length) before.push({ text: `Connected tools: list what you connected to ${c.name} (${joinList(c.integrations)}) so you can reconnect each one.` });
   before.push({ text: `Recordings and transcripts: download anything you need to keep from ${c.name} before you cancel.` });
 
-  const steps: { text: string }[] = [
-    { text: 'Create an agent in Calldesk from an agent template or build the conversation flow in the flow builder, in the dashboard, through the API or through the MCP server.' },
-    { text: 'Add what the agent should know to a knowledge base.' },
-    { text: 'Connect a calendar if the agent books appointments.' },
-    { text: `Choose a plan: ${planPriceList}. ${languageSentence()}` },
-    { text: `Connect your phone number: bring your own number or carrier at no extra charge, or buy numbers from ${joinList(PHONE_NUMBERS.options.map((o) => o.carrier))}.` },
-    { text: 'Test calls before you switch, and watch a live call while it happens. Use a staging environment, then promote the tested version to production.' },
-  ];
-  if (c.integrations.length) steps.push({ text: `Rebuild the connections you used with ${c.name}. Calldesk sends signed webhooks for ${joinList([...DEVELOPER.webhookEvents])} events, and has a REST API and an MCP server.` });
-  steps.push({ text: `When calls look right, point your number at the Calldesk agent and keep ${c.name} available for a short overlap period.` });
+  const steps = calldeskSteps(c, DEVELOPER.docsPath, c.integrations.length > 0);
 
   const blocks: Block[] = [
     { kind: 'verified', text: `Last verified ${date}.` },
     { kind: 'p', tone: 'note', text: DISCLAIMER(c.name, c.retrievedAt) },
+    { kind: 'h2', text: `Moving from ${c.name}: what kind of move this is` },
+    { kind: 'p', text: `How ${c.name} positions itself: ${sentence(c.positioning)}` },
+    { kind: 'p', text: categoryParagraph(c) },
+    ...(c.bestFor ? [{ kind: 'p' as const, text: `${poss(c.name)} pages and our reading of them suggest it fits: ${lowerFirst(sentence(c.bestFor))}` }] : []),
     { kind: 'h2', text: `Before you leave ${c.name}` },
     { kind: 'list', items: before },
     { kind: 'h2', text: `Steps to leave ${c.name}` },
-    { kind: 'p', text: `These steps come from ${c.name}'s public pages. Sources are listed at the end.` },
+    { kind: 'p', text: `These steps come from ${poss(c.name)} public pages. Sources are listed at the end.` },
     { kind: 'list', ordered: true, items: c.migration.stepsToLeave.map((text) => ({ text, sourceUrl: c.migration.sourceUrls[0] })) },
+    ...phoneNumberBlocks(c, providedNumbersText(c)),
     { kind: 'h2', text: `Steps on the ${CALLDESK_NAME} side` },
     { kind: 'list', ordered: true, items: steps },
-    { kind: 'h2', text: 'What may not carry over' },
-    { kind: 'p', text: `Plan on rebuilding the agent's conversation flow in Calldesk; this page does not describe an automatic import from ${c.name}. Check voices, prompts, language settings and any custom functions after you rebuild them.` },
+    ...keepChecklistBlocks(c),
+    ...mayNotCarryOverBlocks(c),
+    ...costsBlocks(c, calldeskPricingCell),
   ];
-  if (c.unknowns.length) blocks.push({ kind: 'list', items: c.unknowns.map((text) => ({ text: `Not confirmed about ${c.name}: ${lowerFirst(text)}` })) });
-  blocks.push({ kind: 'h2', text: 'Comparing costs before you move' });
-  blocks.push({ kind: 'p', text: `${c.name} describes its pricing as ${lowerFirst(sentence(c.pricing.model))}${c.pricing.headline ? ` Its published starting point: ${sentence(c.pricing.headline)}` : ''} ${calldeskPricingCell} Ask both for a month at your own volume with every charge included.` });
   const related = [
     pubLink(lib, 'compare', c.slug, `${CALLDESK_NAME} vs ${c.name}`),
     pubLink(lib, 'alternatives', c.slug, `${c.name} alternatives`),
@@ -287,10 +272,10 @@ function migrateModel(lib: Library, c: Competitor): LibraryPageModel {
   blocks.push({ kind: 'h2', text: 'Sources', id: 'sources' }, { kind: 'sources', items: c.sources.filter((s) => c.migration.sourceUrls.includes(s.url) || c.pricing.sourceUrls.includes(s.url)).map((s) => ({ title: s.title, url: s.url, retrievedAt: s.retrievedAt })) });
   return {
     type: 'migrate', slug: c.slug, key: publishKey('migrate', c.slug), path,
-    title: `Moving from ${c.name} to Calldesk: a checklist | CallDeskTech`,
-    description: `A checklist for moving from ${c.name} to ${CALLDESK_NAME}: what to export, phone numbers and testing. Based on ${c.name}'s pages reviewed ${date}.`,
+    title: fitTitle(`Moving from ${c.name} to Calldesk: a checklist`, `Moving from ${c.name} to Calldesk`),
+    description: fitDescription(`A checklist for moving from ${c.name} to ${CALLDESK_NAME}: what to export, phone numbers and testing. Based on ${poss(c.name)} pages reviewed ${date}.`, `Moving from ${c.name} to ${CALLDESK_NAME}: what to export, phone numbers and testing, from ${poss(c.name)} pages reviewed ${date}.`, `Moving from ${c.name} to ${CALLDESK_NAME}: what to rebuild, phone numbers, testing. ${poss(c.name)} pages reviewed ${date}.`),
     h1: `Moving from ${c.name} to ${CALLDESK_NAME}`,
-    lede: `A step-by-step checklist for teams moving a phone agent from ${c.name} to ${CALLDESK_NAME}, based on ${c.name}'s public pages as of ${date}.`,
+    lede: `A step-by-step checklist for teams moving a phone agent from ${c.name} to ${CALLDESK_NAME}, based on ${poss(c.name)} public pages as of ${date}.`,
     breadcrumbs: [HOME, { name: 'Migrate', path: '/migrate' }, { name: `From ${c.name}`, path }],
     blocks, competitorSlug: c.slug, competitorName: c.name, lastVerified: c.retrievedAt,
   };
@@ -319,9 +304,10 @@ function contentBlocks(lib: Library, d: Industry | UseCase, kind: 'industry' | '
     const uc = d as UseCase;
     blocks.push({ kind: 'h2', text: 'How it works' }, { kind: 'list', ordered: true, items: uc.steps.map((text) => ({ text })) });
   }
-  blocks.push({ kind: 'h2', text: 'A sample call' }, { kind: 'p', tone: 'note', text: 'An illustrative conversation written for this page, not a recording of a real call.' }, { kind: 'dialogue', turns: d.sampleCallFlow });
+  blocks.push({ kind: 'h2', text: 'A sample call' }, { kind: 'p', tone: 'note', text: 'An illustrative example written for this page. The business in it is fictional, and this is not a recording of a real call.' }, { kind: 'dialogue', turns: d.sampleCallFlow });
   if (kind === 'industry') blocks.push({ kind: 'h2', text: 'How to set it up' }, { kind: 'list', ordered: true, items: (d as Industry).setupSteps.map((text) => ({ text })) });
   blocks.push({ kind: 'h2', text: `Features used` }, { kind: 'list', items: d.featuresUsed.map((f) => ({ text: `${f.feature}: ${f.howItHelps}` })) });
+  if (d.featuresUsed.some((f) => /calendar/i.test(f.feature))) blocks.push({ kind: 'p', text: VERIFIED_STATEMENTS.calendar });
   blocks.push({ kind: 'h2', text: 'Things to consider' });
   blocks.push({ kind: 'list', items: [...d.considerations.map((text) => ({ text })), { text: COMPLIANCE_FACTS.statement }] });
   blocks.push(...costBlocks());
@@ -336,7 +322,7 @@ function industryModel(lib: Library, d: Industry): LibraryPageModel {
   const path = paths.industry(d.slug);
   return {
     type: 'industry', slug: d.slug, key: publishKey('industry', d.slug), path,
-    title: `${d.h1} | CallDeskTech`, description: d.metaDescription, h1: d.h1, lede: d.intro,
+    title: fitTitle(d.h1), description: d.metaDescription, h1: d.h1, lede: d.intro,
     breadcrumbs: [HOME, { name: 'Industries', path: '/industries' }, { name: d.name, path }],
     blocks: contentBlocks(lib, d, 'industry'), faqJsonLd: d.faq,
   };
@@ -345,7 +331,7 @@ function useCaseModel(lib: Library, d: UseCase): LibraryPageModel {
   const path = paths.useCase(d.slug);
   return {
     type: 'use-case', slug: d.slug, key: publishKey('use-case', d.slug), path,
-    title: `${d.h1} | CallDeskTech`, description: d.metaDescription, h1: d.h1, lede: d.intro,
+    title: fitTitle(d.h1), description: d.metaDescription, h1: d.h1, lede: d.intro,
     breadcrumbs: [HOME, { name: 'Use cases', path: '/use-cases' }, { name: d.name, path }],
     blocks: contentBlocks(lib, d, 'use-case'), faqJsonLd: d.faq,
   };

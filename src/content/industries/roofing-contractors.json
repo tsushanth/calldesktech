@@ -80,7 +80,7 @@
     },
     {
       "feature": "Call summary",
-      "howItHelps": "Gives the office a ranked reading list after a hail day, so urgent properties are spotted first."
+      "howItHelps": "Gives the office a short written summary of each call after a hail day, so staff can read through the urgent properties first."
     },
     {
       "feature": "Batch outbound calls",

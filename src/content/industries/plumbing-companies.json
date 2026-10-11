@@ -83,8 +83,8 @@
       "howItHelps": "Keeps service area, fee wording and commercial-work policy consistent across callers."
     },
     {
-      "feature": "Call testing and live call monitoring",
-      "howItHelps": "Lets you test emergency scenarios in advance and listen to live calls during a storm week."
+      "feature": "Call testing and Live Calls page",
+      "howItHelps": "Lets you test emergency scenarios in advance, and the Live Calls page shows which calls are in progress and where each is in the flow during a storm week. It shows call state, not audio."
     }
   ],
   "considerations": [
@@ -96,7 +96,7 @@
   "faq": [
     {
       "q": "Can the agent give DIY instructions?",
-      "a": "What you put in its instructions, such as how to find a shutoff valve. Keep these steps minimal and approved by your team, and do not let the agent guess about gas or electrical hazards."
+      "a": "Only what you put in its instructions, such as how to find a shutoff valve. Keep these steps minimal and approved by your team, and do not let the agent guess about gas or electrical hazards."
     },
     {
       "q": "What happens at three in the morning?",

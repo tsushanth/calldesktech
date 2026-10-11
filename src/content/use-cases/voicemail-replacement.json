@@ -31,8 +31,8 @@
     { "feature": "Call summary and full transcript", "howItHelps": "You read a short written message, with the transcript behind it, and no audio to replay." },
     { "feature": "Webhooks", "howItHelps": "A call-completed event can send each message to email, a helpdesk or a CRM as it arrives." },
     { "feature": "Call transfers", "howItHelps": "Urgent callers can be passed to a mobile number you choose, not just logged." },
-    { "feature": "Bring your own number or carrier", "howItHelps": "Unanswered calls are forwarded from your existing line to the agent without changing the number you publish." },
-    { "feature": "Call testing and live call monitoring", "howItHelps": "You can check how the agent handles vague answers before replacing your voicemail box." }
+    { "feature": "Existing number with call forwarding", "howItHelps": "Unanswered calls are forwarded from your existing line to the agent without changing the number you publish." },
+    { "feature": "Call testing", "howItHelps": "You can check how the agent handles vague answers before replacing your voicemail box." }
   ],
   "considerations": [
     "Callers expect to leave a message, so state clearly that they are talking to an AI assistant and what will happen with their information.",

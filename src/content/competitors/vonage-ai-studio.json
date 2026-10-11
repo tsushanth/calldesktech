@@ -108,7 +108,7 @@
     }
   ],
   "unknowns": [
-    "Live vonage.com pages return HTTP 403 to automated fetches; pricing was read from an Internet Archive snapshot taken 2026-10-07 (single-source)",
+    "Live vonage.com pages could not be fetched automatically; pricing was read from an Internet Archive snapshot taken 2026-10-07 and has not been confirmed on the live site",
     "A search-engine snippet showed $0.0073 per request for NLU/Knowledge AI versus $0.00855 in the snapshot; not reconciled",
     "Per-session price beyond plan allowances",
     "Voice per-minute and ASR/TTS rates (separate Vonage pricing pages not read)",

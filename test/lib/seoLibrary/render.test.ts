@@ -101,10 +101,11 @@ describe('rendered pages', () => {
     const vapi = strip(html('compare', 'calldesk-vs-vapi'));
     expect(vapi).not.toContain('Trying it first'); // Vapi freeTrial is empty
     expect(vapi).not.toContain('Phone numbers from the provider'); // providedNumbers is empty
-    expect(vapi).toContain('Listed price per minute');
+    expect(vapi).toContain('Billed separately or extra'); // whatIsExtra is not empty
+    expect(vapi).not.toContain('Listed price per minute'); // that row was removed: a bare per-minute figure invites an unfair comparison
     expect(vapi).toContain('Bring your own carrier');
     const retell = strip(html('compare', 'calldesk-vs-retell-ai'));
-    expect(retell).not.toContain('Listed price per minute'); // perMinuteUsd is null
+    expect(retell).not.toContain('Billed separately or extra'); // whatIsExtra is empty
     expect(retell).not.toContain('Bring your own carrier'); // unknown
     expect(retell).toContain('Trying it first');
     expect(retell).toMatch(/HIPAA \| ?Not claimed|HIPAA Not claimed/);

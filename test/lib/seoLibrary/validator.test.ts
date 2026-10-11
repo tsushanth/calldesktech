@@ -235,6 +235,7 @@ describe('validator: other rules', () => {
     const vapi = lib.competitors.find((c) => c.slug === 'vapi')!;
     vapi.migration.stepsToLeave = ['Cancel.'];
     vapi.strengths = []; vapi.limitations = []; vapi.unknowns = []; vapi.pricing.planNotes = []; vapi.integrations = []; vapi.positioning = 'A tool.'; vapi.bestFor = '';
+    vapi.pricing.whatIsExtra = []; vapi.pricing.freeTrial = ''; vapi.pricing.headline = ''; vapi.pricing.model = 'Usage.'; vapi.telephony.providedNumbers = '';
     // Template wording alone still clears the word minimum, so the unique-share rule is what catches a page with no data behind it.
     expect(codes(run(lib))).toContain('LOW_UNIQUE_SHARE');
   });

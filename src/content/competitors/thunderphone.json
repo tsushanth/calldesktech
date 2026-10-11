@@ -5,7 +5,7 @@
   "status": "active",
   "retrievedAt": "2026-10-10",
   "category": "platform",
-  "positioning": "A newer voice agent platform that runs its own speech-to-speech stack and sells flat, all-inclusive per-minute tiers, with importers for agents built on other platforms.",
+  "positioning": "A voice agent platform that runs its own speech-to-speech stack and sells flat, all-inclusive per-minute tiers, with importers for agents built on other platforms.",
   "pricing": {
     "model": "Prepaid pay-as-you-go with three flat per-minute engine tiers (Spark, Bolt, Storm) and optional per-minute add-ons; no subscription or seat fee.",
     "headline": "From 2 cents per minute (Spark), 5 cents (Bolt) and 9 cents (Storm), all-inclusive of transcription, model and standard voices; add-ons such as premium voices apply extra.",
@@ -33,7 +33,7 @@
   },
   "strengths": [
     {
-      "claim": "Very low, flat all-in per-minute pricing with no platform fee and a lower flat rate while on hold.",
+      "claim": "Flat per-minute pricing that includes transcription, the model and standard voices, with no platform fee and a lower flat rate while on hold.",
       "sourceUrl": "https://thunderphone.com/pricing"
     },
     {
@@ -59,7 +59,7 @@
       "sourceUrl": "https://thunderphone.com/docs/guides/pricing.md"
     },
     {
-      "claim": "Cold outbound that is TCPA-compliant is offered as a separate human-agent service (ThunderHuman) rather than by the AI platform alone.",
+      "claim": "ThunderPhone lists cold outbound calling as a separate human-agent service (ThunderHuman) rather than as part of the AI platform alone.",
       "sourceUrl": "https://thunderphone.com/enterprise"
     },
     {
@@ -106,7 +106,7 @@
       "https://thunderphone.com/docs/guides/pricing.md"
     ]
   },
-  "bestFor": "Cost-sensitive teams that want a flat per-minute price and an easy path to move existing agents over from other platforms.",
+  "bestFor": "Cost-sensitive teams that want a flat per-minute price and a way to import existing agents from other platforms.",
   "sources": [
     {
       "url": "https://thunderphone.com/pricing",
@@ -152,8 +152,8 @@
   "unknowns": [
     "How to export agents out of ThunderPhone was not documented on the pages read.",
     "SOC 2 status not stated.",
-    "Company age, customer base and independent reliability data were not checked; the vendor markets a 2.0 launch.",
-    "Benchmark claims (for example Big Bench Audio) and competitor price comparisons on the vendor's pages are the vendor's own and were not verified.",
+    "We did not research ThunderPhone's company history, customer base or independent reliability data.",
+    "We did not verify benchmark results or price comparisons that ThunderPhone publishes on its own pages.",
     "Country coverage for ThunderPhone-provided numbers beyond the US was not found."
   ]
 }

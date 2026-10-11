@@ -83,8 +83,8 @@
       "howItHelps": "Gives staff a short written summary of each message, so the person returning calls does not need to read the full transcript first."
     },
     {
-      "feature": "Call testing and live call monitoring",
-      "howItHelps": "Lets you rehearse risky conversations such as symptom mentions before the line goes live, and watch calls as they happen."
+      "feature": "Call testing and Live Calls page",
+      "howItHelps": "Lets you rehearse risky conversations such as symptom mentions before the line goes live, and the Live Calls page shows which calls are in progress. It shows call state, not audio."
     }
   ],
   "considerations": [

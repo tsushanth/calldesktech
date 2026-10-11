@@ -15,7 +15,7 @@
       "Plan prices and credit bundle sizes are shown inside the app (Plans and Billing); the public pricing page offers 'Start building for clients' for agencies and 'Request pricing' for businesses.",
       "One Voiceflow phone number per workspace is included; extra numbers and extra concurrent calls are add-ons.",
       "Free plan has a one-time credit grant that does not renew and is described by Voiceflow as not suitable for production.",
-      "The $0.05/min figure comes from a single docs page (credits pricing table, 'Self-serve pricing' tab); the marketing pricing page does not list it (single-source)."
+      "The $0.05/min figure comes from a single docs page (credits pricing table, 'Self-serve pricing' tab); the marketing pricing page does not list it."
     ],
     "freeTrial": "Free plan with a one-time credit grant; the pricing page says free trial, no credit card required (agency track).",
     "whatIsExtra": [

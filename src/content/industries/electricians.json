@@ -112,7 +112,7 @@
     },
     {
       "q": "Can I see what the agent said to each caller?",
-      "a": "Yes. Each call has a transcript and a summary, and you can listen to calls live in the monitoring view while testing."
+      "a": "Yes. Each call has a transcript and a summary, and the Live Calls page shows which calls are in progress and where each is in the flow. It shows call state and cannot be used to listen to a call."
     }
   ],
   "relatedSlugs": [

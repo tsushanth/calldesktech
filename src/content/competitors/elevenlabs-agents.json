@@ -150,10 +150,9 @@
     }
   ],
   "unknowns": [
-    "The $0.08 per minute rate and plan minutes come from the pricing page; the help-center page confirms billing structure but not the number, and the burst doc confirms the 2x multiple (so the base figure is effectively single-source).",
+    "The $0.08 per minute rate and the plan minutes come from the pricing page alone; the help center and the burst-pricing page describe how billing works but do not repeat the amounts.",
     "Whether ElevenLabs sells phone numbers directly was not found.",
     "Typical LLM cost per minute depends on model and is shown inside the product.",
-    "GDPR statement not found on the pages read.",
-    "Pricing page carries a promotional first-month discount until Oct 18 and 3x credits until Oct 12 (creative plans), which may change."
+    "GDPR statement not found on the pages read."
   ]
 }

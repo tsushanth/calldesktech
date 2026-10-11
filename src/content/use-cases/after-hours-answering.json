@@ -39,7 +39,7 @@
   "faq": [
     { "q": "How does the agent know whether I am open?", "a": "You add a code step that checks the time in your time zone against hours you define, and a logic split routes the call on the result. It does not rely on the model to work out the time." },
     { "q": "Can it wake someone up for emergencies?", "a": "It can transfer the live call to an on-call number you provide. It does not page people by itself, so decide who answers that number and what happens when they do not." },
-    { "q": "Do I need a new phone number?", "a": "Not necessarily. You can bring your own carrier and forward calls to the Calldesk number outside hours, or route a number to the agent directly. How forwarding is set up depends on your carrier." },
+    { "q": "Do I need a new phone number?", "a": "Not necessarily. You can forward calls from your existing number to a number registered in Calldesk outside your hours, or route a number to the agent directly. How forwarding is set up depends on your carrier." },
     { "q": "Will the caller know it is an AI?", "a": "The sample flow has the agent say so in the opening line. You write the script, and we recommend stating it plainly." },
     { "q": "What does it cost for quiet nights?", "a": "Billing is per minute of talk time with no monthly minimum, so a night without calls adds no talk-time charge. Phone numbers from Calldesk have their own monthly charge, shown on the pricing page." }
   ],

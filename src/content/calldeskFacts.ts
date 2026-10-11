@@ -142,33 +142,88 @@ export const FEATURE_VOCABULARY: readonly { name: string; backedBy: string }[] =
   { name: 'Call transfers', backedBy: 'INCLUDED_ON_ALL' },
   { name: 'Keypad tones (DTMF)', backedBy: 'INCLUDED_ON_ALL' },
   { name: 'Knowledge base', backedBy: 'INCLUDED_ON_ALL' },
-  { name: 'Calendar booking', backedBy: 'INCLUDED_ON_ALL' },
-  { name: 'Call testing and live monitoring', backedBy: 'INCLUDED_ON_ALL' },
+  { name: 'Calendar booking', backedBy: 'INCLUDED_ON_ALL; live booking goes through a Cal.com connection (src/lib/calendarConnection.ts)' },
+  { name: 'Call testing', backedBy: 'INCLUDED_ON_ALL; test calls from the agent page (src/app/dashboard/agents/[id]/page.tsx, place-call route in src/lib/openapi.ts)' },
+  { name: 'Live Calls page', backedBy: 'src/app/dashboard/live-monitoring/page.tsx: calls in progress, duration, current flow step and a coarse sentiment label. It is call STATE, not audio: nobody can listen in. Pages must not say listen, watch or monitor audio' },
   { name: 'API and MCP server', backedBy: 'INCLUDED_ON_ALL' },
   { name: 'Multiple languages', backedBy: 'src/lib/languages.ts' },
+  { name: '40+ languages', backedBy: 'INCLUDED_ON_ALL and AGENT_LANGUAGES in src/lib/languages.ts (non-English needs Standard or Pro)' },
+  { name: 'Standard and Pro voices', backedBy: 'src/lib/pricingTiers.ts (Lite voice is English-only; LANGUAGES.nonEnglishTierNames)' },
   { name: 'Webhooks', backedBy: 'src/lib/openapi.ts' },
   { name: 'Outbound calls', backedBy: 'src/lib/openapi.ts (place an outbound call)' },
+  { name: 'Per-call variables', backedBy: 'src/lib/openapi.ts POST place call: optional variables object fills {{placeholders}} for that call (limits: 25 keys, 4000 bytes)' },
   { name: 'Batch calls', backedBy: 'src/lib/openapi.ts (batch calls)' },
-  { name: 'Staging and production environments', backedBy: 'src/lib/openapi.ts (promote a version)' },
+  { name: 'Per-contact variables', backedBy: 'src/lib/openapi.ts and src/lib/mcp/tools.ts create_batch_call: CSV columns other than the phone column become per-call variables' },
+  { name: 'Batch call time window', backedBy: 'src/lib/openapi.ts callTimeWindow { timezone, days, start_hour, end_hour } and scheduledAt for running a batch later' },
+  { name: 'Voicemail detection', backedBy: 'agent page voicemailDetection setting (hang up, or leave the message you wrote): src/app/dashboard/agents/[id]/page.tsx; landing Platform.tsx' },
+  { name: 'Staging and production environments', backedBy: 'src/lib/openapi.ts (promote a version); GUIDE in src/lib/mcp/tools.ts' },
+  { name: 'Environments', backedBy: 'GUIDE in src/lib/mcp/tools.ts (staging/production, promote_agent_environment, set_number_routing environmentId)' },
   { name: 'Expert backup', backedBy: 'src/lib/expertBackup.ts' },
   { name: 'Phone numbers', backedBy: 'src/lib/numberAddOn.ts' },
+  { name: 'Existing number with call forwarding', backedBy: 'src/app/api/tenants/[id]/phone-numbers/route.ts (register a number you own; route it via carrier call forwarding) and the landing FAQ in src/components/landing/Closing.tsx. No SIP trunking' },
+  { name: 'Per-minute billing', backedBy: 'src/lib/pricingTiers.ts (a price per minute of talk time, no monthly minimum)' },
   { name: 'Flow builder', backedBy: 'src/components/flow-builder' },
   { name: 'Agent templates', backedBy: 'GET /agent-templates in src/lib/openapi.ts' },
+  { name: 'Logic split', backedBy: 'GUIDE in src/lib/mcp/tools.ts (logic_split node with structured edge conditions); handled in src/lib/retellFlow.ts' },
+  { name: 'Edge conditions', backedBy: 'GUIDE in src/lib/mcp/tools.ts (plain-English conditions judged by the model, or structured field tests on a logic split)' },
+  { name: 'Code step', backedBy: 'GUIDE in src/lib/mcp/tools.ts (code node: JavaScript sandbox with dv, fetch and localTime(tz)); src/lib/flowCodeSandbox.ts; business-hours example in src/lib/agentTemplates.ts' },
+  { name: 'Function step', backedBy: 'GUIDE in src/lib/mcp/tools.ts (function node: webhook POSTs { function, collectedData } and folds the result into context)' },
+  { name: 'Knowledge-base step', backedBy: 'GUIDE in src/lib/mcp/tools.ts (knowledge_base node answers from the agent\'s attached knowledge base)' },
+  { name: 'Agent transfer', backedBy: 'GUIDE in src/lib/mcp/tools.ts (agent_transfer node hands the live call to another agent in the workspace)' },
+  { name: 'Simulation test cases', backedBy: 'src/lib/openapi.ts (test-cases: persona + success criteria, run a simulation); Simulation tab in the agent page' },
+  { name: 'HubSpot caller lookup', backedBy: 'src/lib/openapi.ts crm/hubspot/lookup and lookup_hubspot_contact in src/lib/mcp/tools.ts (needs a connected HubSpot; on-demand lookup by phone, no background sync)' },
+  { name: 'Call-issue checks', backedBy: 'src/lib/callIssues.ts (deterministic checks after the call: claimed booking without tool, placeholder read aloud, number readback mismatch, no fields collected, long silence)' },
+  { name: 'HighLevel recipe', backedBy: 'src/lib/highlevelRecipe.ts and /docs/highlevel (two workflows via webhooks)' },
+  { name: 'requireBookingTools', backedBy: 'src/app/docs/page.tsx and src/app/api/agents/[id]/versions/route.ts (publish warns when a flow books with no calendar; requireBookingTools: true refuses with 422)' },
 ];
 
 /**
- * Things a writer might expect to see here that we could not confirm from the code, left out on purpose. Listed in the framework
- * hand-off report; delete a line once it is verified and added above.
+ * Coordinator-verified 2026-10-10 and re-checked against the code. Pages may state these and nothing stronger.
+ */
+export const VERIFIED_STATEMENTS = {
+  /** Calendars connect through Cal.com (src/lib/calendarConnection.ts). Google, Outlook and iCal calendars are reached through Cal.com; a Cal.com account is needed. */
+  calendar: 'Calendars connect through Cal.com (Google, Outlook and iCal calendars via Cal.com). A Cal.com account is needed.',
+  /** Dashboard "Port an existing number" form submits a Twilio port-in request (src/app/dashboard/numbers/page.tsx). No port has been completed yet, so pages must not promise porting. */
+  porting: { exists: true, viaTwilioPortInRequest: true, completedPortsToDate: 0, mayBePromisedOnPages: false },
+  /** src/app/api/tenants/[id]/phone-numbers/route.ts: "until full SIP trunking is configured". */
+  sipTrunking: false,
+  numberAddOnsLiveOnPricing: true,
+  /** Priced on /pricing from the numberAddOn.ts constants (PHONE_NUMBERS.options). */
+  expertBackupTiers: 'Lite and Standard',
+  otherAddOnsComingSoon: ['advanced analytics', 'premium voice'],
+  allThreeTiersLive: true,
+  freeOffer: 'a free demo call, with no trial credit',
+} as const;
+
+/** Never state any of these on a page: Calldesk has not published them. */
+export const NOT_PUBLISHED: readonly string[] = [
+  'concurrent call limits',
+  'uptime',
+  'latency',
+  'call recording retention',
+  'data residency',
+  'encryption',
+  'a data processing agreement (DPA)',
+  'a business associate agreement (BAA)',
+  'any certification',
+];
+
+/**
+ * Things a writer might expect to see here that we could not confirm from the code, left out on purpose. Delete a line once it is
+ * verified and added above.
  */
 export const UNVERIFIED: readonly string[] = [
-  'Which carriers a customer can bring (SIP trunk, Twilio account, Telnyx account): the pricing code says bring-your-own carrier is free but not the connection methods.',
-  'Which calendars connect (the code has a Cal.com connection; the site text mentions Google and Outlook through it).',
-  'Concurrent call limits, uptime commitments and latency figures.',
-  'Call recording retention periods and where recordings are stored.',
-  'Data residency, encryption at rest, a data processing agreement, a business associate agreement: none confirmed (docs/compliance/readiness-gap-analysis.md).',
-  'A free trial: the site offers a free demo call, not a trial with credit.',
-  'Number porting: no code path was found for moving a number from another provider to Calldesk.',
-  'Add-on prices (sentiment, advanced analytics, premium voice, long prompts): announced as coming soon, with no amounts.',
+  'SIP trunking: NOT offered (phone-numbers route says "until full SIP trunking is configured"). A number you own is registered and reached by carrier call forwarding.',
+  'Number porting: the dashboard has a "Port an existing number" form that submits a Twilio port-in request, but no port has been completed yet. Do not promise porting on pages.',
+  'Which calendars connect beyond Cal.com: Google, Outlook and iCal are reached through Cal.com (coordinator-verified 2026-10-10; the repo only shows the Cal.com connection). A Cal.com account is needed.',
+  'Concurrent call limits, uptime commitments and latency figures: not published.',
+  'Call recording retention periods and where recordings are stored: not published.',
+  'Data residency, encryption at rest, a data processing agreement, a business associate agreement, any certification: none confirmed (docs/compliance/readiness-gap-analysis.md).',
+  'A free trial: the offer is a free demo call, not a trial with credit.',
+  'Add-on prices for advanced analytics and premium voice: announced as coming soon, with no amounts. Number add-ons and expert backup are live and priced.',
+  'Listening to a live call: not possible. The Live Calls page shows call state (in progress, duration, flow step, coarse sentiment), not audio.',
+  'localTime(tz) in the code step is documented in the agent page and used by built-in templates, but the engine that implements it (call-loop-poc) is outside this repo, so it was not read here.',
+  'Google, Outlook and iCal behaviour inside Cal.com is Cal.com\'s own; pages say "via Cal.com" and nothing more.',
 ];
 
 export const TIER_SUMMARY_LINE = TIERS.map((t) => `${t.name} ${t.priceLabel}`).join(', ');

@@ -40,7 +40,7 @@
     { "q": "Does Calldesk know when I miss a call?", "a": "No. Your phone system, carrier or CRM has to detect the miss and call the Calldesk API. The agent handles the conversation once the call is requested." },
     { "q": "Could I send missed callers to the agent instead of calling back?", "a": "Yes, that is the overflow and after-hours pattern: forward unanswered calls to the agent's number so the caller is answered immediately. How forwarding is configured depends on your carrier." },
     { "q": "What does the agent say if someone has forgotten calling?", "a": "You write it. A sensible script states who is calling, mentions the missed call and asks how it can help, with an easy way out." },
-    { "q": "How many callbacks can it do at once?", "a": "Single calls through the API are rate limited per workspace, with a short burst and then roughly one call every couple of seconds. For a backlog, use a batch call." },
+    { "q": "How many callbacks can it do at once?", "a": "Single calls through the API are rate limited per workspace and return a 429 response when they come too fast, so pace your automation. For a backlog, use a batch call." },
     { "q": "How do I see which callbacks reached someone?", "a": "Each call shows an outcome such as answered, voicemail or transferred, and the batch or webhook data lets you track results in your own system." }
   ],
   "relatedSlugs": ["overflow-call-handling", "voicemail-replacement", "outbound-lead-follow-up", "after-hours-answering"]

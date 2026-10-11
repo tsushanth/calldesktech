@@ -96,7 +96,7 @@
     },
     {
       "q": "Can it take payments?",
-      "a": "Treat rent payment as something your existing portal handles. The agent can explain how to pay and send tenants to the portal. Calldesk has a payment step on some carrier setups, but verify it against your needs before relying on it for rent."
+      "a": "Treat rent payment as something your existing portal handles. The agent can explain how to pay and send tenants to the portal. Calldesk has a payment step that needs a configured payment connector, so verify it against your needs before relying on it for rent."
     },
     {
       "q": "What if I manage buildings in several cities?",

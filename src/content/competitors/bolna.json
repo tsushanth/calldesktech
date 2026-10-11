@@ -15,7 +15,7 @@
       "Pilot plan (one-time): $300 for 6,500 minutes (~4.6 cents/min) or $500 for 12,000 minutes (~4.2 cents/min), up to 25 concurrent calls, billed in 30-second pulses, one month of dedicated support.",
       "Enterprise: custom volume pricing, dedicated account manager.",
       "Docs say the flat rate covers transcription, LLM and TTS on preferred models; telephony is charged per minute by the carrier and Bolna adds its own per-minute platform component. The docs do not state whether the 6 cents headline already includes the platform component or telephony.",
-      "Pricing figures were seen on the pricing page (including its FAQ) and the pilot docs page; the pay-as-you-go 6 cents figure is on the pricing page alone (single-source)."
+      "Pricing figures were seen on the pricing page (including its FAQ) and the pilot docs page; the pay-as-you-go 6 cents figure appears on the pricing page alone."
     ],
     "freeTrial": "$5 in free credits on sign-up.",
     "whatIsExtra": [
