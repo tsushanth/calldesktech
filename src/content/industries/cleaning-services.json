@@ -1,0 +1,124 @@
+{
+  "slug": "cleaning-services",
+  "name": "Cleaning Services",
+  "h1": "AI Phone Agent for Cleaning Services: Quotes and Reschedules",
+  "metaDescription": "Calldesk answers cleaning service calls: home and office quote requests, recurring schedule changes, move-out jobs and last-minute reschedules.",
+  "intro": "Cleaning businesses are run from vans and phones. The owner or a lead cleaner is inside a client's home with a vacuum going when new inquiries ring, and the person calling is usually comparing a few companies and wants a rough price now. The calls are surprisingly varied. A homeowner wants a one-time deep clean before guests arrive, a landlord needs a move-out clean by Friday, an office manager asks about weekly janitorial service, and a recurring client needs to skip a week because they are traveling. Monday mornings carry the weekend's reschedules, the days before holidays bring a rush of deep-clean requests, and spring brings a run on windows and carpets. Cancellations in the last hours are costly because the crew is already booked. A Calldesk agent can answer as the company's AI assistant, ask for the home's size, number of bedrooms and bathrooms, pets and type of clean, give general descriptions of what each service includes from the knowledge base, and book an in-person or video walkthrough or the clean itself on a connected calendar. It does not state a firm price without your approval. Outbound batch calls can confirm next-day arrivals.",
+  "callTypes": [
+    "One-time deep-clean requests before guests or events",
+    "Move-out and move-in cleaning jobs on a short deadline",
+    "Recurring weekly or biweekly home cleaning inquiries",
+    "Office and small-business janitorial quotes",
+    "Existing clients skipping, moving or cancelling a visit",
+    "Next-day arrival confirmation calls to clients"
+  ],
+  "sampleCallFlow": [
+    {
+      "speaker": "agent",
+      "text": "Thanks for calling. I'm the company's AI assistant. Are you looking for a one-time clean or a regular service?"
+    },
+    {
+      "speaker": "caller",
+      "text": "A move-out clean. I'm giving the keys back on Friday."
+    },
+    {
+      "speaker": "agent",
+      "text": "That's a tight timeline, but let's see what we can do. How many bedrooms and bathrooms does the apartment have?"
+    },
+    {
+      "speaker": "caller",
+      "text": "Two bedrooms, one bath."
+    },
+    {
+      "speaker": "agent",
+      "text": "Thanks. Is the unit empty already, and does the landlord have a checklist you're trying to meet?"
+    },
+    {
+      "speaker": "caller",
+      "text": "It's empty. The landlord wants the oven and fridge done."
+    },
+    {
+      "speaker": "agent",
+      "text": "Good to know. The move-out clean covers the oven and refrigerator interiors when requested. May I have your name and the address?"
+    },
+    {
+      "speaker": "caller",
+      "text": "Pavel Novak, 62 Linden Terrace, unit 4."
+    },
+    {
+      "speaker": "agent",
+      "text": "Thanks, Pavel. A crew has Thursday at 9 open for a job that size. I'll pass your details to the office so they confirm the price before the visit. Does Thursday at 9 work?"
+    },
+    {
+      "speaker": "caller",
+      "text": "Yes, perfect."
+    },
+    {
+      "speaker": "agent",
+      "text": "Booked, and the office will call with the price this afternoon."
+    }
+  ],
+  "setupSteps": [
+    "Create an agent from the appointment-booking template and describe each service type: standard, deep, move-out, office.",
+    "Add the knowledge base with what each service includes, products used, pet policy, areas served and cancellation terms.",
+    "Define extraction fields for service type, property size, bedrooms and bathrooms, pets, access instructions and desired date.",
+    "Connect a calendar with crew capacity, and add a path for existing clients to skip or move a visit.",
+    "Test the flows, publish, and schedule outbound confirmation calls the evening before jobs."
+  ],
+  "featuresUsed": [
+    {
+      "feature": "Calendar booking",
+      "howItHelps": "Books jobs into open crew slots while the owner is mid-clean."
+    },
+    {
+      "feature": "Structured field extraction",
+      "howItHelps": "Records size, bedroom and bathroom counts and access notes so the quote can be built without a callback."
+    },
+    {
+      "feature": "Knowledge base",
+      "howItHelps": "Explains what each cleaning type includes in the same words every time."
+    },
+    {
+      "feature": "Batch outbound calls",
+      "howItHelps": "Confirms next-day arrivals with each client's name and arrival window as variables."
+    },
+    {
+      "feature": "Call transfers",
+      "howItHelps": "Sends commercial bids and complaints to the owner's phone when she is free."
+    }
+  ],
+  "considerations": [
+    "Entering a client's home brings access and security questions. The agent should not collect door codes or alarm information on a call unless you have decided how to protect them; handle those separately.",
+    "Do not allow firm price quotes unless you have approved the exact figures or ranges. Written estimates after a walkthrough avoid disputes.",
+    "Confirmation calls are service calls to existing clients, but promotional outreach is different. Check consent and calling rules with your own counsel, including TCPA in the United States.",
+    "Staffing, insurance and bonding statements must be true for your business; the agent should repeat what you have written."
+  ],
+  "faq": [
+    {
+      "q": "Can the agent give instant quotes?",
+      "a": "It can collect the facts that drive a price and give ranges if you provide them. Many cleaners prefer to confirm the price themselves after seeing the details, and the agent can say the office will follow up."
+    },
+    {
+      "q": "What if a client needs to cancel the same morning?",
+      "a": "A cancellation path can record the request and apply your policy wording. Whether to waive a fee is a decision for you, so route those calls to the owner when needed."
+    },
+    {
+      "q": "Does it work for commercial cleaning?",
+      "a": "Yes, as a separate branch that asks about square footage, frequency and building access, then books a walkthrough with the person who writes bids."
+    },
+    {
+      "q": "How are recurring clients handled?",
+      "a": "Skips and changes are logged in the call summary and can be pushed by webhook to your scheduling tool. The agent does not edit your recurring schedule on its own."
+    },
+    {
+      "q": "Do I need a new phone number?",
+      "a": "No. You can forward your business line to a Calldesk number, or bring your own carrier or add a number from Calldesk."
+    }
+  ],
+  "relatedSlugs": [
+    "landscaping-companies",
+    "property-management",
+    "hotels",
+    "childcare-centers"
+  ]
+}

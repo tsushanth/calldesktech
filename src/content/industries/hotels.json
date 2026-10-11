@@ -1,0 +1,124 @@
+{
+  "slug": "hotels",
+  "name": "Hotels",
+  "h1": "AI Phone Agent for Hotels: Front Desk Overflow Calls",
+  "metaDescription": "Calldesk answers hotel calls when the front desk is busy: room inquiries, amenity and policy questions, group requests and late-night guest calls.",
+  "intro": "A hotel front desk has two audiences at once: guests standing at the counter and callers on the phone. At check-in time, mid-afternoon, a line forms at the desk and the phone rings anyway. Callers want to know if there are rooms for a certain weekend, whether pets are welcome, what time breakfast ends, where to park a truck, and whether the shuttle runs to the airport. Overnight, the desk is thinly staffed, and in-house guests call about a noisy hallway, a missing towel, or how to reach the front desk from the room phone. Group sales and event inquiries call too, and need someone senior. The costs of a missed call are asymmetric. A prospective guest who hears nothing books elsewhere, while an in-house guest who cannot get through is unhappy right away. A Calldesk agent can answer as the hotel's AI assistant, handle policy and amenity questions from a knowledge base, take a reservation inquiry and pass it to staff, transfer in-house guest requests to the desk or night manager, and route group requests to sales. It does not quote live rates or confirm room inventory unless you connect a source of truth, and it should say so. After hours it can take messages and log requests.",
+  "callTypes": [
+    "Prospective guests asking about room types, pet policy and parking",
+    "Same-night travelers calling for availability after a flight delay",
+    "In-house guests requesting towels, a late checkout or a maintenance fix",
+    "Group and wedding-block inquiries meant for the sales office",
+    "Questions about breakfast hours, pool access, airport shuttle and check-in times",
+    "Overnight calls about noise or security that need the manager on duty"
+  ],
+  "sampleCallFlow": [
+    {
+      "speaker": "agent",
+      "text": "Thank you for calling the hotel. I'm the hotel's AI assistant. Are you a guest staying with us, or planning a visit?"
+    },
+    {
+      "speaker": "caller",
+      "text": "Planning one. Do you allow dogs?"
+    },
+    {
+      "speaker": "agent",
+      "text": "Dogs are welcome in designated rooms on the ground floor. There is a pet fee listed on our website policy page. Would you like me to pass your details to the reservations team?"
+    },
+    {
+      "speaker": "caller",
+      "text": "Yes. I'd like two nights next weekend."
+    },
+    {
+      "speaker": "agent",
+      "text": "I can't confirm live availability or rates myself, so the reservations team will check and call you back. May I have your name and number?"
+    },
+    {
+      "speaker": "caller",
+      "text": "Kenji Watanabe, and use this number."
+    },
+    {
+      "speaker": "agent",
+      "text": "Thanks, Kenji. What dates, and how many guests and dogs?"
+    },
+    {
+      "speaker": "caller",
+      "text": "Friday to Sunday, two adults and one small dog."
+    },
+    {
+      "speaker": "agent",
+      "text": "Got it. Would you like a ground-floor room, since that's where dogs are allowed? I'll note it as a request."
+    },
+    {
+      "speaker": "caller",
+      "text": "Yes, please."
+    },
+    {
+      "speaker": "agent",
+      "text": "All noted. You can expect a call from reservations; they will go over the rate and the pet policy before booking."
+    }
+  ],
+  "setupSteps": [
+    "Create an agent from the receptionist template, with the hotel name, address and a statement of what it can and cannot confirm.",
+    "Fill the knowledge base with room types, amenities, pet and parking policies, shuttle times, breakfast hours and check-in and check-out times.",
+    "Define separate paths for prospective guests, in-house guests and group sales, with transfers to the desk, night manager or sales office.",
+    "Add extraction fields for dates, party size, room preferences and callback number, and send them by webhook to your reservations team.",
+    "Test overnight and daytime scenarios, publish on the front desk line or its overflow, and review live calls during the first weekend."
+  ],
+  "featuresUsed": [
+    {
+      "feature": "Knowledge base",
+      "howItHelps": "Answers repeat policy and amenity questions so the desk is not interrupted during check-in."
+    },
+    {
+      "feature": "Call transfers",
+      "howItHelps": "Moves in-house requests to the desk or night manager and group inquiries to sales."
+    },
+    {
+      "feature": "Structured field extraction",
+      "howItHelps": "Captures stay dates, party size and preferences for reservations to follow up."
+    },
+    {
+      "feature": "Languages",
+      "howItHelps": "Handles callers in other languages on the Standard and Pro voices, which helps hotels with international visitors."
+    },
+    {
+      "feature": "Call summary",
+      "howItHelps": "Leaves a summary for the morning manager covering overnight calls and open requests."
+    }
+  ],
+  "considerations": [
+    "Guest names, room numbers and payment details are sensitive. Decide what the agent may ask for, and avoid collecting card numbers by phone unless you have reviewed your payment-security obligations.",
+    "Do not let the agent state live rates or confirm availability unless it is connected to a source you trust; a wrong answer creates a booking dispute.",
+    "Security or safety emergencies reported by phone should be passed to a human and emergency services without delay. Test that path.",
+    "If you record or transcribe calls, check consent requirements where guests and staff are located, and update your privacy notices as needed."
+  ],
+  "faq": [
+    {
+      "q": "Can it check real-time availability?",
+      "a": "Not by default. It has no built-in link to hotel property systems. You could connect a function step to your own endpoint, but plan that as an integration project."
+    },
+    {
+      "q": "Which languages does it support?",
+      "a": "Calldesk supports 40+ languages, though Lite's voice speaks English. Standard or Pro is required for non-English speech."
+    },
+    {
+      "q": "What happens when a guest calls from their room?",
+      "a": "You can add a path that recognizes in-house guests and transfers to the desk, or logs a request such as a towel delivery for staff to complete."
+    },
+    {
+      "q": "Can it handle wedding or group block inquiries?",
+      "a": "It collects the event date, size and contact details and passes the inquiry to sales. Quotes and contracts stay with your team."
+    },
+    {
+      "q": "Do I need to replace my phone system?",
+      "a": "No. You can forward overflow or after-hours calls to a Calldesk number, or bring your own carrier for the number the agent answers."
+    }
+  ],
+  "relatedSlugs": [
+    "restaurants",
+    "salons-and-spas",
+    "property-management",
+    "fitness-studios"
+  ]
+}

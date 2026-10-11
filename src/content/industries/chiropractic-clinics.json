@@ -1,0 +1,124 @@
+{
+  "slug": "chiropractic-clinics",
+  "name": "Chiropractic Clinics",
+  "h1": "AI Phone Agent for Chiropractic Clinics: Patient Scheduling",
+  "metaDescription": "Calldesk answers chiropractic clinic calls: new-patient bookings, recurring adjustment visits, accident-related intake and cancellation handling.",
+  "intro": "A chiropractic clinic runs on a tight schedule of short, repeating visits. Patients on a care plan come in several times a week, and a clinic can see dozens of adjustments in a day, so any gap in the book is felt. The phone is the way patients cancel, reschedule or add themselves in, and it rings while the doctor and assistant are working with the patient on the table. New patients call after waking with a stiff neck, after a car accident, or on a friend's recommendation, and the question is usually how soon they can be seen. Some of those calls involve a personal injury case with an attorney and special paperwork. The front desk also gets repeated questions on fees, what insurance is accepted, and what to wear. A Calldesk agent can answer as the clinic's AI assistant, take a new patient's name, reason for visit and insurance or accident status, offer a slot on a connected calendar, and process reschedules for established patients. It does not diagnose, promise results or comment on treatment. Anything that sounds like severe pain, numbness, weakness or trauma goes straight to a staff member. Outbound batch calls can reach patients who missed a visit.",
+  "callTypes": [
+    "New patients with back or neck pain asking how soon they can be seen",
+    "Established patients rescheduling or cancelling a standing adjustment",
+    "Callers involved in a car accident asking about intake and documentation",
+    "Questions on visit cost, accepted insurance and first-visit length",
+    "Patients calling to add a same-day slot when something flares up",
+    "Outbound calls to patients who missed their last appointment"
+  ],
+  "sampleCallFlow": [
+    {
+      "speaker": "agent",
+      "text": "Thanks for calling the clinic. I'm the clinic's AI assistant. Are you a new patient, or do you already see the doctor?"
+    },
+    {
+      "speaker": "caller",
+      "text": "New. I tweaked my lower back lifting a box and it's been sore for four days."
+    },
+    {
+      "speaker": "agent",
+      "text": "I'm sorry to hear that. I can't evaluate it, but the doctor can. Is there any numbness, weakness in your legs, or trouble controlling your bladder?"
+    },
+    {
+      "speaker": "caller",
+      "text": "No, just sore and stiff."
+    },
+    {
+      "speaker": "agent",
+      "text": "Okay. If any of those symptoms show up, please seek urgent medical care. Can I have your name?"
+    },
+    {
+      "speaker": "caller",
+      "text": "Leah Thornton."
+    },
+    {
+      "speaker": "agent",
+      "text": "Thanks, Leah. Was this from an accident or a work injury, or just lifting at home?"
+    },
+    {
+      "speaker": "caller",
+      "text": "At home."
+    },
+    {
+      "speaker": "agent",
+      "text": "Thanks. New-patient visits run about forty-five minutes. There's a time at 11:15 tomorrow, or Thursday at 4. Which works?"
+    },
+    {
+      "speaker": "caller",
+      "text": "Tomorrow at 11:15."
+    },
+    {
+      "speaker": "agent",
+      "text": "Booked. Please wear comfortable clothing, and the office will tell you about the forms to complete when you arrive."
+    }
+  ],
+  "setupSteps": [
+    "Create an agent from the appointment-booking template and write the clinic name, doctors and services into its instructions.",
+    "Connect a calendar with new-patient and follow-up slot lengths, and build a reschedule path for established patients.",
+    "Add a red-flag rule: severe pain, numbness, weakness, loss of bladder control, chest symptoms or trauma are sent to a staff transfer and, where needed, to emergency care.",
+    "Fill the knowledge base with fees you publish, accepted insurance, first-visit length and the personal-injury paperwork you require.",
+    "Test symptom scenarios, publish, and set a batch of missed-visit follow-up calls to patients who agreed to receive them."
+  ],
+  "featuresUsed": [
+    {
+      "feature": "Calendar booking",
+      "howItHelps": "Fills short adjustment slots and rebooks cancellations while the doctor is treating a patient."
+    },
+    {
+      "feature": "Call transfers",
+      "howItHelps": "Sends red-flag symptom calls to a staff member or advises emergency care instead of the agent assessing them."
+    },
+    {
+      "feature": "Structured field extraction",
+      "howItHelps": "Captures reason for visit, accident status and insurance type, which the front desk needs before intake."
+    },
+    {
+      "feature": "Knowledge base",
+      "howItHelps": "Answers repeated questions on fees, insurance and first-visit length in the clinic's wording."
+    },
+    {
+      "feature": "Batch outbound calls",
+      "howItHelps": "Reaches patients who missed a visit with their first name and last-visit date passed as variables."
+    }
+  ],
+  "considerations": [
+    "Patient information may be protected health information. Calldesk makes no HIPAA certification claim, so ask your compliance advisor or counsel what is required before connecting a voice agent to patient calls.",
+    "Chiropractic advertising and what staff may say about outcomes is regulated in many places. The agent must not promise relief, cures or treatment results.",
+    "Calls about accidents may involve attorneys and insurers; keep the agent to collecting basic facts and scheduling, and do not let it advise on claims.",
+    "Missed-appointment and recall calls are outbound; confirm consent and calling-hour rules with your own counsel, including TCPA obligations in the United States."
+  ],
+  "faq": [
+    {
+      "q": "Does the agent screen symptoms?",
+      "a": "It asks the red-flag questions you write and transfers or advises emergency care according to your rules. It does not diagnose, and the wording should be reviewed by the clinic's clinicians."
+    },
+    {
+      "q": "Can it handle recurring appointments?",
+      "a": "It can book or move individual visits on the connected calendar. Recurring care plans stay managed by the clinic unless you build a flow that creates several bookings."
+    },
+    {
+      "q": "What about auto accident patients?",
+      "a": "A separate path can collect date of accident, whether an attorney is involved, and contact information, then book an appointment or pass the case to the staff member who handles those files."
+    },
+    {
+      "q": "Will it check insurance eligibility?",
+      "a": "No. It can state which plans the clinic accepts per your notes, and staff verify benefits."
+    },
+    {
+      "q": "Can patients leave a message for the doctor?",
+      "a": "Yes. A message-taking path records the patient's name and the request, and the summary lands in the call record."
+    }
+  ],
+  "relatedSlugs": [
+    "physical-therapy-clinics",
+    "medical-practices",
+    "dental-offices",
+    "fitness-studios"
+  ]
+}

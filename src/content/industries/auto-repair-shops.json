@@ -1,0 +1,120 @@
+{
+  "slug": "auto-repair-shops",
+  "name": "Auto Repair Shops",
+  "h1": "AI Phone Agent for Auto Repair Shops: Estimates and Status Calls",
+  "metaDescription": "Calldesk answers auto repair shop calls: appointment requests, repair status updates, tow-in coordination and warranty questions while techs work.",
+  "intro": "The phone at a repair shop is answered by someone who is also writing up a ticket, taking keys and explaining a bill to a customer standing at the counter. Technicians are under cars and cannot pick up. The calls tend to cluster: Monday morning, when weekend breakdowns come in; lunch hour, when people on break check on their cars; and late afternoon, when they ask whether the car will be ready. A large share of calls are not new work at all but status checks, which interrupt the people who are actually fixing the car. New-customer calls ask for rough costs, whether the shop works on a certain make, and how soon a car can come in. Warning lights, strange noises and tow requests make triage harder. A Calldesk agent can answer as the shop's AI assistant, collect make, model, year, mileage and symptom, check the shop's hours and the makes it services against its knowledge base, and book a drop-off slot. For status calls, it can take the name and plate and pass the question to the service advisor. It does not diagnose or quote repair prices. An outbound batch can call customers whose service reminder is due.",
+  "callTypes": [
+    "New customers describing a warning light, noise or leak and asking when they can come in",
+    "Customers asking whether their car is ready, often more than once in a day",
+    "Callers asking for an estimate on brakes, tires, oil or a battery",
+    "People whose car will not start and need a tow-in or roadside arrangement",
+    "Fleet and small-business accounts scheduling several vehicles",
+    "Service-reminder calls outbound for oil changes, inspections and tire rotations"
+  ],
+  "sampleCallFlow": [
+    {
+      "speaker": "agent",
+      "text": "Thanks for calling the shop. I'm the shop's AI assistant. Are you booking a repair, or calling about a car you've already dropped off?"
+    },
+    {
+      "speaker": "caller",
+      "text": "Booking. My brake pedal feels soft and there's a grinding noise."
+    },
+    {
+      "speaker": "agent",
+      "text": "I can't diagnose it, but brake symptoms are worth getting looked at soon. What's the make, model and year?"
+    },
+    {
+      "speaker": "caller",
+      "text": "A 2016 Honda CR-V."
+    },
+    {
+      "speaker": "agent",
+      "text": "We service Hondas. Roughly how many miles does it have, and is the car safe to drive here, or do you need a tow?"
+    },
+    {
+      "speaker": "caller",
+      "text": "About 98,000. I can drive it slowly."
+    },
+    {
+      "speaker": "agent",
+      "text": "If the pedal feels like it is going to the floor, a tow is safer. Otherwise, I can book a drop-off tomorrow at 7:30. May I have your name and number?"
+    },
+    {
+      "speaker": "caller",
+      "text": "Natalie Boyd, and this phone works."
+    },
+    {
+      "speaker": "agent",
+      "text": "Thanks, Natalie. You're booked for 7:30 tomorrow. A service advisor will call with an estimate after the inspection, and nothing is repaired without your approval."
+    },
+    {
+      "speaker": "caller",
+      "text": "Perfect."
+    }
+  ],
+  "setupSteps": [
+    "Create an agent from the appointment-booking template and list the makes and services the shop offers, plus drop-off hours.",
+    "Add a knowledge base with shop hours, diagnostic fee wording, warranty terms, shuttle or loaner policy and payment options.",
+    "Set extraction fields: name, phone, vehicle year/make/model, mileage, symptom and whether the car is drivable.",
+    "Create a status-call path that collects name and plate and transfers to the service advisor during open hours, or logs a message after close.",
+    "Test it with drivable and non-drivable scenarios, publish, and run reminder batches from your service history export."
+  ],
+  "featuresUsed": [
+    {
+      "feature": "Calendar booking",
+      "howItHelps": "Books drop-off appointments while the service advisor is with a customer at the counter."
+    },
+    {
+      "feature": "Structured field extraction",
+      "howItHelps": "Records vehicle details, mileage and symptoms so the work order starts filled in."
+    },
+    {
+      "feature": "Call transfers",
+      "howItHelps": "Passes status checks and complicated repair discussions to the service advisor during working hours."
+    },
+    {
+      "feature": "Knowledge base",
+      "howItHelps": "Answers hours, warranty, loaner and payment questions the same way every time."
+    },
+    {
+      "feature": "Batch outbound calls",
+      "howItHelps": "Calls customers due for service, with vehicle make and last-service date as variables."
+    }
+  ],
+  "considerations": [
+    "Repair estimates and authorization rules are regulated in many jurisdictions. The agent should not quote repair prices or authorize work; keep estimates and approvals with your service advisor.",
+    "Safety symptoms such as failing brakes should prompt a tow suggestion and not driving advice. Have your technicians agree on the wording.",
+    "Service reminder calls to customers count as outbound calls. Confirm that you have consent and observe calling-hour rules, and ask counsel about TCPA if you operate in the United States.",
+    "If you share status information by phone, decide how the agent verifies it is speaking to the vehicle's owner."
+  ],
+  "faq": [
+    {
+      "q": "Can the agent tell a customer the status of a repair?",
+      "a": "When status data reaches the agent, for example through a function step that queries your system. Otherwise it should take the name and plate and pass the question to a person."
+    },
+    {
+      "q": "Will it quote a price for brakes?",
+      "a": "It can quote what you have written in the knowledge base. Most shops prefer to let the advisor give estimates after inspection."
+    },
+    {
+      "q": "What about customers who arrive after hours?",
+      "a": "The agent can answer calls after hours with key-drop instructions and next-morning booking, if your shop offers those."
+    },
+    {
+      "q": "Does it work with shop management software?",
+      "a": "Calldesk sends call events by webhook and exposes an API, so integration is possible, but no direct integration with a specific shop system is claimed."
+    },
+    {
+      "q": "Can it call fleet accounts?",
+      "a": "Yes, through batch outbound calls with per-contact variables, to people who have agreed to receive calls from you."
+    }
+  ],
+  "relatedSlugs": [
+    "car-dealerships",
+    "hvac-companies",
+    "cleaning-services",
+    "tutoring-and-schools"
+  ]
+}

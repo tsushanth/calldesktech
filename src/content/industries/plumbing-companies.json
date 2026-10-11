@@ -1,0 +1,124 @@
+{
+  "slug": "plumbing-companies",
+  "name": "Plumbing Companies",
+  "h1": "AI Phone Agent for Plumbing Companies: Leaks and Clogs",
+  "metaDescription": "Calldesk answers plumbing company calls at any hour: burst pipes, drain clogs, water heater failures, estimate requests and dispatcher transfers.",
+  "intro": "Plumbing work arrives as emergencies. Pipes burst at two in the morning, a toilet overflows during a family dinner, a water heater starts leaking on a Sunday. The caller is often standing in water and wants a person at the door, not a form. Plumbers on a job have their hands in a wall and cannot answer, so calls go to voicemail, and a homeowner with a spreading leak does not wait for a callback. Yet not every call is an emergency. Many are estimates for a faucet replacement, a question about a recurring slow drain, or a property manager lining up work for several units. A Calldesk agent can answer as the company's AI assistant, ask first whether water is actively flowing and whether the caller knows where the main shutoff is, collect the address and the problem, and decide by your rules whether to transfer to the on-call plumber or book a regular appointment on a connected calendar. It supplies standard guidance if you write it, and it cannot see the pipes. Details like fixture type, age of the water heater and photos requested later help the plumber prepare. You can also run outbound follow-ups to confirm estimates sent out last week.",
+  "callTypes": [
+    "Active leaks and burst pipes needing a plumber immediately",
+    "Clogged toilets, sinks and main-line backups at homes or restaurants",
+    "Water heater failures with no hot water or a leaking tank",
+    "Estimates for fixture, faucet, garbage disposal or repipe work",
+    "Property managers booking recurring work across several units",
+    "Follow-up calls to confirm that a sent estimate was received"
+  ],
+  "sampleCallFlow": [
+    {
+      "speaker": "agent",
+      "text": "Thanks for calling. I'm the company's AI assistant. Is water leaking right now?"
+    },
+    {
+      "speaker": "caller",
+      "text": "Yes, under the kitchen sink. It's all over the floor."
+    },
+    {
+      "speaker": "agent",
+      "text": "Do you know where the shutoff valve under the sink is? Turning it clockwise may slow the water."
+    },
+    {
+      "speaker": "caller",
+      "text": "Got it, I turned it off. It stopped."
+    },
+    {
+      "speaker": "agent",
+      "text": "Good. I'll note that the leak is stopped. Can I get your name and address?"
+    },
+    {
+      "speaker": "caller",
+      "text": "Imani Brooks, 920 Fern Court."
+    },
+    {
+      "speaker": "agent",
+      "text": "Thank you, Imani. Is the cabinet floor soaked, and is anything electrical near the water?"
+    },
+    {
+      "speaker": "caller",
+      "text": "Floor is wet, nothing electrical close."
+    },
+    {
+      "speaker": "agent",
+      "text": "Since the water is off, I can book the next regular opening, tomorrow at 9. If it starts again, call back and I'll connect you to the on-call plumber. Shall I book it?"
+    },
+    {
+      "speaker": "caller",
+      "text": "Yes please."
+    },
+    {
+      "speaker": "agent",
+      "text": "Booked for tomorrow at 9 with a note about the shutoff valve. A text confirmation can follow if you want one."
+    }
+  ],
+  "setupSteps": [
+    "Create an agent from the appointment-booking template and add your service area, hours and emergency policy in plain language.",
+    "Write an urgency rule: active flowing water, sewage backup or no water at all go to the on-call transfer, while stopped leaks and estimates go to the calendar.",
+    "Add extraction fields for name, address, problem type, whether water is flowing, and whether the shutoff has been found.",
+    "Fill the knowledge base with fee structure wording, brands you service, financing notes and whether you serve commercial customers.",
+    "Run test calls with a flooding scenario and a faucet-estimate scenario, publish, and add a transfer number for the on-call plumber."
+  ],
+  "featuresUsed": [
+    {
+      "feature": "Call transfers",
+      "howItHelps": "Sends active-leak and sewage-backup calls to the on-call plumber right away."
+    },
+    {
+      "feature": "Calendar booking",
+      "howItHelps": "Books regular appointments for stopped leaks and estimates without a dispatcher on the phone."
+    },
+    {
+      "feature": "Structured field extraction",
+      "howItHelps": "Captures address, problem type and whether the water is shut off, so the plumber loads the right parts."
+    },
+    {
+      "feature": "Knowledge base",
+      "howItHelps": "Keeps service area, fee wording and commercial-work policy consistent across callers."
+    },
+    {
+      "feature": "Call testing and live call monitoring",
+      "howItHelps": "Lets you test emergency scenarios in advance and listen to live calls during a storm week."
+    }
+  ],
+  "considerations": [
+    "Plumbing licensing, permit and contractor rules vary by state or city. Make sure the agent does not describe licensed work in ways that conflict with them, and have the business owner approve all scripts.",
+    "Be careful with safety instructions. Limit the agent to well-known steps you have approved, such as locating a shutoff, and avoid improvised advice about gas, electrical hazards or sewage.",
+    "Estimate-follow-up calls are outbound calls. Confirm that you have permission to contact each customer, and consult counsel about TCPA if you are in the United States.",
+    "Do not publish price promises in the agent. State fees as written in your knowledge base."
+  ],
+  "faq": [
+    {
+      "q": "Can the agent give DIY instructions?",
+      "a": "What you put in its instructions, such as how to find a shutoff valve. Keep these steps minimal and approved by your team, and do not let the agent guess about gas or electrical hazards."
+    },
+    {
+      "q": "What happens at three in the morning?",
+      "a": "Route your number to the agent after hours. It can transfer true emergencies to the on-call line, and if nobody answers, take a priority message and tell the caller what happens next."
+    },
+    {
+      "q": "Can it tell me which jobs are worth taking?",
+      "a": "It records the details you ask for, like job type and address. Deciding what to accept stays with you, and the call summary makes triage faster."
+    },
+    {
+      "q": "Does it send a text to confirm?",
+      "a": "A flow can include a text-message step. Whether you may text a customer depends on consent rules where you operate, so check before enabling it."
+    },
+    {
+      "q": "How is it priced for a small shop?",
+      "a": "Pricing is per talk-minute, starting at 2 cents with Lite, with carrier costs billed separately. The pricing page has a calculator for expected monthly minutes."
+    }
+  ],
+  "relatedSlugs": [
+    "hvac-companies",
+    "electricians",
+    "roofing-contractors",
+    "property-management"
+  ]
+}

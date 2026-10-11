@@ -1,0 +1,120 @@
+{
+  "slug": "veterinary-clinics",
+  "name": "Veterinary Clinics",
+  "h1": "AI Phone Agent for Veterinary Clinics: Appointments and Urgent Routing",
+  "metaDescription": "Calldesk answers vet clinic calls: wellness bookings, vaccine questions, pharmacy pickups and emergency routing to your on-call line or ER referral.",
+  "intro": "Veterinary phones have a distinctive rhythm. Mornings fill with owners dropping off pets and asking about medication refills, while afternoons bring worried calls about a dog that ate something odd or a cat that is hiding and not eating. The person answering is often also holding a leash, running a checkout or assisting in an exam room, so the line rings through. Callers are emotional and often unsure whether their animal's problem counts as an emergency, and the staff member's real skill is deciding that quickly. A Calldesk agent can cover the repetitive parts: vaccine schedules, boarding availability, surgery drop-off times, food and prescription pickup, and basic booking. It says plainly that it is an AI assistant, gathers the pet's name, species and the reason for the call, and recognizes certain phrases such as ingestion of a toxin, difficulty breathing or trauma to route to your on-call line or to a referral emergency hospital. It does not diagnose or advise treatment. Outbound reminders for annual vaccines and heartworm checks can go out in a batch with owner and pet name variables, and staff see a summary of every call when they sit back down.",
+  "callTypes": [
+    "Booking a wellness exam or booster vaccine for a dog or cat",
+    "Owners asking whether something their pet ate or did needs same-day care",
+    "Prescription and food refill pickup requests with the pet's name and medication",
+    "Boarding, grooming or surgery drop-off questions on fasting and arrival times",
+    "Post-surgery check-in calls about incision, appetite or follow-up visits",
+    "Annual vaccine and parasite-prevention reminder calls going out to owners"
+  ],
+  "sampleCallFlow": [
+    {
+      "speaker": "agent",
+      "text": "Thank you for calling the clinic. I'm the clinic's AI assistant. How can I help you and your pet today?"
+    },
+    {
+      "speaker": "caller",
+      "text": "My dog got into a bag of chocolate chips about an hour ago."
+    },
+    {
+      "speaker": "agent",
+      "text": "I can't judge how serious that is, but this sounds like it needs a veterinarian quickly. Can I get your dog's name and roughly how big he is?"
+    },
+    {
+      "speaker": "caller",
+      "text": "Biscuit, a beagle, about twenty-five pounds."
+    },
+    {
+      "speaker": "agent",
+      "text": "Thanks. Do you know about how much he ate?"
+    },
+    {
+      "speaker": "caller",
+      "text": "Maybe half the bag."
+    },
+    {
+      "speaker": "agent",
+      "text": "I'm noting that for the doctor. Because this could be urgent, I'm connecting you to our veterinary team right now. If nobody picks up, I'll give you the number for the nearest emergency hospital."
+    },
+    {
+      "speaker": "caller",
+      "text": "Okay, go ahead."
+    },
+    {
+      "speaker": "agent",
+      "text": "Transferring you now. I've passed along Biscuit's name, size and what you told me."
+    },
+    {
+      "speaker": "caller",
+      "text": "Thank you."
+    }
+  ],
+  "setupSteps": [
+    "Create an agent from the receptionist template and give it the clinic name, species you treat and a calm, short speaking style.",
+    "Add a knowledge base with vaccine protocols as your clinic describes them, boarding rules, fasting instructions for surgery and pharmacy hours.",
+    "Build an urgent branch: listed phrases like poison, bleeding or labored breathing transfer to the on-call line, and a spoken fallback gives your emergency hospital's number.",
+    "Capture owner name, pet name, species, reason and callback number with extraction fields for the call record.",
+    "Simulate calls about toxins and routine bookings in the test tool, publish, and connect your clinic number."
+  ],
+  "featuresUsed": [
+    {
+      "feature": "Call transfers",
+      "howItHelps": "Passes suspected emergencies to a veterinarian or technician with the call context rather than making the owner repeat it."
+    },
+    {
+      "feature": "Knowledge base",
+      "howItHelps": "Answers repeated questions on fasting before surgery, boarding vaccination rules and pharmacy hours in your wording."
+    },
+    {
+      "feature": "Structured field extraction",
+      "howItHelps": "Collects pet name, species, owner name and reason for the call as fields so staff can return calls quickly."
+    },
+    {
+      "feature": "Batch outbound calls",
+      "howItHelps": "Calls owners due for annual vaccines, with the pet's name inserted through per-contact variables."
+    },
+    {
+      "feature": "Call summary",
+      "howItHelps": "Leaves a concise summary of each call so the person who returns messages knows which pets need attention first."
+    }
+  ],
+  "considerations": [
+    "The agent must not give treatment or dosage advice. Veterinary practice rules vary by state or country, so confirm with your licensing board or counsel what a non-clinician phone assistant may say about animal health.",
+    "Emergency routing is a business decision. Write the list of urgent phrases with your veterinarians, test it, and keep a spoken fallback with an emergency hospital's number for times when no one answers.",
+    "Reminder calls are outbound marketing or service calls. Confirm you have consent and respect calling-hours rules for your location, and ask your counsel about TCPA if you are in the United States.",
+    "If calls are recorded or transcribed, check the consent rules that apply to the owner's location and say so where required."
+  ],
+  "faq": [
+    {
+      "q": "Can the agent decide whether a pet needs an emergency visit?",
+      "a": "No. It can recognize phrases you list, like a suspected toxin, and send the call to a person. It does not diagnose, and you should say as much in its instructions."
+    },
+    {
+      "q": "What if my clinic closes for lunch or at night?",
+      "a": "Route the number to the agent outside hours. It can give hours, take a message, and tell the owner the number of the emergency hospital you recommend."
+    },
+    {
+      "q": "Can it handle exotic pets or large animals?",
+      "a": "It answers from the knowledge base you write. If your clinic sees species other than dogs and cats, include that in the notes and set which ones should always go to a staff member."
+    },
+    {
+      "q": "Will owners be surprised that they are not speaking to a person?",
+      "a": "The sample call opens by saying it is an AI assistant. Owners often just want the pharmacy hours or a booking, and a clearly marked transfer to staff is there for the rest."
+    },
+    {
+      "q": "Does it book into my practice software?",
+      "a": "It books into a connected calendar and can pass call data to your own systems via webhook or API. There is no claim of a built-in link to any particular veterinary software."
+    }
+  ],
+  "relatedSlugs": [
+    "dental-offices",
+    "medical-practices",
+    "salons-and-spas",
+    "cleaning-services"
+  ]
+}

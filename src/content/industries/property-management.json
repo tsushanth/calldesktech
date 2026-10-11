@@ -1,0 +1,120 @@
+{
+  "slug": "property-management",
+  "name": "Property Management Companies",
+  "h1": "AI Phone Agent for Property Management: Repairs and Leasing",
+  "metaDescription": "Calldesk handles property management calls: maintenance requests, emergency routing, leasing inquiries and rent questions across many buildings.",
+  "intro": "Property managers answer for dozens or hundreds of doors with a small office. The phone mixes tenants with a leaking ceiling, prospective renters asking if a unit is still open, owners wondering about a statement, and vendors confirming an access time. The pressure comes in waves: the first few days of the month bring rent and late-fee questions, a cold snap brings burst pipes and no-heat calls, and evenings and weekends are when tenants notice what is broken but the office is closed. An after-hours answering service often just takes a name and number, and the real urgency of a flooding unit is lost in a pile of messages. A Calldesk agent can answer as the company's AI assistant, find out which property and unit, separate an emergency such as flooding, gas smell or no heat in winter from a routine fix, send emergencies to the on-call technician by transfer, and log routine requests with the details a maintenance coordinator needs. Leasing calls get availability and showing times from the knowledge base. Outbound batch calls can confirm access windows, with unit and time passed per contact.",
+  "callTypes": [
+    "Tenants reporting a leak, no heat, a broken lock or an appliance failure",
+    "Emergency calls after hours that must reach the on-call technician",
+    "Prospective renters asking about available units, deposits and pet rules",
+    "Rent due date, payment portal and late-fee questions around the first of the month",
+    "Vendors and contractors confirming access windows to a unit",
+    "Owners asking about a statement, vacancy or a repair authorization"
+  ],
+  "sampleCallFlow": [
+    {
+      "speaker": "agent",
+      "text": "Property management office, this is the company's AI assistant. Is this about a repair, a rental, or something else?"
+    },
+    {
+      "speaker": "caller",
+      "text": "There's water coming through my bathroom ceiling."
+    },
+    {
+      "speaker": "agent",
+      "text": "I'm sorry, that sounds stressful. Is the water coming down right now, and is it near any light fixtures or outlets?"
+    },
+    {
+      "speaker": "caller",
+      "text": "It's dripping steadily and the light is right there."
+    },
+    {
+      "speaker": "agent",
+      "text": "Please stay away from that fixture and don't switch it on. What's your name, the building address and your unit number?"
+    },
+    {
+      "speaker": "caller",
+      "text": "Lena Park, 410 Willow Street, apartment 3B."
+    },
+    {
+      "speaker": "agent",
+      "text": "Thank you, Lena. I'm treating this as an emergency and connecting you to the on-call maintenance technician now. If they can't answer, I'll take a message flagged urgent."
+    },
+    {
+      "speaker": "caller",
+      "text": "Okay, thanks."
+    },
+    {
+      "speaker": "agent",
+      "text": "Transferring you. I'll send your name, unit and the description with the call."
+    },
+    {
+      "speaker": "caller",
+      "text": "Great."
+    }
+  ],
+  "setupSteps": [
+    "Create an agent from the receptionist template and list the properties you manage in its knowledge base with addresses and what each building offers.",
+    "Write an emergency definition with your maintenance lead: flooding, gas smell, no heat in cold weather, fire or electrical hazard, then add a transfer to the on-call number for those.",
+    "Add extraction fields for property address, unit, tenant name, callback number and a description of the problem.",
+    "Add a leasing branch that answers from the knowledge base about available units and books tour slots on a connected calendar.",
+    "Test with emergency and routine scenarios, publish, forward the main line, and use webhooks to push requests into your maintenance system."
+  ],
+  "featuresUsed": [
+    {
+      "feature": "Call transfers",
+      "howItHelps": "Moves true emergencies to the on-call technician during nights and weekends instead of leaving a message in a queue."
+    },
+    {
+      "feature": "Structured field extraction",
+      "howItHelps": "Captures building, unit and a description of the issue so a coordinator can create a work order without calling back."
+    },
+    {
+      "feature": "Knowledge base",
+      "howItHelps": "Answers leasing and policy questions, such as pet rules or how to pay rent, for each property you list."
+    },
+    {
+      "feature": "Calendar booking",
+      "howItHelps": "Books tour times for prospective renters on a connected calendar."
+    },
+    {
+      "feature": "Batch outbound calls",
+      "howItHelps": "Calls tenants to confirm a maintenance access window, with unit number and time passed in as variables."
+    }
+  ],
+  "considerations": [
+    "Landlord-tenant law governs entry notices, habitability and how maintenance requests must be handled in your area. The agent logs requests; it does not decide what the law requires of you, so confirm with counsel.",
+    "Fair housing rules apply to leasing calls. Keep screening questions to criteria applied equally to every applicant and have your compliance resource review the script.",
+    "Collection or late-rent outbound calls can fall under debt collection and telemarketing rules. Check with counsel before using automated calls for anything about money owed.",
+    "Tenants may share personal information on calls. Decide what the agent may collect and how long you keep transcripts, under the privacy rules that apply to you."
+  ],
+  "faq": [
+    {
+      "q": "How does it tell an emergency from a routine repair?",
+      "a": "You define the list, such as active flooding, gas odor or no heat in freezing weather. The agent follows your definition and transfers; for borderline cases, set it to err toward the on-call line."
+    },
+    {
+      "q": "Can it take payments?",
+      "a": "Treat rent payment as something your existing portal handles. The agent can explain how to pay and send tenants to the portal. Calldesk has a payment step on some carrier setups, but verify it against your needs before relying on it for rent."
+    },
+    {
+      "q": "What if I manage buildings in several cities?",
+      "a": "Put each property's details in the knowledge base and have the agent ask for the address first. You can also give each portfolio its own number and agent."
+    },
+    {
+      "q": "Can it handle Spanish-speaking tenants?",
+      "a": "Many languages are supported on the Standard and Pro voices, while Lite speaks English. Decide per agent which language it should speak."
+    },
+    {
+      "q": "Does it create tickets in my property software?",
+      "a": "It can send a webhook for each completed call with the extracted fields. Turning that into a work order in your system takes an automation or integration you set up."
+    }
+  ],
+  "relatedSlugs": [
+    "real-estate-brokerages",
+    "plumbing-companies",
+    "hvac-companies",
+    "cleaning-services"
+  ]
+}

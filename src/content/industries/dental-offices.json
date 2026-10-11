@@ -1,0 +1,124 @@
+{
+  "slug": "dental-offices",
+  "name": "Dental Offices",
+  "h1": "AI Phone Agent for Dental Offices: Booking and Insurance Calls",
+  "metaDescription": "Calldesk answers dental office calls: new-patient requests, recall reminders and insurance questions, with transfers to your front desk when needed.",
+  "intro": "A dental front desk does three jobs at once: greeting patients in the chair-side lobby, verifying insurance, and answering a phone that never stops. Calls cluster around the hours when hygiene schedules open up, the lunch hour when working patients finally dial, and the first hour after opening when overnight toothaches turn into urgent requests. When the one or two people at the desk are checking someone out, the phone rolls to voicemail, and a new patient who wanted a cleaning simply calls the next practice on the search results. The calls themselves are repetitive in a useful way. Someone wants to know whether the office takes their plan, whether Saturday appointments exist, how to move a cleaning, or whether a chipped tooth can be seen today. A Calldesk agent can pick up, say plainly that it is the office's AI assistant, collect the patient's name, callback number and reason, answer from the knowledge base you write, and either book into a connected calendar or pass the request to staff. Anything involving pain, swelling or bleeding should go to a person immediately, and the agent can be told to transfer those calls to a staff phone rather than judge them itself. It also calls out: a batch of recall reminders to patients overdue for a visit, with each patient's first name and last visit passed in as variables.",
+  "callTypes": [
+    "New-patient requests asking whether the office takes a specific insurance plan",
+    "Rescheduling or cancelling a hygiene appointment, often from a car or a break room",
+    "Urgent calls about a broken, chipped or aching tooth that need a human fast",
+    "Questions about fees, payment plans and what a first visit includes",
+    "Recall and overdue-cleaning reminder calls placed outbound to existing patients",
+    "Insurance offices or labs calling to confirm a patient's appointment or case status"
+  ],
+  "sampleCallFlow": [
+    {
+      "speaker": "agent",
+      "text": "Thanks for calling the dental office. I'm the office's AI assistant. How can I help?"
+    },
+    {
+      "speaker": "caller",
+      "text": "Hi, I'm looking for a new dentist. Do you take Delta Dental?"
+    },
+    {
+      "speaker": "agent",
+      "text": "I can share what the office has told me about insurance. I'll note your plan, and the team confirms coverage details when they verify your benefits. May I have your name?"
+    },
+    {
+      "speaker": "caller",
+      "text": "Priya Nair."
+    },
+    {
+      "speaker": "agent",
+      "text": "Thanks, Priya. Are you looking for a cleaning and exam, or is something bothering you right now?"
+    },
+    {
+      "speaker": "caller",
+      "text": "Just a checkup. Though one molar has been a little sensitive to cold."
+    },
+    {
+      "speaker": "agent",
+      "text": "Mild sensitivity is worth mentioning to the dentist, and I'll put it in your notes. If it becomes sharp pain or swelling, call back and I'll connect you to the front desk. Would a weekday morning or an afternoon work better?"
+    },
+    {
+      "speaker": "caller",
+      "text": "Afternoon, maybe next week."
+    },
+    {
+      "speaker": "agent",
+      "text": "I have Tuesday at 2:30 or Thursday at 3:15 open for a new-patient visit. Which do you prefer?"
+    },
+    {
+      "speaker": "caller",
+      "text": "Thursday works."
+    },
+    {
+      "speaker": "agent",
+      "text": "Booked for Thursday at 3:15. The office will confirm your insurance details before you arrive. Is this number good for reaching you?"
+    }
+  ],
+  "setupSteps": [
+    "Create an agent from the receptionist template and set the business name and the agent name the caller will hear.",
+    "Write a knowledge base from your website and fee sheet covering accepted plans, hours, new-patient steps and what a first visit includes.",
+    "Connect your calendar so the agent can offer open new-patient and hygiene slots, or leave it off and have the agent take a request for staff.",
+    "Add a transfer step with your front desk or on-call number for pain, swelling or bleeding, and a message-taking path for after hours.",
+    "Test the flow with simulated calls, publish it, then point your office number at the agent from the Numbers page."
+  ],
+  "featuresUsed": [
+    {
+      "feature": "Knowledge base",
+      "howItHelps": "Holds accepted insurance plans, office hours, payment options and new-patient instructions so answers match what the office actually says."
+    },
+    {
+      "feature": "Calendar booking",
+      "howItHelps": "Offers open appointment times from a connected calendar and books the visit while the patient is still on the line."
+    },
+    {
+      "feature": "Call transfers",
+      "howItHelps": "Sends urgent or clinical-sounding calls straight to a staff phone instead of leaving the patient to keep explaining."
+    },
+    {
+      "feature": "Structured field extraction",
+      "howItHelps": "Captures name, callback number, insurance plan and reason for visit as fields your team can scan in the call record."
+    },
+    {
+      "feature": "Batch outbound calls",
+      "howItHelps": "Places recall reminder calls to a list of overdue patients, with first name and last-visit date passed in as per-contact variables."
+    }
+  ],
+  "considerations": [
+    "Patient information may be protected health information under HIPAA. Calldesk makes no HIPAA certification claim; check with your compliance advisor or counsel whether and how you can use a voice agent and what agreements you need.",
+    "Keep the agent to scheduling, insurance logistics and general office information. Clinical questions and symptoms should go to a clinician or a staff transfer, not be answered by the agent.",
+    "Recall reminder calls to patients are outbound calls. Confirm that you have the consent and calling-hour rules your region requires, and consult your own counsel about TCPA obligations before you run a batch.",
+    "If you tell patients their call is recorded or transcribed, check your state's consent rules; some states require every party to agree."
+  ],
+  "faq": [
+    {
+      "q": "Can the agent tell a caller whether their insurance is accepted?",
+      "a": "It can answer from the plan list you put in the knowledge base. It does not verify eligibility or benefits with a payer, so word the answer as a general statement and have staff confirm coverage before the visit."
+    },
+    {
+      "q": "What happens if a patient describes severe pain or swelling?",
+      "a": "You decide in the flow. A common setup is to transfer such calls to a staff or on-call number and, if nobody answers, take a message marked urgent. The agent is not meant to give medical advice."
+    },
+    {
+      "q": "Does it work with my practice management software?",
+      "a": "Calldesk books into a connected calendar and can send call results to your systems by webhook or API. It does not claim a direct integration with any specific dental software, so check how your scheduling data would flow."
+    },
+    {
+      "q": "Can it call patients who are overdue for a cleaning?",
+      "a": "Yes. Upload a batch with each patient's phone number and variables such as first name, and the agent places the calls within the calling window you set. You are responsible for having consent to contact each patient."
+    },
+    {
+      "q": "Do patients know they are talking to an AI?",
+      "a": "The sample flow has the agent say so in its greeting, and you can keep that wording. Being upfront also avoids confusion when someone asks for a person, in which case the call can be transferred."
+    }
+  ],
+  "relatedSlugs": [
+    "medical-practices",
+    "chiropractic-clinics",
+    "physical-therapy-clinics",
+    "veterinary-clinics"
+  ]
+}

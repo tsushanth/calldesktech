@@ -1,0 +1,124 @@
+{
+  "slug": "insurance-agencies",
+  "name": "Insurance Agencies",
+  "h1": "AI Phone Agent for Insurance Agencies: Quotes and Certificates",
+  "metaDescription": "Calldesk answers insurance agency calls: quote requests, certificate-of-insurance asks, billing questions and first notice of loss routing to your team.",
+  "intro": "An independent insurance agency lives between two kinds of urgency. One is sales: someone has just received a renewal notice with a higher premium, or bought a house, or a car, and wants a quote today. The other is service: a contractor needs a certificate of insurance before a job starts in an hour, a customer rear-ended someone and needs to know what to do, or a policyholder cannot find their ID card. Both arrive on the same phone line, often in clusters around the first of the month when payments are due and around storm events when claims spike. A small team cannot be both sales desk and claims line at once. A Calldesk agent can answer as the agency's AI assistant, sort the call by type, gather quote details such as the kind of coverage, current carrier and renewal date, record the facts of an incident for the team, and answer standing questions from a knowledge base about office hours and how to reach each carrier's claims line. It does not bind coverage, quote prices on its own, or advise on what a policy covers, and calls like those go to a licensed agent. Outbound, it can place renewal-reminder calls from a list with the policyholder's first name and renewal date as variables.",
+  "callTypes": [
+    "Prospects asking for a home, auto or business insurance quote",
+    "Contractors and property managers requesting a certificate of insurance on short notice",
+    "Policyholders reporting an accident or loss and asking what to do next",
+    "Billing questions about due dates, payment methods and missed payments",
+    "Customers needing ID cards, policy numbers or an address change",
+    "Renewal reminder calls placed outbound a few weeks before a policy expires"
+  ],
+  "sampleCallFlow": [
+    {
+      "speaker": "agent",
+      "text": "Thanks for calling the agency. I'm the agency's AI assistant. Are you calling about a quote, an existing policy, or a claim?"
+    },
+    {
+      "speaker": "caller",
+      "text": "I need a certificate of insurance for a job tomorrow."
+    },
+    {
+      "speaker": "agent",
+      "text": "I can take the request for the team. What's the name on the policy, and the company or person who needs the certificate?"
+    },
+    {
+      "speaker": "caller",
+      "text": "Ridgeline Electric. The general contractor is Halvorsen Builders."
+    },
+    {
+      "speaker": "agent",
+      "text": "Thanks. Does the contractor require specific wording, like being listed as an additional insured?"
+    },
+    {
+      "speaker": "caller",
+      "text": "Yes, additional insured, and they want it emailed."
+    },
+    {
+      "speaker": "agent",
+      "text": "Got it. What email address should it go to, and what number can the team use for a quick question from the team?"
+    },
+    {
+      "speaker": "caller",
+      "text": "permits at halvorsen builders dot com, and call me at this number."
+    },
+    {
+      "speaker": "agent",
+      "text": "I've recorded it as urgent for tomorrow's job. An agent will review the request and confirm. I can't issue the certificate myself. Do you want me to transfer you to someone now?"
+    },
+    {
+      "speaker": "caller",
+      "text": "If someone's there, yes."
+    },
+    {
+      "speaker": "agent",
+      "text": "Transferring you to the service desk."
+    }
+  ],
+  "setupSteps": [
+    "Create an agent from the receptionist template and set it up to route by call type: quote, service, billing or claim.",
+    "Add a knowledge base with office hours, accepted payment methods, each carrier's claims number and what the agency needs for a certificate request.",
+    "Define extraction fields for each path, such as coverage type, renewal date and current carrier for quotes, or insured name and certificate holder for certificates.",
+    "Add transfers to the licensed agent for quotes, and to the service desk for urgent certificate or claim calls.",
+    "Test, publish, and use batch calling for renewal reminders once you have a contact list with the right permission."
+  ],
+  "featuresUsed": [
+    {
+      "feature": "Structured field extraction",
+      "howItHelps": "Collects quote or certificate details in fields, so a licensed agent can start from complete information."
+    },
+    {
+      "feature": "Call transfers",
+      "howItHelps": "Hands calls that need a licensed person, such as a new quote or an active claim, to the right desk."
+    },
+    {
+      "feature": "Knowledge base",
+      "howItHelps": "Answers repeated questions on carrier claim lines, payment options and office hours in your approved wording."
+    },
+    {
+      "feature": "Batch outbound calls",
+      "howItHelps": "Places renewal reminder calls with policyholder name and expiration date inserted per contact."
+    },
+    {
+      "feature": "Call summary",
+      "howItHelps": "Summarizes each call by type so the team can sort the day's callbacks by urgency."
+    }
+  ],
+  "considerations": [
+    "Selling, quoting and explaining insurance is regulated and often requires a license. Keep the agent to intake and routing, and have your compliance contact or counsel confirm what it may say in your states.",
+    "The agent should not describe what a policy covers, bind coverage or confirm that a claim will be paid. Those answers belong to licensed staff and the carrier.",
+    "Outbound renewal reminders are subject to telemarketing and consent rules, including TCPA in the United States. Confirm with your counsel whether your list and message qualify before running a batch.",
+    "Financial and personal details such as policy numbers can be sensitive. Decide what the agent may ask for over the phone, and check your own data-handling obligations."
+  ],
+  "faq": [
+    {
+      "q": "Can the agent give a price quote?",
+      "a": "Not on its own. It can gather the details a licensed agent needs and book or transfer the call. If you have a rating tool you want involved, that would be your own integration through webhooks or the API."
+    },
+    {
+      "q": "Will it help with first notice of loss?",
+      "a": "It can record what happened, when, and contact details, and give the carrier's claims number from your knowledge base. It does not tell the caller whether the loss is covered."
+    },
+    {
+      "q": "Does it handle certificate of insurance requests?",
+      "a": "It can collect the insured, holder, wording and deadline and pass the request to staff as an urgent task. Issuing the certificate stays with your team."
+    },
+    {
+      "q": "Can it work in Spanish?",
+      "a": "Calldesk supports many languages on its Standard and Pro voices; the Lite voice speaks English. Pick the tier that fits your customers."
+    },
+    {
+      "q": "How do I get the call data into my agency system?",
+      "a": "Call completed events can be sent to a webhook endpoint, and an API and MCP server are available. Whether your management system can accept that data is something to check with its vendor."
+    }
+  ],
+  "relatedSlugs": [
+    "mortgage-brokers",
+    "real-estate-brokerages",
+    "law-firms",
+    "accounting-and-tax-firms"
+  ]
+}

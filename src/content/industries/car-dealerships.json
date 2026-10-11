@@ -1,0 +1,124 @@
+{
+  "slug": "car-dealerships",
+  "name": "Car Dealerships",
+  "h1": "AI Phone Agent for Car Dealerships: Sales and Service Calls",
+  "metaDescription": "Calldesk answers dealership calls for sales, service and parts: vehicle availability inquiries, test-drive booking and service scheduling by department.",
+  "intro": "A dealership's phone is really three phones: sales, service and parts, and they behave differently. Sales calls are driven by online listings and ad campaigns. Someone sees a used truck at a good price and calls to ask if it is still on the lot. Service calls come from owners who need an oil change or hear a noise, and they peak on Monday mornings and before holidays. Parts calls from body shops and do-it-yourselfers want a part number checked. Switchboards often route everyone to whoever picks up, and a lead that sits on hold or gets bounced to voicemail while salespeople are with customers will often try the next dealer. A Calldesk agent can answer as the dealership's AI assistant, ask which department is needed, give inventory answers from information you load, such as the units in a current knowledge base, and offer a test-drive slot on a connected calendar. Service callers get drop-off times and common answers. Trade-in value, financing terms and out-the-door prices are never settled by the agent; those go to a salesperson. Outbound batch calls can invite owners to service specials, with the vehicle and name as variables.",
+  "callTypes": [
+    "Used-car shoppers asking if a listed vehicle is still available",
+    "New-car buyers asking about stock, color and delivery timing",
+    "Trade-in and financing questions that must reach a salesperson",
+    "Service customers booking maintenance or recall work",
+    "Parts counter inquiries from body shops and owners",
+    "Outbound invitations to owners whose lease or service interval is coming up"
+  ],
+  "sampleCallFlow": [
+    {
+      "speaker": "agent",
+      "text": "Thanks for calling the dealership. I'm the dealership's AI assistant. Are you calling for sales, service or parts?"
+    },
+    {
+      "speaker": "caller",
+      "text": "Sales. I saw a used pickup online, the gray one with 40,000 miles."
+    },
+    {
+      "speaker": "agent",
+      "text": "My information shows a gray pickup with about 40,000 miles listed as available as of this morning. Would you like to come see it?"
+    },
+    {
+      "speaker": "caller",
+      "text": "Yes. Can you tell me the lowest price?"
+    },
+    {
+      "speaker": "agent",
+      "text": "I can share the listed price. Negotiating is something our sales team does in person or by phone. May I get your name?"
+    },
+    {
+      "speaker": "caller",
+      "text": "Alicia Moreno."
+    },
+    {
+      "speaker": "agent",
+      "text": "Thanks, Alicia. Are you planning to trade in a vehicle, or paying with financing?"
+    },
+    {
+      "speaker": "caller",
+      "text": "I have a trade, and I'd like financing."
+    },
+    {
+      "speaker": "agent",
+      "text": "I'll note both for the salesperson. A test drive is open Saturday at 11 or 2. Which works?"
+    },
+    {
+      "speaker": "caller",
+      "text": "Saturday at 11."
+    },
+    {
+      "speaker": "agent",
+      "text": "Booked, and I'll tell your salesperson about the trade-in and financing interest."
+    }
+  ],
+  "setupSteps": [
+    "Create an agent from the receptionist template that asks sales, service or parts first, and set up separate transfer targets for each department.",
+    "Load the current inventory summary or a link-based knowledge entry for in-stock vehicles and refresh it on a schedule you can keep.",
+    "Add extraction fields for name, phone, vehicle of interest, trade-in, financing interest and desired timeframe.",
+    "Connect a calendar for test drives and service drop-offs, and keep a transfer to a live salesperson during selling hours.",
+    "Test with vehicle-specific scenarios, publish, and send leads to your CRM through completed-call webhooks."
+  ],
+  "featuresUsed": [
+    {
+      "feature": "Call transfers",
+      "howItHelps": "Routes the call to sales, service or parts based on what the caller needs, and hands hot leads to a salesperson."
+    },
+    {
+      "feature": "Knowledge base",
+      "howItHelps": "Holds hours, department details and a current vehicle list so callers hear accurate availability."
+    },
+    {
+      "feature": "Calendar booking",
+      "howItHelps": "Schedules test drives and service drop-offs without tying up a salesperson."
+    },
+    {
+      "feature": "Structured field extraction",
+      "howItHelps": "Captures the vehicle of interest, trade-in and financing interest for the CRM."
+    },
+    {
+      "feature": "Webhooks",
+      "howItHelps": "Pushes completed-call data to your CRM so leads are logged at once."
+    }
+  ],
+  "considerations": [
+    "Advertising, pricing and financing statements are regulated, including truth-in-lending and unfair practices rules. The agent should state the prices and terms you have approved, and never discuss financing terms or credit decisions.",
+    "Keep the agent from confirming availability if your inventory feed is not current; a stale answer is a risk. Assign someone to maintain the knowledge base.",
+    "Outbound calls to leads or past customers are subject to consent and Do Not Call rules, including TCPA in the United States. Check with counsel before running batches.",
+    "Credit applications involve sensitive data; do not collect it through the agent unless you have reviewed the legal and security requirements."
+  ],
+  "faq": [
+    {
+      "q": "Can it tell a shopper whether a specific car is on the lot?",
+      "a": "Yes, based on the inventory information you give it. Accuracy depends on keeping that information updated; the agent has no built-in link to inventory systems."
+    },
+    {
+      "q": "Will it negotiate price?",
+      "a": "No. It repeats listed prices and passes negotiation to a salesperson. Configure it to say so plainly if a caller asks for the lowest price."
+    },
+    {
+      "q": "Can service and sales use different numbers?",
+      "a": "Yes. Use separate numbers and agents, or one number with a department question at the start, whichever suits your phone system."
+    },
+    {
+      "q": "How does it work with my existing phone system?",
+      "a": "Calldesk is bring-your-own-carrier on every plan, or you can add numbers from Calldesk. Forwarding your main line to a Calldesk number is a common way to try it."
+    },
+    {
+      "q": "Can it call people who inquired online?",
+      "a": "It can place outbound calls to a list, but to people who have agreed to be contacted that way. Consult counsel on what your web forms actually permit."
+    }
+  ],
+  "relatedSlugs": [
+    "auto-repair-shops",
+    "insurance-agencies",
+    "mortgage-brokers",
+    "real-estate-brokerages"
+  ]
+}

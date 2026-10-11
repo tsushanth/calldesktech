@@ -1,0 +1,120 @@
+{
+  "slug": "fitness-studios",
+  "name": "Fitness Studios",
+  "h1": "AI Phone Agent for Fitness Studios: Class and Trial Bookings",
+  "metaDescription": "Calldesk answers fitness studio calls: trial class signups, membership questions, class schedule changes and freeze requests when the desk is empty.",
+  "intro": "Boutique gyms, yoga studios and cycling rooms often run with an instructor and no one at the front desk. Staff are teaching a class when the phone rings, and the callers fall into predictable groups. New prospects want to know the price of a trial class or an introductory offer, what to wear, whether beginners are welcome. Members ask about class cancellations, waitlists, how to freeze a membership, or whether the 6 a.m. session is canceled due to weather. Peaks are early morning before work, noon, and especially January, when resolutions send a wave of first-time callers who have been thinking about it for a week and will not call twice. A Calldesk agent can answer as the studio's AI assistant, give schedule and pricing information from a knowledge base you maintain, offer a trial class slot on a connected calendar, and log member requests such as freezes or billing issues for the manager. It does not give health or injury advice and should say so; people with a medical condition or pregnancy are told to check with their own clinician and to speak to the instructor. A batch outbound run can call lapsed members with an invitation, if they have agreed to hear from you.",
+  "callTypes": [
+    "First-time visitors asking about intro offers and what a first class is like",
+    "Members asking whether a class is canceled or has space on the waitlist",
+    "Membership freeze, cancel or billing-date questions",
+    "Personal training or private session inquiries",
+    "Corporate wellness and group booking requests for the manager",
+    "Outbound invitations to lapsed members to come back for a class"
+  ],
+  "sampleCallFlow": [
+    {
+      "speaker": "agent",
+      "text": "Thanks for calling the studio. I'm the studio's AI assistant. Are you new to us, or a member?"
+    },
+    {
+      "speaker": "caller",
+      "text": "New. I've never done reformer Pilates. Is that okay?"
+    },
+    {
+      "speaker": "agent",
+      "text": "Beginners are welcome. We run an intro class on Tuesdays and Saturdays that walks through the equipment. Would you like to try one?"
+    },
+    {
+      "speaker": "caller",
+      "text": "Yes. Is there an injury thing? I had knee surgery last year."
+    },
+    {
+      "speaker": "agent",
+      "text": "I can't advise on that. Please check with your doctor, and I'll note it so the instructor can talk with you before class. May I have your name?"
+    },
+    {
+      "speaker": "caller",
+      "text": "Bridget Sloan."
+    },
+    {
+      "speaker": "agent",
+      "text": "Thanks, Bridget. The Saturday intro is at 9:30, and Tuesday's is at 6:15 in the evening. Which do you prefer?"
+    },
+    {
+      "speaker": "caller",
+      "text": "Saturday."
+    },
+    {
+      "speaker": "agent",
+      "text": "You're signed up for Saturday at 9:30. Please arrive ten minutes early and wear fitted clothing with grippy socks."
+    },
+    {
+      "speaker": "caller",
+      "text": "Thank you."
+    }
+  ],
+  "setupSteps": [
+    "Create an agent from the appointment-booking template and name the class types you offer, with intro or trial options clearly described.",
+    "Fill the knowledge base with the weekly schedule, membership options as you price them, what to bring, late-cancel rules and freeze policy.",
+    "Connect a calendar for trial classes, and add a path for existing members that logs their request and passes billing matters to the manager.",
+    "Add extraction fields for name, phone, experience level, class of interest and any injury or health note for the instructor.",
+    "Test January-style first-timer calls, publish on the studio number, and schedule win-back batches just for people who agreed to hear from you."
+  ],
+  "featuresUsed": [
+    {
+      "feature": "Calendar booking",
+      "howItHelps": "Signs up first-timers for a trial class while the instructor is mid-session."
+    },
+    {
+      "feature": "Knowledge base",
+      "howItHelps": "Answers schedule, pricing and what-to-bring questions without anyone leaving the studio floor."
+    },
+    {
+      "feature": "Structured field extraction",
+      "howItHelps": "Records experience level and any health note so instructors can speak to a newcomer first."
+    },
+    {
+      "feature": "Batch outbound calls",
+      "howItHelps": "Invites lapsed members back with first name and class suggestion passed per contact."
+    },
+    {
+      "feature": "Call transfers",
+      "howItHelps": "Sends billing disputes and corporate inquiries to a manager's phone during staffed hours."
+    }
+  ],
+  "considerations": [
+    "The agent should not give health, injury or pregnancy advice. Build a standard line telling callers with a medical condition to check with their own clinician and speak to the instructor.",
+    "Membership terms, auto-renewal and cancellation can be regulated by consumer law in your state. Keep the agent's statements aligned with your written contract and have counsel review them.",
+    "Win-back calls are outbound promotional calls and need the consent your jurisdiction requires; ask your own counsel about TCPA and Do Not Call duties.",
+    "Be careful with payment: avoid taking card numbers on a call unless you have verified a compliant method."
+  ],
+  "faq": [
+    {
+      "q": "Can it tell a member whether a class is full?",
+      "a": "If class capacity data is available through your calendar or an endpoint you connect. Otherwise it can take a waitlist request for staff."
+    },
+    {
+      "q": "Will it cancel memberships?",
+      "a": "It can log a cancellation or freeze request with the member's name and date. Because contract terms matter, most studios leave the actual change to a manager."
+    },
+    {
+      "q": "What if someone asks about nutrition or injuries?",
+      "a": "The agent should decline and suggest speaking to a clinician or the instructor, and you can write that into its instructions."
+    },
+    {
+      "q": "Does it work for small studios with no front desk?",
+      "a": "That is the common setup: forward the studio line to the agent during class hours. A transfer to the owner's mobile covers urgent matters."
+    },
+    {
+      "q": "Can it handle class cancellation announcements?",
+      "a": "A batch outbound call can notify booked members, using the class name and time as variables, if they have agreed to receive calls."
+    }
+  ],
+  "relatedSlugs": [
+    "salons-and-spas",
+    "chiropractic-clinics",
+    "physical-therapy-clinics",
+    "tutoring-and-schools"
+  ]
+}
