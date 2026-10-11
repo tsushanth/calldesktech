@@ -19,7 +19,7 @@
     { "speaker": "agent", "text": "Lease renewals go to our leasing office. May I have your name and unit number first, so I can pass them along?" },
     { "speaker": "caller", "text": "Omar Haddad, unit twelve C." },
     { "speaker": "agent", "text": "Thanks, Omar. The leasing office is open now. I'm going to connect you, and I'll tell them you're calling about your lease renewal." },
-    { "speaker": "caller", "text": "That's perfect." },
+    { "speaker": "caller", "text": "That works." },
     { "speaker": "agent", "text": "Connecting you now. If the line is busy, I'll come back and take a message." },
     { "speaker": "caller", "text": "Thank you." }
   ],

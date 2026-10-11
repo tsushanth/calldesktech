@@ -15,10 +15,10 @@
       "Effective rate on the listed plans runs from about $5.00/min (50 min) to $3.45/min (500 min); these are derived, not published rates.",
       "Chat plans: 10 chats $143, 30 chats $335, 50 chats $520; bundled with a receptionist plan the chat price is 20% lower.",
       "Overage rate is stated as plan-specific but the figure is not published on pages read.",
-      "Month to month; money-back guarantee for first-time users within 21 days or before usage passes 500 receptionist minutes.",
+      "Month to month; money-back refund for first-time users within 21 days or before usage passes 500 receptionist minutes.",
       "Vendor says there are no activation, onboarding or setup fees."
     ],
-    "freeTrial": "Money-back guarantee for first-time users (21 days) rather than a free tier.",
+    "freeTrial": "Money-back refund for first-time users (21 days) rather than a free tier.",
     "whatIsExtra": [
       "Minutes over the plan allowance at the plan's overage rate.",
       "Additional fees may apply for transfers to numbers outside North America."
@@ -30,7 +30,7 @@
   },
   "strengths": [
     {
-      "claim": "100% live receptionists, 24/7 including weekends and holidays, which suits callers who prefer a human.",
+      "claim": "Live human receptionists, 24/7 including weekends and holidays, which suits callers who prefer a human.",
       "sourceUrl": "https://www.ruby.com/plans-and-pricing/"
     },
     {

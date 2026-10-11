@@ -16,7 +16,7 @@
       "Build: $299 per month, $0.12 per minute, $0.04 per transfer minute, 50 concurrent calls, 2,000 calls per day, 50 knowledge bases, 5 voices.",
       "Enterprise: custom pricing; BAA, SSO, data residency, on-prem/VPC and forward-deployed engineers listed.",
       "Bland docs also list a Scale plan ($499 per month, $0.11 per minute, $0.03 transfer) that did not appear on the public pricing page read on the retrieval date.",
-      "Docs also list an Agent Phone plan at $29.99 for a single agent number with unlimited US/Canada voice minutes and SMS.",
+      "Docs also list an Agent Phone plan at $29.99 for a single agent number with US/Canada voice minutes and SMS included without a stated minute cap.",
       "Outbound calls on Bland telephony carry a $0.015 minimum charge per attempt (docs); transfer fees do not apply when using your own Twilio account."
     ],
     "freeTrial": "Start plan is free with no card required and includes starter credits and an inbound number valued at $15 per month (the credit amount is not specified on the page).",
@@ -55,7 +55,7 @@
   ],
   "limitations": [
     {
-      "claim": "Per-day and per-hour call caps apply on self-serve plans (100 calls per day on Start, 2,000 on Build); unlimited caps are listed for Enterprise.",
+      "claim": "Per-day and per-hour call caps apply on self-serve plans (100 calls per day on Start, 2,000 on Build); no cap is listed for Enterprise.",
       "sourceUrl": "https://www.bland.ai/pricing"
     },
     {

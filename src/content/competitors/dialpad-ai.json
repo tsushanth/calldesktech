@@ -8,11 +8,11 @@
   "positioning": "AI voice and digital agents sold as part of Dialpad's unified communications and contact-centre platform, priced in conversation credits.",
   "pricing": {
     "model": "Conversation-based credits; pool of AI Agent Credits, price not published",
-    "headline": "Customers buy a pool of AI Agent Credits; a conversation is billable only when the AI retrieves information or performs an action. No public rate.",
+    "headline": "Customers buy a pool of AI Agent Credits; a conversation is billable when the AI retrieves information or performs an action. No public rate.",
     "perMinuteUsd": null,
     "currency": "USD",
     "planNotes": [
-      "Pricing page: 'You purchase a pool of AI Agent Credits'; 'Credits are used only when AI delivers value'.",
+      "Pricing page: 'You purchase a pool of AI Agent Credits'; 'Credits are used when AI delivers value'.",
       "A conversation is billable when the AI retrieves information or executes an action such as scheduling, routing or order lookup.",
       "The AI Agent product sits beside Support, Sell and Connect plans; contact sales for AI Agent pricing."
     ],

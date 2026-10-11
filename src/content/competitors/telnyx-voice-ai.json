@@ -13,7 +13,7 @@
     "planNotes": [
       "Pay as you go: $0 per month, standard rates, card on file, 500 concurrent calls, community support.",
       "Growth: $2,000/month minimum spend, 15% discount on voice, messaging and numbers, 24/7 support.",
-      "Enterprise: $5,000/month minimum spend, dedicated infrastructure, unlimited rate limits.",
+      "Enterprise: $5,000/month minimum spend, dedicated infrastructure, no stated rate limits.",
       "Voice engine and LLM rates are stated to be the same on every plan; commitment lowers telephony, messaging and number charges.",
       "Telnyx notes its estimates exclude per-call rounding to 60-second increments for the voice engine, so short calls can cost more than the headline suggests.",
       "The rate was seen on two Telnyx pages (pricing page and developer docs pricing page); the all-in $0.06 figure is Telnyx's own estimate and was not independently reproduced."
@@ -57,7 +57,7 @@
   ],
   "limitations": [
     {
-      "claim": "The headline per-minute rate covers the voice engine only; LLM tokens and telephony are billed separately, so the all-in cost depends on model and call profile.",
+      "claim": "The headline per-minute rate covers the voice engine; LLM tokens and telephony are billed separately, so the all-in cost depends on model and call profile.",
       "sourceUrl": "https://telnyx.com/pricing/voice-ai"
     },
     {

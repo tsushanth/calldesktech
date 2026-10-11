@@ -143,7 +143,7 @@
     }
   ],
   "unknowns": [
-    "Monthly plan prices (Pro, Business) and credit bundle sizes; shown only inside the app.",
+    "Monthly plan prices (Pro, Business) and credit bundle sizes; shown inside the app.",
     "Whether a BAA is available and on which plan.",
     "What share of phone-call cost is Voiceflow's $0.05/min versus passed-through telephony for Voiceflow-provisioned numbers.",
     "Whether Voiceflow-provisioned numbers can be ported out."

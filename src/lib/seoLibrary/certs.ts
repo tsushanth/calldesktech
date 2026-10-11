@@ -39,7 +39,9 @@ export function certKeyOf(term: string): CertKey | null {
 
 export type CertClaim = { cert: CertKey; sentence: string; calldeskSubject: boolean };
 
-const CALLDESK_SUBJECT = /\b(calldesk|calldesktech|we|our|ours|us)\b/i;
+// The pronoun "us" is matched in lowercase only, so the country abbreviation "US" ("regional data residency (US, EU, India)") is not read as Calldesk.
+const CALLDESK_US = /\bus\b/;
+const isCalldeskSubject = (s: string) => /\b(calldesk|calldesktech|we|our|ours)\b/i.test(s) || CALLDESK_US.test(s);
 
 export function splitSentences(text: string): string[] {
   return text.split(/\n+/).flatMap((line) => line.split(/(?<=[.!?])\s+(?=[A-Z"'(])/)).map((s) => s.trim()).filter(Boolean);
@@ -56,7 +58,7 @@ export function findCertClaims(text: string): CertClaim[] {
       if (!cert) continue;
       const before = sentence.slice(Math.max(0, m.index - 120), m.index + m[0].length);
       if (NEGATION.test(before) || REQUIREMENT.test(before)) continue;
-      out.push({ cert, sentence, calldeskSubject: CALLDESK_SUBJECT.test(sentence) });
+      out.push({ cert, sentence, calldeskSubject: isCalldeskSubject(sentence) });
       break;
     }
   }

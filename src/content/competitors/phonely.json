@@ -60,7 +60,7 @@
       "sourceUrl": "https://www.phonely.ai/pricing"
     },
     {
-      "claim": "Twilio is the only number-import source accepted by the documented Import Number API, and the agent must be on a paid plan.",
+      "claim": "Twilio is the number-import source accepted by the documented Import Number API, and the agent must be on a paid plan.",
       "sourceUrl": "https://docs.phonely.ai/api-reference/endpoint/import-number.md"
     }
   ],
@@ -91,7 +91,7 @@
   "migration": {
     "exportAgentsPossible": "unknown",
     "stepsToLeave": [
-      "Agents: the Get Agent / Get Agents API returns only 'basic information'; no documented full export of flows was found, so flows would be recreated by hand in the new platform.",
+      "Agents: the Get Agent / Get Agents API returns 'basic information'; no documented full export of flows was found, so flows would be recreated by hand in the new platform.",
       "Knowledge base: List Documents and List Websites API endpoints exist to enumerate sources so they can be re-added elsewhere.",
       "Call data: List Calls / Get Call API and CSV usage export (Settings > Usage & Cost) are documented.",
       "Numbers: a number imported from a Twilio account stays in that account; for numbers provided by Phonely, no porting procedure was found in the docs read."
@@ -105,6 +105,16 @@
   },
   "bestFor": "Teams that want a flow-based builder with built-in testing and analytics, from a free trial up to large enterprise volumes.",
   "sources": [
+    {
+      "url": "https://docs.phonely.ai/api-reference/endpoint/get-agent.md",
+      "title": "Phonely docs: Get Agent API",
+      "retrievedAt": "2026-10-10"
+    },
+    {
+      "url": "https://docs.phonely.ai/api-reference/endpoint/agent-documents.md",
+      "title": "Phonely docs: Agent Documents API",
+      "retrievedAt": "2026-10-10"
+    },
     {
       "url": "https://www.phonely.ai/pricing",
       "title": "Phonely pricing page",

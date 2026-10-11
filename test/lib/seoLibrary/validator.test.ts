@@ -67,6 +67,14 @@ describe('validator: sources and dates', () => {
     const lib = withVapi((v) => { v.pricing.sourceUrls = []; v.migration.sourceUrls = []; });
     expect(codes(run(lib))).toEqual(expect.arrayContaining(['FACT_NO_SOURCE']));
   });
+  it('does not require a compliance sourceUrl when hipaa, soc2 and gdpr are all not-stated', () => {
+    const lib = withVapi((v) => { v.compliance.hipaa = 'not-stated'; v.compliance.soc2 = 'not-stated'; v.compliance.gdpr = 'not-stated'; v.compliance.sourceUrl = undefined as any; });
+    expect(run(lib).filter((i) => i.message.startsWith('compliance'))).toEqual([]);
+  });
+  it('still requires a compliance sourceUrl when any of the three is stated', () => {
+    const lib = withVapi((v) => { v.compliance.hipaa = 'not-stated'; v.compliance.soc2 = 'stated'; v.compliance.gdpr = 'not-stated'; v.compliance.sourceUrl = undefined as any; });
+    expect(run(lib).map((i) => i.code + ':' + i.message)).toContain('FACT_NO_SOURCE:compliance has no sourceUrl');
+  });
   it('flags a retrievedAt in the future and warns on a stale one', () => {
     expect(codes(validateCompetitor({ ...clone(fixtureLibrary().competitors[1]), retrievedAt: '2027-01-01' }, NOW))).toContain('DATE_FUTURE');
     const stale = validateCompetitor({ ...clone(fixtureLibrary().competitors[1]), retrievedAt: '2026-01-01' }, NOW);
@@ -136,6 +144,13 @@ describe('validator: banned wording on competitor pages', () => {
   });
 });
 
+describe('banned wording: product-name exemption', () => {
+  it('lets the product name Perfect Venue through but still flags the adjective', () => {
+    expect(findBanned('Integrates with Tripleseat and Perfect Venue.', BANNED_STRICT)).toEqual([]);
+    expect(findBanned('A perfect fit for venues.', BANNED_STRICT).map((h) => h.term)).toContain('perfect');
+  });
+});
+
 describe('validator: certification claims', () => {
   it('flags an industry page that says Calldesk is HIPAA compliant', () => {
     const lib = clone(fixtureLibrary());
@@ -146,6 +161,13 @@ describe('validator: certification claims', () => {
     expect(findCertClaims('We are SOC 2 certified.').length).toBe(1);
     expect(findCertClaims('Our platform is SOC 2 Type II compliant.').length).toBe(1);
     expect(findCertClaims('The service supports HIPAA.').length).toBe(1);
+  });
+  it('does not read the country abbreviation US as the pronoun us', () => {
+    const s = 'Regional data residency (US, EU, India) and HIPAA-eligible with BAAs.';
+    expect(findCertClaims(s).length).toBe(1);
+    expect(findCertClaims(s)[0].calldeskSubject).toBe(false);
+    expect(findCertClaims('Thanks to us, the platform is HIPAA compliant.')[0].calldeskSubject).toBe(true);
+    expect(findCertClaims('We are HIPAA compliant.')[0].calldeskSubject).toBe(true);
   });
   it('lets negations and requirement language through', () => {
     expect(findCertClaims('Calldesk does not currently claim HIPAA compliance.')).toEqual([]);

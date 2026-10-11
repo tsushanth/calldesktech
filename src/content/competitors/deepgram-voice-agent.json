@@ -12,7 +12,7 @@
     "currency": "USD",
     "planNotes": [
       "Tiers (pay-as-you-go / Growth per minute): Standard 0.075 / 0.068; Standard with BYO TTS 0.065 / 0.051; Custom BYO LLM 0.065 / 0.059; Custom BYO LLM and TTS 0.050 / 0.041; Advanced 0.163 / 0.146; Advanced BYO TTS 0.122 / 0.110.",
-      "Billing is by conversation (WebSocket connection) duration and covers STT, LLM and TTS orchestration; with a bring-your-own LLM you pay Deepgram only for the audio components and orchestration.",
+      "Billing is by conversation (WebSocket connection) duration and covers STT, LLM and TTS orchestration; with a bring-your-own LLM you pay Deepgram for the audio components and orchestration.",
       "Growth plan starts at $4K+ per year of prepaid credits with savings of up to 20%.",
       "Voice agent concurrency is up to 45 (pay-as-you-go) or 60 (Growth) via WebSocket.",
       "Verified on the HTML pricing page and the machine-readable markdown version of the same page; the HTML rendering was ambiguous for the Custom BYO LLM row, so the markdown values were used. Both are Deepgram's own pages."

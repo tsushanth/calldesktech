@@ -16,7 +16,7 @@
       "Scale: 1,000 min, calendar booking, warm and live transfers, texts to callers.",
       "Growth: 2,000 min, waterfall transfers, custom agent training, white-glove onboarding, priority support.",
       "Enterprise tier exists in the page's structured data, no price shown.",
-      "Annual plan dollar amounts are not shown; only the '2 months free' label.",
+      "Annual plan dollar amounts are not shown; the page shows the '2 months free' label.",
       "Effective rate on the listed plans (derived, not published): about 19.6c/min on Professional down to about 15c/min on Growth."
     ],
     "freeTrial": "7-day free trial with all features; the vendor states no credit card is required to start.",
@@ -47,7 +47,7 @@
       "sourceUrl": "https://heyrosie.com/pricing"
     },
     {
-      "claim": "Can run for after-hours or overflow calls only, via conditional call forwarding.",
+      "claim": "Can run for after-hours or overflow calls, via conditional call forwarding.",
       "sourceUrl": "https://heyrosie.com/pricing"
     }
   ],

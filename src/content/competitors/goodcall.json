@@ -14,7 +14,7 @@
     "planNotes": [
       "Starter: 5 workers, 1 external tool, 1 team member, 30-day call history.",
       "Growth: 10 workers, 5 external tools, 5 team members, 90-day call history.",
-      "Scale: 20 workers, 15 external tools, 10 team members, unlimited call history; BAA available.",
+      "Scale: 20 workers, 15 external tools, 10 team members, call history with no stated cap; BAA available.",
       "Month to month; no annual plan at time of reading.",
       "Every plan includes a local US number.",
       "The vendor states Starter works out to about 13c/min at four-minute calls (its own illustration, not a rate)."
@@ -31,7 +31,7 @@
   },
   "strengths": [
     {
-      "claim": "Predictable pricing: no per-minute or token charges, and the bill counts only distinct callers, so a long call costs the same as a short one.",
+      "claim": "Predictable pricing: no per-minute or token charges, and the bill counts distinct callers, so a long call costs the same as a short one.",
       "sourceUrl": "https://www.goodcall.com/pricing"
     },
     {
@@ -71,7 +71,7 @@
     "HighLevel",
     "Custom API tools",
     "MCP servers",
-    "Zapier (existing older agents only)"
+    "Zapier (listed for existing older agents)"
   ],
   "compliance": {
     "hipaa": "stated",
@@ -90,7 +90,7 @@
     "stepsToLeave": [
       "No agent export feature was found in the pages read; the agent (greeting, questions, workers) would be recreated in the new platform.",
       "Numbers: if the business number was forwarded to a Goodcall number, point the carrier's forwarding to the new platform; Goodcall numbers are local US numbers issued by Goodcall.",
-      "Calls are recorded and transcribed and viewable in the app; call history retention depends on plan (30 days, 90 days, unlimited).",
+      "Calls are recorded and transcribed and viewable in the app; call history retention depends on plan (30 days, 90 days, or no stated limit).",
       "Contact support (support@goodcall.ai) for special cases per the FAQ."
     ],
     "sourceUrls": [

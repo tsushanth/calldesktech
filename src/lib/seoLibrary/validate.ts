@@ -60,7 +60,9 @@ export function validateCompetitor(c: Competitor, now: Date = new Date()): Issue
   };
   if (c.pricing.sourceUrls.length === 0) err('FACT_NO_SOURCE', 'pricing has no sourceUrls');
   c.pricing.sourceUrls.forEach((u) => needSource('pricing', u));
-  needSource('compliance', c.compliance.sourceUrl);
+  // When hipaa, soc2 and gdpr are all 'not-stated' there is no compliance fact to cite. Any 'stated' value still needs a listed source.
+  const complianceStatesSomething = [c.compliance.hipaa, c.compliance.soc2, c.compliance.gdpr].some((v) => v !== 'not-stated');
+  if (complianceStatesSomething || c.compliance.sourceUrl) needSource('compliance', c.compliance.sourceUrl);
   needSource('telephony', c.telephony.sourceUrl);
   if (c.migration.stepsToLeave.length && c.migration.sourceUrls.length === 0) err('FACT_NO_SOURCE', 'migration.stepsToLeave has no sourceUrls');
   c.migration.sourceUrls.forEach((u) => needSource('migration', u));

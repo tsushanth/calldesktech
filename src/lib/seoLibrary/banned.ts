@@ -28,7 +28,8 @@ export const BANNED_LITE: readonly string[] = [
 ];
 
 // Phrases that contain a banned word but are exact, verifiable facts stated by the product. Removed before matching.
-const EXEMPT_PHRASES = [/english[- ]only/gi];
+// "Perfect Venue" is the name of a venue-booking product that Slang AI integrates with, not an adjective.
+const EXEMPT_PHRASES = [/english[- ]only/gi, /perfect venue/gi];
 
 const escapeRe = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 

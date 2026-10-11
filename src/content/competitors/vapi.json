@@ -12,14 +12,14 @@
     "perMinuteUsd": 0.05,
     "currency": "USD",
     "planNotes": [
-      "Usage only: no monthly fee, 4 concurrent calls, 2 organizations, 1 included Vapi phone number, 14 days raw data retention.",
+      "Usage option: no monthly fee, 4 concurrent calls, 2 organizations, 1 included Vapi phone number, 14 days raw data retention.",
       "Core: $29 per month, 10 concurrent calls, 5 included phone numbers, 30 days retention, 2 business day email support response SLA.",
       "Pro: 10% of the Vapi hosting fee with a $999 per month minimum, 30 concurrent calls, 10 organizations, 180 days retention, dedicated Slack support, 99% uptime SLA.",
       "Premier: contact sales, custom limits, 99.9% uptime SLA, SSO and dedicated SIP available.",
-      "The per-minute figure on the page is the hosting fee only; it is not an all-in call price.",
-      "Vapi docs state Success Packages are currently available only to new customers; existing customers keep legacy pricing."
+      "The per-minute figure on the page is the hosting fee; it is not an all-in call price.",
+      "Vapi docs state Success Packages are currently available to new customers; existing customers keep legacy pricing."
     ],
-    "freeTrial": "$5 in free credits on the Usage-only option; one free Vapi phone number can be created without a payment method.",
+    "freeTrial": "$5 in free credits on the Usage option; one free Vapi phone number can be created without a payment method.",
     "whatIsExtra": [
       "Transcriber (example on page: Deepgram about $0.0095 to $0.0099 per minute)",
       "Language model (example on page: OpenAI about $0.0077 to $0.0452 per minute)",
@@ -41,7 +41,7 @@
       "sourceUrl": "https://docs.vapi.ai/faq.md"
     },
     {
-      "claim": "Provider models are passed through at cost with no markup, and the pricing page lists unlimited agents on every plan, which keeps costs transparent for teams that want to tune each component.",
+      "claim": "Provider models are passed through at cost with no markup, and the pricing page lists no agent cap on every plan, which keeps costs transparent for teams that want to tune each component.",
       "sourceUrl": "https://vapi.ai/pricing"
     },
     {
@@ -59,15 +59,15 @@
   ],
   "limitations": [
     {
-      "claim": "Free Vapi phone numbers use US area codes and support inbound calls only; international or outbound numbers come from importing a provider number.",
+      "claim": "Free Vapi phone numbers use US area codes and support inbound calls; international or outbound numbers come from importing a provider number.",
       "sourceUrl": "https://docs.vapi.ai/free-telephony.md"
     },
     {
-      "claim": "HIPAA mode is a paid add-on ($2,000 per month per the pricing page) and the EU region is available only on the Premier package.",
+      "claim": "HIPAA mode is a paid add-on ($2,000 per month per the pricing page) and the EU region is available on the Premier package.",
       "sourceUrl": "https://docs.vapi.ai/billing/pricing-and-success-packages.md"
     },
     {
-      "claim": "The Usage-only option includes no response or uptime service-level agreement; an SLA starts with the paid Core package.",
+      "claim": "The Usage option includes no response or uptime service-level agreement; an SLA starts with the paid Core package.",
       "sourceUrl": "https://docs.vapi.ai/billing/pricing-and-success-packages.md"
     }
   ],
@@ -92,7 +92,7 @@
   },
   "telephony": {
     "bringYourOwnCarrier": "yes",
-    "providedNumbers": "Free US-area-code Vapi numbers (inbound only), with 1 to 10 included depending on package; Twilio, Telnyx, DIDWW and other SIP trunk numbers can be imported.",
+    "providedNumbers": "Free US-area-code Vapi numbers (inbound), with 1 to 10 included depending on package; Twilio, Telnyx, DIDWW and other SIP trunk numbers can be imported.",
     "sourceUrl": "https://docs.vapi.ai/phone-numbers/import-twilio.md"
   },
   "migration": {
@@ -163,7 +163,7 @@
     }
   ],
   "unknowns": [
-    "The $0.05 per minute hosting fee appears on the pricing page only (stated in two places there); the docs pages read describe the hosting fee without repeating the number (single-source for the amount).",
+    "The $0.05 per minute hosting fee appears on the pricing page (stated in two places there); the docs pages read describe the hosting fee without repeating the number (single-source for the amount).",
     "Whether a Vapi-provided free phone number can be ported out to another carrier was not found in the pages read.",
     "The vendor's security portal (security.vapi.ai) was not opened, so certification reports were not independently seen.",
     "Exact JSON shape of an assistant export and whether knowledge-base files are downloadable (not just listable) was not verified."

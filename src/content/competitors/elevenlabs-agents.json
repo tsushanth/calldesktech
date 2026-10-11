@@ -15,7 +15,7 @@
       "Free: 15 minutes, 4 concurrent calls. Starter $6/month: 75 minutes, 6 concurrent. Creator $22/month: 275 minutes, 10 concurrent. Pro $99/month: 1,238 minutes, 20 concurrent. Scale $299/month: 3,738 minutes, 30 concurrent. Business $990/month: 12,375 minutes, 40 concurrent. Enterprise: custom.",
       "Additional minutes $0.08 per minute on every plan; text messages $0.003 each.",
       "Burst pricing: calls above the concurrency limit (up to 3x, max 300 for non-enterprise) are charged at 2x ($0.16 per minute).",
-      "Voice-only calls get a 95% discount for silence longer than 10 seconds (help center).",
+      "Voice calls without text get a 95% discount for silence longer than 10 seconds (help center).",
       "Startup Grants Program offers 12 months free for qualifying startups (vendor page)."
     ],
     "freeTrial": "Free plan with 15 minutes of calls included, no card stated.",
@@ -31,7 +31,7 @@
   },
   "strengths": [
     {
-      "claim": "Industry-leading voice catalog from its own models: 17,000+ voices across 90+ languages, plus voice cloning and expressive voice models.",
+      "claim": "Large voice catalog from its own models: 17,000+ voices across 90+ languages, plus voice cloning and expressive voice models.",
       "sourceUrl": "https://elevenlabs.io/agents"
     },
     {
@@ -152,7 +152,7 @@
   "unknowns": [
     "The $0.08 per minute rate and plan minutes come from the pricing page; the help-center page confirms billing structure but not the number, and the burst doc confirms the 2x multiple (so the base figure is effectively single-source).",
     "Whether ElevenLabs sells phone numbers directly was not found.",
-    "Typical LLM cost per minute depends on model and is shown only inside the product.",
+    "Typical LLM cost per minute depends on model and is shown inside the product.",
     "GDPR statement not found on the pages read.",
     "Pricing page carries a promotional first-month discount until Oct 18 and 3x credits until Oct 12 (creative plans), which may change."
   ]

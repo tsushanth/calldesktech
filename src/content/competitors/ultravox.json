@@ -17,7 +17,7 @@
       "SIP: 0.5 cents/min on pay-as-you-go and 0.48 cents/min on Pro.",
       "The $0.05/min rate appears on both the home page and the pricing page; the pricing page shows the plan and SIP detail."
     ],
-    "freeTrial": "First 30 minutes free, plus unlimited playground calls.",
+    "freeTrial": "First 30 minutes free, plus playground calls with no stated cap.",
     "whatIsExtra": [
       "SIP minutes (0.5 cents/min)",
       "Threads (text) usage at $2.00 per 1M uncached input tokens and $15.00 per 1M output tokens",
@@ -138,9 +138,9 @@
   ],
   "unknowns": [
     "HIPAA, SOC 2 and GDPR status (Trust page not readable).",
-    "Terms and timing of the Inworld acquisition and any pricing change; only the banner notice was read.",
+    "Terms and timing of the Inworld acquisition and any pricing change; just the banner notice was read.",
     "Whether Ultravox sells phone numbers.",
-    "Whether the Pro price is $100 month-to-month or only on annual billing."
+    "Whether the Pro price is $100 month-to-month or on annual billing alone."
   ],
   "retrievedAt": "2026-10-10"
 }
