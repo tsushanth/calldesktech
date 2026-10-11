@@ -51,3 +51,17 @@ describe('orderWithRetries', () => {
     expect(orderWithRetries(fresh, retries).map((x) => x.id)).toEqual(['pmRetry', 'unknown', 'f1', 'f2', 'amRetry']);
   });
 });
+
+describe('shiftWindow (evening Pacific shift, 5 PM to 10 PM PDT)', async () => {
+  const { shiftWindow } = await import('@/lib/batchPlanning');
+  const start = new Date('2026-10-13T00:00:00Z'); // Monday 5 PM PDT
+  it('Pacific is open about 4 hours, Eastern about 1, and the close order is east to west', () => {
+    const ca = shiftWindow('CA', start, 5), tx = shiftWindow('TX', start, 5), ny = shiftWindow('NY', start, 5), co = shiftWindow('CO', start, 5);
+    expect(ca.openMin).toBeGreaterThanOrEqual(235); expect(ca.openMin).toBeLessThanOrEqual(245);
+    expect(ny.openMin).toBeGreaterThanOrEqual(55); expect(ny.openMin).toBeLessThanOrEqual(65);
+    expect(ny.closeAt).toBeLessThan(tx.closeAt); expect(tx.closeAt).toBeLessThan(co.closeAt); expect(co.closeAt).toBeLessThan(ca.closeAt);
+  });
+  it('a Sunday-evening Pacific shift is closed everywhere in the US', () => {
+    expect(shiftWindow('CA', new Date('2026-10-12T00:00:00Z'), 5).openMin).toBe(0); // Sunday 5 PM PDT
+  });
+});

@@ -1,3 +1,4 @@
+import { checkCallingHours } from './callingHours';
 // Planning a day's call batches: which earlier voicemails come back for their one retry, how fresh numbers are
 // dealt between callers when some callers already have retries, and where retries sit in the working order.
 // Pure, so it is unit tested (the builder script that uses it is not).
@@ -57,4 +58,22 @@ export function orderWithRetries<T>(fresh: T[], retries: (T & { hourET?: number 
   const early = retries.filter((r) => r.hourET != null && r.hourET < 13);
   const late = retries.filter((r) => !(r.hourET != null && r.hourET < 13));
   return [...late, ...fresh, ...early];
+}
+
+// How much of a caller's shift a business is open for, in 5-minute steps from `start`: minutes open, and the last open
+// instant (when it effectively closes). Used to leave out numbers that are closed all shift and to dial the ones that
+// close soonest first.
+const windowCache = new Map<string, { openMin: number; closeAt: number }>();
+export function shiftWindow(state: string, start: Date, hours: number): { openMin: number; closeAt: number } {
+  const key = `${state}|${start.toISOString()}|${hours}`;
+  const hit = windowCache.get(key);
+  if (hit) return hit;
+  let openMin = 0, closeAt = 0;
+  for (let m = 0; m < hours * 60; m += 5) {
+    const t = new Date(start.getTime() + m * 60000);
+    if (checkCallingHours(state, t).ok) { openMin += 5; closeAt = t.getTime(); }
+  }
+  const w = { openMin, closeAt };
+  windowCache.set(key, w);
+  return w;
 }

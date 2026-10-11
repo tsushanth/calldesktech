@@ -22,13 +22,19 @@ import { normalizeNanp } from '@/lib/outboundCalling';
 import { stateFromLocation, batchDateEastern, STATE_ZONES } from '@/lib/callingHours';
 import { stateFromPhone } from '@/lib/areaCodeState';
 import { isPlatformDomain } from '@/lib/outreach/platformBlocklist';
-import { selectRetries, dealWithQuotas, orderWithRetries, type PreviousRow } from '@/lib/batchPlanning';
+import { selectRetries, dealWithQuotas, orderWithRetries, shiftWindow, type PreviousRow } from '@/lib/batchPlanning';
 import { intlCallCountries, intlState, normalizeIntl } from '@/lib/intlCalling';
 
 const CALLERS = (process.env.CALLERS || 'mary,mark').split(',').map((s) => s.trim()).filter(Boolean);
 const PER = Math.max(1, Number(process.env.PER) || 100);
 const PRODUCTS = (process.env.PRODUCTS || 'calldesk:freight,calldesk:insurance').split(',').map((s) => s.trim()).filter(Boolean);
 const COMMIT = process.env.COMMIT === '1';
+// Clock-aware mode: SHIFT_START=<ISO instant of the caller's first dial> SHIFT_HOURS=5. A number whose business is closed for
+// (almost) the whole shift is left out, and every caller's list is ordered by when its business CLOSES (earliest first), so the
+// numbers that are about to close get dialed first and nothing is wasted on a blocked number. Unset = the old behaviour.
+const SHIFT_START = process.env.SHIFT_START ? new Date(process.env.SHIFT_START) : null;
+const SHIFT_HOURS = Number(process.env.SHIFT_HOURS) || 5;
+const MIN_OPEN_MIN = Number(process.env.MIN_OPEN_MIN) || 30;
 const INTL = intlCallCountries();
 // Optional: only batch leads in these US states, e.g. STATES=TX (a one-state pilot).
 const STATES = (process.env.STATES || '').split(',').map((s) => s.trim().toUpperCase()).filter(Boolean);
@@ -173,6 +179,7 @@ async function main() {
         if (lookups.get(intl.e164)?.valid === false) continue;
         const st = intlState(intl.iso, l.location);
         if (!st || (STATES.length && !STATES.includes(intl.iso))) continue;
+        if (SHIFT_START && shiftWindow(st, SHIFT_START, SHIFT_HOURS).openMin < MIN_OPEN_MIN) continue;
         seen.add(intl.e164);
         eligible.push({ lead_id: l.id, phone: intl.e164, company_name: l.company_name, state: st, product });
         continue;
@@ -189,6 +196,7 @@ async function main() {
       if (STATES.length && state && !STATES.includes(state)) continue;
       if (!phone || !state || excluded || dnc.has(phone) || used.has(phone) || seen.has(phone)) continue;
       if (lookups.get(phone)?.valid === false) continue;
+      if (SHIFT_START && shiftWindow(state, SHIFT_START, SHIFT_HOURS).openMin < MIN_OPEN_MIN) continue;
       seen.add(phone);
       eligible.push({ lead_id: l.id, phone, company_name: l.company_name, state, product });
     }
@@ -219,7 +227,14 @@ async function main() {
     const back: BatchEntry[] = retries.filter((r) => r.sip_username === u).map((r) => ({
       lead_id: r.lead_id, phone: r.phone, company_name: r.company_name, state: r.state, attempt: 2, hourET: r.hourET,
     }));
-    return orderWithRetries(fresh, back).map((x, idx) => ({
+    const ordered = SHIFT_START
+      ? [...fresh, ...back]
+          .filter((x) => shiftWindow(x.state as string, SHIFT_START, SHIFT_HOURS).openMin >= MIN_OPEN_MIN)
+          .map((x, i) => ({ x, i, close: shiftWindow(x.state as string, SHIFT_START, SHIFT_HOURS).closeAt }))
+          .sort((a, b) => a.close - b.close || a.i - b.i)
+          .map((o) => o.x)
+      : orderWithRetries(fresh, back);
+    return ordered.map((x, idx) => ({
       batch_date: DATE, sip_username: u, lead_id: x.lead_id, phone: x.phone, company_name: x.company_name,
       state: x.state as string, position: idx + 1, attempt: x.attempt,
     }));
