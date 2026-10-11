@@ -1,0 +1,47 @@
+{
+  "slug": "after-hours-answering",
+  "name": "After-Hours Answering",
+  "h1": "After-Hours Phone Answering With a Calldesk AI Agent",
+  "metaDescription": "Cover evenings, weekends and holidays: an AI phone agent checks your hours, takes messages, and routes urgent callers to your on-call line.",
+  "intro": "Most businesses lose the phone at five o'clock. Calls that arrive overnight, on weekends or during a holiday close land on a voicemail box that many callers refuse to use, and the ones who do leave a message often leave half the details. Paying for a human answering service at night works, but it is priced for coverage you may use rarely, and the service staff know little about your business. An after-hours agent changes what the caller hears when nobody is in. The agent opens the call, says it is an AI assistant, and checks whether the business is currently open using a small code step with your time zone, so daylight saving is handled for you. Outside hours it asks what the call is about, separates a routine request from an emergency using rules you write, and records name, callback number and reason as structured fields. Genuine emergencies can be transferred to an on-call mobile number you choose. Everything else becomes a summary waiting for you in the morning, with a transcript behind it. The practical result is that Monday starts with a sorted list instead of a stack of unreadable voicemail, and urgent callers still reach someone.",
+  "steps": [
+    "Create an agent from the receptionist or message-taking template and write the opening line so it states that the office is closed and that the caller is speaking with an AI assistant.",
+    "Add a code step that reads the current time in your IANA time zone and sets a within-business-hours value, then a logic split that sends open-hours calls one way and closed-hours calls another. The built-in transfer-treatment subflow template uses this exact pattern.",
+    "Define what counts as an emergency in plain English edge conditions, such as a burst pipe or a patient in pain, and send those callers to a transfer step pointing at your on-call number.",
+    "Add an extraction step for name, callback number and reason, and tell the agent what to say about when someone will call back.",
+    "Publish a version on a tier that suits the call, route your after-hours number or your carrier's forwarding to the agent, and test by calling at a closed time.",
+    "Register a call-completed webhook so each summary is pushed to your email or ticket system, and review the first week of transcripts to refine the emergency rules."
+  ],
+  "sampleCallFlow": [
+    { "speaker": "agent", "text": "You've reached Northgate Plumbing. Our office is closed right now. I'm an AI assistant and I can take a message or connect you to our on-call technician if it's an emergency." },
+    { "speaker": "caller", "text": "I think a pipe burst under my kitchen sink. Water is going everywhere." },
+    { "speaker": "agent", "text": "I'm sorry, that sounds stressful. If you can, turn off the main water valve. I'll treat this as an emergency. Can I get your name?" },
+    { "speaker": "caller", "text": "Marcus Bell." },
+    { "speaker": "agent", "text": "Thanks, Marcus. What's the address of the property?" },
+    { "speaker": "caller", "text": "Twelve Alder Court." },
+    { "speaker": "agent", "text": "Twelve Alder Court, understood. I'm connecting you to our on-call technician now. If the call doesn't connect, stay on the line and I'll take your number." },
+    { "speaker": "caller", "text": "Okay, please hurry." },
+    { "speaker": "agent", "text": "Transferring you now." }
+  ],
+  "featuresUsed": [
+    { "feature": "Code step with business-hours check", "howItHelps": "A small script computes whether you are open in your own time zone, so routing does not depend on the model guessing the clock." },
+    { "feature": "Logic split", "howItHelps": "Open-hours and closed-hours calls follow different branches, using a fixed rule rather than a judgment call." },
+    { "feature": "Call transfers", "howItHelps": "Emergencies are passed to an on-call mobile number you set." },
+    { "feature": "Structured field extraction", "howItHelps": "Name, address, callback number and reason are saved as fields your team can scan in the morning." },
+    { "feature": "Call summary and full transcript", "howItHelps": "Each overnight call is summarized so the morning review is a read, not a listen." },
+    { "feature": "Webhooks", "howItHelps": "A call-completed event can forward the summary to your email, helpdesk or CRM as soon as the call ends." }
+  ],
+  "considerations": [
+    "An AI agent should not be your sole route for life-safety calls. Tell callers to dial emergency services for medical, fire or safety emergencies, and say so in the script.",
+    "Test the on-call transfer at night with the real phone. A transfer to a number that is silenced or forwarded elsewhere defeats the whole design.",
+    "If you record calls or store transcripts, tell callers in the opening and confirm retention and consent rules with counsel."
+  ],
+  "faq": [
+    { "q": "How does the agent know whether I am open?", "a": "You add a code step that checks the time in your time zone against hours you define, and a logic split routes the call on the result. It does not rely on the model to work out the time." },
+    { "q": "Can it wake someone up for emergencies?", "a": "It can transfer the live call to an on-call number you provide. It does not page people by itself, so decide who answers that number and what happens when they do not." },
+    { "q": "Do I need a new phone number?", "a": "Not necessarily. You can bring your own carrier and forward calls to the Calldesk number outside hours, or route a number to the agent directly. How forwarding is set up depends on your carrier." },
+    { "q": "Will the caller know it is an AI?", "a": "The sample flow has the agent say so in the opening line. You write the script, and we recommend stating it plainly." },
+    { "q": "What does it cost for quiet nights?", "a": "Billing is per minute of talk time with no monthly minimum, so a night without calls adds no talk-time charge. Phone numbers from Calldesk have their own monthly charge, shown on the pricing page." }
+  ],
+  "relatedSlugs": ["inbound-call-answering", "voicemail-replacement", "call-transfer-to-staff", "missed-call-callback"]
+}

@@ -1,0 +1,48 @@
+{
+  "slug": "faq-and-knowledge-base-calls",
+  "name": "FAQ and Knowledge Base Calls",
+  "h1": "Answer Repeat Questions by Phone From Your Own Knowledge Base",
+  "metaDescription": "Teach a Calldesk agent your hours, policies and prices from your site or a Q&A list, and let it answer repeat questions while staff focus elsewhere.",
+  "intro": "Look at a week of your incoming calls and a handful of questions will account for a large share of them: where are you, when do you close, do you take walk-ins, what does it cost to start, how do I return something. Each is a thirty-second answer, but thirty seconds multiplied across a week is hours of attention taken from work that needs a person. The risk with automating these answers is invention, a confident statement about a refund window nobody ever approved. A knowledge base keeps the agent anchored. In Calldesk you create a knowledge base for the agent from a website address, a PDF or manually entered question and answer pairs, and a knowledge-base step answers from that material. The faq-voice-agent template goes further and answers strictly from an approved FAQ, then escalates anything outside scope. The discipline is in the writing: short, direct answers in the words your staff would use, dated where policies change, and an explicit instruction to take a message when the answer is not there. Over time the call transcripts show which questions are unanswered, and each one is a new entry. Your team gets back the repetitive calls and keeps the unusual ones.",
+  "steps": [
+    "Pull the twenty or so questions your team answers most often from email, voicemail and staff memory, and write each answer in two or three plain sentences.",
+    "Create a knowledge base with the agent's id set, since a knowledge-base step sees just content attached to its own agent. Use manual question and answer items, a website address or a PDF as the source.",
+    "Create an agent from the faq-voice-agent template and point its knowledge-base step at your content.",
+    "Write the out-of-scope rule explicitly: when the answer is not in the knowledge base, the agent says so, takes a name and number, and does not guess.",
+    "Add a transfer step for callers who ask for a person, with an hours check if staff are not always available.",
+    "Publish, route a number, and place test calls using the odd phrasings real callers use, not just your written questions.",
+    "Each week, read transcripts for unanswered questions and add them as new knowledge items."
+  ],
+  "sampleCallFlow": [
+    { "speaker": "agent", "text": "Thanks for calling Fernhill Community Pool. I'm an AI assistant and I can answer questions about hours, fees and classes. What would you like to know?" },
+    { "speaker": "caller", "text": "Do you have lap swim early in the morning?" },
+    { "speaker": "agent", "text": "Yes, lap swim runs from six to eight on weekdays. Drop-in is available without a booking." },
+    { "speaker": "caller", "text": "What does a drop-in cost?" },
+    { "speaker": "agent", "text": "A single drop-in adult swim is on our fees page at eight dollars." },
+    { "speaker": "caller", "text": "And do you do swim lessons for a four year old?" },
+    { "speaker": "agent", "text": "We run preschool lessons for ages three to five on Saturday mornings. I don't have the current waiting list information, though. Would you like me to take your name and number so staff can follow up?" },
+    { "speaker": "caller", "text": "Yes please. It's Hannah, five five five, zero one six three." },
+    { "speaker": "agent", "text": "Thanks, Hannah. I've noted a question about preschool lesson availability. Someone will call you." }
+  ],
+  "featuresUsed": [
+    { "feature": "Knowledge base", "howItHelps": "Answers come from a knowledge base built from your website, a PDF or manual question and answer items." },
+    { "feature": "Knowledge-base step", "howItHelps": "The agent answers from that content automatically when a caller asks a question." },
+    { "feature": "Structured field extraction", "howItHelps": "When an answer is missing, the caller's name, number and question are captured for staff." },
+    { "feature": "Call transfers", "howItHelps": "A caller who wants a person can be passed to one, instead of being kept in the loop." },
+    { "feature": "Call summary and full transcript", "howItHelps": "Transcripts show which questions callers ask and which the knowledge base failed to answer." },
+    { "feature": "Call testing and simulation test cases", "howItHelps": "You can try awkward phrasings before launch and rerun scenarios after editing the knowledge base." }
+  ],
+  "considerations": [
+    "The agent is as accurate as the material you give it. Date your policies and review the knowledge base whenever prices, hours or rules change.",
+    "Leave medical, legal and financial advice out of the knowledge base. The answer for those topics is a message or a transfer to a qualified person.",
+    "If the knowledge base is built from your website, check what the page text actually says, since old pages can contradict current policy."
+  ],
+  "faq": [
+    { "q": "Where can the knowledge come from?", "a": "A knowledge base can be created from a website address, a PDF or manually entered question and answer items, and the API accepts question and answer items directly." },
+    { "q": "Why did my agent not use the knowledge base?", "a": "A knowledge-base step sees just the content from a knowledge base attached to its own agent, so create the knowledge base with that agent's id." },
+    { "q": "What does it do when it does not know?", "a": "That is controlled by your instructions. We recommend telling it to say it does not have the answer and to take a message or transfer the call." },
+    { "q": "Is the answer read word for word?", "a": "The agent uses the entries to answer in conversation, so wording can vary. Where exact wording matters, put it in a fixed spoken line in the flow." },
+    { "q": "How often should I update it?", "a": "Whenever the underlying fact changes, and as a habit after reviewing a week of transcripts for questions the knowledge base missed." }
+  ],
+  "relatedSlugs": ["inbound-call-answering", "multilingual-reception", "overflow-call-handling", "order-and-status-inquiries"]
+}

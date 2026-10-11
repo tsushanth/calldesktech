@@ -1,0 +1,49 @@
+{
+  "slug": "outbound-lead-follow-up",
+  "name": "Outbound Lead Follow-Up",
+  "h1": "Call Web Leads Back Quickly With an Outbound Voice Agent",
+  "metaDescription": "Trigger a Calldesk call from a form submission or a CRM workflow. The agent greets the lead by name, asks about their request and logs the outcome.",
+  "intro": "A web form is a request for a conversation, and the interest cools while the lead waits for one. Teams that handle inquiries by hand tend to follow up in clusters, between other work, so the lead who submitted at ten at night is reached the following afternoon, if at all. An outbound follow-up agent turns the form submission into an immediate phone call. The submission fires a workflow in your CRM or automation tool, which calls the Calldesk API with the lead's phone number and a few variables such as first name and what they asked about. The agent introduces itself as an AI assistant calling on behalf of your business, refers to the request, asks one or two clarifying questions, and either books a time, transfers to a person if one is free, or records that the lead wants no contact. The call outcome and summary flow back to your CRM through a webhook, and the HighLevel recipe shows the complete two-workflow pattern. This works well when the lead has genuinely asked to be contacted, so consent comes first and is described in the considerations below. Templates such as outreach-dialer and lead-reactivation-campaign give a starting flow to adapt.",
+  "steps": [
+    "Confirm that your form wording records the lead's consent to be called at the number given, and keep that record outside Calldesk.",
+    "Create an agent from the outreach-dialer template, or lead-reactivation-campaign for older leads, and write an opening that names your business, says it is an AI assistant, and refers to the request using placeholders such as {{first_name}} and {{inquiry}}.",
+    "Give the agent a purpose for the call: clarify the need, offer a time on your Cal.com calendar, or transfer to a salesperson. Add an exit for people who say they do not want calls.",
+    "Set voicemail detection to hang up or to leave a short message that includes your business name and a callback number.",
+    "Place a call from your workflow with the single-call API, passing toNumber and a variables object, or follow the HighLevel recipe if you use that platform.",
+    "Register a flat-format call-completed webhook so the outcome, summary and call variables update the lead record.",
+    "For a list of older leads, create a batch call from a CSV instead and set a call time window."
+  ],
+  "sampleCallFlow": [
+    { "speaker": "agent", "text": "Hi, is this Tomas? This is an AI assistant calling from Brightpath Solar about the quote request you sent in this morning." },
+    { "speaker": "caller", "text": "Oh, yes. That was me." },
+    { "speaker": "agent", "text": "Thanks for picking up. Is now an okay time for two quick questions, or would you prefer I call back later?" },
+    { "speaker": "caller", "text": "Now is fine." },
+    { "speaker": "agent", "text": "Great. Your form mentions a home in Fresno. Do you own the home?" },
+    { "speaker": "caller", "text": "Yes, I own it." },
+    { "speaker": "agent", "text": "Thanks. Would you like to book a free site visit with one of our advisors? I can see times on Wednesday and Friday." },
+    { "speaker": "caller", "text": "Friday morning would work." },
+    { "speaker": "agent", "text": "I'll book Friday at ten and note your address from the form. You'll get a confirmation from the team. Anything else?" },
+    { "speaker": "caller", "text": "No, thanks." }
+  ],
+  "featuresUsed": [
+    { "feature": "Per-call variables on the single-call API", "howItHelps": "A workflow can place a call with variables such as first_name and inquiry, which fill the agent's placeholders for that single call." },
+    { "feature": "Batch outbound with per-contact variables", "howItHelps": "A CSV of older leads becomes a batch where each row's columns personalise its own call." },
+    { "feature": "HighLevel recipe", "howItHelps": "Two workflows using built-in webhooks place calls from HighLevel and write results back to the contact." },
+    { "feature": "Voicemail detection", "howItHelps": "The agent can hang up on a voicemail greeting or leave a short message you wrote." },
+    { "feature": "Flat webhooks", "howItHelps": "Call outcomes arrive as a single-level JSON object with summary, outcome and var_ keys." },
+    { "feature": "Calendar booking", "howItHelps": "With a Cal.com calendar connected, the agent can book the follow-up visit on the call." }
+  ],
+  "considerations": [
+    "Calling a lead with an automated or artificial voice can require prior express consent under rules such as the US TCPA and state laws, and equivalent rules apply in other countries. Confirm your consent wording and obligations with counsel before you launch.",
+    "Respect do-not-call lists and opt-outs, and observe permitted calling hours for the recipient's location. A batch call time window helps with the hours but does not replace a compliance process.",
+    "Say clearly at the start of the call that it is an AI assistant and who the call is on behalf of."
+  ],
+  "faq": [
+    { "q": "Can a form submission trigger a call automatically?", "a": "Yes, through your own workflow tool. The single-call API takes a phone number in E.164 format and optional variables, and the HighLevel documentation shows a complete example." },
+    { "q": "How fast can the call go out?", "a": "Speed is set by your workflow, since the call is placed when your tool sends the request. Calls are rate limited per workspace, so for many leads at once use a batch call instead." },
+    { "q": "What if the lead does not pick up?", "a": "The outcome is logged, for example as voicemail or no answer, and you can decide in your workflow whether to retry. Calldesk does not decide retry rules for you." },
+    { "q": "Can it hand the lead to a salesperson live?", "a": "Yes. Add a transfer step to the sales number and a fallback for when nobody answers." },
+    { "q": "Does this work for cold calling?", "a": "We do not recommend it. Consent rules for unsolicited automated calls are strict in many places, so use this for people who asked to be contacted, and take legal advice first." }
+  ],
+  "relatedSlugs": ["lead-qualification", "missed-call-callback", "appointment-reminders", "customer-feedback-calls"]
+}

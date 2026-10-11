@@ -1,0 +1,48 @@
+{
+  "slug": "customer-feedback-calls",
+  "name": "Customer Feedback Calls",
+  "h1": "Collect Customer Feedback by Phone With a Voice Agent",
+  "metaDescription": "Call customers after a visit or delivery, ask your questions, and get structured answers plus call summaries back in your CRM or inbox.",
+  "intro": "Surveys sent by email are answered by the people who are very pleased or very angry, and by few others. A short phone call after a visit reaches a wider slice of customers, because many people will talk for a minute who would never open a form. The obstacle is effort: someone has to place dozens of calls, take notes in a consistent way and tabulate the notes. A Calldesk feedback agent handles that routine. You supply a list of recent customers as a CSV, with a phone number and columns such as first name, service date and technician, and create a batch call. The agent introduces itself as an AI assistant calling on behalf of your business, asks for a minute, and runs through your questions in a conversational way. Answers are saved into named fields, for example a rating out of five, a free-text comment and whether the person would like a follow-up. Unhappy customers can be offered a transfer to a manager or a callback, which turns a complaint into a chance to fix the problem. The summaries and fields come out through the dashboard, API or webhooks, ready for your reporting tool.",
+  "steps": [
+    "Decide on three to five questions, including one rating question and one open question, and a threshold below which the customer is offered a follow-up.",
+    "Create an agent from the win-back-campaign or outreach-dialer template and rewrite it as a feedback call, with an opening that names your business and says it is an AI assistant.",
+    "Define extraction fields such as rating, comment, would_recommend and wants_follow_up so every call produces comparable data.",
+    "Add a branch for low ratings that offers a transfer to a manager, or takes a callback time, and a short thank-you close for everyone else.",
+    "Prepare a CSV with a phone column and variable columns such as first_name and service_date, create a batch call, and set a call time window in the customers' time zone.",
+    "Run a small first batch, listen to or read the transcripts, and refine the questions before sending the full list.",
+    "Send call-completed events to a webhook, or read the call list, so ratings and comments flow into your reporting."
+  ],
+  "sampleCallFlow": [
+    { "speaker": "agent", "text": "Hi, is this Maya? This is an AI assistant calling for Cedar Lane Vet about Poppy's visit on Tuesday. Do you have a minute for two quick questions?" },
+    { "speaker": "caller", "text": "Sure, go ahead." },
+    { "speaker": "agent", "text": "Thanks. On a scale of one to five, how would you rate your visit?" },
+    { "speaker": "caller", "text": "Probably a three." },
+    { "speaker": "agent", "text": "Thank you for being honest. What would have made it a better visit?" },
+    { "speaker": "caller", "text": "We waited forty minutes past our time and nobody told us why." },
+    { "speaker": "agent", "text": "I'm sorry about that wait. I've recorded your comment. Would you like our practice manager to call you about it?" },
+    { "speaker": "caller", "text": "Yes, that would be fine." },
+    { "speaker": "agent", "text": "I'll pass it on with your number from this call. Thanks for your time, Maya." }
+  ],
+  "featuresUsed": [
+    { "feature": "Batch outbound with per-contact variables", "howItHelps": "A CSV of recent customers drives the campaign and each row's columns personalise the call." },
+    { "feature": "Structured field extraction", "howItHelps": "Ratings, comments and follow-up requests are saved as named fields so results can be compared." },
+    { "feature": "Call transfers", "howItHelps": "A dissatisfied customer can be offered an immediate connection to a manager." },
+    { "feature": "Batch call time window", "howItHelps": "A window with a time zone, allowed days and hours limits when the batch is allowed to dial." },
+    { "feature": "Call summary and flat webhooks", "howItHelps": "Each call produces a summary, and a flat-format webhook can post results to tools like HighLevel, Zapier or Make." },
+    { "feature": "Voicemail detection", "howItHelps": "The agent can hang up on voicemail or leave a short message with a callback number." }
+  ],
+  "considerations": [
+    "Calls made with an automated or artificial voice can need prior consent under rules such as the US TCPA and state laws, including for non-sales calls. Confirm with counsel what consent you hold from your customers.",
+    "Honor opt-outs and keep a suppression list. A customer who asks not to be called again should not be in the next batch.",
+    "Keep the call short and say so. If calls may be recorded, tell the person at the start and check the consent rules for each region you call."
+  ],
+  "faq": [
+    { "q": "Can I send different customers different details?", "a": "Yes. Any CSV column other than the phone number becomes a variable for that row's call, such as first_name or service_date." },
+    { "q": "Where do the answers go?", "a": "They appear as extracted fields and a summary on each call in the dashboard and API, and webhooks can send them to your own systems." },
+    { "q": "Can it do a net promoter style question?", "a": "It can ask any question you write and capture the answer in a field. How you calculate a score from the results is up to your reporting." },
+    { "q": "What if the customer is upset?", "a": "Write a branch for low ratings that offers a transfer or a callback, and make sure someone is ready to answer that number." },
+    { "q": "Will everyone answer the call?", "a": "No. Many calls go to voicemail or are not answered, and the outcome is logged. Treat results as the views of people who chose to talk, not of all customers." }
+  ],
+  "relatedSlugs": ["appointment-reminders", "outbound-lead-follow-up", "order-and-status-inquiries", "call-transfer-to-staff"]
+}

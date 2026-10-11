@@ -1,0 +1,47 @@
+{
+  "slug": "call-transfer-to-staff",
+  "name": "Call Transfer to Staff",
+  "h1": "Warm Call Transfers From an AI Agent to Your Staff",
+  "metaDescription": "Route callers to the right person by department, hours or urgency. Calldesk agents offer warm or cold transfers and can press keypad digits.",
+  "intro": "The hardest moment on an automated line is the handoff. A caller who has explained the problem to a machine and then repeats it all to a person has been badly served, and a transfer that drops the call or lands on an empty desk is worse. A good transfer design answers three questions in advance: who should get this call, are they there, and what do they already know. In Calldesk the agent works out the destination from the conversation, using edge conditions you write in plain English, such as a billing question going to the accounts line and a sales request going to the estimators. A code step can check business hours first, so a call is transferred when someone is likely to answer. A transfer step dials an E.164 number you set and can be warm, in which case the caller's own number is kept as the caller ID, or cold. The agent can say a fixed sentence just before the handoff. Details collected earlier remain on the call record with its summary and transcript. For phone trees, a keypad step can press digits, which helps when a transfer target is an extension behind another menu.",
+  "steps": [
+    "Map the destinations: which departments or people take which kind of call, with a direct number for each in E.164 format.",
+    "Create an agent from the multi-department-router template, which identifies caller intent, collects context and routes, and replace its departments with yours.",
+    "Write each routing rule as an edge condition in plain English and keep the wording distinct, so billing and sales are not confused with each other.",
+    "Add a code step and logic split in front of each transfer to check business hours in your time zone, and a take-a-message branch for closed periods or no answer.",
+    "Set the transfer mode to warm where you want the caller's own number shown to the receiver, and add a spoken message that tells the caller who they are being connected to.",
+    "Where a target is behind an extension menu, add a keypad step that sends the digits, then test each route from an outside phone.",
+    "Review transferred calls in the call list to see where callers needed a person and adjust the rules."
+  ],
+  "sampleCallFlow": [
+    { "speaker": "agent", "text": "Thanks for calling Redwood Property Group. I'm an AI assistant. Are you calling about a rental, a repair, or something else?" },
+    { "speaker": "caller", "text": "I'm a tenant and I need to talk to somebody about my lease renewal." },
+    { "speaker": "agent", "text": "Lease renewals go to our leasing office. May I have your name and unit number first, so I can pass them along?" },
+    { "speaker": "caller", "text": "Omar Haddad, unit twelve C." },
+    { "speaker": "agent", "text": "Thanks, Omar. The leasing office is open now. I'm going to connect you, and I'll tell them you're calling about your lease renewal." },
+    { "speaker": "caller", "text": "That's perfect." },
+    { "speaker": "agent", "text": "Connecting you now. If the line is busy, I'll come back and take a message." },
+    { "speaker": "caller", "text": "Thank you." }
+  ],
+  "featuresUsed": [
+    { "feature": "Call transfers (warm and cold)", "howItHelps": "The agent dials the E.164 number you set; a warm transfer bridges the caller while keeping their own number as caller ID." },
+    { "feature": "Edge conditions and logic split", "howItHelps": "Routing rules are written in plain English or as structured field tests, so each call goes to the intended destination." },
+    { "feature": "Keypad tones (DTMF)", "howItHelps": "The agent can press digits to reach an extension behind another menu." },
+    { "feature": "Code step for business hours", "howItHelps": "A time-zone check prevents transferring into a closed office." },
+    { "feature": "Structured field extraction", "howItHelps": "Name, unit and reason are collected before the handoff and stay on the call record." },
+    { "feature": "Agent transfer", "howItHelps": "A call can be passed to another Calldesk agent instead of a human when a specialist agent fits." }
+  ],
+  "considerations": [
+    "Test every transfer target from an outside phone. Numbers that forward back to the agent's own number can create loops.",
+    "Decide what the agent does if the transfer fails or nobody answers, and script a message-taking fallback so the caller is not left in silence.",
+    "Warm transfer preserves the caller's number as caller ID for the receiver, but how other carriers display it is outside Calldesk's control."
+  ],
+  "faq": [
+    { "q": "What is the difference between warm and cold?", "a": "In Calldesk a warm transfer bridges the caller to your number with the caller's own number preserved as caller ID. A cold transfer hands the call over without that bridging. The default is cold." },
+    { "q": "Can the agent explain the transfer before it happens?", "a": "Yes. The transfer step accepts a spoken message that is said word for word, such as who the caller is about to reach." },
+    { "q": "Can it transfer to different people by topic?", "a": "Yes. Use several transfer steps and edge conditions that select between them. The multi-department-router template is built this way." },
+    { "q": "Does it know if the person answered?", "a": "The call record shows transfer status, and a call-transferred webhook event exists. Handling a transfer that fails is something you design with a fallback branch." },
+    { "q": "Can it press numbers on a phone menu?", "a": "Yes, a keypad step sends digits, including pauses, with support for variables. It has exactly one outgoing edge." }
+  ],
+  "relatedSlugs": ["inbound-call-answering", "overflow-call-handling", "lead-qualification", "after-hours-answering"]
+}

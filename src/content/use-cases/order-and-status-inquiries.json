@@ -1,0 +1,48 @@
+{
+  "slug": "order-and-status-inquiries",
+  "name": "Order and Status Inquiries",
+  "h1": "Order and Delivery Status Calls Answered From Your Own System",
+  "metaDescription": "Callers ask where their order is. A Calldesk agent takes the order number, looks it up through your endpoint, and reads back the status or opens a request.",
+  "intro": "Where is my order? is the call that never goes away. It arrives after every dispatch, every delay and every holiday, and the answer already exists in a system your staff must open to read aloud. The conversation is predictable: identify the order, find its status, explain what the status means and, when something has gone wrong, start a claim or a support request. That makes it a good fit for a voice agent, with one important condition. The agent must read real data, not guess. A knowledge base holds general answers, but an order status changes by the hour, so the lookup has to happen through a function step that posts the collected order number to an endpoint you control and uses the reply in the conversation. If you use HubSpot, there is also a lookup that returns a caller's contact fields as call-time variables. The order-status-checker and delivery-status-caller templates provide a flow in which the agent collects an identifier, confirms it by reading it back, retrieves status, explains next steps and opens a request for missing or damaged items. Staff then handle exceptions, not every routine check.",
+  "steps": [
+    "Expose a read-access status endpoint on your side that accepts an order or tracking number and returns status text. Agree what it will say for unknown numbers.",
+    "Create an agent from the order-status-checker template and set the function step's webhook address to your endpoint.",
+    "Adjust the extraction step to collect the identifier you use and, if you need it, a second detail such as the name on the order or postcode.",
+    "Keep the read-back confirmation step, since misheard digits are the most common source of wrong answers.",
+    "Write a clear branch for exceptions, such as a package marked delivered but not received, that takes details and opens a support request through a second function step or a message.",
+    "Add a transfer for callers who ask for a person, publish, and test with real order numbers including wrong ones and ones in odd states.",
+    "Use the call-issues review and transcripts to check that number read-backs match what was said."
+  ],
+  "sampleCallFlow": [
+    { "speaker": "agent", "text": "Thanks for calling Oakridge Supply. I'm an AI assistant and I can check on an order for you. What's your order number?" },
+    { "speaker": "caller", "text": "It's A as in apple, seven seven four two one." },
+    { "speaker": "agent", "text": "Let me read that back: A, seven, seven, four, two, one. Is that right?" },
+    { "speaker": "caller", "text": "Yes." },
+    { "speaker": "agent", "text": "One moment while I look that up." },
+    { "speaker": "agent", "text": "Order A77421 shipped on Monday and is listed as out for delivery today." },
+    { "speaker": "caller", "text": "Good. Last time it said delivered and nothing showed up." },
+    { "speaker": "agent", "text": "I'm sorry about that. If it's marked delivered tonight and you don't have it, call back and I can start a missing package request. Anything else?" },
+    { "speaker": "caller", "text": "No, that's all." }
+  ],
+  "featuresUsed": [
+    { "feature": "Function step (webhook to your system)", "howItHelps": "The agent posts the collected order number to your endpoint and uses the reply as live status." },
+    { "feature": "Structured field extraction", "howItHelps": "Order number, tracking number or name on the order are collected as fields and confirmed by read-back." },
+    { "feature": "HubSpot caller lookup", "howItHelps": "Where HubSpot holds your customers, a lookup by phone can supply their name and company as call-time variables." },
+    { "feature": "Call-issue checks", "howItHelps": "Calls are analysed afterward for problems such as a number read-back mismatch, with the evidence listed." },
+    { "feature": "Call transfers", "howItHelps": "Exceptions and upset callers can be passed to a person." },
+    { "feature": "Call summary and full transcript", "howItHelps": "Staff see what was asked and what the agent said the status was." }
+  ],
+  "considerations": [
+    "Do not let the agent read personal or order details to an unverified caller. Decide what you require, such as a postcode or the name on the order, before status is shared.",
+    "Never take card numbers in this flow. Do not collect payment details unless you have designed and reviewed a payment process with counsel, which is outside this use case.",
+    "The agent is as current as your endpoint. If the system is down, script a graceful fallback that takes a message."
+  ],
+  "faq": [
+    { "q": "Does Calldesk connect to my shop platform?", "a": "There is no built-in connector for shop platforms. A function step posts to an endpoint you provide, so you or a developer need to supply one that returns the status." },
+    { "q": "Can a knowledge base hold order statuses?", "a": "A knowledge base suits stable facts. Order status changes continually, so use a function step to fetch it at call time." },
+    { "q": "How does it handle misheard numbers?", "a": "The template reads the identifier back for confirmation, and post-call checks flag number read-back mismatches in transcripts for review." },
+    { "q": "Can it start a return or a claim?", "a": "It can collect the details and post them to your endpoint, or leave them in the summary for staff. What happens next depends on your own process." },
+    { "q": "What about callers who are not customers?", "a": "Write a branch for an unknown order number that offers a message or transfer, and test it, since the failure path matters as much as the success path." }
+  ],
+  "relatedSlugs": ["faq-and-knowledge-base-calls", "call-transfer-to-staff", "customer-feedback-calls", "appointment-rescheduling-and-cancellations"]
+}
