@@ -28,19 +28,19 @@ export const CompetitorSchema = z.object({
     perMinuteUsd: z.number().nonnegative().nullable(),
     currency: text,
     planNotes: z.array(text),
-    freeTrial: z.string().trim(),
+    freeTrial: z.string().trim().nullable().transform((v) => v ?? ''), // null = not stated
     whatIsExtra: z.array(text),
     sourceUrls: z.array(httpUrl),
   }),
   strengths: z.array(SourcedClaim),
   limitations: z.array(SourcedClaim),
   integrations: z.array(text),
-  compliance: z.object({ hipaa: stated, soc2: stated, gdpr: stated, note: z.string().trim(), sourceUrl: httpUrl }),
+  compliance: z.object({ hipaa: stated, soc2: stated, gdpr: stated, note: z.string().trim(), sourceUrl: httpUrl.nullable().transform((v) => v ?? undefined) }),
   telephony: z.object({
     bringYourOwnCarrier: z.enum(['yes', 'no', 'unknown']),
     // Researchers may write prose or a boolean; both render. An empty string means unknown.
     providedNumbers: z.union([z.string().trim(), z.boolean()]),
-    sourceUrl: httpUrl,
+    sourceUrl: httpUrl.nullable().transform((v) => v ?? undefined),
   }),
   migration: z.object({
     exportAgentsPossible: z.union([z.boolean(), z.string().trim(), z.null()]),
