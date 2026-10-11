@@ -1,0 +1,169 @@
+{
+  "slug": "bolna",
+  "name": "Bolna",
+  "url": "https://www.bolna.ai",
+  "status": "active",
+  "category": "platform",
+  "positioning": "Bolna is a voice AI agent platform and API focused on India, with multilingual support for Indian languages plus global telephony options.",
+  "pricing": {
+    "model": "Prepaid wallet with a flat per-minute rate that bundles STT, LLM and TTS on a curated model list, plus telephony and a platform fee; pilot and enterprise volume plans.",
+    "headline": "Standard rate from 6.0 cents per minute (USD) on pay-as-you-go, falling to about 4.5 cents at the largest top-up tier; one-time pilot packs at about 4.2 to 4.6 cents per minute.",
+    "perMinuteUsd": 0.06,
+    "currency": "USD",
+    "planNotes": [
+      "Pay-as-you-go: buy credits from $10 to $5,000; the pricing page slider shows 6.00 cents/min at $15 down to 4.51 cents/min at the highest tier shown.",
+      "Pilot plan (one-time): $300 for 6,500 minutes (~4.6 cents/min) or $500 for 12,000 minutes (~4.2 cents/min), up to 25 concurrent calls, billed in 30-second pulses, one month of dedicated support.",
+      "Enterprise: custom volume pricing, dedicated account manager.",
+      "Docs say the flat rate covers transcription, LLM and TTS on preferred models; telephony is charged per minute by the carrier and Bolna adds its own per-minute platform component. The docs do not state whether the 6 cents headline already includes the platform component or telephony.",
+      "Pricing figures were seen on the pricing page (including its FAQ) and the pilot docs page; the pay-as-you-go 6 cents figure is on the pricing page only (single-source)."
+    ],
+    "freeTrial": "$5 in free credits on sign-up.",
+    "whatIsExtra": [
+      "Telephony charges by the carrier (varies by country and provider)",
+      "Models outside the preferred list billed at variable usage rates",
+      "Premium voices and international numbers priced above the standard bundle",
+      "Bolna platform fee per minute (see docs; relationship to headline rate not stated)"
+    ],
+    "sourceUrls": [
+      "https://www.bolna.ai/pricing",
+      "https://www.bolna.ai/docs/pricing/pilot-plan.md",
+      "https://www.bolna.ai/docs/pricing/call-pricing.md",
+      "https://www.bolna.ai/docs/get-started/what-it-costs.md"
+    ]
+  },
+  "strengths": [
+    {
+      "claim": "Built for Indian languages and accents: 10+ Indian languages including Hinglish, Hindi, Tamil and Telugu, with India or US data residency options.",
+      "sourceUrl": "https://www.bolna.ai/"
+    },
+    {
+      "claim": "Flexible telephony: connect your own Twilio, Plivo, Exotel or Vobiz account or a custom SIP trunk, or buy a number from Bolna.",
+      "sourceUrl": "https://www.bolna.ai/docs/telephony-integrations.md"
+    },
+    {
+      "claim": "Bring-your-own-keys for LLM, TTS, STT and tools so you can pay providers directly.",
+      "sourceUrl": "https://www.bolna.ai/docs/pricing/call-pricing.md"
+    },
+    {
+      "claim": "Low-friction entry: $5 free credits, pay-as-you-go from $10, and discounted pilot packs with weekly 1:1 support.",
+      "sourceUrl": "https://www.bolna.ai/pricing"
+    },
+    {
+      "claim": "Developer surface includes REST API, CLI, MCP server, SDKs and an open-source core, plus Zapier, n8n and Make integrations.",
+      "sourceUrl": "https://www.bolna.ai/docs/llms.txt"
+    }
+  ],
+  "limitations": [
+    {
+      "claim": "The current version does not sign webhook or tool-call requests (no HMAC); Bolna recommends allow-listing its three source IP addresses instead.",
+      "sourceUrl": "https://www.bolna.ai/docs/concepts/security.md"
+    },
+    {
+      "claim": "Agents stop making calls when prepaid credits run out unless auto top-up is configured.",
+      "sourceUrl": "https://www.bolna.ai/pricing"
+    },
+    {
+      "claim": "HIPAA, SOC 2 and GDPR certifications are not listed on the docs security page; customers are asked to contact support for those.",
+      "sourceUrl": "https://www.bolna.ai/docs/concepts/security.md"
+    }
+  ],
+  "integrations": [
+    "Twilio",
+    "Plivo",
+    "Exotel",
+    "Vobiz",
+    "Custom SIP trunk",
+    "OpenAI and Azure OpenAI",
+    "ElevenLabs",
+    "Deepgram",
+    "Cartesia",
+    "Sarvam",
+    "Rime",
+    "Zapier",
+    "n8n",
+    "Make",
+    "Cal.com",
+    "ViaSocket",
+    "AiSensy"
+  ],
+  "compliance": {
+    "hipaa": "not-stated",
+    "soc2": "not-stated",
+    "gdpr": "not-stated",
+    "note": "The docs security page does not state HIPAA, SOC 2 or GDPR status and directs customers to support for those; it does state TLS 1.2+, encryption at rest for agent configuration, India and US data residency, and an independent VAPT assessment rated A+ (self-reported).",
+    "sourceUrl": "https://www.bolna.ai/docs/concepts/security.md"
+  },
+  "telephony": {
+    "bringYourOwnCarrier": "yes",
+    "providedNumbers": "Bolna can provide a dedicated number; customers can also connect Twilio, Plivo, Exotel, Vobiz or their own SIP trunk (BYOT). Plivo is described as the default for most deployments.",
+    "sourceUrl": "https://www.bolna.ai/docs/telephony-integrations.md"
+  },
+  "migration": {
+    "exportAgentsPossible": "unknown",
+    "stepsToLeave": [
+      "List and view agents through the REST API, the CLI (bolna agents list/view) or the MCP server.",
+      "Call history and recordings are in each execution record; docs say to contact support for the recording retention policy.",
+      "Numbers bought from Bolna versus numbers on your own provider account: docs describe your own provider accounts staying under your control; porting of Bolna-purchased numbers was not documented."
+    ],
+    "sourceUrls": [
+      "https://www.bolna.ai/docs/llms.txt",
+      "https://www.bolna.ai/docs/concepts/security.md",
+      "https://www.bolna.ai/docs/telephony-integrations.md"
+    ]
+  },
+  "bestFor": "Teams running high-volume inbound or outbound calling, especially in India or in Indian languages, who want a managed per-minute platform with a wide range of telephony and model options.",
+  "sources": [
+    {
+      "url": "https://www.bolna.ai/pricing",
+      "title": "Bolna pricing",
+      "retrievedAt": "2026-10-10"
+    },
+    {
+      "url": "https://www.bolna.ai/",
+      "title": "Bolna home page",
+      "retrievedAt": "2026-10-10"
+    },
+    {
+      "url": "https://www.bolna.ai/docs/pricing/call-pricing.md",
+      "title": "Bolna docs: Voice AI usage pricing",
+      "retrievedAt": "2026-10-10"
+    },
+    {
+      "url": "https://www.bolna.ai/docs/get-started/what-it-costs.md",
+      "title": "Bolna docs: What a call costs",
+      "retrievedAt": "2026-10-10"
+    },
+    {
+      "url": "https://www.bolna.ai/docs/pricing/pilot-plan.md",
+      "title": "Bolna docs: Pilot plan",
+      "retrievedAt": "2026-10-10"
+    },
+    {
+      "url": "https://www.bolna.ai/docs/telephony-integrations.md",
+      "title": "Bolna docs: Telephony integrations",
+      "retrievedAt": "2026-10-10"
+    },
+    {
+      "url": "https://www.bolna.ai/docs/concepts/security.md",
+      "title": "Bolna docs: Security and data handling",
+      "retrievedAt": "2026-10-10"
+    },
+    {
+      "url": "https://www.bolna.ai/docs/integrations.md",
+      "title": "Bolna docs: Integrations",
+      "retrievedAt": "2026-10-10"
+    },
+    {
+      "url": "https://www.bolna.ai/docs/llms.txt",
+      "title": "Bolna docs index (llms.txt)",
+      "retrievedAt": "2026-10-10"
+    }
+  ],
+  "unknowns": [
+    "Whether the 6 cent headline includes Bolna's platform fee and telephony.",
+    "HIPAA, SOC 2 and GDPR status (docs direct to support).",
+    "Formal agent export format and number porting.",
+    "Per-minute rates in currencies or regions other than the USD display on the pricing page."
+  ],
+  "retrievedAt": "2026-10-10"
+}
