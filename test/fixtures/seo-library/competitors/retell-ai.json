@@ -1,0 +1,52 @@
+{
+  "slug": "retell-ai",
+  "name": "Retell AI",
+  "url": "https://www.retellai.com",
+  "status": "active",
+  "retrievedAt": "2026-10-02",
+  "category": "Platform for building voice agents",
+  "positioning": "A platform for building voice agents with a visual conversation flow builder, call analytics and a range of voice and language model options.",
+  "pricing": {
+    "model": "Per-minute pricing that varies with the voice, language model and telephony options you select",
+    "headline": "Listed at $0.07 to $0.31 per minute depending on configuration",
+    "perMinuteUsd": null,
+    "currency": "USD",
+    "planNotes": [
+      "The pricing page shows a worked example that adds language model, voice infrastructure and text-to-speech charges.",
+      "New accounts are shown with starting credit on the pricing page."
+    ],
+    "freeTrial": "New accounts receive starting credit, according to the pricing page.",
+    "whatIsExtra": [],
+    "sourceUrls": ["https://www.retellai.com/pricing"]
+  },
+  "strengths": [
+    { "claim": "Offers a visual conversation flow builder alongside prompt-based agents.", "sourceUrl": "https://docs.retellai.com/build/conversation-flow/overview" },
+    { "claim": "Publishes a wide list of supported languages in its documentation.", "sourceUrl": "https://docs.retellai.com/build/conversation-flow/overview" }
+  ],
+  "limitations": [
+    { "claim": "The price per minute depends on configuration, so a single figure is not published.", "sourceUrl": "https://www.retellai.com/pricing" }
+  ],
+  "integrations": ["Twilio", "Telnyx", "Cal.com", "Zapier"],
+  "compliance": { "hipaa": "not-stated", "soc2": "not-stated", "gdpr": "not-stated", "note": "", "sourceUrl": "https://www.retellai.com/pricing" },
+  "telephony": { "bringYourOwnCarrier": "unknown", "providedNumbers": true, "sourceUrl": "https://www.retellai.com/pricing" },
+  "migration": {
+    "exportAgentsPossible": null,
+    "stepsToLeave": [
+      "Open each agent and copy its prompt, conversation flow and tool settings into your own notes.",
+      "Export call history and recordings for the period you need to keep.",
+      "Record which phone numbers were purchased through Retell AI.",
+      "Cancel the plan after the new agent is live."
+    ],
+    "sourceUrls": ["https://docs.retellai.com/build/conversation-flow/overview"]
+  },
+  "bestFor": "Teams that want a visual flow builder and a hosted platform for production voice agents.",
+  "sources": [
+    { "url": "https://www.retellai.com/pricing", "title": "Retell AI pricing page (test fixture, not a verified record)", "retrievedAt": "2026-10-02" },
+    { "url": "https://docs.retellai.com/build/conversation-flow/overview", "title": "Retell AI conversation flow documentation (test fixture, not a verified record)", "retrievedAt": "2026-10-02" }
+  ],
+  "unknowns": [
+    "Whether bringing your own carrier is supported was not clear from the pages we reviewed.",
+    "Compliance wording was not found on the pages we reviewed.",
+    "This entry is test data used to develop the page templates and is not a verified record."
+  ]
+}

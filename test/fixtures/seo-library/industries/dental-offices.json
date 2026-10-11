@@ -1,0 +1,52 @@
+{
+  "slug": "dental-offices",
+  "name": "Dental offices",
+  "h1": "AI phone agent for dental offices",
+  "metaDescription": "How a Calldesk phone agent can answer a dental office's calls, book cleanings, route emergencies to staff and take messages when the front desk is busy.",
+  "intro": "A dental front desk spends much of the day on the phone while patients are standing in front of it. Calls come in during procedures, at lunch and after closing, and each missed call is a patient who may book with the next office on the list. A phone agent can answer every call, find out why the person is calling and handle the routine ones from start to finish: booking a cleaning, confirming a visit, giving office hours and directions, and taking a message about a billing question. When a caller describes pain, swelling or an injury, the agent can follow the office's own rule and transfer the call to a person at once. This page describes the kinds of calls a dental office receives, what a sample conversation looks like, how to set the agent up on Calldesk, and which questions to settle with your own team before you rely on it. The agent works from the information you give it, so the office decides what it may answer, what it must pass to staff and what it must never discuss on the phone.",
+  "callTypes": [
+    "A new patient asking whether the office is accepting patients and how to book a first visit",
+    "An existing patient booking or moving a routine cleaning",
+    "A caller asking about office hours, location, parking or which insurance plans the office lists",
+    "A patient describing tooth pain or an injury and needing a quick answer from staff",
+    "A caller asking a billing or records question that only the office manager can answer",
+    "A patient confirming or cancelling tomorrow's appointment"
+  ],
+  "sampleCallFlow": [
+    { "speaker": "agent", "text": "Thank you for calling Maple Street Dental. How can I help you today?" },
+    { "speaker": "caller", "text": "Hi, I need to move my cleaning from Thursday." },
+    { "speaker": "agent", "text": "I can help with that. Can I have your name and the date of birth on your file?" },
+    { "speaker": "caller", "text": "Priya Shah, March 3rd, 1990." },
+    { "speaker": "agent", "text": "Thank you, Priya. I see a cleaning on Thursday at 9:30. Would next Tuesday morning or Wednesday afternoon work better?" },
+    { "speaker": "caller", "text": "Tuesday morning is good." },
+    { "speaker": "agent", "text": "You are booked for Tuesday at 10:00. You will get a confirmation by text. Is there anything else I can help with?" }
+  ],
+  "setupSteps": [
+    "Write down what the agent may answer on its own, such as hours, location and booking, and what it must pass to a person.",
+    "Create an agent from a template and add your office details and common questions to the knowledge base.",
+    "Connect the calendar the office books from so the agent offers real openings.",
+    "Set the transfer number for urgent calls and the message fields you want collected.",
+    "Run test calls with your own staff, listen to the recordings and adjust the instructions before pointing your number at the agent."
+  ],
+  "featuresUsed": [
+    { "feature": "Calendar booking", "howItHelps": "Offers open times and books the visit while the patient is still on the line." },
+    { "feature": "Call transfers", "howItHelps": "Sends calls about pain or injury to a person at the number you choose." },
+    { "feature": "Knowledge base", "howItHelps": "Answers questions about hours, location and listed insurance from the text you provide." },
+    { "feature": "Structured field extraction", "howItHelps": "Captures the caller's name, reason for the call and callback number in a consistent format." },
+    { "feature": "Call summary", "howItHelps": "Gives staff a short written summary of each call to read when they are free." }
+  ],
+  "considerations": [
+    "Decide in advance which topics the agent should never discuss, such as test results or treatment details, and instruct it to pass those calls to staff.",
+    "Patient information can be covered by privacy rules in your country or state. Ask your own advisor what applies to call recordings and transcripts before you turn them on.",
+    "Write a clear urgent-call rule and test it, so a caller describing severe pain reaches a person without delay.",
+    "Check that the voice and the language settings suit the patients who call your office."
+  ],
+  "faq": [
+    { "q": "Can the agent book appointments directly?", "a": "Yes, if you connect the calendar your office books from. The agent offers open times and books the one the caller chooses." },
+    { "q": "What happens when a caller has a dental emergency?", "a": "You set the rule. A common setup is to transfer the call to a staff phone at once and take a message if nobody answers." },
+    { "q": "Can it answer questions about insurance?", "a": "It can repeat the plans you list in the knowledge base. For anything beyond that list it can take a message for the office manager." },
+    { "q": "Do patients know they are talking to an AI?", "a": "You choose the greeting. Many offices state at the start of the call that it is an automated assistant." },
+    { "q": "Can I listen to the calls?", "a": "Each call has a transcript and a summary, and you can test calls and watch live calls from the dashboard." }
+  ],
+  "relatedSlugs": ["home-services", "appointment-booking", "medical-clinics", "after-hours-answering"]
+}

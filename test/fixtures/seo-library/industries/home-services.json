@@ -1,0 +1,52 @@
+{
+  "slug": "home-services",
+  "name": "Home services",
+  "h1": "AI phone agent for plumbers, electricians and HVAC companies",
+  "metaDescription": "How a Calldesk phone agent can answer calls for a home service company, collect job details, book visits and pass emergencies to the on-call technician.",
+  "intro": "Home service companies lose work when the phone rings while the team is under a sink or on a roof. Customers with a leaking pipe or a dead furnace call several companies in a row and book with whoever answers. A phone agent picks up every call, asks what is wrong, collects the address and a callback number, and either books a visit or sends the details to the dispatcher. It can follow rules the owner sets, such as which kinds of jobs the company takes, which postcodes it serves and what counts as an emergency that should ring the on-call technician. This page covers the calls a home service company receives, a sample conversation, how to set the agent up on Calldesk and what to think through first. The agent does not diagnose problems or promise prices unless you give it the figures to quote, so the owner decides how much it says and where it hands over to a person. Starting small, with after-hours calls only, is a common way to learn how callers respond before moving daytime calls across.",
+  "callTypes": [
+    "A homeowner reporting a leak, outage or no-heat problem and asking for a technician today",
+    "A caller asking for a quote on a repair, installation or replacement",
+    "A customer booking a routine service visit, such as a yearly furnace check",
+    "A caller asking whether the company serves their area",
+    "A customer asking about the arrival time of a technician already booked",
+    "A supplier or other business calling for the owner"
+  ],
+  "sampleCallFlow": [
+    { "speaker": "agent", "text": "Thanks for calling Ridgeline Heating and Plumbing. What can I help you with?" },
+    { "speaker": "caller", "text": "My water heater is leaking all over the garage floor." },
+    { "speaker": "agent", "text": "I am sorry to hear that. Is water still coming out right now?" },
+    { "speaker": "caller", "text": "Yes, a steady drip." },
+    { "speaker": "agent", "text": "Thank you. I will pass this to our on-call technician now. What is the address and the best number to reach you?" },
+    { "speaker": "caller", "text": "412 Alder Lane, and this number is fine." },
+    { "speaker": "agent", "text": "Got it. I am transferring you to the technician now. If the call drops, they will call you back on this number." }
+  ],
+  "setupSteps": [
+    "List the jobs you take, the areas you serve and what counts as an emergency.",
+    "Create an agent from a template and add your service list, hours and common questions to the knowledge base.",
+    "Choose the fields to collect on every call, such as address, problem and callback number.",
+    "Set the transfer number for emergencies and a webhook or email for everything else.",
+    "Run test calls, then start with after-hours calls before moving daytime calls to the agent."
+  ],
+  "featuresUsed": [
+    { "feature": "Call transfers", "howItHelps": "Rings the on-call technician when the caller describes an emergency." },
+    { "feature": "Structured field extraction", "howItHelps": "Collects address, problem and callback number in the same format on every call." },
+    { "feature": "Webhooks", "howItHelps": "Sends the finished call details to your dispatch or job software." },
+    { "feature": "Knowledge base", "howItHelps": "Answers questions about service areas, hours and the jobs you take." },
+    { "feature": "Call testing and live monitoring", "howItHelps": "Lets you test the agent before launch and watch live calls afterwards." }
+  ],
+  "considerations": [
+    "Decide whether the agent may quote prices. If it may, give it the exact figures and the conditions that apply.",
+    "Write a clear emergency rule, test it with your technicians and keep the on-call number current.",
+    "Check that the postcodes or areas you list match the areas you serve, so the agent does not promise visits you cannot make.",
+    "Review the first weeks of call summaries to find questions the knowledge base does not yet answer."
+  ],
+  "faq": [
+    { "q": "Can it dispatch a technician?", "a": "It can transfer the call to your on-call number and send the job details to your own systems through a webhook. Dispatch itself stays with your team." },
+    { "q": "Will it give quotes?", "a": "Only if you provide the prices and rules to quote. Otherwise it collects the details and says someone will follow up." },
+    { "q": "What if the caller is upset?", "a": "You can tell the agent to transfer the call to a person whenever the caller asks for one or sounds distressed." },
+    { "q": "Can it call customers back?", "a": "Calldesk supports outbound calls, so a follow-up call can be set up as a separate agent." },
+    { "q": "How do I start?", "a": "Many companies start with after-hours calls, read the summaries for a few weeks and then move daytime overflow across." }
+  ],
+  "relatedSlugs": ["dental-offices", "appointment-booking", "after-hours-answering", "lead-qualification"]
+}

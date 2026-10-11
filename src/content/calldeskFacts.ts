@@ -1,0 +1,175 @@
+import { PRICING_TIERS, INCLUDED_ON_ALL, ratingsForStack, type TierId } from '@/lib/pricingTiers';
+import { EXPERT_BACKUP, expertBackupAllowedTierNames, expertBackupPriceText } from '@/lib/expertBackup';
+import { NUMBER_ADDON_PRICES, NUMBER_CARRIERS, type NumberCarrier } from '@/lib/numberAddOn';
+import { AGENT_LANGUAGES } from '@/lib/languages';
+import { centsLabel, centsWords } from '@/lib/pricingCopy';
+
+/**
+ * The ONE source of truth for every statement the comparison, alternatives, migration, industry and use-case pages make about
+ * Calldesk. Templates in src/lib/seoLibrary must read from here and never type a Calldesk price, plan, feature or claim themselves
+ * (test/lib/seoLibrary/templates.test.ts scans the template sources for digits and cents amounts to enforce that).
+ *
+ * How it is derived: prices, tiers, ratings, what every plan includes, phone-number prices, expert backup and the language list are
+ * IMPORTED from the same files the live /pricing page, the API (GET /pricing) and the docs read (src/lib/pricingTiers.ts,
+ * numberAddOn.ts, expertBackup.ts, languages.ts), so this file cannot drift from them. The few things that have no single constant
+ * (API, webhooks, MCP) are typed below with the file that backs each one. Anything we could not confirm from code is NOT here; it
+ * is listed in UNVERIFIED so the next person sees what was left out on purpose.
+ *
+ * Public repo rules: customer-facing facts only. No costs, margins, vendor rates or engine/model names.
+ */
+
+export const CALLDESK_NAME = 'Calldesk';
+export const CALLDESK_SITE = 'https://calldesk.tech';
+export const CALLDESK_SUPPORT_EMAIL = 'support@calldesk.tech';
+
+/**
+ * Certifications Calldesk may state on these pages. EMPTY ON PURPOSE: today the compliance gap analysis (docs/compliance) records no
+ * certification of any kind. Add an entry (for example 'soc2') only after the owner has a real audit report, and say where it is
+ * published. The validator fails any page that states a certification not listed here.
+ */
+export const CALLDESK_CERTIFICATION_ALLOW_LIST: readonly string[] = [];
+
+export type TierFact = {
+  id: TierId;
+  name: string;
+  centsPerMinute: number;
+  /** "2¢" */
+  priceLabel: string;
+  /** "$0.02" */
+  priceDollars: string;
+  tagline: string;
+  whoItsFor: string;
+  voice: string;
+  responseSpeed: string;
+  reasoning: string;
+  englishOnlyVoice: boolean;
+};
+
+const dollars = (cents: number) => `$${(cents / 100).toFixed(2)}`;
+
+// Only tiers that can be bought today are described as available (a tier marked coming_soon would be left out here).
+export const TIERS: readonly TierFact[] = PRICING_TIERS.filter((t) => t.availability === 'live').map((t) => {
+  const r = ratingsForStack(t.stack);
+  return {
+    id: t.id,
+    name: t.name,
+    centsPerMinute: t.pricePerMinuteCents,
+    priceLabel: centsLabel(t.pricePerMinuteCents),
+    priceDollars: dollars(t.pricePerMinuteCents),
+    tagline: t.tagline,
+    whoItsFor: t.whoItsFor,
+    voice: r.voice,
+    responseSpeed: r.responseSpeed,
+    reasoning: r.reasoning,
+    englishOnlyVoice: t.stack.ttsBackend === 'piper',
+  };
+});
+
+const CARRIER_LABEL: Record<NumberCarrier, string> = { telnyx: 'Telnyx', twilio: 'Twilio' };
+
+export const PHONE_NUMBERS = {
+  /** Bringing your own number or carrier costs nothing extra on every plan (pricingTiers.ts CARRIER_NOTE, numberAddOn.ts). */
+  bringYourOwnIsFree: true,
+  options: [...NUMBER_CARRIERS]
+    .sort((a, b) => NUMBER_ADDON_PRICES[a].monthlyCents - NUMBER_ADDON_PRICES[b].monthlyCents)
+    .map((c) => ({
+      carrier: CARRIER_LABEL[c],
+      monthly: `${dollars(NUMBER_ADDON_PRICES[c].monthlyCents)} per month per number`,
+      inbound: `${centsWords(NUMBER_ADDON_PRICES[c].inboundCentsPerMinute)} per inbound minute`,
+    })),
+  outboundUsesYourOwnCarrier: true,
+} as const;
+
+export const EXPERT_BACKUP_FACT = {
+  label: EXPERT_BACKUP.label,
+  tiers: expertBackupAllowedTierNames(),
+  price: expertBackupPriceText(),
+  summary: 'hands the turns your agent is unsure about to a stronger model for better accuracy on hard turns',
+} as const;
+
+const NON_ENGLISH = AGENT_LANGUAGES.length;
+export const LANGUAGES = {
+  /** English plus every code in AGENT_LANGUAGES. */
+  totalCount: NON_ENGLISH + 1,
+  nonEnglishCount: NON_ENGLISH,
+  /** The wording the pricing page uses ("40+ languages", INCLUDED_ON_ALL). Pages say this, not an exact count, so no one has to keep a number current. test/lib/seoLibrary checks totalCount stays above it. */
+  headline: '40+ languages',
+  headlineFloor: 40,
+  /** The English-only tier's voice cannot speak other languages; they need a tier in nonEnglishTierNames (INCLUDED_ON_ALL says so). */
+  nonEnglishNeedsStandardOrPro: true,
+  /** Plans whose voice speaks other languages, and plans whose voice speaks English only (from each tier's voice backend). */
+  nonEnglishTierNames: TIERS.filter((t) => !t.englishOnlyVoice).map((t) => t.name),
+  englishOnlyTierNames: TIERS.filter((t) => t.englishOnlyVoice).map((t) => t.name),
+} as const;
+
+export const BILLING = {
+  noMonthlyMinimum: true,
+  /** Stated on /pricing: "no per-booking or per-transfer fees". */
+  noPerBookingOrTransferFees: true,
+  cancelAnytime: true,
+  addOnsComingSoon: true,
+} as const;
+
+export const DEVELOPER = {
+  restApi: true,
+  mcpServer: true,
+  /** src/lib/openapi.ts, POST /tenants/{id}/webhooks. call.started is Retell-engine only and left out. */
+  webhookEvents: ['call.completed', 'call.transferred', 'call.analyzed'],
+  webhooksSigned: true,
+  webhookFlatFormat: true,
+  docsPath: '/docs',
+  highlevelDocsPath: '/docs/highlevel',
+} as const;
+
+export const COMPLIANCE_FACTS = {
+  /** Always empty until CALLDESK_CERTIFICATION_ALLOW_LIST has entries. */
+  certificationsClaimed: CALLDESK_CERTIFICATION_ALLOW_LIST,
+  /** The sentence every page uses. Built so it states no certification. */
+  statement: 'Calldesk does not currently claim any compliance certification, so if your industry requires one, ask us what we can show you before you rely on it.',
+} as const;
+
+/** Features every plan has (verbatim from pricingTiers.ts INCLUDED_ON_ALL). */
+export const INCLUDED_ON_EVERY_PLAN: readonly string[] = INCLUDED_ON_ALL;
+
+/**
+ * Features pages may name. Each is backed by code. The validator warns when an industry or use-case page names a feature
+ * that is not in this vocabulary, so a writer cannot quietly invent one.
+ */
+export const FEATURE_VOCABULARY: readonly { name: string; backedBy: string }[] = [
+  { name: 'Call summary', backedBy: 'INCLUDED_ON_ALL' },
+  { name: 'Full transcript', backedBy: 'INCLUDED_ON_ALL' },
+  { name: 'Structured field extraction', backedBy: 'INCLUDED_ON_ALL' },
+  { name: 'Call transfers', backedBy: 'INCLUDED_ON_ALL' },
+  { name: 'Keypad tones (DTMF)', backedBy: 'INCLUDED_ON_ALL' },
+  { name: 'Knowledge base', backedBy: 'INCLUDED_ON_ALL' },
+  { name: 'Calendar booking', backedBy: 'INCLUDED_ON_ALL' },
+  { name: 'Call testing and live monitoring', backedBy: 'INCLUDED_ON_ALL' },
+  { name: 'API and MCP server', backedBy: 'INCLUDED_ON_ALL' },
+  { name: 'Multiple languages', backedBy: 'src/lib/languages.ts' },
+  { name: 'Webhooks', backedBy: 'src/lib/openapi.ts' },
+  { name: 'Outbound calls', backedBy: 'src/lib/openapi.ts (place an outbound call)' },
+  { name: 'Batch calls', backedBy: 'src/lib/openapi.ts (batch calls)' },
+  { name: 'Staging and production environments', backedBy: 'src/lib/openapi.ts (promote a version)' },
+  { name: 'Expert backup', backedBy: 'src/lib/expertBackup.ts' },
+  { name: 'Phone numbers', backedBy: 'src/lib/numberAddOn.ts' },
+  { name: 'Flow builder', backedBy: 'src/components/flow-builder' },
+  { name: 'Agent templates', backedBy: 'GET /agent-templates in src/lib/openapi.ts' },
+];
+
+/**
+ * Things a writer might expect to see here that we could not confirm from the code, left out on purpose. Listed in the framework
+ * hand-off report; delete a line once it is verified and added above.
+ */
+export const UNVERIFIED: readonly string[] = [
+  'Which carriers a customer can bring (SIP trunk, Twilio account, Telnyx account): the pricing code says bring-your-own carrier is free but not the connection methods.',
+  'Which calendars connect (the code has a Cal.com connection; the site text mentions Google and Outlook through it).',
+  'Concurrent call limits, uptime commitments and latency figures.',
+  'Call recording retention periods and where recordings are stored.',
+  'Data residency, encryption at rest, a data processing agreement, a business associate agreement: none confirmed (docs/compliance/readiness-gap-analysis.md).',
+  'A free trial: the site offers a free demo call, not a trial with credit.',
+  'Number porting: no code path was found for moving a number from another provider to Calldesk.',
+  'Add-on prices (sentiment, advanced analytics, premium voice, long prompts): announced as coming soon, with no amounts.',
+];
+
+export const TIER_SUMMARY_LINE = TIERS.map((t) => `${t.name} ${t.priceLabel}`).join(', ');
+export const TIER_RANGE_LABEL = `${TIERS[0].priceLabel} to ${TIERS[TIERS.length - 1].priceLabel}`;
