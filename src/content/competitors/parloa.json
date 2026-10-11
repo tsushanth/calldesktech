@@ -1,0 +1,113 @@
+{
+  "slug": "parloa",
+  "name": "Parloa",
+  "url": "https://www.parloa.com",
+  "status": "active",
+  "retrievedAt": "2026-10-10",
+  "category": "enterprise",
+  "positioning": "An enterprise AI agent platform for customer service, with design, simulation and monitoring tools, sold on custom consumption-based contracts.",
+  "pricing": {
+    "model": "Consumption-based (per minute for voice, per interaction for chat) on custom volume commitments",
+    "headline": "Per-minute voice pricing with rates that vary by use-case complexity; no public rate, custom plans via sales.",
+    "perMinuteUsd": null,
+    "currency": "USD",
+    "planNotes": [
+      "Pricing page: 'consumption-based pricing: per minute for voice and per interaction for chat'.",
+      "Rates reflect the complexity of each use case.",
+      "Customers pick a volume package that applies across use cases; outcome-based pricing is supported when it makes sense.",
+      "No standard plans: 'Pricing models are built around your specific deployment'."
+    ],
+    "freeTrial": null,
+    "whatIsExtra": [
+      "Not stated on the page."
+    ],
+    "sourceUrls": [
+      "https://www.parloa.com/pricing"
+    ]
+  },
+  "strengths": [
+    {
+      "claim": "Vendor lists ISO 27001, SOC 2 Type 1 and 2, PCI DSS, HIPAA, DORA, GDPR and EU AI Act coverage on its security page.",
+      "sourceUrl": "https://www.parloa.com/security"
+    },
+    {
+      "claim": "Data residency through 'Parloa Zones' so customer data can stay in a chosen region.",
+      "sourceUrl": "https://www.parloa.com/security"
+    },
+    {
+      "claim": "States 140+ languages and variants with direct SIP connectivity to telephony, CCaaS, PBX/UC and WebRTC.",
+      "sourceUrl": "https://www.parloa.com/platform/conversation-infrastructure"
+    },
+    {
+      "claim": "Includes tooling for simulating and testing agents (Performance Lab) before updates or model changes.",
+      "sourceUrl": "https://www.parloa.com/platform"
+    },
+    {
+      "claim": "Single volume commitment can be applied across multiple use cases without new contracts.",
+      "sourceUrl": "https://www.parloa.com/pricing"
+    }
+  ],
+  "limitations": [
+    {
+      "claim": "Pricing is custom and built around the specific deployment rather than published standard plans.",
+      "sourceUrl": "https://www.parloa.com/pricing"
+    }
+  ],
+  "integrations": [
+    "SAP (order-to-cash solution listed)",
+    "Telephony, CCaaS and PBX/UC systems via SIP",
+    "WebRTC"
+  ],
+  "compliance": {
+    "hipaa": "stated",
+    "soc2": "stated",
+    "gdpr": "stated",
+    "note": "Stated by vendor, self-attested on the security page: 'ISO 27001, SOC 2 Type 1 and 2, PCI DSS, HIPAA, DORA, GDPR, and the EU AI Act'. Trust center link exists but was not read.",
+    "sourceUrl": "https://www.parloa.com/security"
+  },
+  "telephony": {
+    "bringYourOwnCarrier": "unknown",
+    "providedNumbers": "Not stated; page says SIP connects directly to existing telephony, CCaaS and PBX/UC platforms.",
+    "sourceUrl": "https://www.parloa.com/platform/conversation-infrastructure"
+  },
+  "migration": {
+    "exportAgentsPossible": "unknown",
+    "stepsToLeave": [],
+    "sourceUrls": []
+  },
+  "bestFor": "Large enterprises and contact centres wanting a managed, governed agent platform with multi-region and multi-language needs.",
+  "sources": [
+    {
+      "url": "https://www.parloa.com/",
+      "title": "Parloa home",
+      "retrievedAt": "2026-10-10"
+    },
+    {
+      "url": "https://www.parloa.com/pricing",
+      "title": "Parloa Pricing",
+      "retrievedAt": "2026-10-10"
+    },
+    {
+      "url": "https://www.parloa.com/security",
+      "title": "Parloa Enterprise Security & Governance",
+      "retrievedAt": "2026-10-10"
+    },
+    {
+      "url": "https://www.parloa.com/platform/conversation-infrastructure",
+      "title": "Parloa Conversation Infrastructure",
+      "retrievedAt": "2026-10-10"
+    },
+    {
+      "url": "https://www.parloa.com/platform",
+      "title": "Parloa Platform",
+      "retrievedAt": "2026-10-10"
+    }
+  ],
+  "unknowns": [
+    "Per-minute rate or minimum commitment",
+    "Free trial",
+    "Bring-your-own-carrier specifics",
+    "Agent export or data portability terms",
+    "Full integrations list (the integrations page returned 404)"
+  ]
+}
