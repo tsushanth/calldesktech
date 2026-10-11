@@ -1,0 +1,49 @@
+{
+  "slug": "inbound-call-answering",
+  "name": "Inbound Call Answering",
+  "h1": "AI Inbound Call Answering for Small Businesses and Agencies",
+  "metaDescription": "Set up a Calldesk phone agent that picks up every incoming call, answers common questions, takes messages and hands callers to your team.",
+  "intro": "A ringing phone competes with everything else a small team is doing. The person who normally answers is often with a customer, on another line or away from the desk, and the caller on the other end decides within a few rings whether to leave a message or try someone else. Hiring a full-time receptionist solves this but fixes a large cost to a call volume that rises and falls through the week. Inbound call answering with a Calldesk phone agent covers the first touch: the agent picks up, says it is an AI assistant for your business, finds out why the person is calling and then does something useful with the answer. It can respond to routine questions from a knowledge base you write, take a message with a name, callback number and reason, book an appointment when a calendar is connected, or transfer the caller to a named person. Every call ends with a summary, a full transcript and the fields you asked it to collect, so nobody on your side has to replay audio to learn what happened. You decide the tone, the opening line and which situations always go to a human. Agencies can build one agent per client and route each client's number to it, keeping every client's script and call history separate.",
+  "steps": [
+    "Create an agent from the receptionist template, or start blank, and set your business name and the agent name it should use in the variables.",
+    "Write a knowledge base for the questions you answer all day (hours, address, services, parking, how to pay) and attach it to the agent so answers come from your text and not from guesswork.",
+    "Add an extraction step that collects the caller's name, callback number and reason for calling, plus any extra fields your team needs such as account number.",
+    "Set a transfer step with the E.164 number of the person or desk that should take urgent or human-requested calls, and choose a warm or cold transfer.",
+    "Publish a version, pick a tier (Standard is described on the pricing page as suited to reception, booking, intake and after-hours coverage), and route your phone number to the new version, or to a production environment so later updates need no re-routing.",
+    "Place test calls, then check the Live Calls page during the first few days and read summaries and transcripts to tighten the prompt.",
+    "Optionally register a webhook for call completion so summaries land in your CRM or inbox automatically."
+  ],
+  "sampleCallFlow": [
+    { "speaker": "agent", "text": "Thanks for calling Harbor Street Dental. I'm an AI assistant and I can answer questions, take a message or connect you to the front desk. How can I help?" },
+    { "speaker": "caller", "text": "Hi, are you open on Saturdays?" },
+    { "speaker": "agent", "text": "We're open Saturdays from nine to one. Is there something I can help you schedule or look into?" },
+    { "speaker": "caller", "text": "Actually I need to talk to someone about a bill." },
+    { "speaker": "agent", "text": "Billing questions go to our office manager. Before I connect you, may I have your name?" },
+    { "speaker": "caller", "text": "Priya Raman." },
+    { "speaker": "agent", "text": "Thanks, Priya. And what's a number we can reach you on if the call drops?" },
+    { "speaker": "caller", "text": "Five five five, zero one four two." },
+    { "speaker": "agent", "text": "Got it, five five five, zero one four two. I'll transfer you to the office manager now. One moment." },
+    { "speaker": "caller", "text": "Okay, thank you." }
+  ],
+  "featuresUsed": [
+    { "feature": "Knowledge base", "howItHelps": "The agent answers hours, services and location questions from text you wrote, which keeps routine answers consistent." },
+    { "feature": "Structured field extraction", "howItHelps": "Name, callback number and reason for the call are captured into named fields instead of buried in audio." },
+    { "feature": "Call transfers", "howItHelps": "Urgent callers and callers who ask for a person can be passed to a number you set, with the option of a warm transfer." },
+    { "feature": "Call summary and full transcript", "howItHelps": "Each call produces a short summary and a transcript so staff can triage without replaying the call." },
+    { "feature": "Call testing and Live Calls page", "howItHelps": "You can test the agent before it takes real traffic, and the Live Calls page shows which calls are in progress and where each is in the flow. It shows call state, not audio." },
+    { "feature": "Environments (staging and production)", "howItHelps": "Edit and test a new version in staging, then promote it so the number picks it up without being re-routed." }
+  ],
+  "considerations": [
+    "Say plainly that the caller is speaking with an AI assistant; some jurisdictions and carriers expect disclosure, and it builds trust either way.",
+    "If calls may be recorded, announce it in the opening line. Recording consent rules differ by state and country, so confirm what applies to you with counsel.",
+    "Do not let the agent answer questions your knowledge base does not cover. Instruct it to take a message instead of improvising on pricing, medical or legal topics."
+  ],
+  "faq": [
+    { "q": "Does the agent replace my receptionist?", "a": "It covers the first touch on calls. You decide which situations go to a person, and transfers to staff are a built-in step, so most teams use it alongside people." },
+    { "q": "Which phone numbers can it answer?", "a": "You can register a number you already own and forward calls to it, at no extra charge on every plan, or add a number from Calldesk as a priced extra. Inbound calls to the number are routed to the agent version you choose." },
+    { "q": "How do I know what it said to callers?", "a": "Every call has a transcript and a summary in the dashboard and through the API, and the Live Calls page shows which calls are in progress right now." },
+    { "q": "Which plan should I start with?", "a": "The pricing page describes Standard as suited to reception and booking, and Lite as an English-language option for simple calls. Rates are per minute of talk time, with carrier charges billed separately." },
+    { "q": "Can one agency account serve several clients?", "a": "Yes. You can build a separate agent per client and route each client's number to its own agent, so scripts and call logs stay apart. Confirm the account setup that fits your billing arrangement with Calldesk." }
+  ],
+  "relatedSlugs": ["after-hours-answering", "call-transfer-to-staff", "faq-and-knowledge-base-calls", "overflow-call-handling"]
+}

@@ -3,11 +3,21 @@ import Link from 'next/link';
 import { Container, Section } from '@/components/landing/primitives';
 import { COMPETITORS } from '@/lib/compareData';
 import { LIVE_RANGE } from '@/lib/pricingCopy';
+import { getLibrary, hubChildren } from '@/lib/seoLibrary';
+import { replacedCompareSlugs } from '@/lib/seoLibrary/redirects';
 
 export const metadata: Metadata = {
   title: 'Compare | CallDeskTech',
+  alternates: { canonical: 'https://calldesk.tech/compare' },
   description: 'How CallDeskTech stacks up against Retell, ThunderPhone, and a dozen other voice AI platforms, feature by feature and call by call.',
 };
+
+// An old hand-written page that redirects to its published library page is not linked from here (the library page is listed below).
+function morePages() {
+  const { lib } = getLibrary();
+  const replaced = new Set(replacedCompareSlugs(lib.publish, lib.competitors.filter((c) => c.status === 'active').map((c) => c.slug)));
+  return MORE_PAGES.filter((p) => !replaced.has(p.href.replace('/compare/', '')));
+}
 
 const MORE_PAGES = [
   ...COMPETITORS.map((c) => ({ href: `/compare/${c.slug}`, name: c.shortName, line: c.stats[0] })),
@@ -36,6 +46,8 @@ const PAGES = [
 ];
 
 export default function ComparePage() {
+  // Sourced comparison pages from the programmatic library (src/lib/seoLibrary): only the ones listed in src/content/publish.json.
+  const sourced = hubChildren('compare');
   return (
     <main>
       <Container className="pt-16 pb-10 md:pt-24">
@@ -75,7 +87,7 @@ export default function ComparePage() {
           Built from public pricing pages and documentation, not head-to-head calls &mdash; each page says exactly how it was sourced.
         </p>
         <div className="mt-8 grid gap-px overflow-hidden rounded-xl border border-gray-200 bg-gray-100 sm:grid-cols-2 lg:grid-cols-3">
-          {MORE_PAGES.map((p) => (
+          {morePages().map((p) => (
             <Link
               key={p.href}
               href={p.href}
@@ -87,6 +99,25 @@ export default function ComparePage() {
           ))}
         </div>
       </Section>
+
+      {sourced.length > 0 && (
+        <Section size="secondary" className="pt-0 pb-24">
+          <h2 className="text-[24px] font-normal leading-[1.1] tracking-[-0.03em] text-[#00122e]">
+            Sourced comparisons.
+          </h2>
+          <p className="mt-3 max-w-[560px] text-[14px] leading-[1.5] text-gray-500">
+            Each page is built from the other company&rsquo;s public pages, with sources and the date we checked them.
+          </p>
+          <div className="mt-8 grid gap-px overflow-hidden rounded-xl border border-gray-200 bg-gray-100 sm:grid-cols-2 lg:grid-cols-3">
+            {sourced.map((p) => (
+              <Link key={p.path} href={p.path} className="group bg-white p-6 transition-colors duration-200 hover:bg-[#f8f8fb]">
+                <p className="text-[14.5px] font-medium text-[#00122e] group-hover:text-blue-600">{p.h1}</p>
+                <p className="mt-2 text-[13px] leading-[1.4] text-gray-500">Last verified {p.lastVerified}</p>
+              </Link>
+            ))}
+          </div>
+        </Section>
+      )}
     </main>
   );
 }

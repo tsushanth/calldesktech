@@ -1,0 +1,50 @@
+{
+  "slug": "voicemail-replacement",
+  "name": "Voicemail Replacement",
+  "h1": "Replace Voicemail With an AI Agent That Takes Real Messages",
+  "metaDescription": "Swap the beep for a conversation. A Calldesk agent asks follow-up questions, captures name, number and reason, and sends you a summary, not audio.",
+  "intro": "Voicemail asks the caller to do the work: speak to a recording, remember to state a name and number, and explain the problem clearly with no one to ask what they mean. Many callers hang up at the beep, and those who stay often mumble a number or leave out what the call is about. For the owner, the box becomes a chore of replaying audio on a bad day to find who needs a callback first. A message-taking agent replaces the beep with a short conversation. It says it is an AI assistant, explains that nobody is available, and asks for the same few things every time: name, a number to reach them, what it is about, and how urgent. If the answer is thin it asks a follow-up question, and it repeats the callback number back so a wrong digit is caught while the caller is still there. What you receive is a written summary, the extracted fields and a transcript, instead of an audio file in a queue, and a call-completed webhook can push it to email or your helpdesk. The message-taking template covers the pattern, and it works alongside forwarding rules so that your phone sends unanswered calls to the agent.",
+  "steps": [
+    "Create an agent from the message-taking template, which collects name, callback number and reason for the call, and edit the opening so it says nobody is available.",
+    "Add extraction fields for anything your team always has to chase, such as preferred time to call, account number or preferred contact method.",
+    "Write an urgency question with clear edge conditions, and decide which urgent callers should be transferred to a mobile number and which are logged for the next working day.",
+    "Keep the read-back of the callback number, so digits are confirmed while the caller is on the line.",
+    "Get a number for the agent, bring your own or add one from Calldesk, and set your phone system to forward unanswered calls to it instead of to the old voicemail box.",
+    "Register a call-completed webhook, in flat format if your tool prefers it, so each message lands in email, your CRM or your helpdesk with the summary attached.",
+    "Place test calls, including a caller who gives an unclear number, and refine the follow-up questions."
+  ],
+  "sampleCallFlow": [
+    { "speaker": "agent", "text": "You've reached Calloway Accounting. Nobody is available to take your call right now. I'm an AI assistant and I can take a message. May I have your name?" },
+    { "speaker": "caller", "text": "It's Greg Palmer." },
+    { "speaker": "agent", "text": "Thanks, Greg. What's a good number for a call back?" },
+    { "speaker": "caller", "text": "Five five five, zero one eight eight." },
+    { "speaker": "agent", "text": "Let me read that back: five five five, zero one eight eight. Is that right?" },
+    { "speaker": "caller", "text": "Yes." },
+    { "speaker": "agent", "text": "And what is the call about?" },
+    { "speaker": "caller", "text": "I got a letter from the tax office and I'm not sure what to do." },
+    { "speaker": "agent", "text": "Understood. Is there a date on the letter that you need to respond by?" },
+    { "speaker": "caller", "text": "Yes, the fifteenth." },
+    { "speaker": "agent", "text": "I've noted a tax office letter with a response date of the fifteenth. Someone will call you back. Goodbye, Greg." }
+  ],
+  "featuresUsed": [
+    { "feature": "Structured field extraction", "howItHelps": "Name, callback number, reason and urgency are separate fields instead of a single audio file." },
+    { "feature": "Call summary and full transcript", "howItHelps": "You read a short written message, with the transcript behind it, and no audio to replay." },
+    { "feature": "Webhooks", "howItHelps": "A call-completed event can send each message to email, a helpdesk or a CRM as it arrives." },
+    { "feature": "Call transfers", "howItHelps": "Urgent callers can be passed to a mobile number you choose, not just logged." },
+    { "feature": "Existing number with call forwarding", "howItHelps": "Unanswered calls are forwarded from your existing line to the agent without changing the number you publish." },
+    { "feature": "Call testing", "howItHelps": "You can check how the agent handles vague answers before replacing your voicemail box." }
+  ],
+  "considerations": [
+    "Callers expect to leave a message, so state clearly that they are talking to an AI assistant and what will happen with their information.",
+    "Messages can contain private details. Decide who receives the summaries, how long you keep transcripts, and confirm any legal retention or consent requirements with counsel.",
+    "Forwarding to the agent changes where missed calls go. Keep your old voicemail as a fallback for the case in which the forwarding target is unreachable, if your carrier supports that."
+  ],
+  "faq": [
+    { "q": "How is this different from visual voicemail?", "a": "Visual voicemail still presents the caller's own recording. The agent asks questions, repeats the number back, and delivers a written summary plus fields, so there is nothing to transcribe." },
+    { "q": "Can callers still leave a plain message?", "a": "Yes. They answer the questions in their own words, and the transcript keeps everything they said." },
+    { "q": "Do I get an alert when a message arrives?", "a": "Use a call-completed webhook to send each summary to email or a chat tool. Calldesk also has an alerting section in the dashboard for call conditions." },
+    { "q": "What if the caller hangs up midway?", "a": "The call is still logged with whatever was captured and an outcome such as abandoned, so you can see partial messages." },
+    { "q": "Is this the same as the after-hours page?", "a": "They overlap. After-hours answering is about hours logic and emergencies at night. This page is about replacing the voicemail box itself, at any time nobody can pick up." }
+  ],
+  "relatedSlugs": ["after-hours-answering", "missed-call-callback", "inbound-call-answering", "overflow-call-handling"]
+}

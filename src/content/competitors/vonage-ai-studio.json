@@ -1,0 +1,119 @@
+{
+  "slug": "vonage-ai-studio",
+  "name": "Vonage AI Studio",
+  "url": "https://www.vonage.com/communications-apis/ai-studio/",
+  "status": "active",
+  "retrievedAt": "2026-10-10",
+  "category": "cpaas",
+  "positioning": "A low-code conversational flow builder from Vonage for virtual agents across voice, SMS, WhatsApp and web chat, billed on top of Vonage API usage.",
+  "pricing": {
+    "model": "Plan fee (Standard $0, Advanced $1,100/month, Fully Managed custom) plus per-request AI charges and regular Vonage API charges",
+    "headline": "Standard plan $0/month; Advanced $1,100/month; voice minutes are billed separately at regular Vonage API rates, so no all-in per-minute price.",
+    "perMinuteUsd": null,
+    "currency": "USD",
+    "planNotes": [
+      "Standard: $0/month, 10 agents, 10K sessions/month, for low traffic.",
+      "Advanced: $1,100/month, 100 agents, 300K sessions/month, professional services available at extra cost.",
+      "Fully Managed: custom, built and managed by Vonage experts.",
+      "NLU and Knowledge AI (generative) each $0.00855 per request on the snapshot read.",
+      "Voice, ASR and premium TTS are charged at regular Vonage API rates.",
+      "Fair usage: average of 50 events per session maximum.",
+      "Service packs start at $3,300 per month (Advanced/Managed context)."
+    ],
+    "freeTrial": "Standard plan is listed at $0/month with a 'Try it free' button.",
+    "whatIsExtra": [
+      "Vonage Voice API minutes, ASR and premium TTS",
+      "NLU and Knowledge AI requests",
+      "Professional services (from $3,300/month)"
+    ],
+    "sourceUrls": [
+      "https://web.archive.org/web/20261007234723/https://www.vonage.com/communications-apis/ai-studio/pricing/",
+      "https://developer.vonage.com/en/ai-studio/overview"
+    ]
+  },
+  "strengths": [
+    {
+      "claim": "Free Standard plan lets teams build and self-deploy low-traffic agents before paying.",
+      "sourceUrl": "https://web.archive.org/web/20261007234723/https://www.vonage.com/communications-apis/ai-studio/pricing/"
+    },
+    {
+      "claim": "Multi-channel: one platform covers voice, SMS, WhatsApp and web chat.",
+      "sourceUrl": "https://web.archive.org/web/20261007234723/https://www.vonage.com/communications-apis/ai-studio/pricing/"
+    },
+    {
+      "claim": "Low-code drag-and-drop canvas of conversation nodes per Vonage's docs.",
+      "sourceUrl": "https://developer.vonage.com/en/ai-studio/overview"
+    },
+    {
+      "claim": "Pricing table lists Import/Export of flows, templates, insights and custom code at no additional charge.",
+      "sourceUrl": "https://web.archive.org/web/20261007234723/https://www.vonage.com/communications-apis/ai-studio/pricing/"
+    },
+    {
+      "claim": "Backed by Vonage's carrier-grade communications APIs and managed professional-services options.",
+      "sourceUrl": "https://web.archive.org/web/20261007234723/https://www.vonage.com/communications-apis/ai-studio/pricing/"
+    }
+  ],
+  "limitations": [
+    {
+      "claim": "Regular Vonage API charges apply separately for voice, ASR and premium TTS, so the total per call depends on several line items.",
+      "sourceUrl": "https://web.archive.org/web/20261007234723/https://www.vonage.com/communications-apis/ai-studio/pricing/"
+    },
+    {
+      "claim": "Fair-usage limit of an average 50 events per session; beyond it Vonage may request an upgrade to Advanced.",
+      "sourceUrl": "https://web.archive.org/web/20261007234723/https://www.vonage.com/communications-apis/ai-studio/pricing/"
+    },
+    {
+      "claim": "Transcripts are retained for 90 days and telephony recordings for 30 days per the terms.",
+      "sourceUrl": "https://web.archive.org/web/20261007234723/https://www.vonage.com/communications-apis/ai-studio/pricing/"
+    }
+  ],
+  "integrations": [
+    "Vonage Voice, SMS, WhatsApp APIs",
+    "Email connector",
+    "Custom webhooks",
+    "Custom code"
+  ],
+  "compliance": {
+    "hipaa": "not-stated",
+    "soc2": "not-stated",
+    "gdpr": "not-stated",
+    "note": "No compliance certifications stated on the pricing page or the docs overview read. Vonage has a Security & Trust page that was not read.",
+    "sourceUrl": null
+  },
+  "telephony": {
+    "bringYourOwnCarrier": "unknown",
+    "providedNumbers": "Voice runs on Vonage Voice API; number options not described on the pages read.",
+    "sourceUrl": "https://web.archive.org/web/20261007234723/https://www.vonage.com/communications-apis/ai-studio/pricing/"
+  },
+  "migration": {
+    "exportAgentsPossible": "yes",
+    "stepsToLeave": [
+      "The pricing page's feature table lists 'Import / Export Flows' as a platform feature; export format and scope were not verified."
+    ],
+    "sourceUrls": [
+      "https://web.archive.org/web/20261007234723/https://www.vonage.com/communications-apis/ai-studio/pricing/"
+    ]
+  },
+  "bestFor": "Teams already on Vonage APIs, or needing multi-channel low-code virtual agents with a free entry plan.",
+  "sources": [
+    {
+      "url": "https://web.archive.org/web/20261007234723/https://www.vonage.com/communications-apis/ai-studio/pricing/",
+      "title": "Vonage AI Studio Plans and Pricing (Internet Archive snapshot 2026-10-07)",
+      "retrievedAt": "2026-10-10"
+    },
+    {
+      "url": "https://developer.vonage.com/en/ai-studio/overview",
+      "title": "Vonage AI Studio documentation overview",
+      "retrievedAt": "2026-10-10"
+    }
+  ],
+  "unknowns": [
+    "Live vonage.com pages could not be fetched automatically; pricing was read from an Internet Archive snapshot taken 2026-10-07 and has not been confirmed on the live site",
+    "A search-engine snippet showed $0.0073 per request for NLU/Knowledge AI versus $0.00855 in the snapshot; not reconciled",
+    "Per-session price beyond plan allowances",
+    "Voice per-minute and ASR/TTS rates (separate Vonage pricing pages not read)",
+    "Compliance statements (HIPAA, SOC 2, GDPR)",
+    "Bring-your-own-carrier support",
+    "Export format"
+  ]
+}

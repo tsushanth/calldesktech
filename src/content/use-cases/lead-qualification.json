@@ -1,0 +1,48 @@
+{
+  "slug": "lead-qualification",
+  "name": "Lead Qualification",
+  "h1": "Qualify Inbound Leads by Phone Before Your Team Calls Back",
+  "metaDescription": "A Calldesk voice agent asks your screening questions, records answers as fields, and passes promising callers to sales while still on the line.",
+  "intro": "Sales time is lost on calls that were never going to convert. A contractor drives to an estimate for a job outside the service area; a software team books a demo with someone who has no budget and no authority. The cost is the callback itself, the half hour spent finding out what two questions would have shown. Qualification by phone moves those two questions to the start. The agent greets the caller, explains that it is an AI assistant, and asks the screening questions you wrote: what they need, where, by when, and any threshold that matters to your business. It records each answer in a named field, then follows the rule you set for what counts as qualified. A qualified caller can be transferred to a salesperson in the same call, with the collected details available to that person, or offered a time on the calendar. A caller who does not fit is thanked, pointed at a self-serve option if you have one, and the call is logged with the reason. Your team reads a short summary plus the extracted fields rather than a bare voicemail. Templates such as high-intent-lead-screener and b2b-demo-qualification show conversation shapes you can adapt.",
+  "steps": [
+    "Write down the three to six questions that separate a good fit from a poor one, and what answer ends the conversation politely.",
+    "Create an agent from the high-intent-lead-screener or b2b-demo-qualification template and replace its questions and qualification rule with yours.",
+    "Define extraction fields for each answer, for example service_type, postcode, timeline and budget_range, so the results can be filtered later.",
+    "Set the qualified branch to a transfer step pointing at the sales line, with a warm transfer so the caller's number is preserved, and add a fallback that takes a callback number if nobody picks up.",
+    "Add the not-qualified branch with a kind close and, if useful, a pointer to your website or a partner, and have the agent record the reason.",
+    "Publish, route your lead line to the version, and send a call-completed webhook to your CRM so each lead arrives with its fields attached."
+  ],
+  "sampleCallFlow": [
+    { "speaker": "agent", "text": "Thanks for calling Summit Roofing. I'm an AI assistant. I'll ask a few quick questions so I can get you to the right person. What kind of roof work are you looking at?" },
+    { "speaker": "caller", "text": "Replacing the whole roof. It's about twenty years old and leaking." },
+    { "speaker": "agent", "text": "Understood. What's the zip code of the property?" },
+    { "speaker": "caller", "text": "Nine seven two zero five." },
+    { "speaker": "agent", "text": "That's within our service area. Are you the homeowner?" },
+    { "speaker": "caller", "text": "Yes." },
+    { "speaker": "agent", "text": "And when would you like the work done? This month, in a few months, or just getting prices?" },
+    { "speaker": "caller", "text": "As soon as possible, because of the leak." },
+    { "speaker": "agent", "text": "Thanks. Based on that, I'll connect you to one of our estimators right now. Please hold for a moment." },
+    { "speaker": "caller", "text": "Great." }
+  ],
+  "featuresUsed": [
+    { "feature": "Structured field extraction", "howItHelps": "Each screening answer becomes a named field that you can filter and report on." },
+    { "feature": "Logic split and edge conditions", "howItHelps": "Qualified and unqualified callers follow different branches according to rules you write." },
+    { "feature": "Call transfers (warm)", "howItHelps": "A qualified lead can be bridged to a salesperson during the same call, keeping the caller's number as the caller ID." },
+    { "feature": "Calendar booking", "howItHelps": "Instead of transferring, the agent can offer open times from a connected Cal.com calendar." },
+    { "feature": "Webhooks", "howItHelps": "Call-completed events carry the summary and extracted data to your CRM or workflow tool." },
+    { "feature": "Call summary and full transcript", "howItHelps": "The salesperson sees what was said and why the agent routed the call that way." }
+  ],
+  "considerations": [
+    "Screening questions can create unfair outcomes if they proxy for protected characteristics. Keep questions tied to the business need, and review transcripts for how the rule is applied.",
+    "Do not promise callers an estimate or a price. State just what your business has agreed to deliver.",
+    "Keep a human path for callers who do not fit the script, so that a legitimate customer with an unusual need is not turned away."
+  ],
+  "faq": [
+    { "q": "Can the agent decide who qualifies on its own?", "a": "It follows the criteria you write, such as answers to specific questions, and routes accordingly. Treat the rule as a draft and review transcripts to see how it behaves in practice." },
+    { "q": "What does the salesperson receive?", "a": "A call summary, a transcript and the extracted fields. With a warm transfer the caller is connected live with their own number shown as caller ID." },
+    { "q": "Can it qualify outbound leads too?", "a": "Yes. The outbound lead follow-up page covers calling leads who submitted a form. This page is about screening people who call you." },
+    { "q": "Does it push data to my CRM?", "a": "Webhooks can send call data, with a flat format for tools like HighLevel, Zapier and Make. There is also a HubSpot lookup that can supply a caller's CRM fields as call-time variables." },
+    { "q": "How many questions is too many?", "a": "Callers tire quickly. Start with the few answers that decide routing, and add more when transcripts show a real need." }
+  ],
+  "relatedSlugs": ["outbound-lead-follow-up", "call-transfer-to-staff", "inbound-call-answering", "appointment-booking"]
+}

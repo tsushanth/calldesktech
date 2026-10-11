@@ -1,0 +1,161 @@
+{
+  "slug": "synthflow",
+  "name": "Synthflow",
+  "url": "https://synthflow.ai",
+  "status": "active",
+  "retrievedAt": "2026-10-10",
+  "category": "no-code-builder",
+  "positioning": "A voice and chat agent platform with a no-code Flow Designer and Prompt Builder, now selling mainly through sales-scoped enterprise contracts, with agency subaccount and rebilling features.",
+  "pricing": {
+    "model": "Sales-led enterprise contracts scoped to call volume, concurrency, telephony and support; no self-serve price list was found on the public pricing page.",
+    "headline": "Enterprise contracts start at $30,000 per year per the vendor's pricing page; no public per-minute rate.",
+    "perMinuteUsd": null,
+    "currency": "USD",
+    "planNotes": [
+      "Docs state Synthflow uses sales-led pricing and that public documentation should not be used as a quote.",
+      "Some existing workspaces may still show legacy billing labels governed by their own agreement.",
+      "Enterprise includes custom concurrency planning, telephony setup (Synthflow native telephony, SIP trunking or approved telephony), integrations, MSA/DPA support, onboarding and launch support."
+    ],
+    "freeTrial": null,
+    "whatIsExtra": [],
+    "sourceUrls": [
+      "https://synthflow.ai/pricing",
+      "https://docs.synthflow.ai/billing.md"
+    ]
+  },
+  "strengths": [
+    {
+      "claim": "No-code agent building with a Flow Designer and Prompt Builder, templates, and JSON import for agent configurations.",
+      "sourceUrl": "https://docs.synthflow.ai/create-an-agent.md"
+    },
+    {
+      "claim": "Agency-oriented features: subaccounts, limits per subaccount, and Stripe-based rebilling and pricing plans for reselling.",
+      "sourceUrl": "https://docs.synthflow.ai/set-up-pricing-and-rebilling"
+    },
+    {
+      "claim": "Operator-grade telephony tooling: regional infrastructure (Global, US, EU), SIP call ladder diagrams with PCAP download, and documented SIP integration with many carriers and PBX systems.",
+      "sourceUrl": "https://docs.synthflow.ai/telephony.md"
+    },
+    {
+      "claim": "Compliance posture stated for enterprises: SOC 2, HIPAA, PCI DSS and GDPR on its site, a published BAA template, agent-level retention and PII redaction controls, and an EU AI Act transparency statement.",
+      "sourceUrl": "https://docs.synthflow.ai/security-and-compliance.md"
+    },
+    {
+      "claim": "Large stated scale: the vendor reports more than 65 million voice calls per month across 30+ countries and WhatsApp calling support.",
+      "sourceUrl": "https://synthflow.ai/pricing"
+    }
+  ],
+  "limitations": [
+    {
+      "claim": "SIP/PBX integration requires an Enterprise plan subscription.",
+      "sourceUrl": "https://docs.synthflow.ai/telephony.md"
+    },
+    {
+      "claim": "Pricing is sales-scoped; enterprise contracts start at $30,000 annually and no public per-minute or self-serve plan pricing was found.",
+      "sourceUrl": "https://synthflow.ai/pricing"
+    },
+    {
+      "claim": "Numbers bought inside Synthflow cover the U.S., Canada and Australia; the docs recommend Twilio or SIP for production use.",
+      "sourceUrl": "https://docs.synthflow.ai/telephony.md"
+    }
+  ],
+  "integrations": [
+    "Twilio",
+    "SIP trunks and PBX (Telnyx, Vonage, RingCentral, 8x8, Zoom, Five9, 3CX and others)",
+    "Salesforce",
+    "HubSpot",
+    "GoHighLevel",
+    "Cal.com",
+    "Zendesk (Help Center import)",
+    "Zapier",
+    "Stripe (agency rebilling)",
+    "WhatsApp",
+    "Webhooks and MCP servers"
+  ],
+  "compliance": {
+    "hipaa": "stated",
+    "soc2": "stated",
+    "gdpr": "stated",
+    "note": "Stated by vendor, self-attested: the homepage says infrastructure is certified across SOC 2, HIPAA, PCI DSS and GDPR; docs publish a BAA template (executed at contract signing for customers using the HIPAA setting) and agent-level retention/PII controls. No audit report was seen.",
+    "sourceUrl": "https://docs.synthflow.ai/baa.md"
+  },
+  "telephony": {
+    "bringYourOwnCarrier": "yes",
+    "providedNumbers": "Numbers can be bought in Synthflow for the U.S., Canada and Australia; Twilio accounts and SIP trunks (Enterprise) are supported.",
+    "sourceUrl": "https://docs.synthflow.ai/telephony.md"
+  },
+  "migration": {
+    "exportAgentsPossible": "yes",
+    "stepsToLeave": [
+      "Read agent configuration through the List Assistant / Get Assistant API (prompt, voice and settings).",
+      "Export call logs and recurring call-data exports from the dashboard (Export Call Data).",
+      "List phone numbers with the Get Numbers API; numbers on your own Twilio account or SIP trunk stay with you and can be repointed.",
+      "Recreate the prompt, actions and knowledge base in the new platform and test before cutover."
+    ],
+    "sourceUrls": [
+      "https://docs.synthflow.ai/export-call-data",
+      "https://docs.synthflow.ai/telephony.md",
+      "https://docs.synthflow.ai/llms.txt"
+    ]
+  },
+  "bestFor": "Enterprises and agencies that want a no-code builder with a vendor-led rollout and scoped contracts rather than self-serve per-minute pricing.",
+  "sources": [
+    {
+      "url": "https://synthflow.ai/pricing",
+      "title": "Synthflow pricing page",
+      "retrievedAt": "2026-10-10"
+    },
+    {
+      "url": "https://docs.synthflow.ai/billing.md",
+      "title": "Synthflow docs: Billing Overview",
+      "retrievedAt": "2026-10-10"
+    },
+    {
+      "url": "https://docs.synthflow.ai/telephony.md",
+      "title": "Synthflow docs: Telephony",
+      "retrievedAt": "2026-10-10"
+    },
+    {
+      "url": "https://docs.synthflow.ai/security-and-compliance.md",
+      "title": "Synthflow docs: Security & Compliance",
+      "retrievedAt": "2026-10-10"
+    },
+    {
+      "url": "https://docs.synthflow.ai/baa.md",
+      "title": "Synthflow docs: Business Associate Agreement",
+      "retrievedAt": "2026-10-10"
+    },
+    {
+      "url": "https://docs.synthflow.ai/create-an-agent.md",
+      "title": "Synthflow docs: Create an Agent",
+      "retrievedAt": "2026-10-10"
+    },
+    {
+      "url": "https://synthflow.ai/",
+      "title": "Synthflow homepage",
+      "retrievedAt": "2026-10-10"
+    },
+    {
+      "url": "https://docs.synthflow.ai/llms.txt",
+      "title": "Synthflow docs index",
+      "retrievedAt": "2026-10-10"
+    },
+    {
+      "url": "https://docs.synthflow.ai/set-up-pricing-and-rebilling",
+      "title": "Synthflow docs: Pricing plans and Rebilling",
+      "retrievedAt": "2026-10-10"
+    },
+    {
+      "url": "https://docs.synthflow.ai/export-call-data",
+      "title": "Synthflow docs: Export Call Data",
+      "retrievedAt": "2026-10-10"
+    }
+  ],
+  "unknowns": [
+    "No public per-minute price or self-serve plan list found; earlier self-serve plans may exist for legacy accounts (docs mention legacy billing) but are not published.",
+    "Free trial availability not stated on pages read.",
+    "Compliance certificates were not seen; claims are from the vendor's homepage.",
+    "Whether SIP/Twilio details differ for existing legacy workspaces is unclear.",
+    "Agent export format (beyond the API read and JSON import) was not verified."
+  ]
+}

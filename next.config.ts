@@ -1,4 +1,5 @@
 import type { NextConfig } from "next";
+import { compareRedirectsFromDisk } from "./src/lib/seoLibrary/redirects";
 
 const nextConfig: NextConfig = {
   output: 'standalone', // Required for Docker deployment
@@ -24,6 +25,11 @@ const nextConfig: NextConfig = {
   // dashboard uses, now authenticated (session, mobile JWT, or API key).
   // A rewrite instead of a second copy of every handler; when a route's
   // contract needs to diverge for v2, that route gets its own file.
+  // Old hand-written /compare/<slug> pages 308-redirect to the sourced /compare/calldesk-vs-<slug> page, but only while that page is
+  // published in src/content/publish.json (read at build time). Unpublished: the old page is served as before.
+  async redirects() {
+    return compareRedirectsFromDisk();
+  },
   async rewrites() {
     return [{ source: '/api/v1/:path*', destination: '/api/:path*' }];
   },

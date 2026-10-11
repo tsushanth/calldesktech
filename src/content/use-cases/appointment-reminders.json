@@ -1,0 +1,48 @@
+{
+  "slug": "appointment-reminders",
+  "name": "Appointment Reminders",
+  "h1": "Outbound Appointment Reminder Calls With a Voice Agent",
+  "metaDescription": "Run reminder calls from a CSV or your CRM. The agent greets each person by name, confirms the visit, and logs confirm, change or cancel outcomes.",
+  "intro": "A missed appointment leaves an empty chair and a clinician or technician with nothing to do, and the gap is usually discovered just when the person fails to show. Reminders by text help, but they are easy to ignore and cannot answer a question. A reminder call can: the person hears a voice, replies in their own words, and can say they need to move the visit. The challenge for a busy front desk is volume, since calling twenty people the day before takes a good part of an afternoon. A Calldesk outbound agent handles the batch. You upload a list where each row holds a phone number plus per-person columns such as first name, appointment time and provider, and the agent uses those values as variables when it speaks. It confirms identity before sharing details, delivers the reminder, asks whether the person can make it, and records the answer. It also copes with the practical cases: a voicemail greeting, a family member picking up, or a wrong number. Results come back as call outcomes, summaries and extracted fields, and a call-completed webhook can update your scheduling system. The reminder-no-show-reducer template provides a tested conversation shape to adapt.",
+  "steps": [
+    "Create an agent from the reminder-no-show-reducer template and change the wording, business name and callback number to match your practice or shop.",
+    "Decide which details the agent may state on the phone. Keep them minimal, and have it confirm it is speaking to the right person before mentioning anything specific.",
+    "Set voicemail detection on the agent to either hang up on voicemail or leave a short message, and write that message so it contains no private details.",
+    "Prepare a CSV with a phone column plus one column per variable, for example first_name, appointment_time and provider, then create a batch call from it.",
+    "Set a call time window for the batch with an IANA time zone, allowed days and start and end hours, and optionally schedule the batch for a future time.",
+    "Run the batch and read results in the call list: confirmed, wants to reschedule, cancelled, voicemail or no answer.",
+    "Use a call-completed webhook, or the flat format for tools like HighLevel, to write each outcome back to your scheduling or CRM system."
+  ],
+  "sampleCallFlow": [
+    { "speaker": "agent", "text": "Hi, this is Claire, an AI assistant calling from Lakeside Physio for Jordan. Am I speaking with Jordan?" },
+    { "speaker": "caller", "text": "Yes, this is Jordan." },
+    { "speaker": "agent", "text": "Thanks, Jordan. I'm calling to remind you about your appointment tomorrow, Wednesday, at two thirty with Dr. Okafor. Are you able to make it?" },
+    { "speaker": "caller", "text": "Oh, tomorrow. I actually have a work thing at two." },
+    { "speaker": "agent", "text": "No problem. Would you like to move it to another day?" },
+    { "speaker": "caller", "text": "Yes, maybe Thursday afternoon." },
+    { "speaker": "agent", "text": "I'll note that you'd like Thursday afternoon, and a team member will confirm a time with you today. Is this a good number to reach you?" },
+    { "speaker": "caller", "text": "Yes, it is." },
+    { "speaker": "agent", "text": "Great. Thanks for letting us know, Jordan. Have a good day." }
+  ],
+  "featuresUsed": [
+    { "feature": "Batch outbound calls with per-contact variables", "howItHelps": "Each CSV column other than the phone number becomes a variable the agent can speak, such as first_name or appointment_time." },
+    { "feature": "Batch call time window and scheduling", "howItHelps": "You can restrict dialing to allowed days and hours in a chosen time zone, and schedule a batch for later." },
+    { "feature": "Voicemail detection", "howItHelps": "The agent can hang up on a voicemail greeting or leave a message you wrote, with variables filled in." },
+    { "feature": "Structured field extraction", "howItHelps": "Whether the person confirmed, wants to move, or cancelled is recorded as a field you can act on." },
+    { "feature": "Flat webhooks", "howItHelps": "Call-completed events arrive as a single-level JSON object suited to HighLevel, Zapier or Make." },
+    { "feature": "Call summary and full transcript", "howItHelps": "Staff can review each reminder outcome without listening to the call." }
+  ],
+  "considerations": [
+    "Outbound calls are regulated. Automated or artificial-voice calls may require prior consent under rules such as the US TCPA and state laws, and rules differ for healthcare, marketing and non-marketing purposes. Confirm your obligations with counsel before dialing.",
+    "Honor do-not-call and opt-out requests. Keep a suppression list, and leave anyone who asks to stop out of future batches.",
+    "Limit what is said on voicemail. Health, financial or other private details should not appear in a message that someone else may hear."
+  ],
+  "faq": [
+    { "q": "Can each person be greeted by name?", "a": "Yes. Columns in your batch CSV become per-call variables, so a first_name column lets the agent say the name. Empty values are ignored rather than read out." },
+    { "q": "Can I control when calls go out?", "a": "A batch accepts a call time window with a time zone, allowed days and start and end hours, and can be scheduled to start later. A run outside the window is refused until it is allowed." },
+    { "q": "What happens when nobody answers?", "a": "The outcome is logged, for example as voicemail. With voicemail detection set to leave a message, the agent can deliver your short script instead of hanging up." },
+    { "q": "Can the agent actually move the appointment?", "a": "It can record the request, and with a connected calendar or a function step to your own system it can act on it. Without those, a team member confirms the change." },
+    { "q": "Can I trigger a single reminder from my CRM?", "a": "Yes. The single-call API accepts a phone number and per-call variables, and the HighLevel recipe shows how a workflow can place a call this way." }
+  ],
+  "relatedSlugs": ["appointment-booking", "appointment-rescheduling-and-cancellations", "outbound-lead-follow-up", "customer-feedback-calls"]
+}

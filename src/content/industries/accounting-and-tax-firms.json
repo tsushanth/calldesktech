@@ -1,0 +1,124 @@
+{
+  "slug": "accounting-and-tax-firms",
+  "name": "Accounting and Tax Firms",
+  "h1": "AI Phone Agent for Accounting and Tax Firms in Filing Season",
+  "metaDescription": "Calldesk answers accounting and tax firm calls in filing season: document status, appointment requests, deadlines and new-client intake.",
+  "intro": "An accounting firm's phone barely rings for nine months and then does not stop. From late January through the April deadline, and again around the extension date, clients call to ask whether the firm received their documents, whether their return is done, what they should bring, and whether they can still get on the calendar. New prospects arrive in the same weeks, usually after a notice from a tax authority, a life change or a missed deadline, and they want someone to say yes. Partners are in meetings and preparers are heads-down in returns, so the front desk absorbs the load and still cannot return every call before evening. The rest of the year brings bookkeeping clients with payroll and sales-tax questions. A Calldesk agent can answer as the firm's AI assistant, give standing answers from a knowledge base such as the document checklist and office hours, book an intake or review appointment on a connected calendar, and take a message for a specific preparer. It does not give tax advice, interpret a notice, or tell a client the state of their refund. Outbound batch calls can remind clients with missing documents, with each client's first name as a variable.",
+  "callTypes": [
+    "Individuals asking what documents to bring for a personal return",
+    "Clients asking whether the firm received their uploaded paperwork",
+    "Small business owners calling about payroll, sales tax and bookkeeping help",
+    "People with an IRS or state notice who want to speak with a professional",
+    "New-client intake requests during the January to April rush",
+    "Outbound reminder calls for clients with documents still missing"
+  ],
+  "sampleCallFlow": [
+    {
+      "speaker": "agent",
+      "text": "Thanks for calling the firm. I'm the firm's AI assistant. Are you a current client, or looking to start working with us?"
+    },
+    {
+      "speaker": "caller",
+      "text": "Current client. I wanted to know if you got my documents."
+    },
+    {
+      "speaker": "agent",
+      "text": "I can't see your file myself, but I can take your details so your preparer checks and gets back to you. What's your name?"
+    },
+    {
+      "speaker": "caller",
+      "text": "Oswald Keane."
+    },
+    {
+      "speaker": "agent",
+      "text": "Thanks, Oswald. Which preparer or partner usually works with you?"
+    },
+    {
+      "speaker": "caller",
+      "text": "Ms. Lindgren."
+    },
+    {
+      "speaker": "agent",
+      "text": "Got it. What did you send, and how did you send it, through the portal, by email or in person?"
+    },
+    {
+      "speaker": "caller",
+      "text": "I uploaded my W-2s and a 1099 through the portal yesterday."
+    },
+    {
+      "speaker": "agent",
+      "text": "I'll pass that on to Ms. Lindgren's team. Is this the number to reach you on, and is the morning or afternoon better?"
+    },
+    {
+      "speaker": "caller",
+      "text": "This number, mornings."
+    },
+    {
+      "speaker": "agent",
+      "text": "Noted. Someone will call you tomorrow morning to confirm what was received."
+    }
+  ],
+  "setupSteps": [
+    "Create an agent from the receptionist template and set it up for the firm's busy season, including hours that change near the deadline.",
+    "Load the knowledge base with the document checklist, how to use the client portal, fee-schedule wording you want shared and the office address.",
+    "Add paths for current clients, new prospects and notice recipients, each with extraction fields and a message for the named preparer.",
+    "Connect a calendar for intake and review appointments, and add a transfer to a partner for urgent notice or audit calls.",
+    "Test filing-season conversations, publish, and plan outbound missing-document reminders for clients who agreed to calls."
+  ],
+  "featuresUsed": [
+    {
+      "feature": "Knowledge base",
+      "howItHelps": "Answers the document checklist and portal questions that dominate calls in filing season."
+    },
+    {
+      "feature": "Calendar booking",
+      "howItHelps": "Books intake and review appointments when every preparer is busy."
+    },
+    {
+      "feature": "Structured field extraction",
+      "howItHelps": "Records client name, preparer, what was sent and how, so the team can check status before calling back."
+    },
+    {
+      "feature": "Call transfers",
+      "howItHelps": "Moves notice and audit calls to a partner who can discuss them."
+    },
+    {
+      "feature": "Batch outbound calls",
+      "howItHelps": "Reminds clients of missing documents with the client's first name and the missing item as variables."
+    }
+  ],
+  "considerations": [
+    "Tax and accounting advice is a regulated professional service. The agent must not interpret notices, estimate refunds, or advise on filing positions; keep it to scheduling, document logistics and messages, and have the firm's principal review the script.",
+    "Client financial information is sensitive and subject to confidentiality duties. Decide what the agent may ask by phone, avoid collecting Social Security numbers or account numbers, and check your professional and data-protection obligations.",
+    "Outbound reminder calls require the consent that applies to your clients and region; ask your own counsel about TCPA and local rules.",
+    "Calldesk makes no certification claims for financial data handling."
+  ],
+  "faq": [
+    {
+      "q": "Can the agent tell a client their refund status?",
+      "a": "No. It cannot see a client's return or tax authority systems. It records the question for the preparer and may point to the authority's public tools if you write that into the knowledge base."
+    },
+    {
+      "q": "What does it do with a call about an IRS notice?",
+      "a": "It collects the client's name, the agency, and any response deadline shown, and transfers to a partner or books a consultation. It does not interpret the notice."
+    },
+    {
+      "q": "Is it useful outside tax season?",
+      "a": "Yes, for new-client intake, bookkeeping questions, appointment scheduling and quarterly deadline reminders."
+    },
+    {
+      "q": "How is it priced for a seasonal business?",
+      "a": "Billing is per talk-minute with no monthly minimum per the pricing page, so costs follow your call volume across the year."
+    },
+    {
+      "q": "Does it need my practice software?",
+      "a": "No. It works through a phone number and calendar. Call data can reach other systems by webhook or API if you want that."
+    }
+  ],
+  "relatedSlugs": [
+    "law-firms",
+    "mortgage-brokers",
+    "insurance-agencies",
+    "tutoring-and-schools"
+  ]
+}

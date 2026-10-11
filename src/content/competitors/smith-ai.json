@@ -1,0 +1,135 @@
+{
+  "slug": "smith-ai",
+  "name": "Smith.ai",
+  "url": "https://smith.ai",
+  "status": "active",
+  "retrievedAt": "2026-10-10",
+  "category": "answering-service",
+  "positioning": "A North America-based receptionist service offering both human-staffed answering and an AI receptionist that can hand off to live agents, billed per call.",
+  "pricing": {
+    "model": "Monthly plan with a bundle of calls, billed per call (not per minute), plus per-call add-ons. Two product lines: AI-first and human-first.",
+    "headline": "AI receptionist: Free (25 calls), Pro from $150/mo (75 calls, $2.00/call), Enterprise from $500/mo (300 calls). Human receptionists: $300/mo (30 calls), $810/mo (90), $2,100/mo (300).",
+    "perMinuteUsd": null,
+    "currency": "USD",
+    "planNotes": [
+      "AI Free: $0, 25 calls/mo, $3.00/call after that.",
+      "AI Pro: $150/mo for 75 calls, $270 for 150, $500 for 300 (per-call $2.00 / $1.80 / $1.67); extra calls $2.50-$2.17.",
+      "AI Enterprise: $500/mo for 300 calls, $800 for 500, custom for 1000+.",
+      "Human-first overage: $11.50/call over 30, $10.50 over 90, $8.50 over 300.",
+      "Human plans carry a 30-day money-back refund window; month to month; 10% off for 12-month commitment on human plans.",
+      "AI plans: calls count toward quota by default, with an allowance to remove up to 10% as spam."
+    ],
+    "freeTrial": "AI Receptionist free tier, 25 calls a month ('free forever' on the homepage).",
+    "whatIsExtra": [
+      "Per-call add-ons on human plans (booking $1.50, recording $0.25, extended intake $1.50, Spanish line $1.00, payments $1.00 and others).",
+      "Per-month extras on human plans (business caller ID $10, extra transfer destinations $15, tracking numbers $5 each).",
+      "Calls over the plan quota."
+    ],
+    "sourceUrls": [
+      "https://smith.ai/pricing/receptionists",
+      "https://smith.ai/pricing/ai-receptionist"
+    ]
+  },
+  "strengths": [
+    {
+      "claim": "Combines AI answering with live North America-based receptionists who can take over complex calls at any hour.",
+      "sourceUrl": "https://smith.ai/pricing/ai-receptionist"
+    },
+    {
+      "claim": "Free AI tier with 25 calls a month and a testing studio, so businesses can try before paying.",
+      "sourceUrl": "https://smith.ai/pricing/ai-receptionist"
+    },
+    {
+      "claim": "Per-call billing, with spam excluded on human plans and an allowance for spam on AI plans.",
+      "sourceUrl": "https://smith.ai/pricing/receptionists"
+    },
+    {
+      "claim": "Integrations with CRMs and scheduling tools (for example HubSpot, Salesforce, Clio, Calendly) plus Zapier.",
+      "sourceUrl": "https://smith.ai/pricing/receptionists"
+    },
+    {
+      "claim": "Long track record: homepage cites 25M+ calls handled over 11+ years, with a strong focus on law firms and home services.",
+      "sourceUrl": "https://smith.ai/"
+    }
+  ],
+  "limitations": [
+    {
+      "claim": "Human-staffed plans start at $300/month for 30 calls, and many features (booking, recording, extended intake) are priced as per-call add-ons.",
+      "sourceUrl": "https://smith.ai/pricing/receptionists"
+    }
+  ],
+  "integrations": [
+    "HubSpot",
+    "Salesforce",
+    "Clio",
+    "Calendly",
+    "Acuity",
+    "Zapier",
+    "Make",
+    "Microsoft Teams",
+    "Slack",
+    "LawPay",
+    "Square",
+    "PayPal",
+    "3CX (listed on integrations page)"
+  ],
+  "compliance": {
+    "hipaa": "not-stated",
+    "soc2": "not-stated",
+    "gdpr": "not-stated",
+    "note": "No HIPAA, SOC 2 or GDPR statement was found on the pricing, homepage or integrations pages read. Unknown, not a negative.",
+    "sourceUrl": null
+  },
+  "telephony": {
+    "bringYourOwnCarrier": "unknown",
+    "providedNumbers": "Human plans include a dedicated local or toll-free number, or you can port your business number at no charge. AI plan number handling not detailed on pages read.",
+    "sourceUrl": "https://smith.ai/pricing/receptionists"
+  },
+  "migration": {
+    "exportAgentsPossible": "no",
+    "stepsToLeave": [
+      "There is no customer-built agent to export: Smith.ai staff or its AI are configured for you (greetings, intake questions, routing rules), so these are recreated in the new platform.",
+      "Numbers: a dedicated Smith.ai number can be replaced by porting your own business number in, which the vendor says is free; the reverse (porting out) is not described on pages read.",
+      "Call recordings and transcripts are available on human plans as an add-on ($0.25/call); CRM and Zapier connections send call details to your own systems.",
+      "Cancellation: human plans bill through the end of the monthly cycle; AI plans need 30 days' notice."
+    ],
+    "sourceUrls": [
+      "https://smith.ai/pricing/receptionists",
+      "https://smith.ai/pricing/ai-receptionist"
+    ]
+  },
+  "bestFor": "Professional-services firms (law, home services) that want live humans available alongside AI and are comfortable with per-call pricing.",
+  "sources": [
+    {
+      "url": "https://smith.ai/pricing/receptionists",
+      "title": "Smith.ai human receptionist pricing",
+      "retrievedAt": "2026-10-10"
+    },
+    {
+      "url": "https://smith.ai/pricing/ai-receptionist",
+      "title": "Smith.ai AI receptionist pricing",
+      "retrievedAt": "2026-10-10"
+    },
+    {
+      "url": "https://smith.ai/",
+      "title": "Smith.ai homepage",
+      "retrievedAt": "2026-10-10"
+    },
+    {
+      "url": "https://smith.ai/integrations",
+      "title": "Smith.ai integrations",
+      "retrievedAt": "2026-10-10"
+    },
+    {
+      "url": "https://smith.ai/features/crm-zapier-integration",
+      "title": "Smith.ai CRM and Zapier integration",
+      "retrievedAt": "2026-10-10"
+    }
+  ],
+  "unknowns": [
+    "HIPAA, SOC 2, GDPR status.",
+    "Whether numbers can be ported out.",
+    "Whether recordings and transcripts are exportable in bulk on AI plans.",
+    "Exact AI voice/language capabilities."
+  ]
+}

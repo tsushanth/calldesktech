@@ -1,0 +1,120 @@
+{
+  "slug": "tutoring-and-schools",
+  "name": "Tutoring Centers and Schools",
+  "h1": "AI Phone Agent for Tutoring Centers and School Offices",
+  "metaDescription": "Calldesk answers tutoring center and school office calls: enrollment inquiries, schedule questions, attendance reports and parent callback messages.",
+  "intro": "A school office or tutoring center has a rhythm set by the academic calendar. Before the term, parents call to ask about placement tests, subject availability and tutoring rates. During the term, mornings bring attendance and tardy calls, and afternoons bring questions about pickup, schedule changes and missing homework. Exam season and the weeks before college applications create bursts of requests for extra sessions. The office is usually staffed by one or two people who are also greeting visitors, handling records and supervising students. Calls to the tutoring side are often from parents who want to talk about one child, quickly, in the evening after work. A Calldesk agent can answer as the center's AI assistant, take enrollment inquiries by collecting the student's grade, subject and goals, give standard schedule and fee information from the knowledge base, and book an assessment or consultation on a connected calendar. For a school office it can log attendance reports and take messages for teachers. It does not discuss a specific student's records, grades or discipline, and it is told to refer those to staff. Batch calls can remind families of upcoming sessions or events.",
+  "callTypes": [
+    "Parents asking about tutoring availability by subject and grade level",
+    "Placement test and assessment booking for a new student",
+    "Morning attendance and tardy reports from parents",
+    "Requests to leave a message for a teacher or tutor",
+    "Questions about session rates, packages and make-up policy",
+    "Event reminders such as parent-teacher night or exam-prep workshops"
+  ],
+  "sampleCallFlow": [
+    {
+      "speaker": "agent",
+      "text": "Thanks for calling. I'm the center's AI assistant. Are you asking about tutoring for a student?"
+    },
+    {
+      "speaker": "caller",
+      "text": "Yes, my son is in tenth grade and struggling with geometry."
+    },
+    {
+      "speaker": "agent",
+      "text": "I'm sorry he's finding it hard. We offer math tutoring through high school. What's your name, and your son's first name?"
+    },
+    {
+      "speaker": "caller",
+      "text": "I'm Carla Diaz, and he's Mateo."
+    },
+    {
+      "speaker": "agent",
+      "text": "Thanks, Carla. Is there a test or deadline coming up that you're working toward?"
+    },
+    {
+      "speaker": "caller",
+      "text": "A midterm in three weeks."
+    },
+    {
+      "speaker": "agent",
+      "text": "That helps us plan. The first step is a short assessment with a tutor, which takes about forty-five minutes. There's an opening Tuesday at 4:30 or Thursday at 5."
+    },
+    {
+      "speaker": "caller",
+      "text": "Thursday at 5, please."
+    },
+    {
+      "speaker": "agent",
+      "text": "Booked. Mateo should bring his latest test and his textbook. A staff member will go over session packages after the assessment."
+    },
+    {
+      "speaker": "caller",
+      "text": "Wonderful, thanks."
+    }
+  ],
+  "setupSteps": [
+    "Create an agent from the appointment-booking template and describe the subjects, grade ranges and program types you offer.",
+    "Fill the knowledge base with schedule, location, rates as you publish them, make-up policy, assessment details and contact hours.",
+    "Add a path for attendance or absence reports that records the student's name, grade, date and reason as stated by the parent.",
+    "Connect a calendar for assessments and consultations, and use a message-taking path for teachers or tutors.",
+    "Run test calls from a parent's point of view, publish, and use batch calls for event or session reminders to families who agreed."
+  ],
+  "featuresUsed": [
+    {
+      "feature": "Calendar booking",
+      "howItHelps": "Books placement assessments in open tutor slots without staff stepping away from students."
+    },
+    {
+      "feature": "Knowledge base",
+      "howItHelps": "Answers standard questions on subjects, rates and make-up rules consistently."
+    },
+    {
+      "feature": "Structured field extraction",
+      "howItHelps": "Captures grade, subject, goals and deadlines so the tutor starts informed."
+    },
+    {
+      "feature": "Call summary",
+      "howItHelps": "Lists the morning's attendance calls and messages for staff in one short summary."
+    },
+    {
+      "feature": "Batch outbound calls",
+      "howItHelps": "Reminds families of sessions or events, with the student's name and time inserted per contact."
+    }
+  ],
+  "considerations": [
+    "Student records are sensitive, and in the United States schools may be bound by FERPA. The agent should not discuss grades, discipline or other records; have your administrator confirm which information, if any, it may collect or share.",
+    "Calls involving minors may carry additional privacy duties. Check with your counsel what you may record, transcribe and keep, and what notice parents must receive.",
+    "Reminder calls to families are outbound calls; confirm consent and calling-hour rules that apply, including TCPA considerations, with your own counsel.",
+    "Do not allow the agent to promise grade improvements or test scores."
+  ],
+  "faq": [
+    {
+      "q": "Can the agent look up a student's grades or schedule?",
+      "a": "It should not. Student records belong with staff, and the agent can take a message or transfer. Any connection to a records system would be a deliberate, reviewed integration."
+    },
+    {
+      "q": "How does it handle attendance calls?",
+      "a": "It records the student's name, grade, date and reason as the parent states it, and the summary goes to the office. Reading the log is a staff task."
+    },
+    {
+      "q": "Can it do outreach for a summer program?",
+      "a": "Yes, as batch calls to families who have agreed to hear from you, with student names and program details as variables."
+    },
+    {
+      "q": "Does it work for both schools and private tutors?",
+      "a": "Yes. A solo tutor can use it as a booking line; a school office can use it for attendance and messages."
+    },
+    {
+      "q": "What languages are available?",
+      "a": "Many languages are supported on the Standard and Pro voices, which helps with families who prefer another language; Lite speaks English."
+    }
+  ],
+  "relatedSlugs": [
+    "childcare-centers",
+    "fitness-studios",
+    "salons-and-spas",
+    "accounting-and-tax-firms"
+  ]
+}

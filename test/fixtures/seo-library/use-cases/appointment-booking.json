@@ -1,0 +1,42 @@
+{
+  "slug": "appointment-booking",
+  "name": "Appointment booking",
+  "h1": "AI phone agent for appointment booking",
+  "metaDescription": "How a Calldesk phone agent books, moves and cancels appointments by phone, using your calendar, and when it hands the call to a person.",
+  "intro": "Booking by phone looks simple until you count the steps: find out what the caller wants, check who is free, offer times, confirm details and send a reminder. Doing that for every call ties up a person for minutes at a time, and calls arrive in clusters when nobody can pick up. A phone agent can run the whole sequence. It asks what the visit is for, reads open times from the connected calendar, offers a few options, books the one the caller picks and repeats the details back. It can also move or cancel an existing booking when the caller gives enough information to find it. This page explains how the booking flow works, shows a sample call, lists the features it relies on and describes the choices that are yours to make, such as how far ahead people may book and when a person should step in. The agent only offers times that your calendar shows as open, so keeping the calendar accurate matters more than any other setting. Start with one appointment type, test it, and add others once the first one works.",
+  "steps": [
+    "The agent greets the caller and asks what kind of appointment they need.",
+    "It collects the caller's name and a callback number.",
+    "It reads open times from the connected calendar and offers two or three.",
+    "It books the time the caller chooses and repeats the date, time and location.",
+    "It ends the call, and the details and a summary are saved with the call."
+  ],
+  "sampleCallFlow": [
+    { "speaker": "caller", "text": "I would like to book a haircut for Saturday." },
+    { "speaker": "agent", "text": "Happy to help. I have 10:00, 11:30 and 2:15 open on Saturday. Which suits you?" },
+    { "speaker": "caller", "text": "11:30, please." },
+    { "speaker": "agent", "text": "Booked for Saturday at 11:30. Can I have your name for the booking?" },
+    { "speaker": "caller", "text": "Jordan Lee." },
+    { "speaker": "agent", "text": "Thank you, Jordan. You are down for Saturday at 11:30. Anything else I can help with?" }
+  ],
+  "featuresUsed": [
+    { "feature": "Calendar booking", "howItHelps": "Reads open times and books the chosen slot on the connected calendar." },
+    { "feature": "Structured field extraction", "howItHelps": "Records the caller's name, reason for the call and callback number." },
+    { "feature": "Call transfers", "howItHelps": "Hands the call to a person when the caller asks for one or the request is unusual." },
+    { "feature": "Call summary", "howItHelps": "Saves a short summary of each booking call for the team." }
+  ],
+  "considerations": [
+    "Keep the calendar accurate, because the agent offers only the times it can see as open.",
+    "Decide how far ahead callers may book and how long each appointment type takes.",
+    "Decide which requests, such as group bookings or special cases, should be passed to a person.",
+    "Test moving and cancelling bookings as well as making new ones."
+  ],
+  "faq": [
+    { "q": "Which calendars can it use?", "a": "It books through a calendar connection set up in the dashboard. Check the current list of supported calendars before you plan around a specific one." },
+    { "q": "Can callers cancel or move a booking?", "a": "Yes, when the caller gives enough detail to find the booking. You decide what the agent should ask first." },
+    { "q": "What if no time suits the caller?", "a": "The agent can offer other days, take a message or transfer the call to a person." },
+    { "q": "Does it send reminders?", "a": "Reminders depend on how you set up your calendar and messages. Test the full path before you rely on it." },
+    { "q": "Can it book in other languages?", "a": "Calldesk supports 40+ languages. Languages other than English need the Standard or Pro plan." }
+  ],
+  "relatedSlugs": ["dental-offices", "home-services", "after-hours-answering", "medical-clinics"]
+}

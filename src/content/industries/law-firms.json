@@ -1,0 +1,124 @@
+{
+  "slug": "law-firms",
+  "name": "Law Firms",
+  "h1": "AI Phone Agent for Law Firms: Intake and Consultation Scheduling",
+  "metaDescription": "Calldesk answers law firm calls for intake: conflict-check details, practice-area routing and consultation booking, without giving legal advice.",
+  "intro": "A law firm's phone is an intake channel with a short fuse. Someone has just been served papers, had an accident, or received a notice from a landlord, and they are calling three firms in a row. Whoever answers with a clear next step usually gets the consultation. Yet attorneys are in court, in depositions or on other calls, and the receptionist cannot always pick up. After hours is as important as business hours, because trouble tends to surface in the evening. Calls also differ sharply by practice area: a family law firm hears something quite different from a personal injury or immigration office, and each needs different questions. A Calldesk agent can answer as the firm's AI assistant, ask the practice-specific screening questions you give it, capture who the other parties are so staff can run a conflict check, and offer consultation times on a connected calendar. It does not give legal advice, assess a case or promise outcomes, and the flow should say so whenever a caller asks. Existing clients who want an update can be transferred to their attorney's assistant, and the full transcript and extracted fields go to the intake team.",
+  "callTypes": [
+    "Prospective clients describing a situation and asking if the firm handles it",
+    "Callers who name an opposing party so the firm can run a conflict check",
+    "Existing clients asking for a status update or leaving a message for their attorney",
+    "Opposing counsel, courts or process servers calling with deadlines and documents",
+    "Questions about consultation fees, what to bring and how long a first meeting takes",
+    "Evening or weekend callers in urgent situations who need a callback queue"
+  ],
+  "sampleCallFlow": [
+    {
+      "speaker": "agent",
+      "text": "Thank you for calling the firm. I'm the firm's AI assistant. I can take your details and schedule a consultation, but I can't give legal advice. How can I help?"
+    },
+    {
+      "speaker": "caller",
+      "text": "My landlord gave me a notice to leave in thirty days and I think it's not legal."
+    },
+    {
+      "speaker": "agent",
+      "text": "I'm sorry you're dealing with that. I can't say whether the notice is valid, but an attorney can. May I have your name and a good number?"
+    },
+    {
+      "speaker": "caller",
+      "text": "Dana Okafor, and this number is fine."
+    },
+    {
+      "speaker": "agent",
+      "text": "Thanks, Dana. For the firm's conflict check, what is your landlord's name or the property management company?"
+    },
+    {
+      "speaker": "caller",
+      "text": "It's Greenfield Property Group."
+    },
+    {
+      "speaker": "agent",
+      "text": "Noted. Is there a hearing date or any court paperwork in your hands, or just the notice?"
+    },
+    {
+      "speaker": "caller",
+      "text": "Just the notice so far."
+    },
+    {
+      "speaker": "agent",
+      "text": "Good to know. The firm offers consultations on Wednesday at 11:00 or Thursday at 2:00. Would either work?"
+    },
+    {
+      "speaker": "caller",
+      "text": "Thursday at 2."
+    },
+    {
+      "speaker": "agent",
+      "text": "Booked, pending the firm's conflict check. Please bring the notice and your lease. Someone will confirm by phone before then."
+    }
+  ],
+  "setupSteps": [
+    "Create an agent from the receptionist template and write its identity as the firm's AI assistant, with a standing line that it cannot give legal advice.",
+    "Add intake extraction fields per practice area: name, callback number, opposing party, matter type, any deadline or hearing date.",
+    "Fill the knowledge base with practice areas, consultation process, fees you are willing to quote, office address and what to bring.",
+    "Connect a calendar for consultation slots and add a transfer step for existing clients and for opposing counsel or court calls.",
+    "Test conversations where callers push for legal opinions, publish, and send intake summaries to your team by webhook or the dashboard."
+  ],
+  "featuresUsed": [
+    {
+      "feature": "Structured field extraction",
+      "howItHelps": "Captures matter type, opposing party, deadlines and contact details in consistent fields for the intake and conflicts team."
+    },
+    {
+      "feature": "Calendar booking",
+      "howItHelps": "Offers consultation slots from a connected calendar so a motivated prospect is booked before calling another firm."
+    },
+    {
+      "feature": "Call transfers",
+      "howItHelps": "Sends existing clients and court or counsel calls to a named assistant or attorney line."
+    },
+    {
+      "feature": "Full transcript",
+      "howItHelps": "Keeps what the caller said word for word, which intake staff can review before the first consultation."
+    },
+    {
+      "feature": "API and webhooks",
+      "howItHelps": "Posts completed-call data to your case or intake system so staff do not retype it."
+    }
+  ],
+  "considerations": [
+    "Lawyers are subject to professional rules on advertising, solicitation and creating an attorney-client relationship. Have the firm's ethics counsel review what the agent says, especially the script about confidentiality and whether a call creates a relationship.",
+    "Do not let the agent evaluate the strength of a case or predict results. Callers in distress may ask; the instructions should direct them to a consultation with an attorney.",
+    "Calls may contain confidential information. Check your own confidentiality obligations and vendor requirements, and note that Calldesk makes no compliance certification claims.",
+    "Recording and transcription laws differ by state; confirm what disclosure the agent must give at the start of a call."
+  ],
+  "faq": [
+    {
+      "q": "Can the agent tell a caller whether they have a case?",
+      "a": "It should not. Its job is to gather the facts you ask for and book a consultation. The instructions can tell it to decline and explain that an attorney has to assess a matter."
+    },
+    {
+      "q": "How does it handle conflict-check information?",
+      "a": "It asks for the names of other parties and records them as extracted fields. The actual conflict check is performed by your staff or software; the agent collects the details."
+    },
+    {
+      "q": "Can it support several practice areas?",
+      "a": "Yes. You can first ask what the matter concerns and then branch into different question sets for family, injury, immigration or business matters, each with its own knowledge base entries."
+    },
+    {
+      "q": "What about callers who speak Spanish or another language?",
+      "a": "Calldesk supports many languages on the Standard and Pro voices, while the Lite voice speaks English. Choose the tier that matches the languages your callers use."
+    },
+    {
+      "q": "Can it call people back?",
+      "a": "It can place outbound calls to follow up on intake requests you have permission to contact. Confirm consent rules with counsel before doing so, because calling someone who left a web form may not be treated like calling a client."
+    }
+  ],
+  "relatedSlugs": [
+    "insurance-agencies",
+    "accounting-and-tax-firms",
+    "mortgage-brokers",
+    "real-estate-brokerages"
+  ]
+}

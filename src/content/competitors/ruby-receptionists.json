@@ -1,0 +1,132 @@
+{
+  "slug": "ruby-receptionists",
+  "name": "Ruby Receptionists",
+  "url": "https://www.ruby.com",
+  "status": "active",
+  "retrievedAt": "2026-10-10",
+  "category": "answering-service",
+  "positioning": "A live virtual receptionist and website chat service staffed by people, which uses AI tools to assist its receptionists rather than to replace them.",
+  "pricing": {
+    "model": "Monthly plans by receptionist minutes (billed in 60-second increments, rounded up); overage billed at a plan-specific rate. Separate chat plans.",
+    "headline": "Receptionist plans: 50 min $250/mo, 100 min $395, 200 min $720, 500 min $1,725.",
+    "perMinuteUsd": null,
+    "currency": "USD",
+    "planNotes": [
+      "Effective rate on the listed plans runs from about $5.00/min (50 min) to $3.45/min (500 min); these are derived, not published rates.",
+      "Chat plans: 10 chats $143, 30 chats $335, 50 chats $520; bundled with a receptionist plan the chat price is 20% lower.",
+      "Overage rate is stated as plan-specific but the figure is not published on pages read.",
+      "Month to month; money-back refund for first-time users within 21 days or before usage passes 500 receptionist minutes.",
+      "Vendor says there are no activation, onboarding or setup fees."
+    ],
+    "freeTrial": "Money-back refund for first-time users (21 days) rather than a free tier.",
+    "whatIsExtra": [
+      "Minutes over the plan allowance at the plan's overage rate.",
+      "Additional fees may apply for transfers to numbers outside North America."
+    ],
+    "sourceUrls": [
+      "https://www.ruby.com/plans-and-pricing/",
+      "https://www.ruby.com/faqs/"
+    ]
+  },
+  "strengths": [
+    {
+      "claim": "Live human receptionists, 24/7 including weekends and holidays, which suits callers who prefer a human.",
+      "sourceUrl": "https://www.ruby.com/plans-and-pricing/"
+    },
+    {
+      "claim": "Plans include scheduling, intake, payment collection, outbound call assistance and phone-service hosting at no extra feature cost.",
+      "sourceUrl": "https://www.ruby.com/plans-and-pricing/"
+    },
+    {
+      "claim": "Offers an opt-in HIPAA-compliant receptionist and chat service (vendor statement).",
+      "sourceUrl": "https://www.ruby.com/faqs/"
+    },
+    {
+      "claim": "Integrates natively with Clio and Grasshopper, and with HubSpot, Salesforce, Zoho and others via Zapier.",
+      "sourceUrl": "https://www.ruby.com/solutions/integrations/"
+    },
+    {
+      "claim": "Uses AI to support receptionists (Call Nav, transcripts, sentiment analysis, robocall filtering) while keeping a human on the call.",
+      "sourceUrl": "https://www.ruby.com/ai/"
+    }
+  ],
+  "limitations": [
+    {
+      "claim": "Pricing is by receptionist minute, and the overage rate is plan-specific and not published on the pricing page.",
+      "sourceUrl": "https://www.ruby.com/faqs/"
+    },
+    {
+      "claim": "The FAQ says bilingual service and outbound call assists are available Monday to Friday, 5am-6pm Pacific, while the pricing page lists 24/7 bilingual handling as available; confirm with the vendor.",
+      "sourceUrl": "https://www.ruby.com/faqs/"
+    }
+  ],
+  "integrations": [
+    "Clio",
+    "Grasshopper",
+    "Zapier",
+    "HubSpot",
+    "Salesforce",
+    "Zoho",
+    "Calendly",
+    "Google Calendar",
+    "Google Voice"
+  ],
+  "compliance": {
+    "hipaa": "stated",
+    "soc2": "not-stated",
+    "gdpr": "not-stated",
+    "note": "Stated by vendor, self-attested: opt-in HIPAA-compliant receptionist and chat service (messages delivered via the app/portal rather than email or text). No SOC 2 or GDPR statement found.",
+    "sourceUrl": "https://www.ruby.com/faqs/"
+  },
+  "telephony": {
+    "bringYourOwnCarrier": "unknown",
+    "providedNumbers": "Ruby assigns a number (area code of choice, toll-free available) that the customer may publish and keep at the end of service; existing numbers can be forwarded and often ported to Ruby.",
+    "sourceUrl": "https://www.ruby.com/faqs/"
+  },
+  "migration": {
+    "exportAgentsPossible": "no",
+    "stepsToLeave": [
+      "There is no customer-built agent to export: Ruby's receptionists follow call-handling instructions configured for you, which would be recreated in the new platform.",
+      "Numbers: the FAQ says the number Ruby assigns can be published and taken with you at the end of service; forwarded numbers simply redirect to the new service.",
+      "Messages and transcripts are available in the Ruby App and web portal.",
+      "Cancel by phone or email; cancellation takes effect at the end of the current monthly period (immediately in an introductory period)."
+    ],
+    "sourceUrls": [
+      "https://www.ruby.com/faqs/"
+    ]
+  },
+  "bestFor": "Small businesses that want trained human receptionists answering every call, with AI used behind the scenes.",
+  "sources": [
+    {
+      "url": "https://www.ruby.com/plans-and-pricing/",
+      "title": "Ruby plans and pricing",
+      "retrievedAt": "2026-10-10"
+    },
+    {
+      "url": "https://www.ruby.com/faqs/",
+      "title": "Ruby FAQs",
+      "retrievedAt": "2026-10-10"
+    },
+    {
+      "url": "https://www.ruby.com/ai/",
+      "title": "Ruby AI",
+      "retrievedAt": "2026-10-10"
+    },
+    {
+      "url": "https://www.ruby.com/solutions/integrations/",
+      "title": "Ruby integrations",
+      "retrievedAt": "2026-10-10"
+    },
+    {
+      "url": "https://www.ruby.com/",
+      "title": "Ruby homepage",
+      "retrievedAt": "2026-10-10"
+    }
+  ],
+  "unknowns": [
+    "Overage per-minute and per-chat rates.",
+    "SOC 2 and GDPR status.",
+    "Whether bring-your-own carrier is supported.",
+    "Conflict between the FAQ and pricing page on bilingual and outbound hours."
+  ]
+}

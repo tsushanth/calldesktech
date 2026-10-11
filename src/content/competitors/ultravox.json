@@ -1,0 +1,146 @@
+{
+  "slug": "ultravox",
+  "name": "Ultravox",
+  "url": "https://www.ultravox.ai",
+  "status": "active",
+  "category": "model-vendor",
+  "positioning": "Ultravox is a developer platform for real-time voice agents built on its own open-weight speech-native model; the company states it has been acquired by Inworld.",
+  "pricing": {
+    "model": "Per-minute usage with a free allowance, optional $100/month Pro plan that removes concurrency caps, and custom Enterprise.",
+    "headline": "$0.05 per minute (TTS included) after 30 free minutes, up to 5 concurrent calls on pay-as-you-go; SIP minutes at 0.5 cents.",
+    "perMinuteUsd": 0.05,
+    "currency": "USD",
+    "planNotes": [
+      "Pay as you go: $0 per month, 30 free minutes, $0.05/min, 5 concurrent calls, no surge pricing.",
+      "Pro: $100/month (the page marks prices as annual rate), no hard concurrency cap, outbound call scheduler, 5 custom voices, 20 RAG corpora.",
+      "Enterprise: custom, priority SLA and org support.",
+      "SIP: 0.5 cents/min on pay-as-you-go and 0.48 cents/min on Pro.",
+      "The $0.05/min rate appears on both the home page and the pricing page; the pricing page shows the plan and SIP detail."
+    ],
+    "freeTrial": "First 30 minutes free, plus playground calls with no stated cap.",
+    "whatIsExtra": [
+      "SIP minutes (0.5 cents/min)",
+      "Threads (text) usage at $2.00 per 1M uncached input tokens and $15.00 per 1M output tokens",
+      "Custom voice clones beyond plan allowance"
+    ],
+    "sourceUrls": [
+      "https://www.ultravox.ai/pricing",
+      "https://www.ultravox.ai/"
+    ]
+  },
+  "strengths": [
+    {
+      "claim": "Speech-native model that takes audio directly rather than transcribing first, with an open-weight release on Hugging Face.",
+      "sourceUrl": "https://www.ultravox.ai/"
+    },
+    {
+      "claim": "Simple, all-in published rate of $0.05/min including TTS, with no surge pricing stated.",
+      "sourceUrl": "https://www.ultravox.ai/pricing"
+    },
+    {
+      "claim": "Native telephony integrations for Twilio, Telnyx, Plivo and Exotel, plus a SIP integration for existing phone systems.",
+      "sourceUrl": "https://docs.ultravox.ai/telephony/overview.md"
+    },
+    {
+      "claim": "Supports 26 spoken languages and features such as tools, RAG, call stages, voice cloning and webhooks.",
+      "sourceUrl": "https://docs.ultravox.ai/overview.md"
+    },
+    {
+      "claim": "Integrations with LiveKit, Pipecat, Voximplant and jambonz for custom stacks.",
+      "sourceUrl": "https://docs.ultravox.ai/llms.txt"
+    }
+  ],
+  "limitations": [
+    {
+      "claim": "Pay-as-you-go is capped at 5 concurrent calls; removing the cap requires the $100/month Pro plan.",
+      "sourceUrl": "https://www.ultravox.ai/pricing"
+    },
+    {
+      "claim": "The site states the company has been acquired by Inworld, so roadmap and branding may change.",
+      "sourceUrl": "https://www.ultravox.ai/pricing"
+    },
+    {
+      "claim": "Pricing page marks prices as an annual rate, so month-to-month cost for Pro may differ.",
+      "sourceUrl": "https://www.ultravox.ai/pricing"
+    }
+  ],
+  "integrations": [
+    "Twilio",
+    "Telnyx",
+    "Plivo",
+    "Exotel",
+    "SIP",
+    "Voximplant",
+    "jambonz",
+    "LiveKit",
+    "Pipecat",
+    "Webhooks",
+    "Tools / function calling",
+    "RAG corpora"
+  ],
+  "compliance": {
+    "hipaa": "not-stated",
+    "soc2": "not-stated",
+    "gdpr": "not-stated",
+    "note": "The site links a Trust page hosted on a third-party trust portal, which could not be read (bot check). No HIPAA, SOC 2 or GDPR statement was visible on the pricing page, home page or docs read.",
+    "sourceUrl": null
+  },
+  "telephony": {
+    "bringYourOwnCarrier": "yes",
+    "providedNumbers": "No Ultravox-provided phone numbers were found on the pages read; the platform connects to your Twilio, Telnyx, Plivo or Exotel account or an existing SIP setup.",
+    "sourceUrl": "https://docs.ultravox.ai/telephony/overview.md"
+  },
+  "migration": {
+    "exportAgentsPossible": "yes",
+    "stepsToLeave": [
+      "List and fetch agent definitions with the List Agents and Get Agent API endpoints.",
+      "Conversation history (audio recordings and transcripts) is available through the calls messages API.",
+      "Telephony accounts you connected (Twilio, Telnyx, Plivo, Exotel) remain with those providers; repointing numbers is done there."
+    ],
+    "sourceUrls": [
+      "https://docs.ultravox.ai/llms.txt",
+      "https://docs.ultravox.ai/overview.md",
+      "https://docs.ultravox.ai/telephony/overview.md"
+    ]
+  },
+  "bestFor": "Developers who want a low-latency, speech-native voice model with a simple per-minute price and who already have, or want to choose, their own telephony provider.",
+  "sources": [
+    {
+      "url": "https://www.ultravox.ai/pricing",
+      "title": "Ultravox pricing",
+      "retrievedAt": "2026-10-10"
+    },
+    {
+      "url": "https://www.ultravox.ai/",
+      "title": "Ultravox home page",
+      "retrievedAt": "2026-10-10"
+    },
+    {
+      "url": "https://docs.ultravox.ai/overview.md",
+      "title": "Ultravox docs: Overview",
+      "retrievedAt": "2026-10-10"
+    },
+    {
+      "url": "https://docs.ultravox.ai/telephony/overview.md",
+      "title": "Ultravox docs: Telephony overview",
+      "retrievedAt": "2026-10-10"
+    },
+    {
+      "url": "https://docs.ultravox.ai/telephony/sip.md",
+      "title": "Ultravox docs: SIP",
+      "retrievedAt": "2026-10-10"
+    },
+    {
+      "url": "https://docs.ultravox.ai/llms.txt",
+      "title": "Ultravox docs index (llms.txt)",
+      "retrievedAt": "2026-10-10"
+    }
+  ],
+  "unknowns": [
+    "HIPAA, SOC 2 and GDPR status (Trust page not readable).",
+    "Terms and timing of the Inworld acquisition and any pricing change; just the banner notice was read.",
+    "Whether Ultravox sells phone numbers.",
+    "Whether the Pro price is $100 month-to-month or on annual billing alone."
+  ],
+  "retrievedAt": "2026-10-10"
+}

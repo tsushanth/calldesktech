@@ -1,0 +1,113 @@
+{
+  "slug": "rosie",
+  "name": "Rosie",
+  "url": "https://heyrosie.com",
+  "status": "active",
+  "retrievedAt": "2026-10-10",
+  "category": "answering-service",
+  "positioning": "An AI answering service for small businesses that learns from a Google profile and website, takes messages, books appointments and transfers calls.",
+  "pricing": {
+    "model": "Monthly subscription with included minutes; add-ons priced separately.",
+    "headline": "Professional $49/mo (250 min), Scale $149/mo (1,000 min), Growth $299/mo (2,000 min); 7-day free trial; annual billing advertised as '2 months free'.",
+    "perMinuteUsd": null,
+    "currency": "USD",
+    "planNotes": [
+      "Professional: 250 min, 2 message scenarios, appointment links by text, spam detection, website chat widget.",
+      "Scale: 1,000 min, calendar booking, warm and live transfers, texts to callers.",
+      "Growth: 2,000 min, waterfall transfers, custom agent training, white-glove onboarding, priority support.",
+      "Enterprise tier exists in the page's structured data, no price shown.",
+      "Annual plan dollar amounts are not shown; the page shows the '2 months free' label.",
+      "Effective rate on the listed plans (derived, not published): about 19.6c/min on Professional down to about 15c/min on Growth."
+    ],
+    "freeTrial": "7-day free trial with all features; the vendor states no credit card is required to start.",
+    "whatIsExtra": [
+      "Website texting add-on: $50/mo with 25 conversations, then $1 per additional conversation.",
+      "Website chat is listed as free with all plans."
+    ],
+    "sourceUrls": [
+      "https://heyrosie.com/pricing",
+      "https://heyrosie.com/"
+    ]
+  },
+  "strengths": [
+    {
+      "claim": "Low entry price ($49/mo) with a 7-day free trial and quick setup from a Google Business Profile and website scan.",
+      "sourceUrl": "https://heyrosie.com/pricing"
+    },
+    {
+      "claim": "Native iOS and Android apps, 10+ voices, English and Spanish on every call, and call summaries, transcripts and recordings.",
+      "sourceUrl": "https://heyrosie.com/pricing"
+    },
+    {
+      "claim": "Transfers include warm transfers where Rosie briefs the team first, and waterfall transfers that try several numbers.",
+      "sourceUrl": "https://heyrosie.com/pricing"
+    },
+    {
+      "claim": "Books directly into Google Calendar and Calendly (Scale plan and up), and connects to 1,000+ apps via Zapier.",
+      "sourceUrl": "https://heyrosie.com/pricing"
+    },
+    {
+      "claim": "Can run for after-hours or overflow calls, via conditional call forwarding.",
+      "sourceUrl": "https://heyrosie.com/pricing"
+    }
+  ],
+  "limitations": [
+    {
+      "claim": "Direct calendar booking is available on the Scale plan and higher; Professional plan users get text-a-link scheduling.",
+      "sourceUrl": "https://heyrosie.com/pricing"
+    },
+    {
+      "claim": "Languages stated are English and Spanish.",
+      "sourceUrl": "https://heyrosie.com/pricing"
+    }
+  ],
+  "integrations": [
+    "Google Calendar",
+    "Calendly",
+    "Zapier (1,000+ apps)",
+    "Google Business Profile (for setup)"
+  ],
+  "compliance": {
+    "hipaa": "not-stated",
+    "soc2": "not-stated",
+    "gdpr": "not-stated",
+    "note": "No compliance certifications found on the pages read. The FAQ lists 'Is my data secure?' but its answer was not present in the page text retrieved.",
+    "sourceUrl": null
+  },
+  "telephony": {
+    "bringYourOwnCarrier": "unknown",
+    "providedNumbers": "Customers pick an area code for a provided number; existing business numbers are kept via call forwarding (conditional or all calls).",
+    "sourceUrl": "https://heyrosie.com/pricing"
+  },
+  "migration": {
+    "exportAgentsPossible": "unknown",
+    "stepsToLeave": [
+      "No export procedure was found on the pages read; the agent is built from the business website and FAQs and would be recreated.",
+      "Numbers: calls reach Rosie via forwarding from the existing number, so leaving means switching the forwarding to the new service.",
+      "Call summaries, transcripts and recordings are provided; retention period and export were not found."
+    ],
+    "sourceUrls": [
+      "https://heyrosie.com/pricing"
+    ]
+  },
+  "bestFor": "Solo owners and small local businesses that want an affordable AI receptionist with fast setup and no technical work.",
+  "sources": [
+    {
+      "url": "https://heyrosie.com/pricing",
+      "title": "Rosie pricing",
+      "retrievedAt": "2026-10-10"
+    },
+    {
+      "url": "https://heyrosie.com/",
+      "title": "Rosie homepage",
+      "retrievedAt": "2026-10-10"
+    }
+  ],
+  "unknowns": [
+    "Overage behaviour when minutes run out (FAQ answer not retrievable).",
+    "Recording retention and data security statements.",
+    "Compliance certifications.",
+    "Export of agent data or call records.",
+    "Enterprise tier pricing."
+  ]
+}

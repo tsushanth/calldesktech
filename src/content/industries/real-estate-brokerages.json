@@ -1,0 +1,124 @@
+{
+  "slug": "real-estate-brokerages",
+  "name": "Real Estate Brokerages",
+  "h1": "AI Phone Agent for Real Estate Brokerages: Listing Calls",
+  "metaDescription": "Calldesk answers brokerage calls from yard signs and listing sites, qualifies buyers, books showings and routes agents' leads without missed callbacks.",
+  "intro": "In real estate the phone rings because of a sign in a yard, a listing on a portal, or an open house flyer, and the caller is deciding right now. They want to know if the house is still available, whether it allows pets, and when they can see it. If the listing agent is in a showing or at a closing table, the call goes to voicemail, and a buyer who wants to see a home this weekend moves on to the next listing. Brokerages also field the other side: sellers asking what their home might be worth, renters asking about a rental listing, and other agents calling to schedule access. Volume spikes on Saturday mornings after weekend listings go live and in the evening when people browse portals. A Calldesk agent can answer as the brokerage's AI assistant, identify which property the caller is asking about from your knowledge base of listing details, ask a few qualifying questions about timeline and financing stage, and book a showing slot on a connected calendar or route the lead to the right agent. It does not quote home values or give legal or financial advice. Afterward, extracted fields and summaries can reach your CRM by webhook.",
+  "callTypes": [
+    "Buyers calling about a specific listing from a yard sign or portal ad",
+    "Prospective sellers asking for a valuation conversation with an agent",
+    "Other agents requesting showing access or lockbox information",
+    "Renters or investors asking about availability, deposits and pet policies",
+    "Open house follow-up calls to visitors who left a phone number",
+    "Evening callers browsing listings who want a callback from an agent"
+  ],
+  "sampleCallFlow": [
+    {
+      "speaker": "agent",
+      "text": "Thanks for calling the brokerage. I'm the brokerage's AI assistant. Are you calling about a particular property?"
+    },
+    {
+      "speaker": "caller",
+      "text": "Yes, the three-bedroom on Alder Court. Is it still available?"
+    },
+    {
+      "speaker": "agent",
+      "text": "My notes show the Alder Court listing as active. It's a three-bedroom, two-bath home with a fenced yard. Would you like to see it?"
+    },
+    {
+      "speaker": "caller",
+      "text": "Yes. Do you allow dogs? We have a lab."
+    },
+    {
+      "speaker": "agent",
+      "text": "It's a sale listing, so there is no pet policy from a landlord. The seller's agent can answer anything about the HOA, if there is one. May I take your name?"
+    },
+    {
+      "speaker": "caller",
+      "text": "Tomas Reyes."
+    },
+    {
+      "speaker": "agent",
+      "text": "Thanks, Tomas. Are you already working with a lender or an agent?"
+    },
+    {
+      "speaker": "caller",
+      "text": "Not an agent yet. We got pre-approved last month."
+    },
+    {
+      "speaker": "agent",
+      "text": "Helpful. Showings are open Saturday at 10:30 or 1:00. Which suits you?"
+    },
+    {
+      "speaker": "caller",
+      "text": "Saturday at 10:30."
+    },
+    {
+      "speaker": "agent",
+      "text": "Booked. A brokerage agent will meet you there, and I'll text a reminder if you'd like one."
+    }
+  ],
+  "setupSteps": [
+    "Create an agent from the receptionist or appointment-booking template and name the brokerage and the listing team in its instructions.",
+    "Load active listings into the knowledge base as short entries: address, beds and baths, price as published, showing rules and open house dates, and update them as listings change.",
+    "Define qualifying fields such as buy or sell, timeline, pre-approval status and whether the caller has an agent.",
+    "Connect a showing calendar for slots, and add transfer rules to a listing agent's mobile during business hours.",
+    "Send completed-call webhooks to your CRM, test with a handful of simulated buyer calls, publish and update the number on your signs."
+  ],
+  "featuresUsed": [
+    {
+      "feature": "Knowledge base",
+      "howItHelps": "Holds current listing details so the agent describes the right property to a caller asking about it."
+    },
+    {
+      "feature": "Calendar booking",
+      "howItHelps": "Reserves showing slots the moment a buyer decides, even when every agent is out at a closing."
+    },
+    {
+      "feature": "Structured field extraction",
+      "howItHelps": "Records buyer or seller intent, timeline, pre-approval status and contact info in consistent fields."
+    },
+    {
+      "feature": "Webhooks",
+      "howItHelps": "Sends call-completed events with the summary to your CRM or lead system so a follow-up task is created."
+    },
+    {
+      "feature": "Call transfers",
+      "howItHelps": "Passes warm leads or other agents' access requests to a listing agent's phone during working hours."
+    }
+  ],
+  "considerations": [
+    "Fair housing laws apply to how callers are screened and described to. Keep qualifying questions to financing stage, timeline and property needs, and avoid questions or steering based on protected characteristics. Have your broker of record review the script.",
+    "The agent should not state a home's value, promise appreciation or give mortgage advice; refer these to a licensed agent or lender.",
+    "Calling open house visitors or web leads is outbound calling. Confirm you have the consent your jurisdiction requires and the Do Not Call rules you must follow with your own counsel.",
+    "Listing details change quickly. Out-of-date prices or availability in the knowledge base can mislead callers, so assign someone to maintain it."
+  ],
+  "faq": [
+    {
+      "q": "Can the agent give the price of a listing?",
+      "a": "It can repeat the published price if you put it in the knowledge base. Keep entries current and tell the agent to defer questions about negotiation or offers to the listing agent."
+    },
+    {
+      "q": "How does it know which property someone is calling about?",
+      "a": "It asks. You can also give each yard sign a different tracking number, using numbers you bring or add from Calldesk, and route each number to an agent with the matching listing in its knowledge base."
+    },
+    {
+      "q": "Can it schedule open house confirmations?",
+      "a": "Yes. Upload a list of RSVPs with phone numbers and first names as variables and run a batch of confirmation calls, provided you have consent to contact them."
+    },
+    {
+      "q": "Can other agents call for lockbox codes?",
+      "a": "That is sensitive. The safer pattern is to transfer such calls to the listing agent rather than store access details in the knowledge base."
+    },
+    {
+      "q": "Does it work with my CRM?",
+      "a": "Calldesk sends events by webhook and has an API and MCP server. For HighLevel, there is a documented workflow recipe on the docs page; other CRMs need a webhook or automation tool of your choosing."
+    }
+  ],
+  "relatedSlugs": [
+    "mortgage-brokers",
+    "property-management",
+    "insurance-agencies",
+    "law-firms"
+  ]
+}

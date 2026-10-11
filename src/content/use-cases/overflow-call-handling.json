@@ -1,0 +1,48 @@
+{
+  "slug": "overflow-call-handling",
+  "name": "Overflow Call Handling",
+  "h1": "Overflow Call Handling When Every Line Is Busy",
+  "metaDescription": "Forward calls to a Calldesk agent when your team is busy or all lines are in use, so callers get an answer instead of a ring-out or busy signal.",
+  "intro": "Phone traffic rarely arrives in an even stream. A radio mention, a storm, a billing run or Monday morning can put ten calls into a window your staff can handle three of, and the callers beyond the third hear ringing that ends in nothing. Staffing for the peak means paying for idle hours the rest of the week, while staffing for the average means losing the peak calls. Overflow handling accepts that your people will answer first and gives the extra calls somewhere to go. You configure your phone system or carrier to forward a call to a Calldesk number when it goes unanswered after a set number of rings, or when every line is busy. The agent takes over at that point, so the caller receives a greeting rather than silence. Many calls need nothing from staff: opening hours, a delivery question, a message. Anything that does need a person is captured with the caller's details, or transferred to a colleague who has become free. Because the same agent is always on, there is no per-seat capacity to size, and talk time is billed per minute. The call list shows how many calls overflowed and what became of each.",
+  "steps": [
+    "Find out how your phone system or carrier forwards calls on no-answer or busy, since forwarding rules live there and vary by provider, and note the ring count you want.",
+    "Get a number for the agent. You can bring your own number or carrier, or add a number from Calldesk as a priced extra, and route that number's inbound calls to your published version.",
+    "Create the agent from the receptionist template and open with a line that acknowledges the wait, for instance that everyone is on another call.",
+    "Build the knowledge base for the questions that fill your queue and add an extraction step for name, number and reason, so busy-period calls are not lost.",
+    "Add a transfer step to a staff number or desk, so a caller can be connected when someone has become free, and decide what happens if that number does not answer.",
+    "Test the forwarding by calling while your own lines are busy, then check the Live Calls page during your first real peak and adjust the script from the transcripts."
+  ],
+  "sampleCallFlow": [
+    { "speaker": "agent", "text": "Thanks for holding. You've reached Bayview Moving. Our team is on other calls, and I'm an AI assistant who can help. What can I do for you?" },
+    { "speaker": "caller", "text": "I want to change the delivery date for my move. It's booked for the twelfth." },
+    { "speaker": "agent", "text": "I can take that down for our coordinators. May I have your name and the address the move is from?" },
+    { "speaker": "caller", "text": "Ruth Mendel, one oh four Pine Street." },
+    { "speaker": "agent", "text": "Thanks, Ruth. What date would you like instead?" },
+    { "speaker": "caller", "text": "The nineteenth if it's possible." },
+    { "speaker": "agent", "text": "I'll pass the request for the nineteenth to a coordinator. Do you want me to try connecting you to someone now, or have them call you back?" },
+    { "speaker": "caller", "text": "Try connecting me." },
+    { "speaker": "agent", "text": "One moment while I check whether a coordinator is free." },
+    { "speaker": "caller", "text": "Okay." }
+  ],
+  "featuresUsed": [
+    { "feature": "Existing number with call forwarding", "howItHelps": "Forwarding rules stay in your existing phone system, which sends overflow calls to the agent's number." },
+    { "feature": "Knowledge base", "howItHelps": "Routine questions that clog the queue are answered from your own text without a person." },
+    { "feature": "Call transfers", "howItHelps": "When a colleague frees up, a caller can be connected instead of left with a message." },
+    { "feature": "Structured field extraction", "howItHelps": "Calls that need staff are captured as name, number and reason, so none disappear." },
+    { "feature": "Live Calls page", "howItHelps": "The Live Calls page shows which overflow calls are in progress and where each is in the flow while the peak is happening. It shows call state, not audio." },
+    { "feature": "Per-minute billing", "howItHelps": "You pay talk time as it is used, with no capacity to reserve for rare peaks." }
+  ],
+  "considerations": [
+    "Forwarding behavior, delays and any carrier charges belong to your phone provider. Check them, and test with real traffic, before assuming calls will arrive.",
+    "A transfer back to your own number can loop if that number forwards to the agent again. Test the full path, including the case in which nobody answers.",
+    "Tell callers that they are speaking with an AI assistant and what happens next, so a handoff to a message does not feel like a dead end."
+  ],
+  "faq": [
+    { "q": "How do calls reach the agent when I am busy?", "a": "Through forwarding configured on your phone system or carrier, which sends no-answer or busy calls to the Calldesk number. Calldesk handles the call from there." },
+    { "q": "Does the agent answer every call or just the extra ones?", "a": "You choose. Forward all calls to hand everything to the agent, or forward just on no-answer or busy for pure overflow." },
+    { "q": "Can it connect the caller to staff afterward?", "a": "Yes, a transfer step dials a number you set. Plan for the case in which that number is also busy, and give the agent a fallback to take a message." },
+    { "q": "Will I know how many overflow calls happened?", "a": "The call list and analytics show calls and outcomes by day, and each call has a summary. Whether a given call was overflow is visible when you route overflow to its own number." },
+    { "q": "Is there a minimum monthly commitment?", "a": "The pricing page states no monthly minimum and no per-booking or per-transfer fees, with talk time billed per minute. Phone numbers from us carry their own small monthly charge." }
+  ],
+  "relatedSlugs": ["inbound-call-answering", "call-transfer-to-staff", "missed-call-callback", "faq-and-knowledge-base-calls"]
+}

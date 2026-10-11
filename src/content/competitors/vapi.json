@@ -1,0 +1,171 @@
+{
+  "slug": "vapi",
+  "name": "Vapi",
+  "url": "https://vapi.ai",
+  "status": "active",
+  "retrievedAt": "2026-10-10",
+  "category": "platform",
+  "positioning": "A developer-focused platform for building voice agents from modular parts, where the customer chooses the transcriber, language model and voice and Vapi orchestrates the call.",
+  "pricing": {
+    "model": "Usage-based: a per-minute Vapi hosting fee plus provider costs passed through at cost, with optional monthly Success Packages for support and capacity.",
+    "headline": "$0.05 per minute Vapi hosting fee, plus transcriber, model, voice and telephony costs billed separately; the vendor's own calculator shows roughly $0.08 to $0.13 per minute in total for 1,000 minutes with default providers.",
+    "perMinuteUsd": 0.05,
+    "currency": "USD",
+    "planNotes": [
+      "Usage option: no monthly fee, 4 concurrent calls, 2 organizations, 1 included Vapi phone number, 14 days raw data retention.",
+      "Core: $29 per month, 10 concurrent calls, 5 included phone numbers, 30 days retention, 2 business day email support response SLA.",
+      "Pro: 10% of the Vapi hosting fee with a $999 per month minimum, 30 concurrent calls, 10 organizations, 180 days retention, dedicated Slack support, 99% uptime SLA.",
+      "Premier: contact sales, custom limits, 99.9% uptime SLA, SSO and dedicated SIP available.",
+      "The per-minute figure on the page is the hosting fee; it is not an all-in call price.",
+      "Vapi docs state Success Packages are currently available to new customers; existing customers keep legacy pricing."
+    ],
+    "freeTrial": "$5 in free credits on the Usage option; one free Vapi phone number can be created without a payment method.",
+    "whatIsExtra": [
+      "Transcriber (example on page: Deepgram about $0.0095 to $0.0099 per minute)",
+      "Language model (example on page: OpenAI about $0.0077 to $0.0452 per minute)",
+      "Voice (example on page: ElevenLabs about $0.0146 to $0.0238 per minute)",
+      "Telephony transport: Vapi telephony/SIP, WebSockets and Daily WebRTC listed as free; Twilio $0.008 inbound / $0.014 outbound per minute; Vonage $0.00814; Telnyx $0.0055 per minute (charged by the provider)",
+      "HIPAA add-on: $2,000 per month",
+      "Additional concurrent call lines: $10 per line per month",
+      "Additional organizations: $20 per organization per month"
+    ],
+    "sourceUrls": [
+      "https://vapi.ai/pricing",
+      "https://docs.vapi.ai/billing/pricing-and-success-packages.md",
+      "https://docs.vapi.ai/faq.md"
+    ]
+  },
+  "strengths": [
+    {
+      "claim": "Highly modular pipeline: customers can pick or bring their own transcriber, model and voice, including a custom LLM endpoint, and mix providers freely.",
+      "sourceUrl": "https://docs.vapi.ai/faq.md"
+    },
+    {
+      "claim": "Provider models are passed through at cost with no markup, and the pricing page lists no agent cap on every plan, which keeps costs transparent for teams that want to tune each component.",
+      "sourceUrl": "https://vapi.ai/pricing"
+    },
+    {
+      "claim": "Mature developer tooling: a full API for assistants, tools, phone numbers and files, assistant versioning with traffic splitting, and testing/simulation included on every plan.",
+      "sourceUrl": "https://docs.vapi.ai/assistants/versioning.md"
+    },
+    {
+      "claim": "Flexible telephony: free Vapi numbers, plus import of Twilio, Telnyx and other SIP trunk numbers.",
+      "sourceUrl": "https://docs.vapi.ai/phone-numbers/import-twilio.md"
+    },
+    {
+      "claim": "States HIPAA support (with a BAA), SOC 2 Type II and GDPR compliance in its FAQ and publishes a trust portal.",
+      "sourceUrl": "https://docs.vapi.ai/faq.md"
+    }
+  ],
+  "limitations": [
+    {
+      "claim": "Free Vapi phone numbers use US area codes and support inbound calls; international or outbound numbers come from importing a provider number.",
+      "sourceUrl": "https://docs.vapi.ai/free-telephony.md"
+    },
+    {
+      "claim": "HIPAA mode is a paid add-on ($2,000 per month per the pricing page) and the EU region is available on the Premier package.",
+      "sourceUrl": "https://docs.vapi.ai/billing/pricing-and-success-packages.md"
+    },
+    {
+      "claim": "The Usage option includes no response or uptime service-level agreement; an SLA starts with the paid Core package.",
+      "sourceUrl": "https://docs.vapi.ai/billing/pricing-and-success-packages.md"
+    }
+  ],
+  "integrations": [
+    "Twilio",
+    "Telnyx",
+    "Vonage",
+    "DIDWW and other SIP trunk providers",
+    "Deepgram (transcriber)",
+    "OpenAI (model)",
+    "ElevenLabs (voice, including custom/cloned voices)",
+    "Custom LLM endpoints",
+    "Server URL webhooks and tools",
+    "Web and server SDKs"
+  ],
+  "compliance": {
+    "hipaa": "stated",
+    "soc2": "stated",
+    "gdpr": "stated",
+    "note": "Stated by vendor, self-attested: the FAQ says Vapi is HIPAA compliant, SOC 2 Type II certified and GDPR compliant. HIPAA mode requires the paid add-on and a signed BAA; HIPAA mode and Zero Data Retention are mutually exclusive. Reports are referenced on the vendor's security portal, which was not opened.",
+    "sourceUrl": "https://docs.vapi.ai/faq.md"
+  },
+  "telephony": {
+    "bringYourOwnCarrier": "yes",
+    "providedNumbers": "Free US-area-code Vapi numbers (inbound), with 1 to 10 included depending on package; Twilio, Telnyx, DIDWW and other SIP trunk numbers can be imported.",
+    "sourceUrl": "https://docs.vapi.ai/phone-numbers/import-twilio.md"
+  },
+  "migration": {
+    "exportAgentsPossible": "yes",
+    "stepsToLeave": [
+      "Read assistant configuration (system prompt, first message, model, voice, tools) with the List/Get Assistant API using a private API key.",
+      "Read tools and files/knowledge bases with the List Tools, List Files and List Knowledge Bases API endpoints.",
+      "List phone numbers with the List Phone Numbers API; numbers imported from Twilio, Telnyx or a SIP trunk stay with that carrier and can be pointed elsewhere, while free Vapi-provided numbers cannot be assumed portable (not documented).",
+      "Recreate the prompt, tools and knowledge base in the new platform and run test calls before changing carrier routing."
+    ],
+    "sourceUrls": [
+      "https://docs.vapi.ai/api-reference/assistants/list.md",
+      "https://docs.vapi.ai/phone-numbers/import-twilio.md",
+      "https://docs.vapi.ai/free-telephony.md"
+    ]
+  },
+  "bestFor": "Developers and technical teams who want fine-grained control over every component of the voice pipeline and are comfortable assembling and costing the providers themselves.",
+  "sources": [
+    {
+      "url": "https://vapi.ai/pricing",
+      "title": "Vapi pricing page",
+      "retrievedAt": "2026-10-10"
+    },
+    {
+      "url": "https://docs.vapi.ai/billing/pricing-and-success-packages.md",
+      "title": "Vapi docs: Pricing and Success Packages",
+      "retrievedAt": "2026-10-10"
+    },
+    {
+      "url": "https://docs.vapi.ai/billing/manage-packages-and-add-ons.md",
+      "title": "Vapi docs: Manage Success Packages and add-ons",
+      "retrievedAt": "2026-10-10"
+    },
+    {
+      "url": "https://docs.vapi.ai/faq.md",
+      "title": "Vapi docs: FAQ",
+      "retrievedAt": "2026-10-10"
+    },
+    {
+      "url": "https://docs.vapi.ai/security-and-privacy/hipaa.md",
+      "title": "Vapi docs: HIPAA compliance",
+      "retrievedAt": "2026-10-10"
+    },
+    {
+      "url": "https://docs.vapi.ai/free-telephony.md",
+      "title": "Vapi docs: Free phone numbers",
+      "retrievedAt": "2026-10-10"
+    },
+    {
+      "url": "https://docs.vapi.ai/phone-numbers/import-twilio.md",
+      "title": "Vapi docs: Import number from Twilio",
+      "retrievedAt": "2026-10-10"
+    },
+    {
+      "url": "https://docs.vapi.ai/api-reference/assistants/list.md",
+      "title": "Vapi API reference: List Assistants",
+      "retrievedAt": "2026-10-10"
+    },
+    {
+      "url": "https://docs.vapi.ai/llms.txt",
+      "title": "Vapi docs index",
+      "retrievedAt": "2026-10-10"
+    },
+    {
+      "url": "https://docs.vapi.ai/assistants/versioning.md",
+      "title": "Vapi docs: Versioning",
+      "retrievedAt": "2026-10-10"
+    }
+  ],
+  "unknowns": [
+    "The $0.05 per minute hosting fee is stated on the pricing page; the documentation pages we read describe the hosting fee without repeating the amount.",
+    "Whether a Vapi-provided free phone number can be ported out to another carrier was not found in the pages read.",
+    "The vendor's security portal (security.vapi.ai) was not opened, so certification reports were not independently seen.",
+    "Exact JSON shape of an assistant export and whether knowledge-base files are downloadable (not just listable) was not verified."
+  ]
+}

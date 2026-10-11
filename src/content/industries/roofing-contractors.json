@@ -1,0 +1,124 @@
+{
+  "slug": "roofing-contractors",
+  "name": "Roofing Contractors",
+  "h1": "AI Phone Agent for Roofing Contractors: Storm-Season Call Handling",
+  "metaDescription": "Calldesk answers roofing contractor calls during storm surges: leak reports, inspection scheduling, insurance questions and crew-lead transfers.",
+  "intro": "A roofing company's call volume is not steady; it comes in storms. After hail, wind or a heavy rain, hundreds of homeowners notice a stain on the ceiling or shingles in the yard on the same day, and every roofer in the county gets flooded with calls at once. The estimator is on a roof, the office manager is on another line, and anyone who reaches voicemail calls the next listing. Homeowners also bring a layer of insurance confusion: they ask whether the contractor works with their carrier, whether an inspection is free, and what documentation they need for a claim. Calls out of storm season look different, with steady requests for replacement estimates, gutter work and repair of a small leak. A Calldesk agent can answer as the company's AI assistant, take the address, the roof type and age if known, what the caller saw, and whether water is entering the home now, then book an inspection on a connected calendar or raise an active-leak call to a crew lead by transfer. It does not assess damage, promise insurance outcomes or quote a price over the phone. Outbound, it can call people on an inspection list to confirm their window.",
+  "callTypes": [
+    "Homeowners reporting missing shingles or hail damage after a storm",
+    "Active leaks where water is coming through a ceiling right now",
+    "Requests for a free inspection or a replacement estimate",
+    "Questions about working with a homeowner's insurance claim and adjuster visits",
+    "Gutter, flashing and chimney repair inquiries",
+    "Confirmation calls for inspection appointments scheduled days ago"
+  ],
+  "sampleCallFlow": [
+    {
+      "speaker": "agent",
+      "text": "Thanks for calling. I'm the company's AI assistant. Are you calling about storm damage, a leak, or an estimate?"
+    },
+    {
+      "speaker": "caller",
+      "text": "We had hail last night and I see shingles in the yard."
+    },
+    {
+      "speaker": "agent",
+      "text": "I'm sorry about that. Is any water getting into the house at the moment?"
+    },
+    {
+      "speaker": "caller",
+      "text": "No, nothing inside yet."
+    },
+    {
+      "speaker": "agent",
+      "text": "Good. May I take your name and the property address?"
+    },
+    {
+      "speaker": "caller",
+      "text": "Rob Castellano, 14 Ridgeview Drive."
+    },
+    {
+      "speaker": "agent",
+      "text": "Thanks, Rob. Do you know roughly how old the roof is, and have you contacted your insurance company yet?"
+    },
+    {
+      "speaker": "caller",
+      "text": "About twelve years, and no, not yet."
+    },
+    {
+      "speaker": "agent",
+      "text": "Noted. I can't tell you what the insurer will cover, but a photo-documented inspection is typically a first step. We have Thursday afternoon or Friday morning. Which is better?"
+    },
+    {
+      "speaker": "caller",
+      "text": "Friday morning."
+    },
+    {
+      "speaker": "agent",
+      "text": "You're booked for Friday morning. If water begins to come in before then, call back and I'll connect you to a crew lead."
+    }
+  ],
+  "setupSteps": [
+    "Create an agent from the appointment-booking template and add the storm-season context: counties you serve, inspection process and typical wait times.",
+    "Define branches: active leak transfers to a crew lead, damage reports book an inspection, and insurance questions get a neutral explanation from the knowledge base.",
+    "Add extraction fields for address, roof age, roof material if known, damage seen, insurance status and whether water is entering.",
+    "Connect a calendar with realistic inspection capacity, and set a message-taking fallback when no slots remain.",
+    "Test with storm-surge scenarios, publish before the season, and send call results to your CRM by webhook."
+  ],
+  "featuresUsed": [
+    {
+      "feature": "Calendar booking",
+      "howItHelps": "Fills inspection slots while estimators are on roofs, based on capacity you set."
+    },
+    {
+      "feature": "Call transfers",
+      "howItHelps": "Raises an active-leak call to a crew lead who can arrange a tarp."
+    },
+    {
+      "feature": "Structured field extraction",
+      "howItHelps": "Collects roof age, damage seen and insurance status for the estimator's pre-visit notes."
+    },
+    {
+      "feature": "Call summary",
+      "howItHelps": "Gives the office a short written summary of each call after a hail day, so staff can read through the urgent properties first."
+    },
+    {
+      "feature": "Batch outbound calls",
+      "howItHelps": "Confirms scheduled inspection windows with each homeowner using address and time variables."
+    }
+  ],
+  "considerations": [
+    "Storm-chasing and insurance-related solicitation rules differ by state, including limits on how contractors discuss claims and deductibles. Have the agent describe the process neutrally and check the rules with your own counsel.",
+    "The agent must not promise that an insurer will pay, state that damage exists before an inspection, or offer to waive deductibles.",
+    "Calling homeowners from a lead list is outbound telemarketing. Confirm consent and Do Not Call compliance with counsel before any batch.",
+    "Safety: callers should not climb onto a damaged roof. The agent's instructions can include that warning, and a roofing license and insurance claims are your responsibility."
+  ],
+  "faq": [
+    {
+      "q": "What happens when hundreds of storm calls hit at once?",
+      "a": "Ask Calldesk about call-volume limits for your account and carrier before storm season, and keep a transfer or message-taking fallback in the flow for surges."
+    },
+    {
+      "q": "Can the agent say whether the insurance will cover it?",
+      "a": "No. It can explain your inspection process and what documentation your team usually collects. Coverage decisions belong to the insurer."
+    },
+    {
+      "q": "Is the inspection really free?",
+      "a": "If you offer it free. State your actual terms in the knowledge base, and the agent will repeat them as written."
+    },
+    {
+      "q": "Can it separate leads from tire-kickers?",
+      "a": "It collects qualifying details such as roof age and insurance status as fields, so your estimator can prioritize. It does not score or rank them on its own."
+    },
+    {
+      "q": "Can it text photos?",
+      "a": "The agent works by phone. If you want photos, a flow can send a text message with a link to your own upload page, subject to the consent rules where you operate."
+    }
+  ],
+  "relatedSlugs": [
+    "hvac-companies",
+    "plumbing-companies",
+    "electricians",
+    "landscaping-companies"
+  ]
+}

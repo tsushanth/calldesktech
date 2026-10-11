@@ -1,0 +1,144 @@
+{
+  "slug": "telnyx-voice-ai",
+  "name": "Telnyx Voice AI",
+  "url": "https://telnyx.com/products/voice-ai-agents",
+  "status": "active",
+  "category": "cpaas",
+  "positioning": "Telnyx is a licensed carrier and communications platform that also offers hosted voice AI assistants running on its own network and GPUs.",
+  "pricing": {
+    "model": "Per-minute voice engine fee (orchestration, hosted STT, hosted TTS) plus separately billed LLM tokens and telephony; no monthly platform fee on pay-as-you-go.",
+    "headline": "$0.05/min voice engine; LLM tokens and telephony (from $0.0032/min inbound US) are added on top. Telnyx's own estimate for a typical production agent is about $0.06/min all-in.",
+    "perMinuteUsd": 0.05,
+    "currency": "USD",
+    "planNotes": [
+      "Pay as you go: $0 per month, standard rates, card on file, 500 concurrent calls, community support.",
+      "Growth: $2,000/month minimum spend, 15% discount on voice, messaging and numbers, 24/7 support.",
+      "Enterprise: $5,000/month minimum spend, dedicated infrastructure, no stated rate limits.",
+      "Voice engine and LLM rates are stated to be the same on every plan; commitment lowers telephony, messaging and number charges.",
+      "Telnyx notes its estimates exclude per-call rounding to 60-second increments for the voice engine, so short calls can cost more than the headline suggests.",
+      "The rate was seen on two Telnyx pages (pricing page and developer docs pricing page); the all-in $0.06 figure is Telnyx's own estimate and was not independently reproduced."
+    ],
+    "freeTrial": "Free sign-up with pay-as-you-go; developer docs say trial accounts are limited to 1 AI Assistant. The size of any trial credit was not stated on the pages read.",
+    "whatIsExtra": [
+      "LLM tokens (about $0.006/min with Kimi on Telnyx GPUs per Telnyx; frontier models at their own rates)",
+      "Telephony from $0.0032/min inbound and $0.005/min outbound (SIP trunking)",
+      "Phone numbers (US local $1.00/month, volume from $0.79/month)",
+      "Call recording $0.002/min",
+      "Voice API platform fee $0.002/min (listed for component use)",
+      "SMS follow-up and agent knowledge base are listed as add-ons in the estimator"
+    ],
+    "sourceUrls": [
+      "https://telnyx.com/pricing/voice-ai",
+      "https://developers.telnyx.com/pricing.md",
+      "https://telnyx.com/products/voice-ai-agents"
+    ]
+  },
+  "strengths": [
+    {
+      "claim": "Owns the carrier network and licensed-carrier status in 45+ countries per its own page, so telephony, numbers and AI come from one vendor and one invoice.",
+      "sourceUrl": "https://telnyx.com/products/voice-ai-agents"
+    },
+    {
+      "claim": "Low published per-minute price for the voice engine ($0.05/min including hosted STT and TTS) with LLM billed per token and no prompt-size multipliers stated.",
+      "sourceUrl": "https://telnyx.com/pricing/voice-ai"
+    },
+    {
+      "claim": "Large voice and language catalogue: 1,400+ voices in 80+ languages on the product page, with several TTS and STT engines selectable.",
+      "sourceUrl": "https://telnyx.com/products/voice-ai-agents"
+    },
+    {
+      "claim": "Can import existing assistants from Vapi, ElevenLabs and Retell through the portal or an API.",
+      "sourceUrl": "https://developers.telnyx.com/docs/inference/ai-assistants/importing.md"
+    },
+    {
+      "claim": "Publishes a trust badge set (SOC 2 Type II, HIPAA, GDPR, PCI, ISO) and states HIPAA is included in every plan.",
+      "sourceUrl": "https://telnyx.com/pricing/voice-ai"
+    }
+  ],
+  "limitations": [
+    {
+      "claim": "The headline per-minute rate covers the voice engine; LLM tokens and telephony are billed separately, so the all-in cost depends on model and call profile.",
+      "sourceUrl": "https://telnyx.com/pricing/voice-ai"
+    },
+    {
+      "claim": "Telnyx states its cost estimates exclude per-call rounding to 60-second increments, so very short calls can cost more than the estimate.",
+      "sourceUrl": "https://telnyx.com/pricing/voice-ai"
+    },
+    {
+      "claim": "Trial accounts are limited to one AI Assistant according to the developer docs.",
+      "sourceUrl": "https://developers.telnyx.com/docs/inference/ai-assistants/importing.md"
+    }
+  ],
+  "integrations": [
+    "30+ pre-built integrations across 13 categories (CRMs, analytics, automation), per the product page",
+    "MCP servers",
+    "Custom LLMs and BYO TTS",
+    "Webhooks and tools",
+    "Transfer and SIP REFER tools",
+    "SMS, WhatsApp and web chat channels for the same assistant"
+  ],
+  "compliance": {
+    "hipaa": "stated",
+    "soc2": "stated",
+    "gdpr": "stated",
+    "note": "Stated by vendor, self-attested: the product page shows SOC 2 Type II certified and a footer listing ISO, PCI, HIPAA, GDPR and SOC2 Type II; the pricing page says HIPAA is included in every plan. Reports and BAA terms were not reviewed (trust center page was not reachable).",
+    "sourceUrl": "https://telnyx.com/products/voice-ai-agents"
+  },
+  "telephony": {
+    "bringYourOwnCarrier": "unknown",
+    "providedNumbers": "Telnyx-provided numbers across its global number product (US local $1.00/month, volume from $0.79/month). Docs describe assigning a Telnyx number to an assistant; whether an external carrier or SIP trunk can front a Telnyx assistant was not confirmed on the pages read.",
+    "sourceUrl": "https://developers.telnyx.com/docs/inference/ai-assistants/no-code-voice-assistant.md"
+  },
+  "migration": {
+    "exportAgentsPossible": "yes",
+    "stepsToLeave": [
+      "Retrieve each assistant's configuration with the List assistants and Get an assistant API endpoints.",
+      "Retrieve call history with the List conversations and Get conversation messages API endpoints.",
+      "Telnyx documents a Clone Assistant endpoint that excludes telephony and messaging settings, so number assignments must be re-created on any new platform.",
+      "Number porting out is covered by Telnyx's number porting docs, which were not read in detail."
+    ],
+    "sourceUrls": [
+      "https://developers.telnyx.com/public/llms/ai/assistants.txt"
+    ]
+  },
+  "bestFor": "Teams that want carrier, numbers and voice AI under one vendor and are comfortable assembling an agent from a developer platform with usage-based billing.",
+  "sources": [
+    {
+      "url": "https://telnyx.com/pricing/voice-ai",
+      "title": "Telnyx AI Voice Agent Pricing",
+      "retrievedAt": "2026-10-10"
+    },
+    {
+      "url": "https://telnyx.com/products/voice-ai-agents",
+      "title": "Telnyx Voice AI Agents product page",
+      "retrievedAt": "2026-10-10"
+    },
+    {
+      "url": "https://developers.telnyx.com/pricing.md",
+      "title": "Telnyx developer docs: Pricing",
+      "retrievedAt": "2026-10-10"
+    },
+    {
+      "url": "https://developers.telnyx.com/docs/inference/ai-assistants/importing.md",
+      "title": "Telnyx docs: Importing Assistants from another Provider",
+      "retrievedAt": "2026-10-10"
+    },
+    {
+      "url": "https://developers.telnyx.com/docs/inference/ai-assistants/no-code-voice-assistant.md",
+      "title": "Telnyx docs: Voice Assistant (no-code quickstart)",
+      "retrievedAt": "2026-10-10"
+    },
+    {
+      "url": "https://developers.telnyx.com/public/llms/ai/assistants.txt",
+      "title": "Telnyx docs: AI Assistants index",
+      "retrievedAt": "2026-10-10"
+    }
+  ],
+  "unknowns": [
+    "Whether a customer can bring an external carrier or SIP trunk to a Telnyx AI assistant.",
+    "SOC 2 / HIPAA report or BAA terms (trust center page not reachable; claims taken from marketing pages).",
+    "Trial credit amount for new accounts.",
+    "Whether the $0.05/min voice engine fee is rounded up per call in practice (Telnyx mentions 60-second increments but the exact rule was not read)."
+  ],
+  "retrievedAt": "2026-10-10"
+}

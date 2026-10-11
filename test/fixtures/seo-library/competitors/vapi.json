@@ -1,0 +1,54 @@
+{
+  "slug": "vapi",
+  "name": "Vapi",
+  "url": "https://vapi.ai",
+  "status": "active",
+  "retrievedAt": "2026-10-01",
+  "category": "Developer platform for voice AI agents",
+  "positioning": "A developer-focused platform for building and running voice agents, where you choose the transcription, language model and voice providers yourself.",
+  "pricing": {
+    "model": "A per-minute platform fee, with transcription, language model, voice and telephony providers billed separately",
+    "headline": "A platform fee of $0.05 per minute, plus provider charges for each component",
+    "perMinuteUsd": 0.05,
+    "currency": "USD",
+    "planNotes": [
+      "The pricing page lists Free, Core, Pro and Premier tiers.",
+      "The Pro tier lists a monthly minimum on the pricing page."
+    ],
+    "freeTrial": "",
+    "whatIsExtra": ["transcription", "the language model", "the voice provider", "telephony"],
+    "sourceUrls": ["https://vapi.ai/pricing"]
+  },
+  "strengths": [
+    { "claim": "Lets you pick the transcription, language model and voice providers, which gives developers control over each part of a call.", "sourceUrl": "https://docs.vapi.ai/quickstart" },
+    { "claim": "Documents support for connecting your own SIP trunk as well as Twilio and Telnyx numbers.", "sourceUrl": "https://docs.vapi.ai/phone-numbers" },
+    { "claim": "Documents an MCP integration so agents can call tools and external clients can manage assistants.", "sourceUrl": "https://docs.vapi.ai/quickstart" }
+  ],
+  "limitations": [
+    { "claim": "The total cost per minute depends on which providers you choose, so it cannot be read from a single price.", "sourceUrl": "https://vapi.ai/pricing" },
+    { "claim": "The documentation describes assistants through configuration; we did not find a visual flow canvas described.", "sourceUrl": "https://docs.vapi.ai/quickstart" }
+  ],
+  "integrations": ["Twilio", "Telnyx", "SIP trunks", "MCP"],
+  "compliance": { "hipaa": "stated", "soc2": "stated", "gdpr": "not-stated", "note": "The trust center lists SOC 2 reports, and the pricing page describes HIPAA as a paid add-on.", "sourceUrl": "https://vapi.ai/pricing" },
+  "telephony": { "bringYourOwnCarrier": "yes", "providedNumbers": "", "sourceUrl": "https://docs.vapi.ai/phone-numbers" },
+  "migration": {
+    "exportAgentsPossible": "Assistant configuration can be read through the API.",
+    "stepsToLeave": [
+      "List your assistants through the Vapi API and save each assistant's configuration, prompt and tool list.",
+      "Download the recordings and transcripts for the calls you need to keep.",
+      "Note which phone numbers you imported from your own carrier and which you bought through Vapi.",
+      "Cancel the plan once calls have moved."
+    ],
+    "sourceUrls": ["https://docs.vapi.ai/quickstart"]
+  },
+  "bestFor": "Developers who want to assemble their own voice stack and manage each provider.",
+  "sources": [
+    { "url": "https://vapi.ai/pricing", "title": "Vapi pricing page (test fixture, not a verified record)", "retrievedAt": "2026-10-01" },
+    { "url": "https://docs.vapi.ai/quickstart", "title": "Vapi documentation quickstart (test fixture, not a verified record)", "retrievedAt": "2026-10-01" },
+    { "url": "https://docs.vapi.ai/phone-numbers", "title": "Vapi phone number documentation (test fixture, not a verified record)", "retrievedAt": "2026-10-01" }
+  ],
+  "unknowns": [
+    "Whether Vapi sells phone numbers directly was not clear from the pages we reviewed.",
+    "This entry is test data used to develop the page templates and is not a verified record."
+  ]
+}

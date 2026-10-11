@@ -1,0 +1,109 @@
+{
+  "slug": "dialpad-ai",
+  "name": "Dialpad AI Agents",
+  "url": "https://www.dialpad.com/ai-agent/",
+  "status": "active",
+  "retrievedAt": "2026-10-10",
+  "category": "enterprise",
+  "positioning": "AI voice and digital agents sold as part of Dialpad's unified communications and contact-centre platform, priced in conversation credits.",
+  "pricing": {
+    "model": "Conversation-based credits; pool of AI Agent Credits, price not published",
+    "headline": "Customers buy a pool of AI Agent Credits; a conversation is billable when the AI retrieves information or performs an action. No public rate.",
+    "perMinuteUsd": null,
+    "currency": "USD",
+    "planNotes": [
+      "Pricing page: 'You purchase a pool of AI Agent Credits'; 'Credits are used when AI delivers value'.",
+      "A conversation is billable when the AI retrieves information or executes an action such as scheduling, routing or order lookup.",
+      "The AI Agent product sits beside Support, Sell and Connect plans; contact sales for AI Agent pricing."
+    ],
+    "freeTrial": null,
+    "whatIsExtra": [
+      "Not stated on the page."
+    ],
+    "sourceUrls": [
+      "https://www.dialpad.com/pricing/",
+      "https://www.dialpad.com/ai-agent/"
+    ]
+  },
+  "strengths": [
+    {
+      "claim": "Vendor states SOC 2 Type II, HIPAA readiness with one-click BAA signing, and GDPR support.",
+      "sourceUrl": "https://www.dialpad.com/trust/"
+    },
+    {
+      "claim": "Part of a full telephony and contact-centre platform, so voice, humans and AI agents share one system.",
+      "sourceUrl": "https://www.dialpad.com/ai-agent/"
+    },
+    {
+      "claim": "Describes zero-code agent building and a hand-off to human agents with full transcript and context.",
+      "sourceUrl": "https://www.dialpad.com/ai-agent/"
+    },
+    {
+      "claim": "Billing is per billable conversation rather than per minute, with no charge when no work is done.",
+      "sourceUrl": "https://www.dialpad.com/pricing/"
+    },
+    {
+      "claim": "Offers out-of-the-box skills such as order status, appointment scheduling and password resets.",
+      "sourceUrl": "https://www.dialpad.com/ai-agent/"
+    }
+  ],
+  "limitations": [
+    {
+      "claim": "The AI Agent price is not published; the pricing page points to sales and an ROI estimate.",
+      "sourceUrl": "https://www.dialpad.com/pricing/"
+    }
+  ],
+  "integrations": [
+    "CRM systems (agent actions are logged to CRM)",
+    "Dialpad App Marketplace",
+    "Okta, Azure, Google Workspace, OneLogin (SSO)"
+  ],
+  "compliance": {
+    "hipaa": "stated",
+    "soc2": "stated",
+    "gdpr": "stated",
+    "note": "Stated by vendor, self-attested on the Trust page: 'SOC2 Type II compliant', 'HIPAA-ready' with BAA, and GDPR support. Applies to Dialpad products generally; AI Agent-specific scope not separately confirmed.",
+    "sourceUrl": "https://www.dialpad.com/trust/"
+  },
+  "telephony": {
+    "bringYourOwnCarrier": "unknown",
+    "providedNumbers": "Dialpad is itself a cloud telephony provider; number options for AI Agent were not described on the pages read.",
+    "sourceUrl": "https://www.dialpad.com/ai-agent/"
+  },
+  "migration": {
+    "exportAgentsPossible": "unknown",
+    "stepsToLeave": [],
+    "sourceUrls": []
+  },
+  "bestFor": "Organisations already on, or willing to adopt, Dialpad for telephony and contact-centre who want AI agents in the same platform.",
+  "sources": [
+    {
+      "url": "https://www.dialpad.com/ai/",
+      "title": "Dialpad AI",
+      "retrievedAt": "2026-10-10"
+    },
+    {
+      "url": "https://www.dialpad.com/ai-agent/",
+      "title": "Dialpad AI Agent",
+      "retrievedAt": "2026-10-10"
+    },
+    {
+      "url": "https://www.dialpad.com/pricing/",
+      "title": "Dialpad Plans & Pricing",
+      "retrievedAt": "2026-10-10"
+    },
+    {
+      "url": "https://www.dialpad.com/trust/",
+      "title": "Dialpad Trust",
+      "retrievedAt": "2026-10-10"
+    }
+  ],
+  "unknowns": [
+    "Price per credit or per conversation",
+    "Whether a free trial covers AI Agent",
+    "Standalone use without Dialpad telephony",
+    "Bring-your-own-carrier support",
+    "Agent export or data portability terms",
+    "Specific third-party integrations list for AI Agent"
+  ]
+}

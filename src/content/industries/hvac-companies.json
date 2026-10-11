@@ -1,0 +1,120 @@
+{
+  "slug": "hvac-companies",
+  "name": "HVAC Companies",
+  "h1": "AI Phone Agent for HVAC Companies: Heat and Cooling Service Calls",
+  "metaDescription": "Calldesk answers HVAC calls during the first heat wave or cold snap: no-cooling and no-heat triage, booking service visits and replacement estimates.",
+  "intro": "HVAC phones are quiet until the weather turns. The first 95-degree afternoon or the first freezing night, every system in town that was marginal fails at the same moment, and a three-person office is suddenly fielding a call every few minutes. Technicians are in attics and crawlspaces and cannot answer, dispatchers are juggling routes, and a homeowner with no air conditioning will call the next company within minutes. The calls are also not all alike: a no-heat call in January with an elderly parent at home is different from a maintenance-plan renewal, and a quote for a replacement system is a big sale that deserves a person. A Calldesk agent can pick up as the company's AI assistant, collect the address, system type, what the equipment is doing and how urgent it is, offer the next available service window from a connected calendar, and pass priority calls to a dispatcher by transfer. Its answers come from a knowledge base you write on service areas, diagnostic fees and plan details. It does not diagnose over the phone or promise arrival times. Outbound calls can remind maintenance-plan customers that their seasonal tune-up is due.",
+  "callTypes": [
+    "No-cooling calls during a heat wave from homeowners with a warm house",
+    "No-heat calls on a freezing night, sometimes with vulnerable household members",
+    "Requests for a replacement estimate on an old furnace or air conditioner",
+    "Maintenance-plan members asking when their seasonal tune-up is scheduled",
+    "Thermostat, filter and strange-noise questions that may not need a truck",
+    "Commercial property contacts reporting a rooftop unit down and asking for a window"
+  ],
+  "sampleCallFlow": [
+    {
+      "speaker": "agent",
+      "text": "Thanks for calling. I'm the company's AI assistant. Is your system not cooling, not heating, or are you after something else?"
+    },
+    {
+      "speaker": "caller",
+      "text": "Our AC is running but the house is at 86 and climbing."
+    },
+    {
+      "speaker": "agent",
+      "text": "That's uncomfortable. Can I get your name and the address of the home?"
+    },
+    {
+      "speaker": "caller",
+      "text": "Walt Dietrich, 77 Cedar Lane."
+    },
+    {
+      "speaker": "agent",
+      "text": "Thanks, Walt. Is the outdoor unit running, and is there ice on any of the lines?"
+    },
+    {
+      "speaker": "caller",
+      "text": "The fan outside is going, and I think there's frost on the pipe."
+    },
+    {
+      "speaker": "agent",
+      "text": "That's useful for the technician. A common step is to turn the system off so ice can melt, but I can't diagnose it. The next opening is tomorrow between 8 and 10, with the diagnostic fee listed on our service page. Would you like that slot?"
+    },
+    {
+      "speaker": "caller",
+      "text": "Anything sooner today?"
+    },
+    {
+      "speaker": "agent",
+      "text": "Let me connect you to dispatch to ask about a same-day cancellation. One moment."
+    },
+    {
+      "speaker": "caller",
+      "text": "Thanks."
+    }
+  ],
+  "setupSteps": [
+    "Create an agent from the receptionist or appointment-booking template, with your company name, service area zip codes and a short list of equipment types you service.",
+    "Write the knowledge base with your diagnostic fee wording, plan benefits, hours and a statement about what the agent can and cannot diagnose.",
+    "Add extraction fields for address, system type, symptom, how hot or cold the home is and any vulnerable occupant.",
+    "Connect a calendar for service windows, and add a transfer to dispatch for same-day, no-heat or commercial calls.",
+    "Test peak-day scenarios, publish, and schedule a batch of tune-up reminder calls for plan members before each season."
+  ],
+  "featuresUsed": [
+    {
+      "feature": "Calendar booking",
+      "howItHelps": "Offers open service windows when dispatchers are on the road and cannot take the call."
+    },
+    {
+      "feature": "Structured field extraction",
+      "howItHelps": "Records address, equipment type and symptoms so the technician arrives with context."
+    },
+    {
+      "feature": "Call transfers",
+      "howItHelps": "Escalates same-day, no-heat and commercial calls to a dispatcher line you choose."
+    },
+    {
+      "feature": "Knowledge base",
+      "howItHelps": "Answers service-area, fee and plan questions the same way each time, in your wording."
+    },
+    {
+      "feature": "Batch outbound calls",
+      "howItHelps": "Reminds maintenance-plan customers that their seasonal visit is due, with each customer's name as a variable."
+    }
+  ],
+  "considerations": [
+    "Safety situations such as a gas smell, carbon monoxide alarm or burning odor are not HVAC scheduling matters. Instruct the agent to tell the caller to leave the home and contact emergency services or the gas utility, and to transfer to a human.",
+    "Do not allow the agent to promise arrival times or prices you cannot keep. Quote the diagnostic fee as written in your knowledge base.",
+    "Reminder calls to customers are outbound calls; confirm you hold consent and observe calling hours, and ask counsel about TCPA if you operate in the United States.",
+    "Contractor licensing and refrigerant handling rules are your responsibility; the agent should not give instructions for DIY repair."
+  ],
+  "faq": [
+    {
+      "q": "Can the agent tell a caller what is wrong with their system?",
+      "a": "No. It can ask symptom questions to help the technician prepare, but it should not diagnose over the phone, and its instructions should say so."
+    },
+    {
+      "q": "What about a heat wave when every slot is taken?",
+      "a": "Fill the calendar with real availability. When no slot exists, the agent can take the request with priority notes and a callback promise that you are able to keep, rather than inventing times."
+    },
+    {
+      "q": "Can it quote a replacement system?",
+      "a": "A replacement is a large sale. A good pattern is to collect the home details and book a free-estimate visit or transfer to your comfort advisor, rather than price anything on the phone."
+    },
+    {
+      "q": "Does it work for commercial customers?",
+      "a": "Yes, as a separate branch. Ask whether the building is commercial and route those calls to the person who handles service contracts."
+    },
+    {
+      "q": "Which plan fits an HVAC office?",
+      "a": "Standard is described on the pricing page as suited to reception, booking and intake. Lite is cheaper and has an English-language voice, for simpler confirmation calls."
+    }
+  ],
+  "relatedSlugs": [
+    "plumbing-companies",
+    "electricians",
+    "roofing-contractors",
+    "property-management"
+  ]
+}

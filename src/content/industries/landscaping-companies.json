@@ -1,0 +1,124 @@
+{
+  "slug": "landscaping-companies",
+  "name": "Landscaping Companies",
+  "h1": "AI Phone Agent for Landscaping Companies: Seasonal Quotes",
+  "metaDescription": "Calldesk answers landscaping company calls: spring cleanup, mowing contracts, irrigation repairs and quote scheduling while crews are in the field.",
+  "intro": "Landscaping calls follow the calendar. In early spring the phone fills with requests for cleanups, mulch and new mowing contracts, and homeowners all call in the same warm weekend. In summer the calls shift to irrigation breaks and brown patches, and in fall to leaf removal and winterizing, with snow plowing for the companies that do it. Meanwhile the entire workforce is outdoors, running mowers and trimmers, and the owner is often the one answering from the truck. Callers want a quote and, like most outdoor-service buyers, will book whoever responds first. Many questions are repeatable: whether you serve their neighborhood, how often mowing happens, what a weekly plan includes, and when someone can come look at the yard. A Calldesk agent can answer as the company's AI assistant, collect the address, lot size description and the services wanted, check the service area in its knowledge base, and book an estimate visit on a connected calendar. Existing customers asking to skip a week or report a missed cut can be logged with their address. It does not price a yard sight unseen. Outbound batch calls can confirm seasonal contract renewals.",
+  "callTypes": [
+    "New-customer requests for weekly mowing and lawn care",
+    "Spring cleanup, mulch and planting-bed estimates in the first warm weeks",
+    "Irrigation system start-ups and broken sprinkler head repairs",
+    "Existing customers asking to skip, move or report a missed visit",
+    "Commercial and HOA contacts asking for a grounds maintenance bid",
+    "Fall leaf cleanup and snow removal contract inquiries"
+  ],
+  "sampleCallFlow": [
+    {
+      "speaker": "agent",
+      "text": "Thanks for calling. I'm the company's AI assistant. Are you looking for a new service, or are you an existing customer?"
+    },
+    {
+      "speaker": "caller",
+      "text": "New. I want someone to mow and edge the lawn every week."
+    },
+    {
+      "speaker": "agent",
+      "text": "Great. What's your name and the property address, so I can check that it's in our service area?"
+    },
+    {
+      "speaker": "caller",
+      "text": "Greg Lindqvist, 18 Quarry Road."
+    },
+    {
+      "speaker": "agent",
+      "text": "Quarry Road is within the area we cover. Is the lot a standard suburban size, or larger, and is there a fence or gate on the yard?"
+    },
+    {
+      "speaker": "caller",
+      "text": "About a third of an acre, with a gate on the side."
+    },
+    {
+      "speaker": "agent",
+      "text": "Thanks. Do you have any dogs that are outside during the day?"
+    },
+    {
+      "speaker": "caller",
+      "text": "One, usually inside while we're at work though."
+    },
+    {
+      "speaker": "agent",
+      "text": "Noted. The crew lead would like to look at the property before quoting. He has visits open Monday at 4 or Tuesday at noon."
+    },
+    {
+      "speaker": "caller",
+      "text": "Monday at 4 is fine."
+    },
+    {
+      "speaker": "agent",
+      "text": "Booked. You'll get a call from the crew lead if he's running late."
+    }
+  ],
+  "setupSteps": [
+    "Create an agent from the appointment-booking template, with your service list, season dates and crews' typical visit windows.",
+    "Add the zip codes or town names you serve to the knowledge base, along with minimum job rules and which services need a site visit.",
+    "Add extraction fields for address, lot size, services wanted, gate or pet notes and whether the caller is new or existing.",
+    "Connect a calendar for estimate visits and add a separate path that logs missed-visit complaints for the office.",
+    "Test, publish, and schedule a batch of renewal calls near the end of your season with each customer's name as a variable."
+  ],
+  "featuresUsed": [
+    {
+      "feature": "Knowledge base",
+      "howItHelps": "Checks service-area and service-list questions against what you actually offer, so callers outside your area hear that right away."
+    },
+    {
+      "feature": "Calendar booking",
+      "howItHelps": "Books estimate visits while the crew is out working."
+    },
+    {
+      "feature": "Structured field extraction",
+      "howItHelps": "Records lot description, services and access notes so the estimator can price faster on arrival."
+    },
+    {
+      "feature": "Batch outbound calls",
+      "howItHelps": "Reaches seasonal customers about renewing their contracts, with names and service details as per-contact variables."
+    },
+    {
+      "feature": "Call summary",
+      "howItHelps": "Gives the office a short entry for each call, including missed-visit complaints that need a response."
+    }
+  ],
+  "considerations": [
+    "Pesticide and fertilizer application is licensed and regulated in many places. Keep the agent from making claims about treatments or results; refer such questions to a licensed applicator or your staff.",
+    "Do not allow price promises sight unseen. Ask the agent to say that an estimate follows a site visit or photos, as your process requires.",
+    "Renewal and promotional calls to past customers are outbound calls. Confirm consent and calling-hour rules, and ask your counsel about TCPA obligations in the United States.",
+    "Complaints about property damage should be passed to a person, not resolved by the agent."
+  ],
+  "faq": [
+    {
+      "q": "Can the agent give a price for mowing?",
+      "a": "Only a price you have written down and approved. Many landscapers prefer it to book a quick visit and let the crew lead quote after seeing the yard."
+    },
+    {
+      "q": "What about commercial bids?",
+      "a": "Add a branch that identifies commercial and HOA contacts and sends them to the person who writes bids, with the property size and number of buildings captured as fields."
+    },
+    {
+      "q": "Does it handle snow plowing season?",
+      "a": "If you offer plowing, add it to the knowledge base and flow, including how storm-day calls are handled. During storms the agent can log requests, while dispatch stays with your team."
+    },
+    {
+      "q": "How do customers report a missed mow?",
+      "a": "A separate path asks for the address and date of the missed visit and creates a record the office can resolve. The agent should not promise a make-up visit unless you allow it."
+    },
+    {
+      "q": "Can it speak Spanish with customers?",
+      "a": "Calldesk supports many languages on the Standard and Pro voices; Lite speaks English. You can set the language per agent."
+    }
+  ],
+  "relatedSlugs": [
+    "roofing-contractors",
+    "cleaning-services",
+    "hvac-companies",
+    "property-management"
+  ]
+}

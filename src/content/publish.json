@@ -1,0 +1,29 @@
+{
+  "published": [
+    "compare:vapi",
+    "compare:retell-ai",
+    "compare:bland-ai",
+    "compare:synthflow",
+    "compare:elevenlabs-agents",
+    "compare:thunderphone",
+    "alternatives:vapi",
+    "alternatives:retell-ai",
+    "alternatives:bland-ai",
+    "alternatives:synthflow",
+    "alternatives:elevenlabs-agents",
+    "alternatives:thunderphone",
+    "migrate:vapi",
+    "migrate:retell-ai",
+    "migrate:bland-ai",
+    "industries:hvac-companies",
+    "industries:plumbing-companies",
+    "industries:roofing-contractors",
+    "industries:electricians",
+    "industries:landscaping-companies",
+    "industries:cleaning-services",
+    "use-cases:inbound-call-answering",
+    "use-cases:after-hours-answering",
+    "use-cases:appointment-booking",
+    "use-cases:missed-call-callback"
+  ]
+}

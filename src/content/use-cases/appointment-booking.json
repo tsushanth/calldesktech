@@ -1,0 +1,48 @@
+{
+  "slug": "appointment-booking",
+  "name": "Appointment Booking",
+  "h1": "Book Appointments by Phone With an AI Voice Agent",
+  "metaDescription": "A Calldesk voice agent checks your Cal.com calendar for open slots and books callers into them, or captures a booking request when no calendar is linked.",
+  "intro": "Booking by phone looks simple until you count the back-and-forth: the caller names a day, the front desk looks at the calendar, the slot is gone, a second slot is offered, the caller needs to check something, and eight minutes later a single appointment exists. During busy periods that conversation is exactly what goes unanswered. A booking agent takes over the routine part. It asks what service the caller wants, collects name and phone number, reads real availability from a connected Cal.com calendar, offers a few open times, and books the one the caller picks. When no calendar is connected it does something less ambitious but still honest: it collects the details of the request and tells the caller that staff will confirm. Calldesk warns you at publish time if your flow collects appointments with no calendar connected, and you can ask the publish to fail instead, so you never ship an agent that implies a booking it cannot make. The service-appointment and appointment-booking templates provide a starting flow, and extraction fields such as vehicle, service type or preferred time can be changed to suit your trade. Each call leaves a summary and transcript, so you can verify what was booked.",
+  "steps": [
+    "Connect a Cal.com calendar under Integrations and create the event types that match what you sell, so the agent has real availability to read.",
+    "Create an agent from the appointment-booking template (or service-appointment for trades and workshops) and edit the questions to match your services.",
+    "Add extraction fields for the details your team needs before a visit, for example service type, address or vehicle, alongside name and phone number.",
+    "Publish with requireBookingTools set to true if you want the publish refused whenever the calendar is not connected, instead of accepting an agent that just takes requests.",
+    "Route a number to the version and place test calls that book, change your mind mid-call, and ask for a time that is already taken.",
+    "Review summaries and transcripts after real calls, checking that every claimed booking appears on the calendar, and adjust the prompt where the two disagree."
+  ],
+  "sampleCallFlow": [
+    { "speaker": "agent", "text": "Thanks for calling Ridgeline Auto Service. I'm an AI assistant and I can book a service appointment for you. What do you need done?" },
+    { "speaker": "caller", "text": "An oil change and a look at my brakes, they've been squeaking." },
+    { "speaker": "agent", "text": "I can book that as a combined visit. May I have your name and a good phone number?" },
+    { "speaker": "caller", "text": "Dana Whitfield, five five five, zero one seven seven." },
+    { "speaker": "agent", "text": "Thank you, Dana. What vehicle will you be bringing in?" },
+    { "speaker": "caller", "text": "A twenty nineteen Subaru Outback." },
+    { "speaker": "agent", "text": "I'm seeing openings Thursday at nine thirty and Friday at one fifteen. Which works better?" },
+    { "speaker": "caller", "text": "Thursday at nine thirty." },
+    { "speaker": "agent", "text": "Booked: Thursday at nine thirty for an oil change and brake check on your Outback. Anything else I can help with?" },
+    { "speaker": "caller", "text": "No, that's it. Thanks." }
+  ],
+  "featuresUsed": [
+    { "feature": "Calendar booking", "howItHelps": "With a Cal.com calendar connected the agent reads availability and books the slot during the call." },
+    { "feature": "Structured field extraction", "howItHelps": "Service type, vehicle, name and phone number are saved as fields on the call record." },
+    { "feature": "Publish warnings and requireBookingTools", "howItHelps": "Publishing warns, or can refuse, when a flow collects appointments but no calendar is connected." },
+    { "feature": "Call summary and full transcript", "howItHelps": "You can compare what the caller was told against the calendar entry." },
+    { "feature": "Call testing and simulation test cases", "howItHelps": "Test calls and simulation test cases let you exercise taken slots and caller changes of mind before launch." },
+    { "feature": "API and webhooks", "howItHelps": "A call-completed webhook can push the booking details into a CRM or job system." }
+  ],
+  "considerations": [
+    "Calendar booking relies on a connected Cal.com calendar. Without one the agent takes a request and nothing more, so make that explicit in the script.",
+    "Collect just the information you need to schedule. Avoid asking for sensitive details such as health or payment information unless your processes and counsel say it is appropriate.",
+    "Check booked slots against the calendar for the first days of live use so a mismatch is caught early."
+  ],
+  "faq": [
+    { "q": "Which calendars does it work with?", "a": "Live booking goes through a Cal.com account, which can connect Google, Outlook and iCal calendars. Other calendar systems can be reached through a function step that calls your own endpoint, which you would need to build." },
+    { "q": "What if the caller wants a time that is not free?", "a": "The agent reads availability and offers open slots. You can instruct it to offer the nearest alternatives or to take a request for staff to confirm." },
+    { "q": "What happens if I forget to connect the calendar?", "a": "The version is published with a booking_without_calendar warning, and the agent takes a request instead of booking. Set requireBookingTools to true to have the publish refused instead." },
+    { "q": "Can it collect job details before the visit?", "a": "Yes. Extraction steps collect named fields, such as service type or address, and they appear on the call record and in webhooks." },
+    { "q": "Does it send confirmations?", "a": "Confirmation messages are not part of the booking step itself. Use a call-completed webhook to trigger your own email or text confirmation, and check messaging consent rules before sending texts." }
+  ],
+  "relatedSlugs": ["appointment-reminders", "appointment-rescheduling-and-cancellations", "inbound-call-answering", "multilingual-reception"]
+}

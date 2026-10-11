@@ -1,0 +1,124 @@
+{
+  "slug": "restaurants",
+  "name": "Restaurants",
+  "h1": "AI Phone Agent for Restaurants: Reservations and Menu Questions",
+  "metaDescription": "Calldesk answers restaurant calls during the dinner rush: table reservations, wait times, menu and allergy questions, and large-party requests.",
+  "intro": "A restaurant's phone is loudest exactly when no one can answer it. At six o'clock on a Friday the host stand is three deep, servers are running plates, and the line rings with people asking if there is a table for four at seven-thirty. Weekday lunches bring takeout questions, and Sunday brings brunch reservations and birthday requests for twelve. Many callers ask the same few things: hours, parking, whether the kitchen is open late, if there is a vegan option, what the corkage policy is, and whether the patio is open. Others have a real need that the host must hear carefully, such as a food allergy or a private event. A Calldesk agent can answer as the restaurant's AI assistant, take reservation requests with party size, date, time and name on a connected calendar, answer menu and hours questions from a knowledge base, and take a message for the manager about private dining. For allergy questions it should state what is on the menu you have written and pass details to a person, because an agent cannot vouch for a kitchen's handling. Cancellation and confirmation calls can go out in a batch with each guest's time as a variable.",
+  "callTypes": [
+    "Friday and Saturday evening callers asking for a table for a specific time",
+    "Questions about hours, parking, the patio and whether the kitchen is open late",
+    "Menu questions about vegetarian, gluten-free and allergen content",
+    "Large-party and private-dining inquiries needing a manager",
+    "Takeout callers asking for pickup times or the status of an order",
+    "Reservation confirmation and cancellation calls the day before"
+  ],
+  "sampleCallFlow": [
+    {
+      "speaker": "agent",
+      "text": "Thanks for calling. I'm the restaurant's AI assistant. Are you calling to make a reservation?"
+    },
+    {
+      "speaker": "caller",
+      "text": "Yes, a table for six on Saturday around seven."
+    },
+    {
+      "speaker": "agent",
+      "text": "I can help with that. Saturday at 7:00 I have a table for six available at 7:15, or 6:30 if you'd like something earlier. Which do you prefer?"
+    },
+    {
+      "speaker": "caller",
+      "text": "7:15 is good."
+    },
+    {
+      "speaker": "agent",
+      "text": "May I have a name for the reservation and a phone number?"
+    },
+    {
+      "speaker": "caller",
+      "text": "Joanne Whitfield, and this number is fine."
+    },
+    {
+      "speaker": "agent",
+      "text": "Thanks, Joanne. Is it a special occasion, or does anyone in your party have a food allergy I should note?"
+    },
+    {
+      "speaker": "caller",
+      "text": "One person has a severe shellfish allergy."
+    },
+    {
+      "speaker": "agent",
+      "text": "I'll flag that for the manager. I can't promise how the kitchen will handle it, so the manager will call you to talk through the menu before Saturday. Is that all right?"
+    },
+    {
+      "speaker": "caller",
+      "text": "Yes, that's good."
+    },
+    {
+      "speaker": "agent",
+      "text": "You're set for six at 7:15 on Saturday, with the allergy note passed along."
+    }
+  ],
+  "setupSteps": [
+    "Create an agent from the appointment-booking template and rename the booking step as a table reservation with party size, date and time.",
+    "Connect a calendar to represent table availability, or choose to take reservation requests that a host confirms by text or call.",
+    "Fill the knowledge base with hours, address, parking, menu highlights with ingredients, allergen policy and large-party rules.",
+    "Add a path that collects private-event details and a transfer or message to the manager, plus a rule to flag any allergy mention.",
+    "Test with a Friday-evening scenario, publish on your main number, and schedule confirmation calls for the next day's larger parties."
+  ],
+  "featuresUsed": [
+    {
+      "feature": "Calendar booking",
+      "howItHelps": "Takes reservations while the host is seating guests, using the availability you expose in a connected calendar."
+    },
+    {
+      "feature": "Knowledge base",
+      "howItHelps": "Answers hours, parking and menu questions at the moment the host would otherwise have to stop and respond."
+    },
+    {
+      "feature": "Structured field extraction",
+      "howItHelps": "Records party size, name, number and notes such as allergies or occasions."
+    },
+    {
+      "feature": "Call transfers",
+      "howItHelps": "Passes private-event and complaint calls to a manager when one is on the floor."
+    },
+    {
+      "feature": "Batch outbound calls",
+      "howItHelps": "Calls guests with large reservations the day before to confirm, with their party size and time as variables."
+    }
+  ],
+  "considerations": [
+    "Food allergies carry real risk. The agent must not promise that a dish is safe; have it describe the written menu and pass every allergy note to a manager who can speak to the kitchen.",
+    "Confirmation calls for existing reservations are service calls, but marketing or promotional calls need consent. Check telemarketing and TCPA rules with your own counsel before using outbound calls.",
+    "If you record or transcribe calls, check the consent requirements for your state and tell callers where needed.",
+    "Do not allow the agent to take card numbers for deposits unless you have reviewed the payment-handling and security requirements."
+  ],
+  "faq": [
+    {
+      "q": "Does it work with my reservation platform?",
+      "a": "Calldesk books on a connected calendar and can send details through webhooks. A direct link to a specific reservation platform is not claimed, so check whether your platform can receive data that way."
+    },
+    {
+      "q": "Can it take takeout orders?",
+      "a": "It can take a simple order as structured fields and pass it on, but sending it to your kitchen requires your own integration. Many restaurants instead use it for hours, menu questions and pickup status."
+    },
+    {
+      "q": "What does it do with allergy questions?",
+      "a": "It repeats the allergen information in your knowledge base and flags the guest's note for a manager. It does not make safety promises."
+    },
+    {
+      "q": "How does it handle a caller asking for the wait time?",
+      "a": "It can give a general answer you write, like peak times, but it has no live view of your floor unless you connect one."
+    },
+    {
+      "q": "What if guests prefer another language?",
+      "a": "Many languages are available on the Standard and Pro voices. Lite speaks English."
+    }
+  ],
+  "relatedSlugs": [
+    "hotels",
+    "salons-and-spas",
+    "fitness-studios",
+    "cleaning-services"
+  ]
+}

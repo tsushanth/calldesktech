@@ -1,0 +1,165 @@
+{
+  "slug": "phonely",
+  "name": "Phonely",
+  "url": "https://www.phonely.ai",
+  "status": "active",
+  "retrievedAt": "2026-10-10",
+  "category": "platform",
+  "positioning": "A voice-agent platform with a visual flow builder, A/B testing and analytics, aimed at everyone from small businesses to large contact centres.",
+  "pricing": {
+    "model": "Monthly subscription with included minutes plus overage; Enterprise is quoted per minute.",
+    "headline": "Free (100 min), Starter $50/mo, Pro $150/mo billed monthly (or $33 and $100/mo billed annually); Enterprise from about 5 cents/min.",
+    "perMinuteUsd": null,
+    "currency": "USD",
+    "planNotes": [
+      "Free: $0, 100 free minutes, self-serve builder.",
+      "Starter: $50/mo monthly or $33/mo annual; the page shows both 200 and 250 included minutes in different places.",
+      "Pro: $150/mo monthly or $100/mo annual; the page shows both 650 and 750 included minutes in different places.",
+      "Enterprise: 'as low as 5 cents/min', billed monthly, quote via sales (includes full agent build-out, SIP trunking, HIPAA BAA per the plan card).",
+      "Overage listed as $0.25-$0.35/min on Starter (the page shows both values), $0.30/min on Pro, $0.25/min on Enterprise.",
+      "Post-transfer rate listed as $0.02/min on paid plans.",
+      "Phone numbers: 1 free (Free), 3 (Starter), 5 (Pro)."
+    ],
+    "freeTrial": "Free plan with 100 minutes (no card requirement stated on the pages read).",
+    "whatIsExtra": [
+      "Overage minutes beyond the plan allowance.",
+      "Post-transfer minutes at a listed per-minute rate."
+    ],
+    "sourceUrls": [
+      "https://www.phonely.ai/pricing",
+      "https://www.phonely.ai/",
+      "https://docs.phonely.ai/billing-and-usage/plans-and-billing-history.md",
+      "https://docs.phonely.ai/billing-and-usage/manage-agents-and-usage.md"
+    ]
+  },
+  "strengths": [
+    {
+      "claim": "Offers a free plan with 100 minutes and a self-serve AI builder, so a team can test before paying.",
+      "sourceUrl": "https://www.phonely.ai/pricing"
+    },
+    {
+      "claim": "Docs describe a flow editor, A/B testing, unit testing, call history and analytics (call paths, topics, sentiment) inside the product.",
+      "sourceUrl": "https://docs.phonely.ai/get-started/introduction"
+    },
+    {
+      "claim": "Publishes an API covering agent generation from a prompt, duplicate agent, call listing, knowledge-base documents and Twilio number import.",
+      "sourceUrl": "https://docs.phonely.ai/api-reference/endpoint/import-number.md"
+    },
+    {
+      "claim": "States SOC 2, GDPR, CCPA, HIPAA and PCI compliance on its homepage, with a HIPAA BAA on Enterprise.",
+      "sourceUrl": "https://www.phonely.ai/"
+    },
+    {
+      "claim": "Supports outbound campaigns as well as inbound agents, with documented outbound compliance guidance.",
+      "sourceUrl": "https://docs.phonely.ai/get-started/introduction"
+    }
+  ],
+  "limitations": [
+    {
+      "claim": "Phonely's pricing page shows different included-minute and overage figures in different places (200 vs 250, 650 vs 750; $0.25 vs $0.35), so plan allowances should be confirmed with the vendor.",
+      "sourceUrl": "https://www.phonely.ai/pricing"
+    },
+    {
+      "claim": "Twilio is the number-import source accepted by the documented Import Number API, and the agent must be on a paid plan.",
+      "sourceUrl": "https://docs.phonely.ai/api-reference/endpoint/import-number.md"
+    }
+  ],
+  "integrations": [
+    "Google Calendar",
+    "Gmail",
+    "Google Sheets",
+    "Google Drive",
+    "Microsoft Outlook",
+    "Slack",
+    "Zapier (webhook)",
+    "Make (webhook)",
+    "Custom API request block",
+    "CRM integrations (named on the pricing page, providers not listed there)"
+  ],
+  "compliance": {
+    "hipaa": "stated",
+    "soc2": "stated",
+    "gdpr": "stated",
+    "note": "Stated by vendor, self-attested: homepage lists SOC 2, GDPR, CCPA, HIPAA and PCI; pricing page lists 'SOC2 & GDPR' and a HIPAA BAA signature (shown with the Enterprise plan). Which plans include each item is shown with icons that could not be read as text.",
+    "sourceUrl": "https://www.phonely.ai/"
+  },
+  "telephony": {
+    "bringYourOwnCarrier": "yes",
+    "providedNumbers": "Plans include provided numbers (1 on Free, 3 on Starter, 5 on Pro). Twilio numbers can be imported via API on paid plans; SIP trunking is listed with the Enterprise plan.",
+    "sourceUrl": "https://docs.phonely.ai/api-reference/endpoint/import-number.md"
+  },
+  "migration": {
+    "exportAgentsPossible": "unknown",
+    "stepsToLeave": [
+      "Agents: the Get Agent / Get Agents API returns 'basic information'; no documented full export of flows was found, so flows would be recreated by hand in the new platform.",
+      "Knowledge base: List Documents and List Websites API endpoints exist to enumerate sources so they can be re-added elsewhere.",
+      "Call data: List Calls / Get Call API and CSV usage export (Settings > Usage & Cost) are documented.",
+      "Numbers: a number imported from a Twilio account stays in that account; for numbers provided by Phonely, no porting procedure was found in the docs read."
+    ],
+    "sourceUrls": [
+      "https://docs.phonely.ai/api-reference/endpoint/get-agent.md",
+      "https://docs.phonely.ai/api-reference/endpoint/agent-documents.md",
+      "https://docs.phonely.ai/billing-and-usage/manage-agents-and-usage.md",
+      "https://docs.phonely.ai/api-reference/endpoint/import-number.md"
+    ]
+  },
+  "bestFor": "Teams that want a flow-based builder with built-in testing and analytics, from a free trial up to large enterprise volumes.",
+  "sources": [
+    {
+      "url": "https://docs.phonely.ai/api-reference/endpoint/get-agent.md",
+      "title": "Phonely docs: Get Agent API",
+      "retrievedAt": "2026-10-10"
+    },
+    {
+      "url": "https://docs.phonely.ai/api-reference/endpoint/agent-documents.md",
+      "title": "Phonely docs: Agent Documents API",
+      "retrievedAt": "2026-10-10"
+    },
+    {
+      "url": "https://www.phonely.ai/pricing",
+      "title": "Phonely pricing page",
+      "retrievedAt": "2026-10-10"
+    },
+    {
+      "url": "https://www.phonely.ai/",
+      "title": "Phonely homepage",
+      "retrievedAt": "2026-10-10"
+    },
+    {
+      "url": "https://docs.phonely.ai/get-started/introduction",
+      "title": "Phonely documentation: Introduction",
+      "retrievedAt": "2026-10-10"
+    },
+    {
+      "url": "https://docs.phonely.ai/llms.txt",
+      "title": "Phonely documentation index",
+      "retrievedAt": "2026-10-10"
+    },
+    {
+      "url": "https://docs.phonely.ai/billing-and-usage/plans-and-billing-history.md",
+      "title": "Phonely docs: Plans and Billing",
+      "retrievedAt": "2026-10-10"
+    },
+    {
+      "url": "https://docs.phonely.ai/billing-and-usage/manage-agents-and-usage.md",
+      "title": "Phonely docs: Usage and Cost",
+      "retrievedAt": "2026-10-10"
+    },
+    {
+      "url": "https://docs.phonely.ai/api-reference/endpoint/import-number.md",
+      "title": "Phonely docs: Import Number API",
+      "retrievedAt": "2026-10-10"
+    },
+    {
+      "url": "https://docs.phonely.ai/integrations/overview.md",
+      "title": "Phonely docs: Integrations overview",
+      "retrievedAt": "2026-10-10"
+    }
+  ],
+  "unknowns": [
+    "Exact included minutes (200 vs 250 Starter; 650 vs 750 Pro) and Starter overage ($0.25 vs $0.35) conflict on the pricing page.",
+    "Which compliance items apply to which plan (shown as icons).",
+    "Whether full agent/flow export or number porting out is supported.",
+    "Per-minute cost of the LLM, voice and telephony on self-serve plans (not itemised on pages read)."
+  ]
+}

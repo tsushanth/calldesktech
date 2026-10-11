@@ -1,0 +1,145 @@
+{
+  "slug": "deepgram-voice-agent",
+  "name": "Deepgram Voice Agent API",
+  "url": "https://deepgram.com/product/voice-agent-api",
+  "status": "active",
+  "category": "model-vendor",
+  "positioning": "Deepgram is a speech AI vendor whose Voice Agent API orchestrates speech recognition, an LLM and text-to-speech over one WebSocket for developers building voice agents.",
+  "pricing": {
+    "model": "Per-minute of WebSocket connection time, tiered by which LLM and TTS are used and whether you bring your own; pay-as-you-go or prepaid Growth plan.",
+    "headline": "Standard tier $0.075/min pay-as-you-go ($0.068/min Growth); bring-your-own LLM and TTS from $0.050/min ($0.041/min Growth); Advanced tier $0.163/min.",
+    "perMinuteUsd": 0.075,
+    "currency": "USD",
+    "planNotes": [
+      "Tiers (pay-as-you-go / Growth per minute): Standard 0.075 / 0.068; Standard with BYO TTS 0.065 / 0.051; Custom BYO LLM 0.065 / 0.059; Custom BYO LLM and TTS 0.050 / 0.041; Advanced 0.163 / 0.146; Advanced BYO TTS 0.122 / 0.110.",
+      "Billing is by conversation (WebSocket connection) duration and covers STT, LLM and TTS orchestration; with a bring-your-own LLM you pay Deepgram for the audio components and orchestration.",
+      "Growth plan starts at $4K+ per year of prepaid credits with savings of up to 20%.",
+      "Voice agent concurrency is up to 45 (pay-as-you-go) or 60 (Growth) via WebSocket.",
+      "Verified on the HTML pricing page and the machine-readable markdown version of the same page; the HTML rendering was ambiguous for the Custom BYO LLM row, so the markdown values were used. Both are Deepgram's own pages."
+    ],
+    "freeTrial": "$200 free credit for new accounts, no credit card required.",
+    "whatIsExtra": [
+      "Telephony and phone numbers are not part of the Voice Agent API; they come from a telephony provider",
+      "Third-party LLM or TTS usage if you bring your own",
+      "Audio intelligence features billed separately"
+    ],
+    "sourceUrls": [
+      "https://deepgram.com/pricing",
+      "https://deepgram.com/pricing.md"
+    ]
+  },
+  "strengths": [
+    {
+      "claim": "Own speech recognition models (Flux and Nova-3) with built-in turn detection designed for voice agents.",
+      "sourceUrl": "https://deepgram.com/pricing"
+    },
+    {
+      "claim": "Transparent tiered per-minute pricing with discounts for bringing your own LLM or TTS, and a $200 free credit.",
+      "sourceUrl": "https://deepgram.com/pricing.md"
+    },
+    {
+      "claim": "States SOC 2 Type 1 and Type 2, HIPAA business associate status with a BAA on request, GDPR readiness with an EU endpoint, and an Australian endpoint.",
+      "sourceUrl": "https://developers.deepgram.com/trust-security/data-privacy-compliance.md"
+    },
+    {
+      "claim": "Works with telephony providers such as Twilio, plus LiveKit and Pipecat integrations, via documented guides.",
+      "sourceUrl": "https://developers.deepgram.com/docs/twilio-and-deepgram-voice-agent.md"
+    },
+    {
+      "claim": "Supports function calling, multi-agent handoff and reusable agent configurations.",
+      "sourceUrl": "https://developers.deepgram.com/docs/voice-agent.md"
+    }
+  ],
+  "limitations": [
+    {
+      "claim": "Telephony is not included: the docs show bridging calls from a provider such as Twilio to the WebSocket API, so a telephony account and server code are needed.",
+      "sourceUrl": "https://developers.deepgram.com/docs/twilio-and-deepgram-voice-agent.md"
+    },
+    {
+      "claim": "Billing is by WebSocket connection time and the Voice Agent API is concurrency-limited to 45 on pay-as-you-go.",
+      "sourceUrl": "https://deepgram.com/pricing.md"
+    },
+    {
+      "claim": "Compliance documentation such as SOC 2 certificates and a BAA is obtained by contacting Deepgram.",
+      "sourceUrl": "https://developers.deepgram.com/trust-security/data-privacy-compliance.md"
+    }
+  ],
+  "integrations": [
+    "Twilio",
+    "LiveKit",
+    "Pipecat",
+    "Browser Agent SDK",
+    "Function calling / external APIs",
+    "Third-party LLM providers (bring your own LLM)",
+    "Third-party TTS (bring your own TTS)"
+  ],
+  "compliance": {
+    "hipaa": "stated",
+    "soc2": "stated",
+    "gdpr": "stated",
+    "note": "Stated by vendor, self-attested: docs state SOC 2 Type 1 and 2, GDPR readiness with EU endpoint, HIPAA business-associate status with a BAA on request, plus CCPA and PCI. Certificates and the BAA are available on request, not public.",
+    "sourceUrl": "https://developers.deepgram.com/trust-security/data-privacy-compliance.md"
+  },
+  "telephony": {
+    "bringYourOwnCarrier": "yes",
+    "providedNumbers": "None found: Deepgram provides the speech and agent layer, and the docs connect it to your own telephony provider (for example a Twilio number).",
+    "sourceUrl": "https://developers.deepgram.com/docs/twilio-and-deepgram-voice-agent.md"
+  },
+  "migration": {
+    "exportAgentsPossible": "yes",
+    "stepsToLeave": [
+      "Agent behaviour is defined by the Settings message (STT, LLM, TTS, prompt, functions) that your own code sends, so the configuration already lives in your codebase.",
+      "Reusable agent configurations stored with Deepgram are documented as being created and reused through the API.",
+      "Telephony stays with your own provider; repoint the number's media stream to the new platform there."
+    ],
+    "sourceUrls": [
+      "https://developers.deepgram.com/llms.txt",
+      "https://developers.deepgram.com/docs/voice-agent.md",
+      "https://developers.deepgram.com/docs/twilio-and-deepgram-voice-agent.md"
+    ]
+  },
+  "bestFor": "Engineering teams building their own voice-agent stack who want Deepgram's speech models and a single orchestration socket, and who will supply telephony and application logic themselves.",
+  "sources": [
+    {
+      "url": "https://deepgram.com/pricing",
+      "title": "Deepgram pricing",
+      "retrievedAt": "2026-10-10"
+    },
+    {
+      "url": "https://deepgram.com/pricing.md",
+      "title": "Deepgram pricing (markdown version)",
+      "retrievedAt": "2026-10-10"
+    },
+    {
+      "url": "https://developers.deepgram.com/docs/voice-agent.md",
+      "title": "Deepgram docs: Voice Agent API getting started",
+      "retrievedAt": "2026-10-10"
+    },
+    {
+      "url": "https://developers.deepgram.com/docs/twilio-and-deepgram-voice-agent.md",
+      "title": "Deepgram docs: Twilio and Deepgram Voice Agent",
+      "retrievedAt": "2026-10-10"
+    },
+    {
+      "url": "https://developers.deepgram.com/trust-security/data-privacy-compliance.md",
+      "title": "Deepgram docs: Data privacy compliance",
+      "retrievedAt": "2026-10-10"
+    },
+    {
+      "url": "https://developers.deepgram.com/llms.txt",
+      "title": "Deepgram docs index (llms.txt)",
+      "retrievedAt": "2026-10-10"
+    },
+    {
+      "url": "https://deepgram.com/product/voice-agent-api",
+      "title": "Deepgram Voice Agent API product page",
+      "retrievedAt": "2026-10-10"
+    }
+  ],
+  "unknowns": [
+    "Exact meaning of the Standard, Custom and Advanced LLM tiers (docs page on supported LLM models not read).",
+    "Whether Deepgram offers any hosted phone numbers or telephony.",
+    "Which TTS voices are bundled in the Standard tier (not confirmed on pages read)."
+  ],
+  "retrievedAt": "2026-10-10"
+}

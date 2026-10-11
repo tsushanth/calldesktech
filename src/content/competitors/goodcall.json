@@ -1,0 +1,130 @@
+{
+  "slug": "goodcall",
+  "name": "Goodcall",
+  "url": "https://www.goodcall.com",
+  "status": "active",
+  "retrievedAt": "2026-10-10",
+  "category": "no-code-builder",
+  "positioning": "A no-code AI phone agent for small businesses, built and edited by describing the business to an assistant called Gabi, priced per unique customer rather than per minute.",
+  "pricing": {
+    "model": "Monthly plan priced per unique customer (one phone number once a month); no per-minute, per-call or token metering.",
+    "headline": "Starter $79/mo (100 customers), Growth $129/mo (500), Scale $299/mo (2,000); extra customers 79c / 26c / 15c each.",
+    "perMinuteUsd": null,
+    "currency": "USD",
+    "planNotes": [
+      "Starter: 5 workers, 1 external tool, 1 team member, 30-day call history.",
+      "Growth: 10 workers, 5 external tools, 5 team members, 90-day call history.",
+      "Scale: 20 workers, 15 external tools, 10 team members, call history with no stated cap; BAA available.",
+      "Month to month; no annual plan at time of reading.",
+      "Every plan includes a local US number.",
+      "The vendor states Starter works out to about 13c/min at four-minute calls (its own illustration, not a rate)."
+    ],
+    "freeTrial": "Free demo agent: build and test without paying; payment starts when a phone number is added.",
+    "whatIsExtra": [
+      "Extra unique customers beyond the plan allowance.",
+      "AI usage top-ups for test runs ($5 at a time)."
+    ],
+    "sourceUrls": [
+      "https://www.goodcall.com/pricing",
+      "https://www.goodcall.com/faq"
+    ]
+  },
+  "strengths": [
+    {
+      "claim": "Predictable pricing: no per-minute or token charges, and the bill counts distinct callers, so a long call costs the same as a short one.",
+      "sourceUrl": "https://www.goodcall.com/pricing"
+    },
+    {
+      "claim": "Describing the business to the Gabi assistant builds and edits the agent in plain language, with practice calls before publishing.",
+      "sourceUrl": "https://www.goodcall.com/"
+    },
+    {
+      "claim": "Every plan includes a local phone number, and an existing business line can be forwarded to it.",
+      "sourceUrl": "https://www.goodcall.com/faq"
+    },
+    {
+      "claim": "Signs a HIPAA BAA on the Scale and Enterprise plans, and lists SOC 2 and HIPAA on its homepage (vendor statements).",
+      "sourceUrl": "https://www.goodcall.com/faq"
+    },
+    {
+      "claim": "Team roles with per-agent access, which the FAQ says lets agencies give clients access to a single agent.",
+      "sourceUrl": "https://www.goodcall.com/faq"
+    }
+  ],
+  "limitations": [
+    {
+      "claim": "Numbers are local US numbers today; toll-free, Canadian and international numbers are listed as not yet available.",
+      "sourceUrl": "https://www.goodcall.com/faq"
+    },
+    {
+      "claim": "Self-serve number porting is not offered yet; the FAQ recommends call forwarding instead.",
+      "sourceUrl": "https://www.goodcall.com/faq"
+    },
+    {
+      "claim": "Native connections are Google Calendar, Google Sheets and HighLevel; other systems need an API tool or MCP server.",
+      "sourceUrl": "https://www.goodcall.com/faq"
+    }
+  ],
+  "integrations": [
+    "Google Calendar",
+    "Google Sheets",
+    "HighLevel",
+    "Custom API tools",
+    "MCP servers",
+    "Zapier (listed for existing older agents)"
+  ],
+  "compliance": {
+    "hipaa": "stated",
+    "soc2": "stated",
+    "gdpr": "not-stated",
+    "note": "Stated by vendor, self-attested: FAQ says Goodcall is HIPAA compliant with a BAA on Scale and Enterprise; homepage lists 'SOC 2 compliant'. No GDPR statement found.",
+    "sourceUrl": "https://www.goodcall.com/faq"
+  },
+  "telephony": {
+    "bringYourOwnCarrier": "unknown",
+    "providedNumbers": "Local US numbers included on every plan; existing numbers are forwarded to the Goodcall number (conditional or all-call forwarding). Self-serve porting not yet available. No SIP or own-carrier connection was documented on the pages read.",
+    "sourceUrl": "https://www.goodcall.com/faq"
+  },
+  "migration": {
+    "exportAgentsPossible": "unknown",
+    "stepsToLeave": [
+      "No agent export feature was found in the pages read; the agent (greeting, questions, workers) would be recreated in the new platform.",
+      "Numbers: if the business number was forwarded to a Goodcall number, point the carrier's forwarding to the new platform; Goodcall numbers are local US numbers issued by Goodcall.",
+      "Calls are recorded and transcribed and viewable in the app; call history retention depends on plan (30 days, 90 days, or no stated limit).",
+      "Contact support (support@goodcall.ai) for special cases per the FAQ."
+    ],
+    "sourceUrls": [
+      "https://www.goodcall.com/faq",
+      "https://www.goodcall.com/pricing"
+    ]
+  },
+  "bestFor": "Small US businesses and solo operators who want a quick, no-code receptionist with a flat, predictable bill.",
+  "sources": [
+    {
+      "url": "https://www.goodcall.com/pricing",
+      "title": "Goodcall pricing",
+      "retrievedAt": "2026-10-10"
+    },
+    {
+      "url": "https://www.goodcall.com/faq",
+      "title": "Goodcall FAQ",
+      "retrievedAt": "2026-10-10"
+    },
+    {
+      "url": "https://www.goodcall.com/",
+      "title": "Goodcall homepage",
+      "retrievedAt": "2026-10-10"
+    },
+    {
+      "url": "https://www.goodcall.com/enterprise",
+      "title": "Goodcall enterprise page",
+      "retrievedAt": "2026-10-10"
+    }
+  ],
+  "unknowns": [
+    "Whether agents or conversation data can be exported.",
+    "Whether bring-your-own carrier or SIP is supported.",
+    "GDPR posture.",
+    "Languages supported (not checked on pages read)."
+  ]
+}

@@ -1,0 +1,159 @@
+{
+  "slug": "thunderphone",
+  "name": "ThunderPhone",
+  "url": "https://thunderphone.com",
+  "status": "active",
+  "retrievedAt": "2026-10-10",
+  "category": "platform",
+  "positioning": "A voice agent platform that runs its own speech-to-speech stack and sells flat, all-inclusive per-minute tiers, with importers for agents built on other platforms.",
+  "pricing": {
+    "model": "Prepaid pay-as-you-go with three flat per-minute engine tiers (Spark, Bolt, Storm) and optional per-minute add-ons; no subscription or seat fee.",
+    "headline": "From 2 cents per minute (Spark), 5 cents (Bolt) and 9 cents (Storm), all-inclusive of transcription, model and standard voices; add-ons such as premium voices apply extra.",
+    "perMinuteUsd": 0.02,
+    "currency": "USD",
+    "planNotes": [
+      "Prepaid and pay-as-you-go; no platform fee, subscription or seat fee.",
+      "Hold time bills at a flat 2 cents per minute on every tier.",
+      "Optional add-ons: Storm extra intelligence +3 cents, Storm verbal acknowledgement +2 cents, supervision +4 cents, selected-language or premium voice up to +3 cents, long prompts beyond 5,000 tokens +1 to +2 cents per block, ThunderPhone number usage +1 cent per minute.",
+      "Enterprise: custom rates, the vendor says 1 cent per minute or less is possible for some high-volume outbound use cases.",
+      "ThunderPhone numbers: US numbers at $1 per month per number (pricing page)."
+    ],
+    "freeTrial": "$10 of free call credit on every new account, no credit card required.",
+    "whatIsExtra": [
+      "Premium voices and selected languages (up to +3 cents per minute)",
+      "Long prompts, supervision and Storm options (see plan notes)",
+      "ThunderPhone-provided phone numbers ($1 per month plus 1 cent per minute for inbound)",
+      "Outbound telephony on your own carrier"
+    ],
+    "sourceUrls": [
+      "https://thunderphone.com/pricing",
+      "https://thunderphone.com/docs/guides/pricing.md",
+      "https://thunderphone.com"
+    ]
+  },
+  "strengths": [
+    {
+      "claim": "Flat per-minute pricing that includes transcription, the model and standard voices, with no platform fee and a lower flat rate while on hold.",
+      "sourceUrl": "https://thunderphone.com/pricing"
+    },
+    {
+      "claim": "Agent importers for Vapi, Retell, ElevenLabs Agents and Bland via API key or JSON export, with a review step before anything is created.",
+      "sourceUrl": "https://thunderphone.com/import"
+    },
+    {
+      "claim": "Built-in operations tooling: A/B experiments, AI-graded test calls, live call supervision, validation sets, campaigns with timezone windows and retries, and client portals.",
+      "sourceUrl": "https://thunderphone.com"
+    },
+    {
+      "claim": "States HIPAA, GDPR and UK GDPR compliance with a BAA and DPA at no extra charge and a public trust center.",
+      "sourceUrl": "https://thunderphone.com/security"
+    },
+    {
+      "claim": "Carrier flexibility: native SIP trunking, bring-your-own numbers via Twilio, Telnyx, SignalWire, Vonage, Plivo, and 40+ languages understood.",
+      "sourceUrl": "https://thunderphone.com/docs/llms.txt"
+    }
+  ],
+  "limitations": [
+    {
+      "claim": "The all-in base rates exclude premium voices, selected languages, long prompts and ThunderPhone numbers, which are separate per-minute add-ons.",
+      "sourceUrl": "https://thunderphone.com/docs/guides/pricing.md"
+    },
+    {
+      "claim": "ThunderPhone lists cold outbound calling as a separate human-agent service (ThunderHuman) rather than as part of the AI platform alone.",
+      "sourceUrl": "https://thunderphone.com/enterprise"
+    },
+    {
+      "claim": "ThunderPhone numbers are US numbers on the pricing page; the vendor says to bring your own carrier for outbound.",
+      "sourceUrl": "https://thunderphone.com/pricing"
+    }
+  ],
+  "integrations": [
+    "Twilio",
+    "Telnyx",
+    "SignalWire",
+    "Vonage",
+    "Plivo",
+    "SIP trunks",
+    "Google, Slack and HubSpot app connections",
+    "Zapier",
+    "n8n",
+    "MCP servers",
+    "LiveKit Agents",
+    "Pipecat",
+    "OpenAI Realtime clients"
+  ],
+  "compliance": {
+    "hipaa": "stated",
+    "soc2": "not-stated",
+    "gdpr": "stated",
+    "note": "Stated by vendor, self-attested: the trust center lists HIPAA, GDPR and UK GDPR as compliant with 107 controls monitored; BAA and DPA at no extra charge. SOC 2 is not named on the pages read.",
+    "sourceUrl": "https://thunderphone.com/security"
+  },
+  "telephony": {
+    "bringYourOwnCarrier": "yes",
+    "providedNumbers": "US numbers from ThunderPhone at $1 per month per number plus 1 cent per minute inbound; own numbers via Twilio, Telnyx (by API key) or SignalWire, Vonage, Plivo and any SIP trunk.",
+    "sourceUrl": "https://thunderphone.com/docs/guides/pricing.md"
+  },
+  "migration": {
+    "exportAgentsPossible": "unknown",
+    "stepsToLeave": [
+      "No export procedure was found on the pages read; the vendor's docs describe importing agents in, and expose an API for agents.",
+      "Prompts, tools and knowledge documents would need to be copied out through the dashboard or API and recreated in the new platform.",
+      "Numbers you brought from a carrier stay with that carrier and can be repointed; ThunderPhone-provided numbers would need a replacement."
+    ],
+    "sourceUrls": [
+      "https://thunderphone.com/docs/guides/import-agents.md",
+      "https://thunderphone.com/docs/guides/pricing.md"
+    ]
+  },
+  "bestFor": "Cost-sensitive teams that want a flat per-minute price and a way to import existing agents from other platforms.",
+  "sources": [
+    {
+      "url": "https://thunderphone.com/pricing",
+      "title": "ThunderPhone pricing page",
+      "retrievedAt": "2026-10-10"
+    },
+    {
+      "url": "https://thunderphone.com/docs/guides/pricing.md",
+      "title": "ThunderPhone docs: pricing and usage charges",
+      "retrievedAt": "2026-10-10"
+    },
+    {
+      "url": "https://thunderphone.com",
+      "title": "ThunderPhone homepage",
+      "retrievedAt": "2026-10-10"
+    },
+    {
+      "url": "https://thunderphone.com/import",
+      "title": "ThunderPhone agent import",
+      "retrievedAt": "2026-10-10"
+    },
+    {
+      "url": "https://thunderphone.com/security",
+      "title": "ThunderPhone trust center",
+      "retrievedAt": "2026-10-10"
+    },
+    {
+      "url": "https://thunderphone.com/enterprise",
+      "title": "ThunderPhone enterprise page",
+      "retrievedAt": "2026-10-10"
+    },
+    {
+      "url": "https://thunderphone.com/docs/llms.txt",
+      "title": "ThunderPhone docs index",
+      "retrievedAt": "2026-10-10"
+    },
+    {
+      "url": "https://thunderphone.com/docs/guides/import-agents.md",
+      "title": "ThunderPhone docs: Import agents",
+      "retrievedAt": "2026-10-10"
+    }
+  ],
+  "unknowns": [
+    "How to export agents out of ThunderPhone was not documented on the pages read.",
+    "SOC 2 status not stated.",
+    "We did not research ThunderPhone's company history, customer base or independent reliability data.",
+    "We did not verify benchmark results or price comparisons that ThunderPhone publishes on its own pages.",
+    "Country coverage for ThunderPhone-provided numbers beyond the US was not found."
+  ]
+}

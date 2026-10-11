@@ -1,0 +1,120 @@
+{
+  "slug": "physical-therapy-clinics",
+  "name": "Physical Therapy Clinics",
+  "h1": "AI Phone Agent for Physical Therapy Clinics: Referral Intake",
+  "metaDescription": "Calldesk answers physical therapy clinic calls: referral intake, evaluation scheduling, authorization questions and cancellations from patients in plans.",
+  "intro": "A physical therapy clinic fills its week with courses of treatment: a patient comes two or three times a week for several weeks, so the schedule is a lattice of recurring slots. Every cancellation leaves a gap, and every missed call from a new referral risks losing the evaluation to another clinic. Many new patients arrive with a referral from a surgeon or primary care doctor, often after a procedure, and they call to schedule at the surgeon's suggestion within a particular window. Others are walk-in style callers with an athletic injury who want to know how soon they can be seen and whether insurance requires a referral. Therapists are working one-on-one with patients and cannot answer, and the front desk may be shared with the clinic's billing. The calls also include insurance authorization questions, referral paperwork follow-ups from doctors' offices, and patients checking what to wear and how long the first visit lasts. A Calldesk agent can answer as the clinic's AI assistant, gather referral and insurance details, offer an evaluation slot on a connected calendar, handle cancellations, and route clinical questions to a therapist. It does not give exercise or medical advice. Batch calls can contact patients who stopped attending mid-plan.",
+  "callTypes": [
+    "Post-surgery patients scheduling an initial evaluation within a doctor's window",
+    "Self-referred callers with a sports or work injury asking how soon they can start",
+    "Physician offices calling about referral paperwork or a patient's start date",
+    "Patients rescheduling or cancelling a visit in an ongoing plan",
+    "Insurance questions about visit limits, copays and authorization",
+    "Outbound check-ins with patients who stopped attending before finishing a plan"
+  ],
+  "sampleCallFlow": [
+    {
+      "speaker": "agent",
+      "text": "Thanks for calling the clinic. I'm the clinic's AI assistant. Are you booking a first visit or changing an existing appointment?"
+    },
+    {
+      "speaker": "caller",
+      "text": "First visit. My surgeon wants me in PT within two weeks of my knee replacement."
+    },
+    {
+      "speaker": "agent",
+      "text": "Thanks. May I have your name, and the surgeon's name or office that referred you?"
+    },
+    {
+      "speaker": "caller",
+      "text": "Harold Pruitt, referred by Dr. Anand at the orthopedic group."
+    },
+    {
+      "speaker": "agent",
+      "text": "Thanks, Harold. When was your surgery, and do you already have the written referral?"
+    },
+    {
+      "speaker": "caller",
+      "text": "Surgery was Monday. The referral is coming from their office."
+    },
+    {
+      "speaker": "agent",
+      "text": "I'll note that. The first evaluation takes about an hour. We have Monday at 8:30 or Tuesday at 1:15 open, which should fit your two-week window. Which one suits you?"
+    },
+    {
+      "speaker": "caller",
+      "text": "Monday at 8:30."
+    },
+    {
+      "speaker": "agent",
+      "text": "Booked. Please bring your insurance card and any discharge papers, and wear loose clothing. The clinic will check your insurance and the referral before the visit."
+    },
+    {
+      "speaker": "caller",
+      "text": "Thank you."
+    }
+  ],
+  "setupSteps": [
+    "Create an agent from the appointment-booking template and list evaluation, follow-up and specialty visit types with their lengths.",
+    "Connect a calendar with evaluation slots, and add a path for rescheduling that preserves the patient's name and plan.",
+    "Write extraction fields for referring provider, surgery or injury date, insurance and whether a written referral is in hand.",
+    "Add the knowledge base: referral rules as the clinic states them, what to bring, parking, and visit length.",
+    "Add a transfer to a therapist or front desk for clinical questions, test the flows, publish, and plan any outbound follow-ups."
+  ],
+  "featuresUsed": [
+    {
+      "feature": "Calendar booking",
+      "howItHelps": "Books initial evaluations within the physician's recommended window and refills slots when patients cancel."
+    },
+    {
+      "feature": "Structured field extraction",
+      "howItHelps": "Records referring doctor, surgery date, insurance and referral status for the intake coordinator."
+    },
+    {
+      "feature": "Knowledge base",
+      "howItHelps": "Answers parking, what-to-bring and visit-length questions without a staff member picking up."
+    },
+    {
+      "feature": "Call transfers",
+      "howItHelps": "Moves clinical questions and physician-office calls to a therapist or coordinator."
+    },
+    {
+      "feature": "Call summary",
+      "howItHelps": "Gives the front desk a short note on each call, so cancellations and new referrals can be acted on quickly."
+    }
+  ],
+  "considerations": [
+    "Patient information may be protected health information. Calldesk makes no HIPAA certification claim, so your compliance advisor or counsel should decide whether and how a voice agent fits your obligations.",
+    "The agent should not give exercise advice, pain management guidance or opinions on recovery. Route those questions to a therapist.",
+    "Insurance and referral requirements vary by payer and state. The agent states the clinic's published guidance and does not promise coverage.",
+    "Outbound follow-ups to patients who stopped attending are calls requiring consent; check with your own counsel, including TCPA rules."
+  ],
+  "faq": [
+    {
+      "q": "Does the agent verify referrals or insurance?",
+      "a": "No. It collects the details and records whether paperwork is in hand. Verification stays with the clinic's coordinator."
+    },
+    {
+      "q": "Can physician offices call it?",
+      "a": "Yes. A path can recognize a call from a doctor's office, take the patient's name and referral details, and transfer to the coordinator."
+    },
+    {
+      "q": "How does it handle a patient in pain?",
+      "a": "The agent does not give medical advice. If a caller describes severe symptoms, the flow can advise emergency care and transfer to staff according to wording your clinicians approve."
+    },
+    {
+      "q": "Can it schedule a whole course of visits?",
+      "a": "It books individual slots on the calendar. A full series is usually set by the therapist at the evaluation, or by a flow you design to book several visits."
+    },
+    {
+      "q": "What does it cost to run?",
+      "a": "Pricing is per talk-minute, from 2 cents on Lite to 9 cents on Pro, plus carrier charges. The pricing page lists current tiers."
+    }
+  ],
+  "relatedSlugs": [
+    "chiropractic-clinics",
+    "medical-practices",
+    "fitness-studios",
+    "dental-offices"
+  ]
+}
