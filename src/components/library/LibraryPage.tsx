@@ -103,7 +103,7 @@ function BlockView({ b }: { b: Block }) {
                 {c.href ? (c.external ? <a href={c.href} rel={EXT_REL} className={LINK}>{c.title}</a> : <Link href={c.href} className={LINK}>{c.title}</Link>) : c.title}
               </h3>
               <p className="mt-2 text-[14.5px] leading-[1.55] text-gray-600">{c.text}</p>
-              {c.meta && <p className="mt-auto pt-3 text-[12.5px] text-gray-400">{c.meta}</p>}
+              {c.meta && <p className="mt-auto pt-3 text-[12.5px] text-gray-400">{c.meta}<SourceLink url={c.sourceUrl} /></p>}
             </li>
           ))}
         </ul>

@@ -7,6 +7,7 @@ import type { Library } from './load';
 import type { Block, Cell, Crumb, HubModel, LibraryPageModel, PageType } from './model';
 import { MIGRATE_CAP, MIGRATE_PRIORITY, pathFor, paths } from './routes';
 import { isPublished, publishKey } from './publish';
+import { alternativesBody, alternativesDescription, alternativesLede } from './alternatives';
 import { NOT_STATED, NOT_STATED_CAP, joinList, longDate, lowerFirst, sentence } from './helpers';
 
 // Everything a page says about Calldesk comes from src/content/calldeskFacts.ts (imported above). Everything it says about a
@@ -212,60 +213,16 @@ function compareModel(lib: Library, c: Competitor): LibraryPageModel {
 function alternativesModel(lib: Library, c: Competitor): LibraryPageModel {
   const path = paths.alternatives(c.slug);
   const date = longDate(c.retrievedAt);
-  const others = otherAlternatives(lib, c);
-  const options = [
-    { name: CALLDESK_NAME, card: { title: CALLDESK_NAME, text: `Per-minute plans: ${planPriceList}, with ${PHONE_NUMBERS.bringYourOwnIsFree ? 'bring-your-own carrier on every plan' : 'carrier included'}. ${developerSentence()} This is our own product, listed here as one option.`, href: '/pricing', meta: 'Made by the publisher of this page' } },
-    ...others.map((o) => ({
-      name: o.name,
-      card: {
-        title: o.name,
-        text: `${sentence(o.positioning)}${o.pricing.headline ? ` Pricing as published: ${sentence(o.pricing.headline)}` : ''}${o.bestFor ? ` Suited to: ${lowerFirst(sentence(o.bestFor))}` : ''}`,
-        href: o.url, external: true, meta: `Verified ${longDate(o.retrievedAt)}`,
-      },
-    })),
-  ].sort((a, b) => a.name.localeCompare(b.name));
-
-  const consider: { text: string }[] = [];
-  consider.push({ text: c.pricing.whatIsExtra.length
-    ? `Total cost: ${c.name}'s pages list ${joinList(c.pricing.whatIsExtra)} as billed separately or extra. Ask every option for a month at your own call volume, with every charge included.`
-    : `Total cost: ask every option for a month at your own call volume, with every charge included, because per-minute headlines rarely show the whole bill.` });
-  consider.push({ text: c.telephony.bringYourOwnCarrier === 'yes'
-    ? `Phone numbers: ${c.name} supports bringing your own carrier, so check that each alternative does too if you want to keep your current numbers.`
-    : c.telephony.bringYourOwnCarrier === 'no'
-      ? `Phone numbers: ${c.name}'s pages do not describe bringing your own carrier. If you want to keep your current carrier, check this with each option first.`
-      : `Phone numbers: we could not tell from ${c.name}'s pages whether you can bring your own carrier, so ask each option, including ${c.name}.` });
-  const stated = ([['HIPAA', c.compliance.hipaa], ['SOC 2', c.compliance.soc2], ['GDPR', c.compliance.gdpr]] as const).filter(([, v]) => v === 'stated').map(([k]) => k);
-  consider.push({ text: stated.length
-    ? `Compliance: ${c.name}'s pages mention ${joinList(stated)}. Ask each option for the documents behind any such wording, and for what applies to your plan.`
-    : `Compliance: ${c.name}'s pages did not mention HIPAA, SOC 2 or GDPR where we looked. If your industry needs any of them, ask each option, including Calldesk, what it can show you.` });
-  if (c.integrations.length) consider.push({ text: `Integrations: ${c.name} lists ${joinList(c.integrations)}. Make a list of the tools you rely on and check each option against it.` });
-  const exp = exportText(c);
-  if (exp) consider.push({ text: `Moving agents: on ${c.name}'s pages, exporting agents is described as: ${sentence(exp)} Ask each option what you would need to rebuild.` });
-  consider.push({ text: `Languages and voice: ${languageSentence()} Check the same for every option you shortlist.` });
-
+  const { blocks: body, relatedSlugs } = alternativesBody(lib, c, { planPriceList });
   const blocks: Block[] = [
     { kind: 'verified', text: `Last verified ${date}.` },
-    { kind: 'p', tone: 'note', text: `We make ${CALLDESK_NAME}, so it appears below as one of the options, and we say so. Options are listed alphabetically, not ranked. The other options were taken from the same set of voice AI products we reviewed for our comparison pages.` },
-    { kind: 'h2', text: `What ${c.name} does well` },
-    { kind: 'p', text: `How ${c.name} positions itself: ${sentence(c.positioning)}${c.bestFor ? ` It describes itself as suited to ${lowerFirst(sentence(c.bestFor))}` : ''}` },
+    { kind: 'p', tone: 'note', text: `We make ${CALLDESK_NAME}, so it appears below as one of the options, and we say so. Options are listed alphabetically, not ranked.` },
+    ...body,
   ];
-  if (c.strengths.length) blocks.push({ kind: 'list', items: c.strengths.map((s) => ({ text: s.claim, sourceUrl: s.sourceUrl })) });
-  blocks.push({ kind: 'h2', text: `Why teams look at a ${c.name} alternative` });
-  blocks.push({ kind: 'p', text: `Reasons differ by team. These are conditions described on ${c.name}'s own pages that some teams want to weigh against their needs.` });
-  if (c.limitations.length) blocks.push({ kind: 'list', items: c.limitations.map((s) => ({ text: s.claim, sourceUrl: s.sourceUrl })) });
-  else blocks.push({ kind: 'p', text: `We did not find stated limits on ${c.name}'s pages. Your reasons may be price, phone setup, languages or the tools you need to connect.` });
-  blocks.push({ kind: 'h2', text: `What to consider when choosing a ${c.name} alternative` });
-  blocks.push({ kind: 'list', items: consider });
-  blocks.push({ kind: 'h2', text: 'Options to compare' });
-  blocks.push({ kind: 'cards', items: options.map((o) => o.card) });
-  if (c.unknowns.length) {
-    blocks.push({ kind: 'h2', text: `What we could not confirm about ${c.name}` });
-    blocks.push({ kind: 'list', items: c.unknowns.map((text) => ({ text })) });
-  }
   const related = [
     pubLink(lib, 'compare', c.slug, `${CALLDESK_NAME} vs ${c.name}`),
     migrationCompetitors(lib).some((m) => m.slug === c.slug) ? pubLink(lib, 'migrate', c.slug, `Moving from ${c.name} to Calldesk`) : null,
-    ...others.map((o) => pubLink(lib, 'compare', o.slug, `${CALLDESK_NAME} vs ${o.name}`)),
+    ...relatedSlugs.map((s) => pubLink(lib, 'compare', s, `${CALLDESK_NAME} vs ${lib.competitors.find((x) => x.slug === s)?.name ?? s}`)),
   ].filter(present);
   if (related.length) blocks.push({ kind: 'links', title: 'Related pages', items: related });
   blocks.push({ kind: 'p', tone: 'note', text: DISCLAIMER(c.name, c.retrievedAt) });
@@ -273,9 +230,9 @@ function alternativesModel(lib: Library, c: Competitor): LibraryPageModel {
   return {
     type: 'alternatives', slug: c.slug, key: publishKey('alternatives', c.slug), path,
     title: `${c.name} alternatives: what to consider | CallDeskTech`,
-    description: `What to weigh when choosing a ${c.name} alternative: what ${c.name} does well, questions to ask, and ${others.length} other option${others.length === 1 ? '' : 's'} plus ${CALLDESK_NAME}. Reviewed ${date}.`,
+    description: alternativesDescription(c, date, relatedSlugs.length),
     h1: `${c.name} alternatives`,
-    lede: `What to consider when choosing a ${c.name} alternative, including where ${c.name} is a good fit and which other options exist. Reviewed ${date}.`,
+    lede: alternativesLede(c, date),
     breadcrumbs: [HOME, { name: 'Alternatives', path: '/alternatives' }, { name: `${c.name} alternatives`, path }],
     blocks, competitorSlug: c.slug, competitorName: c.name, lastVerified: c.retrievedAt,
   };
