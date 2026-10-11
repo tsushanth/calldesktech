@@ -1,0 +1,168 @@
+{
+  "slug": "retell-ai",
+  "name": "Retell AI",
+  "url": "https://www.retellai.com",
+  "status": "active",
+  "retrievedAt": "2026-10-10",
+  "category": "platform",
+  "positioning": "A pay-as-you-go voice agent platform with a visual flow builder and API, bundling voice infrastructure in the per-minute rate while LLM, voice and telephony are priced as selectable line items.",
+  "pricing": {
+    "model": "Pay as you go, no subscription: a voice infrastructure rate plus the chosen LLM, voice and telephony per minute, with optional add-ons; custom enterprise pricing.",
+    "headline": "$0.07 to $0.31 per minute depending on the model and voice chosen; voice infrastructure is $0.055 per minute, and the vendor's example configuration totals $0.11 per minute.",
+    "perMinuteUsd": 0.07,
+    "currency": "USD",
+    "planNotes": [
+      "Pay-as-you-go includes full platform access and 20 concurrent calls free; additional concurrency is $8 per concurrent call per month.",
+      "Enterprise: custom pricing, custom MSA/DPA, SSO, role-based access control, no cap on concurrent calls.",
+      "Example from the page: Retell platform voice $0.015, LLM about $0.04 (varies by model), voice infrastructure $0.055 = $0.11 per minute.",
+      "Phone numbers: $2 per month for US and Canada numbers purchased from Retell; US toll-free $5 per month (docs).",
+      "Testing is billed at production rates (docs).",
+      "perMinuteUsd is the low end of the advertised range."
+    ],
+    "freeTrial": "$10 in free credits on sign-up.",
+    "whatIsExtra": [
+      "LLM: per-minute, depends on model (examples: GPT 4.1 mini $0.0128, GPT 5 $0.04, Claude Sonnet $0.064 to $0.08)",
+      "Text-to-speech: $0.015 per minute for Retell platform voices; ElevenLabs voices $0.04 to $0.10 per minute",
+      "Telephony: about $0.015 per minute on Retell Twilio/Telnyx numbers; no charge for custom telephony/SIP trunking",
+      "Optional add-ons: Knowledge Base +$0.005/min, Advanced Denoising +$0.005/min, Safety Guardrails +$0.005/min, PII Removal +$0.01/min, Batch Call +$0.005/dial, Branded Call +$0.10 per outbound call",
+      "Phone number $2/month, verified phone number $10/month, SMS $0.01 per message"
+    ],
+    "sourceUrls": [
+      "https://www.retellai.com/pricing",
+      "https://docs.retellai.com/test/testing-pricing.md",
+      "https://docs.retellai.com/deploy/purchase-number.md"
+    ]
+  },
+  "strengths": [
+    {
+      "claim": "True pay-as-you-go with no contract and 20 concurrent calls included, so small teams can start without a sales call.",
+      "sourceUrl": "https://www.retellai.com/pricing"
+    },
+    {
+      "claim": "Wide choice of LLMs (OpenAI, Anthropic, Google, custom LLM over WebSocket) and voice providers with transparent per-minute rates listed publicly.",
+      "sourceUrl": "https://www.retellai.com/pricing"
+    },
+    {
+      "claim": "Self-service BAA and DPA signing at no extra fee, with per-agent data retention and PII controls documented.",
+      "sourceUrl": "https://docs.retellai.com/general/compliance.md"
+    },
+    {
+      "claim": "Broad telephony options: Retell-purchased numbers or custom telephony via elastic SIP trunking, with guides for Twilio, Telnyx, Vonage, Genesys, Five9 and Avaya.",
+      "sourceUrl": "https://docs.retellai.com/deploy/custom-telephony.md"
+    },
+    {
+      "claim": "Built-in tooling beyond calls: simulation testing, AI quality assurance, batch calling, call transfer, SMS and verified/branded caller ID.",
+      "sourceUrl": "https://www.retellai.com/pricing"
+    }
+  ],
+  "limitations": [
+    {
+      "claim": "Retell-purchased phone numbers are limited to the US and Canada, and outbound calls from them are supported to 15 countries; other countries need custom telephony.",
+      "sourceUrl": "https://docs.retellai.com/deploy/purchase-number.md"
+    },
+    {
+      "claim": "Per-minute cost varies widely ($0.07 to $0.31) with model and voice, and several features (knowledge base, denoising, guardrails, PII removal) are priced as per-minute add-ons.",
+      "sourceUrl": "https://www.retellai.com/pricing"
+    },
+    {
+      "claim": "The vendor states it does not currently operate services within the European Union.",
+      "sourceUrl": "https://docs.retellai.com/general/compliance.md"
+    }
+  ],
+  "integrations": [
+    "Twilio",
+    "Telnyx",
+    "Vonage",
+    "Genesys Cloud",
+    "Five9",
+    "Avaya",
+    "Make",
+    "n8n",
+    "HubSpot",
+    "Go High Level",
+    "Google Drive, OneDrive and Notion knowledge-base sync",
+    "Custom LLM over WebSocket"
+  ],
+  "compliance": {
+    "hipaa": "stated",
+    "soc2": "stated",
+    "gdpr": "stated",
+    "note": "Stated by vendor, self-attested: documentation says HIPAA compliant (BAA required), SOC 2 Type 1 and Type 2 certified, and GDPR compliant via AWS with a DPA. A Vanta trust center is referenced but was not opened.",
+    "sourceUrl": "https://docs.retellai.com/general/compliance.md"
+  },
+  "telephony": {
+    "bringYourOwnCarrier": "yes",
+    "providedNumbers": "Retell sells US and Canada numbers ($2 per month; US toll-free $5 per month); custom telephony via SIP trunking or SIP URI is supported with no Retell charge for the trunk.",
+    "sourceUrl": "https://docs.retellai.com/deploy/custom-telephony.md"
+  },
+  "migration": {
+    "exportAgentsPossible": "yes",
+    "stepsToLeave": [
+      "Retrieve agent settings with the List/Get Voice Agent API and the prompt/states with the Get Retell LLM or conversation flow endpoints.",
+      "List knowledge bases with the List Knowledge Bases API and keep your original source documents or URLs.",
+      "List phone numbers with the List Phone Numbers API; numbers imported through SIP trunking remain with your carrier and can be repointed.",
+      "Call and chat history can be exported to CSV from the dashboard.",
+      "Recreate the prompt, tools and knowledge base in the new platform and test before cutting over."
+    ],
+    "sourceUrls": [
+      "https://docs.retellai.com/api-references/get-agent.md",
+      "https://docs.retellai.com/api-references/list-phone-numbers.md",
+      "https://docs.retellai.com/features/session-history.md",
+      "https://docs.retellai.com/deploy/custom-telephony.md"
+    ]
+  },
+  "bestFor": "Teams that want a self-serve, usage-priced voice agent platform with a visual builder and a wide choice of models and voices, from startups through regulated enterprises.",
+  "sources": [
+    {
+      "url": "https://www.retellai.com/pricing",
+      "title": "Retell AI pricing page",
+      "retrievedAt": "2026-10-10"
+    },
+    {
+      "url": "https://docs.retellai.com/test/testing-pricing.md",
+      "title": "Retell docs: Testing pricing",
+      "retrievedAt": "2026-10-10"
+    },
+    {
+      "url": "https://docs.retellai.com/deploy/purchase-number.md",
+      "title": "Retell docs: Purchase phone number",
+      "retrievedAt": "2026-10-10"
+    },
+    {
+      "url": "https://docs.retellai.com/deploy/custom-telephony.md",
+      "title": "Retell docs: Custom telephony",
+      "retrievedAt": "2026-10-10"
+    },
+    {
+      "url": "https://docs.retellai.com/general/compliance.md",
+      "title": "Retell docs: Security and compliance",
+      "retrievedAt": "2026-10-10"
+    },
+    {
+      "url": "https://docs.retellai.com/api-references/get-agent.md",
+      "title": "Retell API: Get Voice Agent",
+      "retrievedAt": "2026-10-10"
+    },
+    {
+      "url": "https://docs.retellai.com/llms.txt",
+      "title": "Retell docs index",
+      "retrievedAt": "2026-10-10"
+    },
+    {
+      "url": "https://docs.retellai.com/api-references/list-phone-numbers.md",
+      "title": "Retell API: List Phone Numbers",
+      "retrievedAt": "2026-10-10"
+    },
+    {
+      "url": "https://docs.retellai.com/features/session-history.md",
+      "title": "Retell docs: Call and chat history",
+      "retrievedAt": "2026-10-10"
+    }
+  ],
+  "unknowns": [
+    "Exact HIPAA/BAA availability by plan is shown in a comparison table whose cell values were not legible in the extracted text; the compliance doc says BAA/DPA self-signing has no additional fee.",
+    "Whether Retell-provided numbers can be ported out was not found.",
+    "The Vanta trust center was not opened.",
+    "The pricing page lists future-dated model names; per-model rates should be re-checked on the live page before quoting a specific model price."
+  ]
+}
