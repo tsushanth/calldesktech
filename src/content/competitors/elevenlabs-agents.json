@@ -1,0 +1,159 @@
+{
+  "slug": "elevenlabs-agents",
+  "name": "ElevenLabs Agents",
+  "url": "https://elevenlabs.io/agents",
+  "status": "active",
+  "retrievedAt": "2026-10-10",
+  "category": "model-vendor",
+  "positioning": "A conversational agent platform from a speech-model company, deploying voice and chat agents across phone, web, WhatsApp, SMS and email on top of its own text-to-speech and speech-to-text models.",
+  "pricing": {
+    "model": "Subscription tiers that include a monthly allotment of call minutes, with additional minutes billed per minute; LLM usage is billed on top; telephony from your own provider billed by that provider.",
+    "headline": "$0.08 per call minute beyond the minutes included in each plan, plus LLM usage at provider cost; plans run from Free ($0, 15 minutes) to Business ($990 per month, 12,375 minutes).",
+    "perMinuteUsd": 0.08,
+    "currency": "USD",
+    "planNotes": [
+      "Free: 15 minutes, 4 concurrent calls. Starter $6/month: 75 minutes, 6 concurrent. Creator $22/month: 275 minutes, 10 concurrent. Pro $99/month: 1,238 minutes, 20 concurrent. Scale $299/month: 3,738 minutes, 30 concurrent. Business $990/month: 12,375 minutes, 40 concurrent. Enterprise: custom.",
+      "Additional minutes $0.08 per minute on every plan; text messages $0.003 each.",
+      "Burst pricing: calls above the concurrency limit (up to 3x, max 300 for non-enterprise) are charged at 2x ($0.16 per minute).",
+      "Voice-only calls get a 95% discount for silence longer than 10 seconds (help center).",
+      "Startup Grants Program offers 12 months free for qualifying startups (vendor page)."
+    ],
+    "freeTrial": "Free plan with 15 minutes of calls included, no card stated.",
+    "whatIsExtra": [
+      "LLM usage, passed through at cost based on the model chosen",
+      "Telephony: no ElevenLabs telephony fee, but an external provider such as Twilio or a SIP trunk bills you directly"
+    ],
+    "sourceUrls": [
+      "https://elevenlabs.io/pricing/agents",
+      "https://elevenlabs.io/docs/eleven-agents/guides/burst-pricing.md",
+      "https://elevenlabs.io/docs/help-center/product/eleven-agents/how-much-does-eleven-agents-cost.md"
+    ]
+  },
+  "strengths": [
+    {
+      "claim": "Industry-leading voice catalog from its own models: 17,000+ voices across 90+ languages, plus voice cloning and expressive voice models.",
+      "sourceUrl": "https://elevenlabs.io/agents"
+    },
+    {
+      "claim": "Multichannel agents with shared context across phone, web, WhatsApp, SMS and email, plus workflows, guardrails, simulations and analytics.",
+      "sourceUrl": "https://elevenlabs.io/agents"
+    },
+    {
+      "claim": "Strong enterprise and compliance posture on the vendor's pages: SOC 2 Type II, ISO 27001, PCI DSS Level 1, HIPAA-eligible with BAAs, regional data residency (US, EU, India), zero-retention mode and on-prem options.",
+      "sourceUrl": "https://elevenlabs.io/agents"
+    },
+    {
+      "claim": "Wide telephony and contact-center connectivity: native Twilio, SIP trunking, Telnyx, Plivo, Vonage, Genesys, Five9, Amazon Connect and Microsoft Teams guides.",
+      "sourceUrl": "https://elevenlabs.io/docs/eleven-agents/phone-numbers/sip-trunking.md"
+    },
+    {
+      "claim": "Developer-friendly: LLM-agnostic with bring-your-own model, native web and mobile SDKs, WebSocket and REST APIs.",
+      "sourceUrl": "https://elevenlabs.io/agents"
+    }
+  ],
+  "limitations": [
+    {
+      "claim": "LLM costs are billed separately from the $0.08 per minute call rate, based on the chosen model.",
+      "sourceUrl": "https://elevenlabs.io/pricing/agents"
+    },
+    {
+      "claim": "Calls above the concurrency limit are billed at double the rate, and burst concurrency is capped at 300 calls for non-enterprise customers.",
+      "sourceUrl": "https://elevenlabs.io/docs/eleven-agents/guides/burst-pricing.md"
+    },
+    {
+      "claim": "HIPAA use requires a signed BAA and Zero Retention Mode, and BAAs are listed as an Enterprise plan feature.",
+      "sourceUrl": "https://elevenlabs.io/docs/eleven-agents/legal/hipaa.md"
+    }
+  ],
+  "integrations": [
+    "Twilio (native)",
+    "SIP trunking",
+    "Telnyx",
+    "Plivo",
+    "Vonage",
+    "Bandwidth",
+    "Sinch",
+    "Genesys",
+    "Five9",
+    "Amazon Connect",
+    "Microsoft Teams",
+    "Salesforce",
+    "Zendesk",
+    "HubSpot",
+    "Stripe",
+    "Shopify",
+    "Zapier",
+    "MCP servers"
+  ],
+  "compliance": {
+    "hipaa": "stated",
+    "soc2": "stated",
+    "gdpr": "not-stated",
+    "note": "Stated by vendor, self-attested: the agents page lists SOC 2 Type II, ISO 27001, PCI DSS Level 1 and HIPAA compliant; docs say ElevenAgents is HIPAA-eligible with BAAs for eligible customers when Zero Retention Mode is on. GDPR is not named on the pages read, though regional data residency (US, EU, India) is described.",
+    "sourceUrl": "https://elevenlabs.io/docs/eleven-agents/legal/hipaa.md"
+  },
+  "telephony": {
+    "bringYourOwnCarrier": "yes",
+    "providedNumbers": "Not stated on the pages read; docs describe connecting your own numbers through Twilio, SIP trunking and other providers.",
+    "sourceUrl": "https://elevenlabs.io/docs/eleven-agents/phone-numbers/sip-trunking.md"
+  },
+  "migration": {
+    "exportAgentsPossible": "yes",
+    "stepsToLeave": [
+      "Read agent configuration (prompt, first message, voice, tools) with the Get agent / List agents API using your API key.",
+      "Read knowledge base documents with the knowledge base list and get-content API endpoints.",
+      "Export batch call results with the batch calling export API.",
+      "Numbers connected through Twilio or a SIP trunk stay with your carrier and can be repointed.",
+      "Recreate prompts, tools and knowledge in the new platform and test before cutover."
+    ],
+    "sourceUrls": [
+      "https://elevenlabs.io/docs/llms.txt",
+      "https://elevenlabs.io/docs/eleven-agents/phone-numbers/sip-trunking.md"
+    ]
+  },
+  "bestFor": "Teams that prioritise voice quality, language breadth and multichannel agents, and are comfortable with a subscription-plus-usage pricing model.",
+  "sources": [
+    {
+      "url": "https://elevenlabs.io/pricing/agents",
+      "title": "ElevenAgents pricing page",
+      "retrievedAt": "2026-10-10"
+    },
+    {
+      "url": "https://elevenlabs.io/agents",
+      "title": "ElevenAgents product page",
+      "retrievedAt": "2026-10-10"
+    },
+    {
+      "url": "https://elevenlabs.io/docs/eleven-agents/guides/burst-pricing.md",
+      "title": "ElevenLabs docs: Burst pricing",
+      "retrievedAt": "2026-10-10"
+    },
+    {
+      "url": "https://elevenlabs.io/docs/help-center/product/eleven-agents/how-much-does-eleven-agents-cost.md",
+      "title": "ElevenLabs help: How much does ElevenAgents cost",
+      "retrievedAt": "2026-10-10"
+    },
+    {
+      "url": "https://elevenlabs.io/docs/eleven-agents/legal/hipaa.md",
+      "title": "ElevenLabs docs: HIPAA",
+      "retrievedAt": "2026-10-10"
+    },
+    {
+      "url": "https://elevenlabs.io/docs/eleven-agents/phone-numbers/sip-trunking.md",
+      "title": "ElevenLabs docs: SIP trunking",
+      "retrievedAt": "2026-10-10"
+    },
+    {
+      "url": "https://elevenlabs.io/docs/llms.txt",
+      "title": "ElevenLabs docs index",
+      "retrievedAt": "2026-10-10"
+    }
+  ],
+  "unknowns": [
+    "The $0.08 per minute rate and plan minutes come from the pricing page; the help-center page confirms billing structure but not the number, and the burst doc confirms the 2x multiple (so the base figure is effectively single-source).",
+    "Whether ElevenLabs sells phone numbers directly was not found.",
+    "Typical LLM cost per minute depends on model and is shown only inside the product.",
+    "GDPR statement not found on the pages read.",
+    "Pricing page carries a promotional first-month discount until Oct 18 and 3x credits until Oct 12 (creative plans), which may change."
+  ]
+}

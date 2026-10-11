@@ -1,0 +1,149 @@
+{
+  "slug": "bland-ai",
+  "name": "Bland AI",
+  "url": "https://www.bland.ai",
+  "status": "active",
+  "retrievedAt": "2026-10-10",
+  "category": "enterprise",
+  "positioning": "A vertically integrated voice agent platform that owns telephony, speech, language model and orchestration and sells a single bundled per-minute rate, with a forward-deployed engineering service for larger deployments.",
+  "pricing": {
+    "model": "Plan-based per-minute rate that bundles LLM, speech-to-text and text-to-speech (no token charges); platform fee on higher plans; custom enterprise contracts.",
+    "headline": "$0.14 per minute on the free Start plan, $0.12 per minute on Build ($299 per month); LLM, speech-to-text and text-to-speech are included, telephony is billed separately.",
+    "perMinuteUsd": 0.14,
+    "currency": "USD",
+    "planNotes": [
+      "Start: $0 platform fee, $0.14 per minute talk time, $0.05 per transfer minute, 10 concurrent calls, 100 calls per day, 10 knowledge bases, 1 voice.",
+      "Build: $299 per month, $0.12 per minute, $0.04 per transfer minute, 50 concurrent calls, 2,000 calls per day, 50 knowledge bases, 5 voices.",
+      "Enterprise: custom pricing; BAA, SSO, data residency, on-prem/VPC and forward-deployed engineers listed.",
+      "Bland docs also list a Scale plan ($499 per month, $0.11 per minute, $0.03 transfer) that did not appear on the public pricing page read on the retrieval date.",
+      "Docs also list an Agent Phone plan at $29.99 for a single agent number with unlimited US/Canada voice minutes and SMS.",
+      "Outbound calls on Bland telephony carry a $0.015 minimum charge per attempt (docs); transfer fees do not apply when using your own Twilio account."
+    ],
+    "freeTrial": "Start plan is free with no card required and includes starter credits and an inbound number valued at $15 per month (the credit amount is not specified on the page).",
+    "whatIsExtra": [
+      "Telephony: billed separately, either on your own carrier or Bland's at pass-through cost (pricing FAQ)",
+      "Transfer minutes when using Bland-provided numbers",
+      "SMS: $0.02 per message; web-widget agent messages $0.01 per message (docs)",
+      "Outbound minimum $0.015 per call attempt on Bland telephony (docs)"
+    ],
+    "sourceUrls": [
+      "https://www.bland.ai/pricing",
+      "https://docs.bland.ai/platform/billing.md"
+    ]
+  },
+  "strengths": [
+    {
+      "claim": "Simple bundled pricing: one per-minute rate covers the language model, transcription and voice, with no token charges or model pass-throughs.",
+      "sourceUrl": "https://www.bland.ai/pricing"
+    },
+    {
+      "claim": "Stated compliance coverage (SOC 2 Type I and II, HIPAA-eligible with BAA, GDPR, PCI DSS) and on-prem/VPC deployment for regulated enterprises.",
+      "sourceUrl": "https://www.bland.ai/pricing"
+    },
+    {
+      "claim": "Hands-on enterprise delivery: a forward-deployed engineering team and a documented 28-day deployment framework for enterprise rollouts.",
+      "sourceUrl": "https://www.bland.ai/pricing"
+    },
+    {
+      "claim": "Visual Conversational Pathways builder for branching call flows, with SIP trunk support, number porting and Twilio integration.",
+      "sourceUrl": "https://docs.bland.ai/agents/sip.md"
+    },
+    {
+      "claim": "Large-scale infrastructure: docs state it owns the full stack and supports very high concurrency (up to 1 million concurrent calls on the vendor's own claim).",
+      "sourceUrl": "https://docs.bland.ai/llms.txt"
+    }
+  ],
+  "limitations": [
+    {
+      "claim": "Per-day and per-hour call caps apply on self-serve plans (100 calls per day on Start, 2,000 on Build); unlimited caps are listed for Enterprise.",
+      "sourceUrl": "https://www.bland.ai/pricing"
+    },
+    {
+      "claim": "Compliance items such as BAA, SSO and data residency are listed under the Enterprise plan, and compliance documentation is available under NDA on Enterprise.",
+      "sourceUrl": "https://www.bland.ai/pricing"
+    },
+    {
+      "claim": "Bland states that all production pathways and personas must be migrated to its new agent architecture by November 15, 2026.",
+      "sourceUrl": "https://docs.bland.ai/platform/migrate-to-agents.md"
+    }
+  ],
+  "integrations": [
+    "Twilio (bring your own account)",
+    "SIP trunks from any carrier or contact-center platform",
+    "SMS and web chat",
+    "Web Agent SDK",
+    "Webhooks and custom tools",
+    "Knowledge bases"
+  ],
+  "compliance": {
+    "hipaa": "stated",
+    "soc2": "stated",
+    "gdpr": "stated",
+    "note": "Stated by vendor, self-attested: pricing FAQ and docs say SOC 2 Type I and Type II, HIPAA-eligible with a signed BAA, GDPR and PCI DSS; compliance documentation is provided under NDA on Enterprise. BAA is listed as an Enterprise feature.",
+    "sourceUrl": "https://www.bland.ai/pricing"
+  },
+  "telephony": {
+    "bringYourOwnCarrier": "yes",
+    "providedNumbers": "Bland numbers on its built-in Twilio at pass-through cost; own Twilio account and SIP trunks (with number porting) are supported. Specific countries for Bland numbers were not listed on the pages read.",
+    "sourceUrl": "https://docs.bland.ai/agents/sip.md"
+  },
+  "migration": {
+    "exportAgentsPossible": "yes",
+    "stepsToLeave": [
+      "Read pathway definitions (nodes and edges) with the Get All Pathways / Get Single Pathway API.",
+      "Export conversations and transcripts from the Conversations view or API.",
+      "Numbers on your own Twilio account or SIP trunk stay with you and can be repointed; numbers bought from Bland would need a replacement or a port-out request (port-out process not documented in pages read).",
+      "Recreate prompts, tools and knowledge in the new platform and test before cutover."
+    ],
+    "sourceUrls": [
+      "https://docs.bland.ai/api-v1/get/all_pathway.md",
+      "https://docs.bland.ai/agents/conversations.md",
+      "https://docs.bland.ai/agents/sip.md"
+    ]
+  },
+  "bestFor": "Mid-market and enterprise teams that want a single bundled per-minute rate and hands-on engineering help for regulated or high-volume phone automation.",
+  "sources": [
+    {
+      "url": "https://www.bland.ai/pricing",
+      "title": "Bland pricing page",
+      "retrievedAt": "2026-10-10"
+    },
+    {
+      "url": "https://docs.bland.ai/platform/billing.md",
+      "title": "Bland docs: Billing & Plans",
+      "retrievedAt": "2026-10-10"
+    },
+    {
+      "url": "https://docs.bland.ai/agents/sip.md",
+      "title": "Bland docs: SIP",
+      "retrievedAt": "2026-10-10"
+    },
+    {
+      "url": "https://docs.bland.ai/platform/migrate-to-agents.md",
+      "title": "Bland docs: Migrate to agents",
+      "retrievedAt": "2026-10-10"
+    },
+    {
+      "url": "https://docs.bland.ai/llms.txt",
+      "title": "Bland docs index",
+      "retrievedAt": "2026-10-10"
+    },
+    {
+      "url": "https://docs.bland.ai/api-v1/get/all_pathway.md",
+      "title": "Bland API: Get All Pathways",
+      "retrievedAt": "2026-10-10"
+    },
+    {
+      "url": "https://docs.bland.ai/agents/conversations.md",
+      "title": "Bland docs: Conversations",
+      "retrievedAt": "2026-10-10"
+    }
+  ],
+  "unknowns": [
+    "The Scale plan ($499, $0.11 per minute) appears in docs but not on the public pricing page; which is current is unconfirmed.",
+    "Whether telephony is included or extra on the self-serve per-minute rate: the pricing FAQ says it is billed separately at pass-through, but no per-minute carrier rate was found.",
+    "Free-trial credit amount ('2 credits') is not defined in dollars.",
+    "Number port-out process for Bland-purchased numbers not found.",
+    "Compliance reports are under NDA and were not seen."
+  ]
+}
