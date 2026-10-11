@@ -24,6 +24,7 @@
 import { safeFetch } from '@/lib/safeFetch';
 import { runCodeNode } from '@/lib/flowCodeSandbox';
 import type { FlowNode, StructuredCondition } from '@/types';
+import { llmUsage } from '@/lib/llmUsageInstance';
 
 const ANTHROPIC_API_URL = 'https://api.anthropic.com/v1/messages';
 // Match the voice path's default (Haiku) — a chat reply doesn't need more
@@ -185,16 +186,21 @@ async function callClaude(
   });
 
   if (!res.ok) {
+    llmUsage.record({ model: LLM_MODEL, ok: false });
     const detail = await res.text().catch(() => '');
     throw new Error(`Anthropic API error ${res.status}: ${detail.slice(0, 300)}`);
   }
 
   const body = (await res.json()) as {
+    model?: string;
+    usage?: Parameters<typeof llmUsage.record>[0]['usage'];
     content: Array<
       | { type: 'text'; text: string }
       | { type: 'tool_use'; name: string; input: Record<string, unknown> }
     >;
   };
+  // Spend accounting: the feature label (chat / simulator) comes from the caller's llmUsage.withFeature.
+  llmUsage.record({ model: body.model || LLM_MODEL, usage: body.usage });
 
   let text = '';
   let transition: ClaudeTurn['transition'] = null;
@@ -329,8 +335,16 @@ export async function executeExtractVariable(node: FlowNode, collectedData: Reco
       }),
       signal: AbortSignal.timeout(30000),
     });
-    if (!res.ok) return;
-    const body = (await res.json()) as { content?: Array<{ type: string; input?: Record<string, unknown> }> };
+    if (!res.ok) {
+      llmUsage.record({ model: LLM_MODEL, ok: false });
+      return;
+    }
+    const body = (await res.json()) as {
+      model?: string;
+      usage?: Parameters<typeof llmUsage.record>[0]['usage'];
+      content?: Array<{ type: string; input?: Record<string, unknown> }>;
+    };
+    llmUsage.record({ model: body.model || LLM_MODEL, usage: body.usage });
     const block = body.content?.find((b) => b.type === 'tool_use');
     for (const [name] of fields) {
       const v = block?.input?.[name];

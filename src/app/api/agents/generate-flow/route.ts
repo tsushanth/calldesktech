@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAnthropicClient } from '@/lib/anthropic';
+import { llmUsage } from '@/lib/llmUsageInstance';
 import type { FlowNode } from '@/types';
 import { requireAuth } from '@/lib/authz';
 
@@ -78,7 +79,7 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const message = await anthropic.messages.create({
+    const message = await llmUsage.withFeature('generate_flow', () => anthropic.messages.create({
       model: 'claude-opus-5',
       max_tokens: 4000,
       system:
@@ -91,7 +92,7 @@ export async function POST(request: NextRequest) {
       messages: [{ role: 'user', content: description.trim() }],
       tools: [GENERATE_FLOW_TOOL],
       tool_choice: { type: 'tool', name: 'emit_flow' },
-    });
+    }));
 
     const toolUse = message.content.find((b) => b.type === 'tool_use');
     if (!toolUse || toolUse.type !== 'tool_use') {

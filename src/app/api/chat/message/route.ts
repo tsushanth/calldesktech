@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/supabase';
 import { fetchKnowledgeItems } from '@/lib/chatFlowResolver';
+import { llmUsage } from '@/lib/llmUsageInstance';
 import { runUserTurn, type EngineFlow, type EngineState, type EngineMessage } from '@/lib/textFlowEngine';
 
 // POST /api/chat/message — a visitor sends one message in an open session.
@@ -54,7 +55,7 @@ export async function POST(request: NextRequest) {
 
   let result;
   try {
-    result = await runUserTurn(flow, state, history, text, { fetchKnowledgeItems });
+    result = await llmUsage.withFeature('chat', () => runUserTurn(flow, state, history, text, { fetchKnowledgeItems }));
   } catch (err) {
     console.error('[chat] user turn failed', err);
     return NextResponse.json({ error: 'Failed to generate a reply' }, { status: 502 });

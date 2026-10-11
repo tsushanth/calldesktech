@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/supabase';
 import { resolveTenantChatFlow } from '@/lib/chatFlowResolver';
+import { llmUsage } from '@/lib/llmUsageInstance';
 import { runOpeningTurn } from '@/lib/textFlowEngine';
 
 // POST /api/chat/session — a website visitor opens the chat widget. Public
@@ -35,7 +36,7 @@ export async function POST(request: NextRequest) {
 
   let opening;
   try {
-    opening = await runOpeningTurn(flow);
+    opening = await llmUsage.withFeature('chat', () => runOpeningTurn(flow));
   } catch (err) {
     console.error('[chat] opening turn failed', err);
     return NextResponse.json({ error: 'Failed to start chat' }, { status: 502 });

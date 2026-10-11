@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Json } from '@/types/database';
 import { getAnthropicClient, getCallQaModel } from '@/lib/anthropic';
+import { llmUsage } from '@/lib/llmUsageInstance';
 
 // AI Quality Assurance — the post-call review step. Given a call transcript
 // (and, when we can fetch it, the agent's own instructions), Claude returns
@@ -91,7 +92,7 @@ export async function analyzeCallQuality(params: {
     'Call transcript:\n"""\n' + transcript.trim() + '\n"""',
   ].join('\n');
 
-  const response = await client.messages.create({
+  const response = await llmUsage.withFeature('post_call_qa', () => client.messages.create({
     model: getCallQaModel(),
     max_tokens: 1024,
     // Bounded classification + short critique — low effort keeps this cheap and
@@ -102,7 +103,7 @@ export async function analyzeCallQuality(params: {
     },
     system: SYSTEM_PROMPT,
     messages: [{ role: 'user', content: userPrompt }],
-  });
+  }));
 
   let text = '';
   for (const block of response.content) {

@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { getAnthropicClient, getCallQaModel } from '@/lib/anthropic';
+import { llmUsage } from '@/lib/llmUsageInstance';
 import { transcriptToText } from '@/lib/callQa';
 import { detectAndStoreCallIssues, type CallIssue } from '@/lib/callIssues';
 
@@ -124,7 +125,7 @@ function buildSchema(fields: AnalysisField[]) {
 export async function extractCallAnalysis(transcript: string, customFields: AnalysisField[] = []): Promise<CallAnalysisResult> {
   const allFields = [...BUILT_IN_FIELDS, ...customFields];
   const client = getAnthropicClient();
-  const response = await client.messages.create({
+  const response = await llmUsage.withFeature('post_call_analysis', () => client.messages.create({
     model: getCallQaModel(),
     max_tokens: 1024,
     output_config: { effort: 'low', format: { type: 'json_schema', schema: buildSchema(allFields) } },
@@ -132,7 +133,7 @@ export async function extractCallAnalysis(transcript: string, customFields: Anal
       'You extract structured data from a phone call transcript. Return a value for every requested field, or null when the transcript does not support one. Never guess. ' +
       'If the transcript is empty, extremely short, or only contains a voicemail greeting/beep with no live conversation, set in_voicemail to true, call_successful to false, and write a minimal call_summary describing that — do not fabricate details.',
     messages: [{ role: 'user', content: 'Call transcript:\n"""\n' + transcript.trim() + '\n"""' }],
-  });
+  }));
   let text = '';
   for (const block of response.content) if (block.type === 'text') text += block.text;
   if (!text.trim()) throw new Error('Analysis model returned no text content');

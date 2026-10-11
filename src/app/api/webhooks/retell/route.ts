@@ -5,6 +5,7 @@ import { runAndStoreCallQa } from '@/lib/callQa';
 import { deriveOutcome, deriveTransferStatus, fireAlertsForCall } from '@/lib/alerts';
 import { dispatchWebhookEvent } from '@/lib/webhooks';
 import { syncCallToHubSpot } from '@/lib/crmSync';
+import { llmUsage } from '@/lib/llmUsageInstance';
 import { runAndStorePostCallAnalysis } from '@/lib/postCallAnalysis';
 import type { RetellWebhookEvent } from '@/types';
 import { verifyRetellSignature } from '@/lib/retellSignature';
@@ -115,6 +116,11 @@ export async function POST(request: NextRequest) {
           retellAgentId: event.call.agent_id,
           transcript: event.call.transcript,
         });
+
+        // Spend accounting: send the QA + analysis usage now instead of waiting for the
+        // 30 s timer. Not awaited so Retell's response is not delayed; flush() never throws
+        // and the Fly machine (min 1 running) outlives the request.
+        void llmUsage.flush();
 
         // Fire any alert rules the tenant configured for this outcome. Skipped
         // for demo tenants — those are throwaway and get cleaned up below. This

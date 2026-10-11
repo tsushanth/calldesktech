@@ -1,4 +1,5 @@
 import Anthropic from '@anthropic-ai/sdk';
+import { llmUsage } from '@/lib/llmUsageInstance';
 
 // Lazy singleton, mirroring getSupabaseAdmin()/getRetellClient() in this repo:
 // nothing is constructed (and no env var is read) until the first call, so
@@ -12,6 +13,9 @@ export function getAnthropicClient(): Anthropic {
       throw new Error('ANTHROPIC_API_KEY is not configured');
     }
     anthropicClient = new Anthropic({ apiKey });
+    // Every messages.create / messages.stream is recorded for spend accounting
+    // (the feature label comes from llmUsage.withFeature at each call site).
+    llmUsage.instrument(anthropicClient);
   }
   return anthropicClient;
 }

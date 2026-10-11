@@ -7,6 +7,7 @@
 // nodes execute for real) without telephony cost or audio latency, letting
 // a test run in seconds.
 import { getAnthropicClient } from '@/lib/anthropic';
+import { llmUsage } from '@/lib/llmUsageInstance';
 import { fetchKnowledgeItems } from '@/lib/chatFlowResolver';
 import { runOpeningTurn, runUserTurn, type EngineFlow, type EngineState, type EngineMessage } from '@/lib/textFlowEngine';
 
@@ -35,7 +36,7 @@ export interface SimulationResult {
 async function nextCallerLine(goal: string, transcript: SimulationTurn[]): Promise<string> {
   const anthropic = getAnthropicClient();
   const history = transcript.map((t) => `${t.role === 'caller' ? 'You' : 'Business'}: ${t.content}`).join('\n');
-  const message = await anthropic.messages.create({
+  const message = await llmUsage.withFeature('simulator', () => anthropic.messages.create({
     model: SHOPPER_MODEL,
     max_tokens: 200,
     system:
@@ -47,7 +48,7 @@ async function nextCallerLine(goal: string, transcript: SimulationTurn[]): Promi
     messages: [
       { role: 'user', content: history ? `Conversation so far:\n${history}\n\nWhat do you say next?` : 'The call just connected. What do you say first?' },
     ],
-  });
+  }));
   const block = message.content.find((b) => b.type === 'text');
   return block?.type === 'text' ? block.text.trim() : END_SENTINEL;
 }
@@ -67,14 +68,14 @@ async function judgeTranscript(transcript: SimulationTurn[], successCriteria: st
       required: ['passed', 'reasoning'],
     },
   };
-  const message = await anthropic.messages.create({
+  const message = await llmUsage.withFeature('simulator_judge', () => anthropic.messages.create({
     model: JUDGE_MODEL,
     max_tokens: 500,
     system: 'You judge whether a call transcript between a caller and an AI receptionist satisfies a specific success criterion. Be strict — only pass it if the transcript actually shows it happening, not just that it seems plausible.',
     messages: [{ role: 'user', content: `Success criteria: ${successCriteria}\n\nTranscript:\n${transcriptText}` }],
     tools: [JUDGE_TOOL],
     tool_choice: { type: 'tool', name: 'emit_verdict' },
-  });
+  }));
   const toolUse = message.content.find((b) => b.type === 'tool_use');
   if (!toolUse || toolUse.type !== 'tool_use') {
     return { passed: false, reasoning: 'The judge model did not return a verdict.' };
@@ -89,7 +90,7 @@ export async function runTestCaseSimulation(
 ): Promise<SimulationResult> {
   const transcript: SimulationTurn[] = [];
 
-  const opening = await runOpeningTurn(flow, { fetchKnowledgeItems });
+  const opening = await llmUsage.withFeature('simulator', () => runOpeningTurn(flow, { fetchKnowledgeItems }));
   for (const msg of opening.assistantMessages) transcript.push({ role: 'agent', content: msg });
   let state: EngineState = opening.state;
   let ended = opening.ended;
@@ -103,7 +104,7 @@ export async function runTestCaseSimulation(
     transcript.push({ role: 'caller', content: callerLine });
     history.push({ role: 'user', content: callerLine });
 
-    const result = await runUserTurn(flow, state, history, callerLine, { fetchKnowledgeItems });
+    const result = await llmUsage.withFeature('simulator', () => runUserTurn(flow, state, history, callerLine, { fetchKnowledgeItems }));
     for (const msg of result.assistantMessages) {
       transcript.push({ role: 'agent', content: msg });
       history.push({ role: 'assistant', content: msg });
