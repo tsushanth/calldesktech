@@ -3,20 +3,28 @@
  * Fire-and-forget: never throws, never blocks a request. Set FAILURE_REPORTER_DISABLED=1 to silence (tests/dev).
  * Never pass user content (transcripts, note text, emails) as message or context.
  */
-const ENDPOINT = process.env.FAILURE_REPORTER_URL || 'https://app-failure-reporter.t-sushanth.workers.dev/v1/report';
-const KEY = process.env.FAILURE_REPORTER_KEY || 'afr_d509d0e16177657db30aaffd81e909d5';
+// No built-in endpoint or key: this repo is public. Without BOTH FAILURE_REPORTER_URL and
+// FAILURE_REPORTER_KEY in the environment the reporter is a no-op.
 const APP_VERSION = process.env.FLY_IMAGE_REF || process.env.K_REVISION || process.env.npm_package_version || 'unknown';
 const DISABLED = process.env.FAILURE_REPORTER_DISABLED === '1' || ((process.env.NODE_ENV === 'test' || process.env.NODE_ENV === 'development') && process.env.FAILURE_REPORTER_FORCE !== '1');
+
+function config(): { url: string; key: string } | null {
+  const url = process.env.FAILURE_REPORTER_URL;
+  const key = process.env.FAILURE_REPORTER_KEY;
+  return url && key ? { url, key } : null;
+}
 
 type Kind = 'crash' | 'failure' | 'backend_error';
 
 async function post(kind: Kind, flow: string, err: unknown, context: Record<string, string>, timeoutMs: number): Promise<void> {
   if (DISABLED) return;
+  const cfg = config();
+  if (!cfg) return;
   try {
     const e = err instanceof Error ? err : new Error(String(err));
-    await fetch(ENDPOINT, {
+    await fetch(cfg.url, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'X-Report-Key': KEY },
+      headers: { 'Content-Type': 'application/json', 'X-Report-Key': cfg.key },
       body: JSON.stringify({ kind, platform: 'backend', version: APP_VERSION, flow, message: e.message || e.name, stack: e.stack ?? '', context }),
       signal: AbortSignal.timeout(timeoutMs),
     });
@@ -48,7 +56,7 @@ export function reportCrash(flow: string, err: unknown): Promise<void> {
  * the same failing route dedupes to one email.
  */
 export function installServerFailureReporting(): void {
-  if (DISABLED) return;
+  if (DISABLED || !config()) return;
   let sent = 0;
   let windowStart = Date.now();
   // Shared-by-design Next internal holding the matched route pattern (e.g. /api/calls/[id]/route).

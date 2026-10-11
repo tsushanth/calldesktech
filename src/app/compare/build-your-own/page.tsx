@@ -9,7 +9,7 @@ export const metadata: Metadata = {
 const BUILD_ITEMS = [
   { item: 'Pick and wire up an LLM, STT, and TTS provider', us: 'Already chosen and integrated (Kokoro, ElevenLabs, Cartesia, MiniMax)', diy: 'Your call — and your ongoing bill across three separate vendors' },
   { item: 'Write the agent’s conversation logic', us: 'A node-based flow builder: 17 node types ready to assemble', diy: 'You write and maintain it in code against the framework’s APIs' },
-  { item: 'Telephony (numbers, call routing)', us: 'Buy a number or forward one you own', diy: 'You configure SIP trunking yourself through a carrier (Twilio, Telnyx, Plivo, and others all work with these frameworks)' },
+  { item: 'Telephony (numbers, call routing)', us: 'Forward a number you own or buy one from us (no SIP trunking; a Twilio port-in request form exists, ask us first)', diy: 'You configure SIP trunking yourself through a carrier (Twilio, Telnyx, Plivo, and others all work with these frameworks)' },
   { item: 'Hosting & scaling the agent process', us: 'Included', diy: 'Managed hosting is available (LiveKit Cloud, Pipecat Cloud) starting around $0.01–$0.03/min compute, or you self-host it' },
   { item: 'Call monitoring & transcripts', us: 'Built into the dashboard', diy: 'Available on managed hosting (30-day retention typical) or you build your own logging' },
   { item: 'Ongoing maintenance as providers change', us: 'Our job', diy: 'Yours — provider SDKs, pricing, and model versions all shift over time' },
