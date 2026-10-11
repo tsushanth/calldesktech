@@ -1,0 +1,47 @@
+{
+  "slug": "missed-call-callback",
+  "name": "Missed-Call Callback",
+  "h1": "Return Missed Calls Automatically With an AI Callback Agent",
+  "metaDescription": "When a call goes unanswered, trigger a Calldesk agent to ring the person back, find out what they needed and log the result for your team.",
+  "intro": "A missed call is a customer who had a question, tried you first, and now has a reason to try a competitor. Tradespeople on a roof, clinics in the middle of a procedure and shops at the busiest hour all miss calls they would gladly have taken. The usual remedy is a promise to call people back, and it is kept unevenly because the list is scrawled on paper or buried in a phone log. A callback agent makes the return call part of a workflow. Calldesk does not watch your phone line itself, so something upstream has to signal the miss: a carrier or phone system that reports unanswered calls, a CRM rule, or a webhook from your telephony provider. That signal calls the Calldesk API with the person's number and variables such as when they called. The agent rings back, says it is an AI assistant returning a missed call, asks how it can help, and takes a message, books a slot or transfers to a free staff member. If there is no answer it logs that outcome, and your workflow can decide when to try again. The result is a callback with a record, rather than a good intention.",
+  "steps": [
+    "Decide how a miss will be detected. Calldesk places the call, but your phone system, carrier or CRM has to report the unanswered call and send the number.",
+    "Create an agent from a template such as message-taking or receptionist and rewrite the opening around a return call, using a placeholder like {{missed_time}} for when they rang.",
+    "Add a branch for when the person says they no longer need help, and a branch that takes a message with name, reason and a convenient time to be reached.",
+    "Add a transfer step to the staff number for callers who want a person, and a calendar booking step if the usual reason for calling is an appointment.",
+    "Have your automation call the single-call API with the toNumber and variables, using an API key pinned to your workspace.",
+    "Send call-completed events to a webhook so the summary and outcome are attached to the contact, and run a test by deliberately missing a call from your own mobile."
+  ],
+  "sampleCallFlow": [
+    { "speaker": "agent", "text": "Hello, this is an AI assistant calling from Delgado Tile and Stone. We missed a call from this number earlier today, and I wanted to see if I can help. Is this Sam?" },
+    { "speaker": "caller", "text": "Yeah, hi. I called about getting a bathroom floor done." },
+    { "speaker": "agent", "text": "Thanks for the call back, Sam. Sorry we missed you. Is it a new install or a repair?" },
+    { "speaker": "caller", "text": "New tile over the old floor, about sixty square feet." },
+    { "speaker": "agent", "text": "Got it. Our estimator can look at the room. Would you like me to book a visit, or have someone phone you?" },
+    { "speaker": "caller", "text": "Have someone phone me, I'm at work until five." },
+    { "speaker": "agent", "text": "Understood. I'll ask them to call after five. Is this number a good one?" },
+    { "speaker": "caller", "text": "Yes, this one." },
+    { "speaker": "agent", "text": "Thanks, Sam. I've noted a new bathroom floor, around sixty square feet, call after five. Goodbye." }
+  ],
+  "featuresUsed": [
+    { "feature": "Per-call variables on the single-call API", "howItHelps": "Your automation passes the caller's number and details such as missed_time, and the agent uses them to open the conversation." },
+    { "feature": "API and MCP server", "howItHelps": "A workspace API key lets your phone system or automation tool place the return call." },
+    { "feature": "Structured field extraction", "howItHelps": "Reason for the original call, details and convenient time to reach are saved as fields." },
+    { "feature": "Call transfers", "howItHelps": "If a staff member is free, the agent can bridge the person to them during the callback." },
+    { "feature": "Voicemail detection", "howItHelps": "When the callback reaches voicemail, the agent can hang up or leave a short message you wrote." },
+    { "feature": "Call summary and webhooks", "howItHelps": "Every callback produces a summary and a call-completed event you can attach to the contact record." }
+  ],
+  "considerations": [
+    "A callback to someone who rang you is generally expected, but automated calls to mobile numbers can still be regulated. Confirm with counsel how consent and calling-time rules apply to your callbacks.",
+    "Do not retry endlessly. Set a clear limit, and treat a request to stop as final.",
+    "Calldesk does not detect missed calls on its own, so test the whole chain, from your phone system to the API call, before relying on it."
+  ],
+  "faq": [
+    { "q": "Does Calldesk know when I miss a call?", "a": "No. Your phone system, carrier or CRM has to detect the miss and call the Calldesk API. The agent handles the conversation once the call is requested." },
+    { "q": "Could I send missed callers to the agent instead of calling back?", "a": "Yes, that is the overflow and after-hours pattern: forward unanswered calls to the agent's number so the caller is answered immediately. How forwarding is configured depends on your carrier." },
+    { "q": "What does the agent say if someone has forgotten calling?", "a": "You write it. A sensible script states who is calling, mentions the missed call and asks how it can help, with an easy way out." },
+    { "q": "How many callbacks can it do at once?", "a": "Single calls through the API are rate limited per workspace, with a short burst and then roughly one call every couple of seconds. For a backlog, use a batch call." },
+    { "q": "How do I see which callbacks reached someone?", "a": "Each call shows an outcome such as answered, voicemail or transferred, and the batch or webhook data lets you track results in your own system." }
+  ],
+  "relatedSlugs": ["overflow-call-handling", "voicemail-replacement", "outbound-lead-follow-up", "after-hours-answering"]
+}

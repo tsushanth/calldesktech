@@ -1,0 +1,49 @@
+{
+  "slug": "appointment-rescheduling-and-cancellations",
+  "name": "Appointment Rescheduling and Cancellations",
+  "h1": "Handle Appointment Changes and Cancellations by Phone with AI",
+  "metaDescription": "Let callers move or cancel visits without waiting on hold. A Calldesk agent verifies who is calling, captures the change, and routes it to your system.",
+  "intro": "Booking gets the attention, but changes are where phone lines clog. A person who needs to move Thursday's visit calls at lunchtime, finds the line engaged, and either abandons the call or does not bother to tell you at all. A cancelled slot that is reported late is a slot nobody else can use. Handling changes well asks for a different conversation from booking: the agent must first work out which appointment the caller means, confirm it is the right person asking, and just after that proceed to a new time or a cancellation. A Calldesk agent can run that sequence. It collects name and the details that identify the visit, repeats them back, asks whether the caller wants a new time or no visit at all, and records the answer in named fields. Where your scheduling tool has an endpoint, a function step can send the change to it and fold the reply into the conversation. Where it does not, the agent captures the request and the call summary reaches whoever updates the schedule. It can also ask for a short reason, which gives you a record of why people cancel. The service-appointment template already branches on change requests and is a sensible base to edit.",
+  "steps": [
+    "Start from the service-appointment template, which already separates new bookings, changes and confirmations, and trim it down to the change and cancel branches.",
+    "Add an extraction step that gathers the identifying details you can verify, such as full name, phone number on file and the date of the appointment being changed.",
+    "Repeat the identified appointment back to the caller in a confirmation step before any change is recorded, and branch to a human transfer if the details do not match.",
+    "Add a function step that posts the collected data to your scheduling endpoint and reads the response, or leave it out and let the summary and extracted fields serve as the request.",
+    "If a Cal.com calendar is connected, test carefully which changes the agent can complete itself during the call and which it can merely record, and write the script to match.",
+    "Add a short extraction for the reason for cancelling, publish a version, route a number to it, and run simulation test cases for common situations such as a caller with two bookings."
+  ],
+  "sampleCallFlow": [
+    { "speaker": "agent", "text": "Thanks for calling Willow Creek Vet. I'm an AI assistant. Are you calling to book, change or cancel a visit?" },
+    { "speaker": "caller", "text": "I need to cancel Biscuit's appointment on Friday." },
+    { "speaker": "agent", "text": "I can help with that. May I have your name and the phone number the appointment was booked under?" },
+    { "speaker": "caller", "text": "Elena Torres, five five five, zero one nine eight." },
+    { "speaker": "agent", "text": "Thanks, Elena. I have Biscuit down for Friday at eleven. Is that the visit you want to cancel?" },
+    { "speaker": "caller", "text": "That's the one." },
+    { "speaker": "agent", "text": "Would you prefer to cancel it, or move it to another day?" },
+    { "speaker": "caller", "text": "Move it, actually. Sometime next week." },
+    { "speaker": "agent", "text": "I'll pass on that you'd like to move Biscuit's visit to next week, and the front desk will confirm a time with you. Anything you'd like us to know?" },
+    { "speaker": "caller", "text": "Afternoons are better for me." },
+    { "speaker": "agent", "text": "Noted, afternoons next week. You'll hear from the front desk. Goodbye, Elena." }
+  ],
+  "featuresUsed": [
+    { "feature": "Structured field extraction", "howItHelps": "Name, phone on file, appointment date and the requested change are captured as separate fields." },
+    { "feature": "Function step (webhook to your system)", "howItHelps": "Collected data can be posted to your own scheduling endpoint and the response folded back into the call." },
+    { "feature": "Calendar booking", "howItHelps": "With a Cal.com calendar connected, live availability can support offering a new time during the call." },
+    { "feature": "Call transfers", "howItHelps": "A caller whose details do not match, or who is upset, can be passed to a person." },
+    { "feature": "Call summary and full transcript", "howItHelps": "The summary tells staff exactly which visit changed and why, with the transcript as evidence." },
+    { "feature": "Simulation test cases", "howItHelps": "You can script caller personas, such as someone with two bookings, and check the agent's behavior before going live." }
+  ],
+  "considerations": [
+    "Verify identity before discussing or altering any appointment. A name alone may not be enough for your business, so decide what you require and confirm it with your privacy counsel for regulated settings such as healthcare.",
+    "Be clear in the script about what the agent can do on the call and what staff will confirm afterward. Do not let it say a slot is changed unless the change really happened.",
+    "State your cancellation policy through the knowledge base or script rather than letting the agent improvise fees or deadlines."
+  ],
+  "faq": [
+    { "q": "Can the agent change my calendar directly?", "a": "Live booking against a connected Cal.com calendar is a documented feature. Whether a specific change or cancellation is completed during the call depends on your setup, so test it, and use a function step to your own system when you need a dependable route." },
+    { "q": "How does it find the right appointment?", "a": "It asks for identifying details you choose and reads them back. Matching them to a record happens in your system through a function step, or by staff reading the summary." },
+    { "q": "What if the caller has several bookings?", "a": "Write the extraction and confirmation steps to ask which one, and test that case with a simulation test case before launch." },
+    { "q": "Can it capture why someone cancelled?", "a": "Yes. Add an extraction field for the reason and it appears on the call record and in webhooks." },
+    { "q": "Is this different from booking?", "a": "The conversation is different: it begins with identifying an existing visit and confirming it, then branches to move or cancel. The booking page covers creating new appointments." }
+  ],
+  "relatedSlugs": ["appointment-booking", "appointment-reminders", "call-transfer-to-staff", "order-and-status-inquiries"]
+}
