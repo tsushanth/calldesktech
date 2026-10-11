@@ -12,6 +12,8 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Vendored copy of the shared dependency-free usage client (afr-llm/node/llmUsage.js); keep byte-identical.
+    "src/lib/llmUsage.js",
   ]),
 ]);
 

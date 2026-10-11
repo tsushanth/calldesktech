@@ -1,4 +1,5 @@
 import { getAnthropicClient } from '@/lib/anthropic';
+import { llmUsage } from '@/lib/llmUsageInstance';
 import type { BenchmarkAggregate } from './benchmarkImport';
 
 // Generates the personalized one-pager for a single outreach lead. The
@@ -101,7 +102,7 @@ export async function generateOutreachReport(
     buildBenchmarkContext(benchmark),
   ].join('\n');
 
-  const response = await client.messages.create({
+  const response = await llmUsage.withFeature('outreach_report', () => client.messages.create({
     model: 'claude-sonnet-5',
     max_tokens: 1024,
     output_config: {
@@ -110,7 +111,7 @@ export async function generateOutreachReport(
     },
     system: SYSTEM_PROMPT,
     messages: [{ role: 'user', content: userPrompt }],
-  });
+  }));
 
   let raw = '';
   for (const block of response.content) {

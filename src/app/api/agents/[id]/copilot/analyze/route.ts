@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/supabase';
 import { getAnthropicClient } from '@/lib/anthropic';
+import { llmUsage } from '@/lib/llmUsageInstance';
 import { transcriptToText } from '@/lib/callQa';
 import type { FlowNode } from '@/types';
 import { authorizeResource } from '@/lib/authz';
@@ -191,14 +192,14 @@ export async function POST(
   ].join('\n\n');
 
   const client = getAnthropicClient();
-  const response = await client.messages.create({
+  const response = await llmUsage.withFeature('copilot', () => client.messages.create({
     model: process.env.CALL_QA_MODEL || 'claude-opus-5',
     max_tokens: 4096,
     system: SYSTEM_PROMPT,
     messages: [{ role: 'user', content: userPrompt }],
     tools: [ANALYZE_TOOL],
     tool_choice: { type: 'tool', name: 'emit_copilot_suggestions' },
-  });
+  }));
 
   const toolUse = response.content.find((b) => b.type === 'tool_use' && b.name === 'emit_copilot_suggestions');
   if (!toolUse || toolUse.type !== 'tool_use') {

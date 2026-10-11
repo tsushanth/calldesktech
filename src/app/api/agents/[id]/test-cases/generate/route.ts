@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/supabase';
 import { getAnthropicClient } from '@/lib/anthropic';
+import { llmUsage } from '@/lib/llmUsageInstance';
 import type { FlowNode } from '@/types';
 import { authorizeResource } from '@/lib/authz';
 
@@ -92,7 +93,7 @@ export async function POST(
   }
 
   try {
-    const message = await anthropic.messages.create({
+    const message = await llmUsage.withFeature('test_cases', () => anthropic.messages.create({
       model: 'claude-opus-5',
       max_tokens: 2000,
       system:
@@ -104,7 +105,7 @@ export async function POST(
       messages: [{ role: 'user', content: `Start node: ${startNodeId}\n\n${summarizeFlow(nodes, startNodeId)}` }],
       tools: [GENERATE_TEST_CASES_TOOL],
       tool_choice: { type: 'tool', name: 'emit_test_cases' },
-    });
+    }));
 
     const toolUse = message.content.find((b) => b.type === 'tool_use');
     if (!toolUse || toolUse.type !== 'tool_use') {

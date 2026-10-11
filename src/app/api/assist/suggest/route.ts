@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAnthropicClient } from '@/lib/anthropic';
+import { llmUsage } from '@/lib/llmUsageInstance';
 
 // POST /api/assist/suggest — real-time sales-call coaching, v0.
 //
@@ -81,12 +82,12 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const message = await getAnthropicClient().messages.create({
+    const message = await llmUsage.withFeature('assist', () => getAnthropicClient().messages.create({
       model: MODEL,
       max_tokens: 150,
       system: SYSTEM_PROMPT,
       messages: [{ role: 'user', content: `Call goal: ${goal}\n\nTranscript so far:\n${transcript}` }],
-    });
+    }));
     const text = message.content.find((b) => b.type === 'text');
     const raw = text && 'text' in text ? text.text.trim() : '';
     let line = '(listening)';

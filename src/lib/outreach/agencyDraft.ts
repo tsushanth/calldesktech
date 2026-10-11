@@ -1,4 +1,5 @@
 import { getAnthropicClient } from '@/lib/anthropic';
+import { llmUsage } from '@/lib/llmUsageInstance';
 import { cliComplete, apiComplete, extractJson, usingApi, usingCli } from './llm';
 import { detectDraftLanguage } from './language';
 import { calldesk, resolveArmPrompts, type ProductConfig } from './products';
@@ -120,13 +121,13 @@ export async function draftAgencyEmail(input: AgencyDraftInput): Promise<AgencyD
   }
 
   const client = getAnthropicClient();
-  const response = await client.messages.create({
+  const response = await llmUsage.withFeature('agency_draft', () => client.messages.create({
     model: 'claude-sonnet-5',
     max_tokens: 800,
     output_config: { effort: 'medium', format: { type: 'json_schema', schema: DRAFT_SCHEMA } },
     system: systemPrompt,
     messages: [{ role: 'user', content: userPrompt }],
-  });
+  }));
 
   let raw = '';
   for (const block of response.content) {
