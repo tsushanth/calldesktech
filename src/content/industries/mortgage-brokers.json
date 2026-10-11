@@ -1,0 +1,124 @@
+{
+  "slug": "mortgage-brokers",
+  "name": "Mortgage Brokers",
+  "h1": "AI Phone Agent for Mortgage Brokers: Lead and Document Calls",
+  "metaDescription": "Calldesk answers mortgage broker calls: purchase and refinance lead intake, document-status questions and callback scheduling for loan officers.",
+  "intro": "Mortgage calls reward speed. A buyer under contract needs a pre-approval letter by the weekend, a homeowner sees a rate headline and wonders about refinancing, or a borrower in process is chasing a missing pay stub with a closing date approaching. Loan officers spend their days on calls with borrowers, agents and underwriters, so new leads often reach voicemail. Lead sources vary: real estate agents referring a buyer, web forms, and returning clients. Each wants a different first answer. Borrowers in process call repeatedly for status, and the processor cannot answer every time. Timing is regulated and sensitive; there are strict rules about what can be said about rates, terms and approvals. A Calldesk agent can answer as the brokerage's AI assistant, ask whether the caller is buying, refinancing or already in process, collect the details a loan officer needs for a first conversation such as timeline, property state and whether they are working with an agent, and book a callback or consult on a connected calendar. It does not quote rates, pre-qualify, discuss credit or promise approval. For in-process borrowers it takes the loan officer's name and the question, and logs it for the processor. Batch calls can ask borrowers to upload outstanding documents.",
+  "callTypes": [
+    "Home buyers asking how to get pre-approved before making an offer",
+    "Homeowners curious about refinancing or cash-out options",
+    "Real estate agents referring a client and asking who to contact",
+    "Borrowers in process asking which documents are still outstanding",
+    "Self-employed applicants asking what paperwork they will need",
+    "Reminder calls to borrowers with documents due before a closing date"
+  ],
+  "sampleCallFlow": [
+    {
+      "speaker": "agent",
+      "text": "Thanks for calling. I'm the brokerage's AI assistant. Are you looking to buy, refinance, or check on a loan that's already in process?"
+    },
+    {
+      "speaker": "caller",
+      "text": "Buying. I'm trying to get pre-approved because I want to put in an offer next week."
+    },
+    {
+      "speaker": "agent",
+      "text": "Thanks for telling me. I can't discuss rates or approvals, but a loan officer can go over the process with you. May I have your name and the state where you're buying?"
+    },
+    {
+      "speaker": "caller",
+      "text": "Dominic Ferrara, in Ohio."
+    },
+    {
+      "speaker": "agent",
+      "text": "Thanks, Dominic. Are you working with a real estate agent yet?"
+    },
+    {
+      "speaker": "caller",
+      "text": "Yes, Pamela at a local office."
+    },
+    {
+      "speaker": "agent",
+      "text": "I'll note her name. Roughly when do you want to make the offer, so the loan officer knows how soon to talk?"
+    },
+    {
+      "speaker": "caller",
+      "text": "Within a week."
+    },
+    {
+      "speaker": "agent",
+      "text": "Understood. A loan officer has a consultation open tomorrow at 9:30 or 3:00. Which is better?"
+    },
+    {
+      "speaker": "caller",
+      "text": "9:30."
+    },
+    {
+      "speaker": "agent",
+      "text": "Booked. Please have a recent pay stub and bank statement handy if you can; the loan officer will explain what's needed."
+    }
+  ],
+  "setupSteps": [
+    "Create an agent from the appointment-booking template, with a clear introduction as the brokerage's AI assistant and a firm rule against quoting rates.",
+    "Write the knowledge base with the general document list, how the process flows, states licensed and office hours, in compliance-approved wording.",
+    "Define extraction fields for loan purpose, state, timeline, agent name and preferred contact times, leaving out Social Security numbers and account details.",
+    "Add a path for in-process borrowers that logs their loan officer and question, and a transfer to the processor during hours.",
+    "Test, publish, and push call data to your loan origination or CRM tool by webhook."
+  ],
+  "featuresUsed": [
+    {
+      "feature": "Calendar booking",
+      "howItHelps": "Puts a purchase lead on a loan officer's calendar the same moment they call."
+    },
+    {
+      "feature": "Structured field extraction",
+      "howItHelps": "Records purpose, state, timeline and referring agent as fields for the first call."
+    },
+    {
+      "feature": "Knowledge base",
+      "howItHelps": "Gives approved, consistent answers about general process and document types."
+    },
+    {
+      "feature": "Call transfers",
+      "howItHelps": "Hands in-process borrowers to the processor for status questions during staffed hours."
+    },
+    {
+      "feature": "Batch outbound calls",
+      "howItHelps": "Reminds borrowers about outstanding documents with the borrower's name and the missing item as variables."
+    }
+  ],
+  "considerations": [
+    "Mortgage communications are governed by consumer-finance rules, including advertising and disclosure requirements and licensing by state. Have your compliance officer or counsel approve every statement the agent can make, and keep it away from rates, terms and approval language.",
+    "Do not collect Social Security numbers, account numbers or credit details over the agent. Decide what sensitive data, if any, belongs in a call and check your security obligations.",
+    "Outbound calls to leads and borrowers are subject to consent, Do Not Call and TCPA rules; confirm your lead sources permit calls before running a batch.",
+    "Calldesk makes no certification claims, and nothing the agent says should be read as financial advice."
+  ],
+  "faq": [
+    {
+      "q": "Can the agent pre-qualify a borrower?",
+      "a": "No. Qualification is a regulated activity for licensed staff. The agent gathers general details and books a conversation."
+    },
+    {
+      "q": "Will it quote today's rates?",
+      "a": "It should not. Rates depend on many factors and statements about them are regulated, so the agent can be told to defer all rate questions to a loan officer."
+    },
+    {
+      "q": "Can it handle calls from real estate agents?",
+      "a": "Yes, with a path that records the agent's name, the buyer's name and the timeline, and transfers or books a time with a loan officer."
+    },
+    {
+      "q": "What does it do for borrowers waiting on closing?",
+      "a": "It logs who they are, who their loan officer is, and what they need, and can transfer to the processor. It cannot see the loan file unless you connect your own system."
+    },
+    {
+      "q": "Can it call borrowers to chase documents?",
+      "a": "Yes, as a batch with per-borrower variables, provided you have the permission to call them that the law requires. Check with counsel on timing and wording."
+    }
+  ],
+  "relatedSlugs": [
+    "real-estate-brokerages",
+    "insurance-agencies",
+    "accounting-and-tax-firms",
+    "law-firms"
+  ]
+}

@@ -1,0 +1,124 @@
+{
+  "slug": "electricians",
+  "name": "Electricians",
+  "h1": "AI Phone Agent for Electricians: Outage, Panel and Estimate Calls",
+  "metaDescription": "Calldesk answers electrician calls: tripped breakers, outlet and panel work, EV charger quotes and safety hazards, with urgent calls transferred to you.",
+  "intro": "Electrical calls split into two groups that need opposite handling. One is the quiet, plannable work: a homeowner wants an EV charger installed, a landlord needs smoke detectors upgraded before an inspection, someone is remodeling and needs recessed lighting. The other is the frightening call: a burning smell from an outlet, a breaker that will not stay on, sparks, or half the house dark after a storm. Electricians are often up a ladder or inside a panel when the phone rings and cannot answer, and the person whose power is out is not going to leave a polite message. The scheduling side adds friction too, because quotes for panel upgrades and EV chargers require site details that are tedious to collect by phone tag. A Calldesk agent can answer as the company's AI assistant, ask whether there is smoke, burning smell or sparking right now, tell the caller to get clear and call emergency services in those cases, then transfer to you, and for planned work collect the project details and book an estimate visit. It does not give wiring instructions or assess hazards. It also can call back a list of customers whose permit inspection is coming up.",
+  "callTypes": [
+    "Homeowners reporting a dead outlet, tripped breaker or flickering lights",
+    "Safety calls about a burning smell, sparking or a hot panel",
+    "EV charger installation and panel upgrade quote requests",
+    "Landlords and property managers scheduling smoke detector and inspection fixes",
+    "Remodel contractors asking for lighting or circuit work on a job schedule",
+    "Post-storm callers whose power is out on part of the house"
+  ],
+  "sampleCallFlow": [
+    {
+      "speaker": "agent",
+      "text": "Thanks for calling. I'm the company's AI assistant. Is this an urgent electrical problem, or are you planning some work?"
+    },
+    {
+      "speaker": "caller",
+      "text": "Planning. I just bought an electric car and want a charger in the garage."
+    },
+    {
+      "speaker": "agent",
+      "text": "Happy to set up an estimate. First, may I have your name and the address?"
+    },
+    {
+      "speaker": "caller",
+      "text": "Helen Ostrowski, 305 Birch Hollow."
+    },
+    {
+      "speaker": "agent",
+      "text": "Thanks, Helen. Do you know what size the main panel is, or roughly when the house was built?"
+    },
+    {
+      "speaker": "caller",
+      "text": "Built in 1998. I think the panel is 100 amps."
+    },
+    {
+      "speaker": "agent",
+      "text": "That helps. Where is the panel compared to the spot for the charger, same garage wall or somewhere else?"
+    },
+    {
+      "speaker": "caller",
+      "text": "It's in the garage, maybe fifteen feet away."
+    },
+    {
+      "speaker": "agent",
+      "text": "I'll pass that on. The electrician will confirm what the installation needs on site. He has Tuesday at 10 or Wednesday at 1 for estimates."
+    },
+    {
+      "speaker": "caller",
+      "text": "Tuesday at 10."
+    },
+    {
+      "speaker": "agent",
+      "text": "Booked. If you ever smell burning or see sparks before then, leave the area and call emergency services, then call us."
+    }
+  ],
+  "setupSteps": [
+    "Create an agent from the appointment-booking template and describe the work you do: residential, commercial, EV chargers, panels, generators.",
+    "Write a hazard rule: any mention of smoke, burning smell, sparks or a hot panel makes the agent say to move away, call emergency services if needed, and transfer to you.",
+    "Add extraction fields for project type, panel size if known, building age, location of the work and the caller's preferred timeframe.",
+    "Put your service area, license statement, estimate policy and typical permitting steps in the knowledge base.",
+    "Test hazard and estimate scenarios, publish, and connect a calendar for estimate visits."
+  ],
+  "featuresUsed": [
+    {
+      "feature": "Call transfers",
+      "howItHelps": "Routes hazard-sounding calls to you immediately after the agent gives a short safety statement."
+    },
+    {
+      "feature": "Calendar booking",
+      "howItHelps": "Books estimate visits for chargers, panel upgrades and remodels while you are on a job."
+    },
+    {
+      "feature": "Structured field extraction",
+      "howItHelps": "Collects panel size, building age and work location so quotes start with the facts that matter."
+    },
+    {
+      "feature": "Knowledge base",
+      "howItHelps": "States your license, service area and permit process consistently."
+    },
+    {
+      "feature": "Full transcript",
+      "howItHelps": "Lets you re-read exactly how a caller described a symptom before you decide whether to roll a truck."
+    }
+  ],
+  "considerations": [
+    "Electrical contractors are licensed and permit rules vary. The agent should not describe code requirements as certain or tell callers how to work on wiring. Keep its guidance to staying away from hazards and calling emergency services.",
+    "For fire or shock risks the correct instruction is to leave and contact emergency services; build that into the script and test it before use.",
+    "Calls that remind customers of inspections or follow up on quotes are outbound calls; confirm consent and TCPA considerations with your own counsel.",
+    "Never let the agent quote prices for panel or charger installations unless you have written them for it and accept that they could change."
+  ],
+  "faq": [
+    {
+      "q": "Will the agent tell someone how to reset a breaker?",
+      "a": "If you write that instruction and are comfortable with it. Many electricians choose to avoid DIY guidance and have the agent focus on safety statements and scheduling."
+    },
+    {
+      "q": "What if a caller describes a burning smell?",
+      "a": "The flow can say to move away from the area, call emergency services if there is fire or smoke, and then transfer to your number. Test that wording with your own team before going live."
+    },
+    {
+      "q": "Can it handle quotes for EV chargers?",
+      "a": "It collects the site details and books an estimate visit. Pricing is for your electrician to give after seeing the panel and run."
+    },
+    {
+      "q": "Do commercial customers use the same line?",
+      "a": "They can, with a branch that asks if the work is residential or commercial and sends commercial inquiries to the right person."
+    },
+    {
+      "q": "Can I see what the agent said to each caller?",
+      "a": "Yes. Each call has a transcript and a summary, and you can listen to calls live in the monitoring view while testing."
+    }
+  ],
+  "relatedSlugs": [
+    "hvac-companies",
+    "plumbing-companies",
+    "roofing-contractors",
+    "landscaping-companies"
+  ]
+}

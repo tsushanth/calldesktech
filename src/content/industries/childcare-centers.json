@@ -1,0 +1,120 @@
+{
+  "slug": "childcare-centers",
+  "name": "Childcare Centers",
+  "h1": "AI Phone Agent for Childcare Centers: Tours and Absence Calls",
+  "metaDescription": "Calldesk answers childcare center calls: tour requests, waitlist and tuition questions, and parent absence reports, with urgent calls sent to a director.",
+  "intro": "A childcare director answers the phone with a toddler on her hip. Calls come in waves tied to the daily rhythm: first thing in the morning, parents report that a child is sick or running late; at pickup time, authorized pickup changes and last-minute questions arrive; in the evening, parents who have just finished a long search call to ask about openings. Enrollment inquiries are high-stakes and emotional, with questions on ages, ratios, schedules, tuition, meals and safety. Parents are often calling three or four centers and will tour whoever replies first. Staff, meanwhile, cannot step away from children to pick up the phone, and ratios mean nobody can be pulled off the floor. A Calldesk agent can answer as the center's AI assistant, answer standard questions from a knowledge base you control, collect a child's age and the family's desired start date, and book a tour on a connected calendar. For absence calls it records the child's name, classroom and reason as stated, and for anything involving pickup authorization or safety it hands the call to a person. It does not give child development or health advice. Outbound reminders can confirm tour times.",
+  "callTypes": [
+    "Parents asking about openings by age group and desired start date",
+    "Tour booking calls from families comparing several centers",
+    "Morning absence and late-arrival reports for a child",
+    "Questions about tuition schedules, hours, meals and holiday closures",
+    "Calls changing authorized pickup arrangements, which require a person",
+    "Waitlist status checks from families already on the list"
+  ],
+  "sampleCallFlow": [
+    {
+      "speaker": "agent",
+      "text": "Thank you for calling the center. I'm the center's AI assistant. Are you calling about enrollment, or about a child already here?"
+    },
+    {
+      "speaker": "caller",
+      "text": "Enrollment. I have a fourteen-month-old and need care starting in March."
+    },
+    {
+      "speaker": "agent",
+      "text": "Thanks for telling me. The center offers an infant and toddler program. I can't confirm current openings, but the director can. May I have your name?"
+    },
+    {
+      "speaker": "caller",
+      "text": "Ravi Menon."
+    },
+    {
+      "speaker": "agent",
+      "text": "Thanks, Ravi. Would you need full-time care, or certain days of the week?"
+    },
+    {
+      "speaker": "caller",
+      "text": "Full-time, Monday to Friday."
+    },
+    {
+      "speaker": "agent",
+      "text": "Good to know. I can book a tour with the director. She has Wednesday at 10:30 or Friday at 4. Does either work?"
+    },
+    {
+      "speaker": "caller",
+      "text": "Friday at 4."
+    },
+    {
+      "speaker": "agent",
+      "text": "You're booked for Friday at 4. The director will go over openings, tuition and daily schedules, and you're welcome to bring your child."
+    },
+    {
+      "speaker": "caller",
+      "text": "Great, thanks."
+    }
+  ],
+  "setupSteps": [
+    "Create an agent from the receptionist or appointment-booking template and describe the age groups and programs the center offers.",
+    "Write a knowledge base covering hours, holiday closures, meal policy, ratios as the center states them, tuition schedule and application steps.",
+    "Add separate paths for enrollment inquiries, absence reports and anything related to pickup, with a transfer to the director on the last.",
+    "Connect a calendar for tours and add extraction fields for child's age, start date, schedule needed and parent contact details.",
+    "Test the paths, publish for peak morning and evening hours, and use batch calls to confirm next-day tours."
+  ],
+  "featuresUsed": [
+    {
+      "feature": "Calendar booking",
+      "howItHelps": "Books tours with the director without her leaving the classroom."
+    },
+    {
+      "feature": "Knowledge base",
+      "howItHelps": "Answers hours, closures and tuition-schedule questions the same way each time."
+    },
+    {
+      "feature": "Structured field extraction",
+      "howItHelps": "Collects child age, start date and schedule so the director sees the family's need before the tour."
+    },
+    {
+      "feature": "Call transfers",
+      "howItHelps": "Sends pickup-authorization and safety calls to the director rather than handling them itself."
+    },
+    {
+      "feature": "Call summary",
+      "howItHelps": "Gives the front office a list of the morning's absence reports in one place."
+    }
+  ],
+  "considerations": [
+    "Child care is licensed and regulated by state or local authorities. Have your director confirm that anything the agent says about ratios, curriculum or licensing matches your records and the rules that apply to you.",
+    "Pickup authorization and custody matters should never be changed by the agent. Route all such calls to a staff member who can verify identity.",
+    "Children's personal information is sensitive and may be covered by privacy laws. Ask counsel what you can record, transcribe or retain, and tell callers where required.",
+    "Outbound tour reminders and enrollment follow-ups are calls to parents; check consent and calling rules with your own counsel."
+  ],
+  "faq": [
+    {
+      "q": "Can the agent confirm if there is an opening?",
+      "a": "When you provide current availability. Many centers have it take the details and have the director confirm, since openings change daily."
+    },
+    {
+      "q": "How does it deal with a parent reporting an absence?",
+      "a": "It records the child's name, classroom and the reason stated, and posts it in the call summary for the office. It should not give health guidance."
+    },
+    {
+      "q": "What if a caller asks to change who can pick up a child?",
+      "a": "The flow should transfer to a staff member or take a message for the director. The agent cannot verify identity and must not change permissions."
+    },
+    {
+      "q": "Can it speak Spanish with families?",
+      "a": "Many languages are available on the Standard and Pro voices; Lite speaks English."
+    },
+    {
+      "q": "Is it appropriate for early-morning calls?",
+      "a": "Yes, that is a common use: the agent answers drop-off-time calls while staff are with children, and passes anything urgent to the director's phone."
+    }
+  ],
+  "relatedSlugs": [
+    "tutoring-and-schools",
+    "fitness-studios",
+    "veterinary-clinics",
+    "cleaning-services"
+  ]
+}

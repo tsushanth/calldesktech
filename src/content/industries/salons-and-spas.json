@@ -1,0 +1,124 @@
+{
+  "slug": "salons-and-spas",
+  "name": "Salons and Spas",
+  "h1": "AI Phone Agent for Salons and Spas: Appointment Booking While You Work",
+  "metaDescription": "Calldesk answers salon and spa calls: service bookings, stylist preferences, reschedules and cancellation-policy questions while your hands are busy.",
+  "intro": "Stylists, colorists and massage therapists cannot answer a phone with foamy gloves, a half-finished color or a client on the table. A salon's calls therefore pile up when it is busiest, and the callers are people who want to book right now, usually while on a lunch break or in the evening after work. Requests are specific: a balayage with a particular stylist, a cut for a child, a deep-tissue massage on Saturday afternoon, a bridal party trial. Reschedules and cancellations come in constantly, and a late cancellation is a lost hour that could have been filled if someone had answered and offered it. Questions are repetitive: how long does a color service take, is there a deposit, what is the cancellation policy, do you carry a certain product line. A Calldesk agent can answer as the salon's AI assistant, ask which service and which provider, offer open slots on a connected calendar, and note special requests. It does not diagnose skin conditions or promise treatment outcomes. For waitlist-style fills, an outbound batch can ring clients on a list when a slot opens, using their first name and the opened time as variables. Staff review a summary of what was booked and changed.",
+  "callTypes": [
+    "Booking a haircut, color or blowout with a preferred stylist",
+    "Massage and facial bookings, including couples and gift certificate redemptions",
+    "Rescheduling or cancelling within the shop's notice window",
+    "Bridal and event-party inquiries needing a consultation",
+    "Questions about service length, pricing ranges and deposit rules",
+    "Waitlist calls offering a last-minute slot to a client who asked"
+  ],
+  "sampleCallFlow": [
+    {
+      "speaker": "agent",
+      "text": "Thanks for calling the salon. I'm the salon's AI assistant. What service can I help you book?"
+    },
+    {
+      "speaker": "caller",
+      "text": "I want highlights, and I'd like Marisol if she's available."
+    },
+    {
+      "speaker": "agent",
+      "text": "Highlights with Marisol takes about two and a half hours. Have you been to the salon before?"
+    },
+    {
+      "speaker": "caller",
+      "text": "Yes, she did my hair in the spring."
+    },
+    {
+      "speaker": "agent",
+      "text": "Welcome back. May I have your name?"
+    },
+    {
+      "speaker": "caller",
+      "text": "Tess Abernathy."
+    },
+    {
+      "speaker": "agent",
+      "text": "Thanks, Tess. Marisol has Thursday at 10 or Saturday at 1 open. Which is better for you?"
+    },
+    {
+      "speaker": "caller",
+      "text": "Saturday at 1."
+    },
+    {
+      "speaker": "agent",
+      "text": "I've booked Saturday at 1. A reminder: appointments canceled with less than 24 hours' notice may carry a fee under the salon's policy. Is there anything Marisol should know ahead of time?"
+    },
+    {
+      "speaker": "caller",
+      "text": "I'd like to go a bit lighter than last time."
+    },
+    {
+      "speaker": "agent",
+      "text": "I'll pass that along to Marisol. See you Saturday."
+    }
+  ],
+  "setupSteps": [
+    "Create an agent from the appointment-booking template and list each service with its typical duration.",
+    "Connect a calendar for each stylist or treatment room you want the agent to book, or use one shared calendar and note preferred provider as a field.",
+    "Put your cancellation policy, deposit rules, product lines and gift certificate instructions in the knowledge base.",
+    "Add extraction fields for service, preferred provider, first-time or returning status and special requests.",
+    "Test booking and rescheduling scenarios, publish, and use batch calls for waitlist fills with client names as variables."
+  ],
+  "featuresUsed": [
+    {
+      "feature": "Calendar booking",
+      "howItHelps": "Books a service into an open slot while the stylist is busy with a client."
+    },
+    {
+      "feature": "Knowledge base",
+      "howItHelps": "Answers questions on service length, deposits and cancellation policy in your wording."
+    },
+    {
+      "feature": "Structured field extraction",
+      "howItHelps": "Records preferred provider, returning status and notes like a lighter color request."
+    },
+    {
+      "feature": "Batch outbound calls",
+      "howItHelps": "Offers a freed-up slot to clients on your waitlist, naming each person and the time."
+    },
+    {
+      "feature": "Call summary",
+      "howItHelps": "Shows what changed in the day's schedule so the front desk can check it at a glance."
+    }
+  ],
+  "considerations": [
+    "Do not let the agent answer questions about skin conditions, allergic reactions or medical suitability of a treatment; refer those to the provider or the client's own doctor.",
+    "Late-cancellation fees and deposits are contract matters between you and the client. The agent should repeat your written policy and not invent exceptions.",
+    "Waitlist and promotional calls are outbound calls requiring the consent that applies in your location; ask your counsel about TCPA and local telemarketing rules.",
+    "Client information such as names and service history is personal data; review privacy requirements before connecting the agent to your client list."
+  ],
+  "faq": [
+    {
+      "q": "Can it book with a specific stylist?",
+      "a": "Yes, if each stylist has a calendar connected or you add the preferred stylist as a field for the front desk to confirm."
+    },
+    {
+      "q": "Does it sell gift cards?",
+      "a": "Not directly. It can explain how to buy one and take a request, but payment would be handled outside the call unless you build and verify a payment flow."
+    },
+    {
+      "q": "What about last-minute cancellations?",
+      "a": "A cancellation path can free the calendar slot and log it, and a waitlist batch can then call clients who asked for earlier times."
+    },
+    {
+      "q": "Can it describe my treatments?",
+      "a": "It repeats the descriptions you provide. It should not promise results or medical benefits."
+    },
+    {
+      "q": "Will clients know it is an AI?",
+      "a": "The sample call says so in the greeting. You can keep that line and offer a transfer to the front desk for anyone who prefers a person."
+    }
+  ],
+  "relatedSlugs": [
+    "fitness-studios",
+    "hotels",
+    "restaurants",
+    "chiropractic-clinics"
+  ]
+}

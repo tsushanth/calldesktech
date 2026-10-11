@@ -1,0 +1,124 @@
+{
+  "slug": "medical-practices",
+  "name": "Medical Practices",
+  "h1": "AI Phone Agent for Medical Practices: Administrative Calls",
+  "metaDescription": "Calldesk handles administrative calls for medical practices: appointment requests, office hours, referrals and refill-line routing, with staff transfers.",
+  "intro": "A busy medical office phone line mixes very different calls in the same queue. A patient wants to move a follow-up, a pharmacy asks about a prescription, a specialist's office checks on a referral, and now and then someone describes something that should not wait. The first hour after opening is crowded with people who have spent the weekend deciding to call, and the lunch window is when staff step away just as working patients dial. Callers are put on hold while the receptionist handles a check-in, and some hang up and try again later. A Calldesk agent can take the administrative layer of that load. It can say it is the practice's AI assistant, ask who is calling and why, answer logistics from a knowledge base such as hours, parking, what to bring and which visits need a referral, and take a message or book a visit on a connected calendar. It does not diagnose, interpret symptoms or recommend medication, and the flow should be built to hand anything clinical or urgent to a person. You can also make outbound reminder calls for upcoming visits in a batch with each patient's first name and appointment details passed as variables. The transcript and a short summary land in the call record for the staff member who follows up.",
+  "callTypes": [
+    "Requests to book, move or cancel a routine follow-up visit",
+    "Callers asking which documents or referral paperwork to bring to a first visit",
+    "Pharmacy or specialist offices asking where to send a form or fax",
+    "Patients leaving a message for a nurse or a provider's staff to return",
+    "Questions about office hours, parking, holiday closures and telehealth logistics",
+    "Appointment reminder calls placed outbound a day or two before a visit"
+  ],
+  "sampleCallFlow": [
+    {
+      "speaker": "agent",
+      "text": "You've reached the practice. I'm an AI assistant and I can help with scheduling and general office questions. What can I do for you?"
+    },
+    {
+      "speaker": "caller",
+      "text": "I need to move my appointment on Friday."
+    },
+    {
+      "speaker": "agent",
+      "text": "Happy to help. Can I have your full name and date of birth so the team can find your record?"
+    },
+    {
+      "speaker": "caller",
+      "text": "Marcus Bell, March 3rd, 1971."
+    },
+    {
+      "speaker": "agent",
+      "text": "Thank you, Marcus. Is this a routine follow-up visit?"
+    },
+    {
+      "speaker": "caller",
+      "text": "Yes, just a follow-up."
+    },
+    {
+      "speaker": "agent",
+      "text": "I can offer Monday at 9:00 or Wednesday at 1:30 as replacements. Which is better?"
+    },
+    {
+      "speaker": "caller",
+      "text": "Monday morning. Also, I've had chest tightness since last night."
+    },
+    {
+      "speaker": "agent",
+      "text": "I can't assess symptoms, and chest tightness should be looked at right away. If it is severe or worsening, please call 911 now. I can also transfer you to our nurse line this moment."
+    },
+    {
+      "speaker": "caller",
+      "text": "Transfer me, please."
+    },
+    {
+      "speaker": "agent",
+      "text": "Transferring you now. I'm leaving a note with your name and the schedule request for staff."
+    }
+  ],
+  "setupSteps": [
+    "Create an agent from the receptionist template and limit its scope in the prompt to scheduling, messages and general office information.",
+    "Fill the knowledge base with hours, locations, referral rules, telehealth instructions and a list of what to bring to a visit.",
+    "Add a transfer step to your nurse line or front office, and a rule that any mention of symptoms, emergencies or medication questions goes there.",
+    "Set extraction fields for caller name, date of birth, callback number and message so staff receive structured notes.",
+    "Run test calls that include symptom-related and off-topic requests, check the transfer behavior, then publish and route your number."
+  ],
+  "featuresUsed": [
+    {
+      "feature": "Call transfers",
+      "howItHelps": "Moves callers with symptoms or urgent concerns to a nurse line or front desk instead of the agent answering them."
+    },
+    {
+      "feature": "Structured field extraction",
+      "howItHelps": "Records name, date of birth, callback number and the requested change as separate fields in the call record."
+    },
+    {
+      "feature": "Knowledge base",
+      "howItHelps": "Gives consistent answers about hours, referrals, paperwork and parking from text you control."
+    },
+    {
+      "feature": "Call summary",
+      "howItHelps": "Gives staff a short written summary of each message, so the person returning calls does not need to read the full transcript first."
+    },
+    {
+      "feature": "Call testing and live call monitoring",
+      "howItHelps": "Lets you rehearse risky conversations such as symptom mentions before the line goes live, and watch calls as they happen."
+    }
+  ],
+  "considerations": [
+    "Calldesk does not claim HIPAA certification. A practice handling protected health information should ask its own compliance officer or counsel whether using a voice agent is appropriate and what contracts are needed before connecting it to patient calls.",
+    "Restrict the agent to administrative tasks. It must not diagnose, interpret results, advise on medication or triage symptoms, and the sample flow shows it pointing a caller to emergency services and a human.",
+    "Reminder calls are outbound calls; confirm consent and calling-hours requirements for your jurisdiction, including TCPA considerations for the United States, with your own counsel.",
+    "Check recording and transcription consent rules in your state, and decide what the agent says about them at the start of the call."
+  ],
+  "faq": [
+    {
+      "q": "Will the agent give medical advice?",
+      "a": "It should not, and you build that limit into the flow. For any symptom, medication or result question, the intended behavior is to point the caller to emergency services when appropriate and transfer to a clinical staff line."
+    },
+    {
+      "q": "Can it look up a patient's chart?",
+      "a": "Not by itself. It collects identifying details for staff and can send call data by webhook to a system you operate, but connecting an electronic health record is your own integration work and a compliance question."
+    },
+    {
+      "q": "How does it handle a caller who wants a human?",
+      "a": "A transfer step can send the caller to a front desk phone number. During closed hours you can have it take a message instead and mark it for the next morning."
+    },
+    {
+      "q": "Can several providers' schedules be handled?",
+      "a": "Calendar booking uses a connected calendar. For a multi-provider schedule, many practices have the agent collect a request and preferred provider and let staff confirm, rather than booking directly."
+    },
+    {
+      "q": "Is the call recorded?",
+      "a": "Calldesk produces a transcript and summary of each call. Whether you also tell callers about recording or transcription, and how, depends on the laws where you and the caller are, so check with counsel."
+    }
+  ],
+  "relatedSlugs": [
+    "dental-offices",
+    "chiropractic-clinics",
+    "physical-therapy-clinics",
+    "veterinary-clinics"
+  ]
+}
