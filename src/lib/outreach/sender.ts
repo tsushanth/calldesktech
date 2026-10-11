@@ -49,6 +49,8 @@ const KK_APP_BRANDS: Record<string, Omit<Brand, 'postalEnvVar' | 'capEnvVar'>> =
   voxkey: { name: 'VoxKey', siteUrl: 'kreativekoala.llc', fromEnvVar: 'OUTREACH_FROM_EMAIL_VOXKEY', replyToEnvVar: 'OUTREACH_REPLYTO_EMAIL_VOXKEY' },
   pixora: { name: 'Pixora', siteUrl: 'kreativekoala.llc', fromEnvVar: 'OUTREACH_FROM_EMAIL_PIXORA', replyToEnvVar: 'OUTREACH_REPLYTO_EMAIL_PIXORA' },
   gymlog: { name: 'GymLog', siteUrl: 'kreativekoala.llc', fromEnvVar: 'OUTREACH_FROM_EMAIL_GYMLOG', replyToEnvVar: 'OUTREACH_REPLYTO_EMAIL_GYMLOG' },
+  // TidyMail has no sender address of its own yet: it sends from the shared Kreative Koala identity until OUTREACH_FROM_EMAIL_TIDYMAIL is set up.
+  tidymail: { name: 'TidyMail', siteUrl: 'tidymail.dev', fromEnvVar: 'OUTREACH_FROM_EMAIL_KK', replyToEnvVar: 'OUTREACH_REPLYTO_EMAIL_KK' },
 };
 // readaloudai.org (realtime speech API). Sends from its own verified Resend domain; replies land on the
 // readaloudai.org catch-all, which forwards to the founders' inbox. Same legal entity and postal address as

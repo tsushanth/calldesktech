@@ -29,6 +29,7 @@ const PRODUCTS = [
   { key: 'kreativekoala:scribeai', label: 'Scribe AI' },
   { key: 'kreativekoala:meetingmind', label: 'Meeting Mind' },
   { key: 'kreativekoala:vibebuild', label: 'VibeBuild' },
+  { key: 'kreativekoala:tidymail', label: 'TidyMail' },
   { key: 'readaloud', label: 'ReadAloud API' },
 ] as const;
 

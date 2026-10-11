@@ -251,3 +251,14 @@ describe('ReadAloud brand and lane (DB product is readaloud:api)', async () => {
     expect(v2LayoutFor(brandFor('kreativekoala:gymlog'), body, 'off')).toBeUndefined();
   });
 });
+
+describe('TidyMail brand', async () => {
+  const { brandFor, laneOf } = await import('@/lib/outreach/sender');
+  it('is a Kreative Koala app that sends from the shared KK sender', () => {
+    const b = brandFor('kreativekoala:tidymail');
+    expect(b.name).toBe('TidyMail');
+    expect(b.fromEnvVar).toBe('OUTREACH_FROM_EMAIL_KK');
+    expect(b.capEnvVar).toBe('OUTREACH_DAILY_CAP_KK');
+    expect(laneOf('kreativekoala:tidymail')).toBe('kk');
+  });
+});
