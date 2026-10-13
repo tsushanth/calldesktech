@@ -17,6 +17,9 @@ export interface ProposalInput {
   bookingUrl?: string | null;
   /** Partner emails only: show the speech-API cost comparison. Default true. */
   includeSpeechApi?: boolean;
+  /** Replace the default intro line and bullets, e.g. a voice-only pitch for a prospect who already has a platform. */
+  intro?: string;
+  bullets?: string[];
   /** Extra sections after the main bullets, e.g. how customer data is handled. At most 3 sections of 6 short items. */
   sections?: Array<{ heading: string; items: string[] }>;
   /** A shaded call-out for the offer, e.g. free trial credit. One short paragraph. */
@@ -50,7 +53,8 @@ function bullets(kind: ProposalKind): string[] {
 
 export function renderProposal(input: ProposalInput, toEmail: string, postalAddress: string): RenderedProposal {
   const hi = input.firstName ? `Hi ${input.firstName},` : 'Hi,';
-  const items = bullets(input.kind);
+  const items = input.bullets?.some((b) => b.trim()) ? input.bullets.slice(0, 5).map((b) => b.trim()).filter(Boolean) : bullets(input.kind);
+  const introLine = input.intro?.trim() || (input.kind === 'direct' ? 'The short version of what Calldesk does for a business like yours:' : 'The short version of Calldesk:');
   const speech = input.kind === 'partner' && input.includeSpeechApi !== false;
   const cta = input.bookingUrl
     ? 'Book a 15-minute demo'
@@ -68,7 +72,7 @@ export function renderProposal(input: ProposalInput, toEmail: string, postalAddr
 
   const text = [
     hi, '', input.context.trim(), '',
-    input.kind === 'direct' ? 'Here is the short version of what Calldesk does for a business like yours:' : 'Here is the short version of Calldesk:',
+    input.intro?.trim() ? input.intro.trim() : (input.kind === 'direct' ? 'Here is the short version of what Calldesk does for a business like yours:' : 'Here is the short version of Calldesk:'),
     ...items.map((i) => `- ${i}`),
     ...extraText,
     ...(speech ? [
@@ -105,7 +109,7 @@ export function renderProposal(input: ProposalInput, toEmail: string, postalAddr
   const html =
     `<div style="font-family:${FONT};font-size:14px;line-height:1.5;color:#1a1d29;max-width:560px">` +
     `<p style="margin:0 0 10px">${esc(hi)}</p><p style="margin:0 0 10px">${esc(input.context.trim())}</p>` +
-    `<p style="margin:0 0 6px">${esc(input.kind === 'direct' ? 'The short version of what Calldesk does for a business like yours:' : 'The short version of Calldesk:')}</p>` +
+    `<p style="margin:0 0 6px">${esc(introLine)}</p>` +
     `<ul style="margin:0 0 6px;padding-left:20px">${li}</ul>${extraHtml}${speechHtml}${button}` +
     `<p style="margin:6px 0 14px;font-size:13px;color:#4b5563">Prefer to read? <a href="${DECK_URL}" style="color:#2563eb">See our short deck</a>${input.kind === 'direct' ? ` or <a href="${PRICING_URL}" style="color:#2563eb">the pricing page</a>` : ''}. You can also reach us at ${REPLY} or ${PHONE}.</p>` +
     `<p style="margin:0">Thanks,<br/>The Calldesk team</p>` +

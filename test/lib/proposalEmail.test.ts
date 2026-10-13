@@ -49,6 +49,14 @@ describe('renderProposal', () => {
     expect(r.html).toContain('a &amp; b');
     expect(renderProposal(base, 'a@b.com', ADDR).html).not.toContain('#eef6ff');
   });
+  it('custom intro and bullets replace the defaults', () => {
+    const r = renderProposal({ ...base, intro: 'The short version:', bullets: ['A speech API for your daily calls.'] }, 'a@b.com', ADDR);
+    expect(r.text).toContain('The short version:');
+    expect(r.text).toContain('- A speech API for your daily calls.');
+    expect(r.text).not.toContain('20% revenue share');
+    expect(r.html).toContain('A speech API for your daily calls.');
+    expect(r.html).not.toContain('Inbound and outbound phone agents');
+  });
   it('partner can skip the speech API', () => {
     expect(renderProposal({ ...base, includeSpeechApi: false }, 'a@b.com', ADDR).text).not.toContain('$0.0655');
   });
