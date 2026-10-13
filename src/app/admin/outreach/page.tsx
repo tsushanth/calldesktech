@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import Link from 'next/link';
+import { LEAD_PRODUCT_OPTIONS } from '@/lib/outreach/leadProductFilter';
 
 interface Lead {
   id: string;
@@ -10,6 +11,7 @@ interface Lead {
   signal_source: string;
   signal_detail: string | null;
   status: string;
+  product?: string | null;
   created_at: string;
   score: number | null;
   signals: { reasons: string[]; techPlatforms: string[] } | null;
@@ -25,18 +27,19 @@ export default function OutreachLeadsPage() {
   const [leads, setLeads] = useState<Lead[]>([]);
   const [benchmark, setBenchmark] = useState<BenchmarkAggregate | null>(null);
   const [loading, setLoading] = useState(true);
+  const [product, setProduct] = useState('');
   const [manualForm, setManualForm] = useState({ companyName: '', domain: '', signalDetail: '' });
 
   const refresh = useCallback(async () => {
     setLoading(true);
     const [leadsRes, benchmarkRes] = await Promise.all([
-      fetch('/api/admin/outreach/leads'),
+      fetch(product ? `/api/admin/outreach/leads?product=${encodeURIComponent(product)}` : '/api/admin/outreach/leads'),
       fetch('/api/admin/outreach/benchmark-summary'),
     ]);
     if (leadsRes.ok) setLeads((await leadsRes.json()).leads ?? []);
     if (benchmarkRes.ok) setBenchmark((await benchmarkRes.json()).benchmark ?? null);
     setLoading(false);
-  }, []);
+  }, [product]);
 
   useEffect(() => {
     // Initial fetch on mount; refresh() sets loading state before the request starts.
@@ -124,11 +127,30 @@ export default function OutreachLeadsPage() {
         </button>
       </div>
 
+      <div className="flex items-center gap-2">
+        <label htmlFor="lead-product" className="text-[12px] font-medium text-gray-500">
+          Product
+        </label>
+        <select
+          id="lead-product"
+          value={product}
+          onChange={(e) => setProduct(e.target.value)}
+          className="rounded-lg border border-gray-300 px-3 py-1.5 text-[13px]"
+        >
+          {LEAD_PRODUCT_OPTIONS.map((o) => (
+            <option key={o.key} value={o.key}>
+              {o.label}
+            </option>
+          ))}
+        </select>
+      </div>
+
       <div className="overflow-hidden rounded-xl border border-gray-200 bg-white">
         <table className="w-full text-left text-[13.5px]">
           <thead className="bg-gray-50 text-[11px] font-semibold uppercase tracking-wider text-gray-400">
             <tr>
               <th className="px-4 py-2.5">Company</th>
+              <th className="px-4 py-2.5">Product</th>
               <th className="px-4 py-2.5">Signal</th>
               <th className="px-4 py-2.5">Score</th>
               <th className="px-4 py-2.5">Status</th>
@@ -138,14 +160,14 @@ export default function OutreachLeadsPage() {
           <tbody>
             {loading && (
               <tr>
-                <td colSpan={5} className="px-4 py-6 text-center text-gray-400">
+                <td colSpan={6} className="px-4 py-6 text-center text-gray-400">
                   Loading…
                 </td>
               </tr>
             )}
             {!loading && leads.length === 0 && (
               <tr>
-                <td colSpan={5} className="px-4 py-6 text-center text-gray-400">
+                <td colSpan={6} className="px-4 py-6 text-center text-gray-400">
                   No leads yet.
                 </td>
               </tr>
@@ -156,6 +178,7 @@ export default function OutreachLeadsPage() {
                   <p className="font-medium">{lead.company_name}</p>
                   {lead.domain && <p className="text-[12px] text-gray-400">{lead.domain}</p>}
                 </td>
+                <td className="px-4 py-2.5 text-gray-500">{lead.product ?? 'calldesk'}</td>
                 <td className="px-4 py-2.5 text-gray-500">
                   {lead.signal_source}
                   {lead.signal_detail && <p className="text-[12px] text-gray-400">{lead.signal_detail}</p>}

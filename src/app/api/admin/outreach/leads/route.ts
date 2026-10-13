@@ -4,16 +4,19 @@ import { requireAdminSession } from '@/lib/outreach/adminAuth';
 import { findJobPostingSignals } from '@/lib/outreach/signals/jobPostings';
 import { parseManualReviewImport, type ReviewSiteImportRow } from '@/lib/outreach/signals/reviewSites';
 import { findTechFingerprintSignals } from '@/lib/outreach/signals/techFingerprint';
+import { applyLeadProductFilter } from '@/lib/outreach/leadProductFilter';
 
-// GET /api/admin/outreach/leads — the newest 1000 leads, newest first.
-export async function GET() {
+// GET /api/admin/outreach/leads[?product=calldesk|kreativekoala|readaloud|mcp] — the newest 1000 leads, newest first.
+// Without `product` every product is returned, as before.
+export async function GET(request: NextRequest) {
   const admin = await requireAdminSession();
   if (!admin) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   const supabase = getSupabaseAdmin();
-  const { data, error } = await supabase
-    .from('calldesk_outreach_leads')
-    .select('*')
+  const { data, error } = await applyLeadProductFilter(
+    supabase.from('calldesk_outreach_leads').select('*'),
+    request.nextUrl.searchParams.get('product')
+  )
     .order('created_at', { ascending: false })
     // The table holds hundreds of thousands of leads. The newest page is what the admin screen shows; an explicit limit
     // keeps this a short index scan instead of relying on the API's implicit row cap.
