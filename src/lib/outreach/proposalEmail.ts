@@ -17,6 +17,10 @@ export interface ProposalInput {
   bookingUrl?: string | null;
   /** Partner emails only: show the speech-API cost comparison. Default true. */
   includeSpeechApi?: boolean;
+  /** Extra sections after the main bullets, e.g. how customer data is handled. At most 3 sections of 6 short items. */
+  sections?: Array<{ heading: string; items: string[] }>;
+  /** A shaded call-out for the offer, e.g. free trial credit. One short paragraph. */
+  offer?: { heading: string; text: string };
 }
 
 export interface RenderedProposal { text: string; html: string }
@@ -52,11 +56,21 @@ export function renderProposal(input: ProposalInput, toEmail: string, postalAddr
     ? 'Book a 15-minute demo'
     : 'Reply with two or three times that suit you (and your time zone) and we will send an invite';
   const unsub = unsubscribeUrl(toEmail);
+  const sections = (input.sections ?? []).slice(0, 3).map((x) => ({ heading: x.heading.trim(), items: x.items.slice(0, 6).map((i) => i.trim()).filter(Boolean) })).filter((x) => x.heading && x.items.length);
+  const offer = input.offer && input.offer.heading.trim() && input.offer.text.trim() ? { heading: input.offer.heading.trim(), text: input.offer.text.trim() } : null;
+  const extraText = [
+    ...sections.flatMap((x) => ['', `${x.heading}:`, ...x.items.map((i) => `- ${i}`)]),
+    ...(offer ? ['', `${offer.heading}: ${offer.text}`] : []),
+  ];
+  const extraHtml =
+    sections.map((x) => `<p style="margin:16px 0 6px;font-size:14px;line-height:1.5;color:#1a1d29"><b>${esc(x.heading)}</b></p><ul style="margin:0 0 6px;padding-left:20px">${x.items.map((i) => `<li style="margin:0 0 8px">${esc(i)}</li>`).join('')}</ul>`).join('') +
+    (offer ? `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:520px;margin:16px 0 4px;background-color:#eef6ff;border:1px solid #bfdbfe;border-radius:8px"><tr><td style="padding:12px 14px"><p style="margin:0 0 4px;font-size:13px;font-weight:bold;color:#1e40af">${esc(offer.heading)}</p><p style="margin:0;font-size:14px;line-height:1.5;color:#1a1d29">${esc(offer.text)}</p></td></tr></table>` : '');
 
   const text = [
     hi, '', input.context.trim(), '',
     input.kind === 'direct' ? 'Here is the short version of what Calldesk does for a business like yours:' : 'Here is the short version of Calldesk:',
     ...items.map((i) => `- ${i}`),
+    ...extraText,
     ...(speech ? [
       '',
       'If you run your own voice stack, our readaloudai.org speech API is built for that: text-to-speech at $0.004 per 1,000 characters (standard voices) or $0.01 (expressive), and batch speech-to-text at $0.11 per hour, billed by the second. New accounts get free credit to try.',
@@ -92,7 +106,7 @@ export function renderProposal(input: ProposalInput, toEmail: string, postalAddr
     `<div style="font-family:${FONT};font-size:14px;line-height:1.5;color:#1a1d29;max-width:560px">` +
     `<p style="margin:0 0 10px">${esc(hi)}</p><p style="margin:0 0 10px">${esc(input.context.trim())}</p>` +
     `<p style="margin:0 0 6px">${esc(input.kind === 'direct' ? 'The short version of what Calldesk does for a business like yours:' : 'The short version of Calldesk:')}</p>` +
-    `<ul style="margin:0 0 6px;padding-left:20px">${li}</ul>${speechHtml}${button}` +
+    `<ul style="margin:0 0 6px;padding-left:20px">${li}</ul>${extraHtml}${speechHtml}${button}` +
     `<p style="margin:6px 0 14px;font-size:13px;color:#4b5563">Prefer to read? <a href="${DECK_URL}" style="color:#2563eb">See our short deck</a>${input.kind === 'direct' ? ` or <a href="${PRICING_URL}" style="color:#2563eb">the pricing page</a>` : ''}. You can also reach us at ${REPLY} or ${PHONE}.</p>` +
     `<p style="margin:0">Thanks,<br/>The Calldesk team</p>` +
     `<p style="color:#6b7280;font-size:12px;margin-top:22px">Calldesk (<a href="https://calldesk.tech" style="color:#2563eb">calldesk.tech</a>)<br/>${esc(postalAddress)}<br/>You're receiving this because you spoke with our team or asked for details. Not interested? <a href="${esc(unsub)}">Unsubscribe</a></p></div>`;

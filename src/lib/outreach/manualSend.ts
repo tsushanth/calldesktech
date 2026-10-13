@@ -87,6 +87,8 @@ export async function sendManualReply(
     if ((input.brand ?? 'calldesk') !== 'calldesk') return { ok: false, error: 'proposal is only available for the calldesk brand' };
     if (p.kind !== 'partner' && p.kind !== 'direct') return { ok: false, error: 'proposal.kind must be partner or direct' };
     if (!String(p.context ?? '').trim() || String(p.context).length > 600) return { ok: false, error: 'proposal.context is required, 600 characters at most' };
+    if (p.sections !== undefined && (!Array.isArray(p.sections) || p.sections.length > 3 || p.sections.some((x) => !x || typeof x.heading !== 'string' || x.heading.length > 80 || !Array.isArray(x.items) || x.items.length > 6 || x.items.some((i) => typeof i !== 'string' || i.length > 400)))) return { ok: false, error: 'proposal.sections: at most 3 sections, 6 items each, items 400 characters at most' };
+    if (p.offer !== undefined && (typeof p.offer?.heading !== 'string' || typeof p.offer?.text !== 'string' || p.offer.heading.length > 60 || p.offer.text.length > 400)) return { ok: false, error: 'proposal.offer: heading 60 and text 400 characters at most' };
     if (p.bookingUrl && !/^https:\/\/[^\s"<>]+$/.test(p.bookingUrl)) return { ok: false, error: 'proposal.bookingUrl must be an https URL' };
     const postal = env.OUTREACH_POSTAL_ADDRESS;
     if (!postal) return { ok: false, error: 'OUTREACH_POSTAL_ADDRESS is not configured' };

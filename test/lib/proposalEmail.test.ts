@@ -34,6 +34,21 @@ describe('renderProposal', () => {
     expect(r.text).not.toContain('revenue share');
     expect(r.text).not.toContain('readaloudai.org speech API');
   });
+  it('renders extra sections and an offer call-out in text and HTML, ASCII only', () => {
+    const r = renderProposal({ ...base, includeSpeechApi: false, sections: [{ heading: 'Your lead data', items: ['We only receive the lead you send us.', 'Row level security keeps accounts apart.'] }], offer: { heading: 'Free to try', text: 'One week, 50 minutes, no card.' } }, 'a@b.com', ADDR);
+    expect(r.text).toContain('Your lead data:');
+    expect(r.text).toContain('- We only receive the lead you send us.');
+    expect(r.text).toContain('Free to try: One week, 50 minutes, no card.');
+    expect(r.html).toContain('<b>Your lead data</b>');
+    expect(r.html).toContain('Free to try');
+    expect(r.text).not.toMatch(/[^\x09\x0A\x20-\x7E]/);
+  });
+  it('sections and offer are optional and escaped', () => {
+    const r = renderProposal({ ...base, sections: [{ heading: '<b>x</b>', items: ['a & b'] }] }, 'a@b.com', ADDR);
+    expect(r.html).toContain('&lt;b&gt;x&lt;/b&gt;');
+    expect(r.html).toContain('a &amp; b');
+    expect(renderProposal(base, 'a@b.com', ADDR).html).not.toContain('#eef6ff');
+  });
   it('partner can skip the speech API', () => {
     expect(renderProposal({ ...base, includeSpeechApi: false }, 'a@b.com', ADDR).text).not.toContain('$0.0655');
   });
