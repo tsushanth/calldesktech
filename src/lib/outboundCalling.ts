@@ -12,6 +12,9 @@ const BLOCKED_AREA_CODES = new Set(['900']);
 
 export function normalizeNanp(raw: string): string | null {
   const digits = String(raw ?? '').replace(/\D/g, '');
+  // An explicit plus other than +1 is an international number, never a 10-digit US one (a New Zealand landline
+  // +64 3 476 2111 has the same 10 digits as a US number and was being dialed as +1 643 476 2111).
+  if (String(raw ?? '').trim().startsWith('+') && !digits.startsWith('1')) return null;
   let e164: string;
   if (digits.length === 10) e164 = `+1${digits}`;
   else if (digits.length === 11 && digits.startsWith('1')) e164 = `+${digits}`;
@@ -25,6 +28,23 @@ export function normalizeNanp(raw: string): string | null {
 // INTL_CALL_COUNTRIES (empty by default, so nothing changes until a country is switched on).
 export function normalizeDialable(raw: string, allowed: Set<string> = intlCallCountries()): string | null {
   return normalizeNanp(raw) ?? normalizeIntl(raw, allowed)?.e164 ?? null;
+}
+
+// Every way a dialed string can be read, most likely first. A 10-digit string can be a US number or an international
+// number whose country code was typed without the plus (a New Zealand landline +64 3 476 2111 is "6434762111" and passes
+// the US pattern). A leading "+" settles it: "+1..." is NANP, any other "+" is international. Without a plus the caller
+// gets both readings and the route picks the one that is in today's batch.
+export function dialCandidates(raw: string, allowed: Set<string> = intlCallCountries()): string[] {
+  const s = String(raw ?? '').trim();
+  const plus = s.startsWith('+');
+  const digits = s.replace(/\D/g, '');
+  const out: string[] = [];
+  const nanp = plus && !digits.startsWith('1') ? null : normalizeNanp(s);
+  const intl = normalizeIntl(`+${digits}`, allowed)?.e164 ?? null;
+  if (plus && intl) out.push(intl);
+  if (nanp) out.push(nanp);
+  if (!plus && intl) out.push(intl);
+  return [...new Set(out)];
 }
 
 // Numbers callers may dial for setup and test calls (the supervisor's own phone): they bypass the
