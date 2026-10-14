@@ -1,5 +1,6 @@
 import { createHash, randomBytes } from 'node:crypto';
 import { normalizeNanp } from '@/lib/outboundCalling';
+import { intlCallCountries, normalizeIntl } from '@/lib/intlCalling';
 
 // The eight things a caller can record for a number, in the order they appear in the script.
 export const OUTCOMES = [
@@ -103,6 +104,18 @@ export type OutcomeResult =
   | { ok: true; value: { outcome: Outcome; notes: string | null; mobile_number: string | null; text_ok: boolean } }
   | { ok: false; error: string };
 
+// A mobile to text: a US/Canada number, or an international mobile in a country the line is allowed to dial
+// (with the plus, or with the country code typed without it, e.g. 64 21 123 4567).
+export function normalizeMobile(raw: unknown): string | null {
+  if (typeof raw !== 'string') return null;
+  const s = raw.trim();
+  const us = normalizeNanp(s);
+  if (us) return us;
+  const digits = s.replace(/\D/g, '');
+  if (digits.length < 8) return null;
+  return normalizeIntl(`+${digits}`, intlCallCountries())?.e164 ?? null;
+}
+
 export function validateOutcomeInput(i: OutcomeInput): OutcomeResult {
   if (!isOutcome(i.outcome)) return { ok: false, error: 'Pick one of the outcomes.' };
   const outcome = i.outcome;
@@ -113,8 +126,8 @@ export function validateOutcomeInput(i: OutcomeInput): OutcomeResult {
     dm = i.decision_maker;
   }
   if (outcome === 'forward_number_requested') {
-    const mobile = typeof i.mobile_number === 'string' ? normalizeNanp(i.mobile_number) : null;
-    if (!mobile) return { ok: false, error: 'Enter the mobile number to text (10 digits).' };
+    const mobile = normalizeMobile(i.mobile_number);
+    if (!mobile) return { ok: false, error: 'Enter the mobile number to text: 10 digits in the US or Canada, or with the country code elsewhere (for example +64 21 123 4567).' };
     if (i.text_ok !== true) return { ok: false, error: 'Tick the box to confirm they agreed to a text.' };
     return { ok: true, value: { outcome, notes: withTags({ dm }, notes), mobile_number: mobile, text_ok: true } };
   }

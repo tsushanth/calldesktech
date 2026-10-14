@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { OUTCOMES, WIN_OUTCOMES, generateToken, hashToken, isOutcome, validateOutcomeInput } from '@/lib/callerPortal';
 
 describe('outcomes', () => {
@@ -59,5 +59,23 @@ describe('private link tokens', () => {
     expect(hashToken(a)).toBe(hashToken(a));
     expect(hashToken(a)).not.toBe(hashToken(b));
     expect(hashToken(a)).not.toContain(a);
+  });
+});
+
+describe('international mobiles on forward_number_requested', () => {
+  const base = { outcome: 'forward_number_requested', notes: 'interested', text_ok: true, decision_maker: true };
+  it('accepts a New Zealand mobile with or without the plus when NZ is switched on', () => {
+    vi.stubEnv('INTL_CALL_COUNTRIES', 'NZ,SG');
+    expect(validateOutcomeInput({ ...base, mobile_number: '+64 22 192 2889' })).toMatchObject({ ok: true, value: { mobile_number: '+64221922889' } });
+    expect(validateOutcomeInput({ ...base, mobile_number: '64221922889' })).toMatchObject({ ok: true, value: { mobile_number: '+64221922889' } });
+    expect(validateOutcomeInput({ ...base, mobile_number: '+6591234567' })).toMatchObject({ ok: true });
+    vi.unstubAllEnvs();
+  });
+  it('still accepts US numbers and rejects junk and countries that are not switched on', () => {
+    vi.stubEnv('INTL_CALL_COUNTRIES', 'NZ');
+    expect(validateOutcomeInput({ ...base, mobile_number: '(512) 608-6782' })).toMatchObject({ ok: true, value: { mobile_number: '+15126086782' } });
+    expect(validateOutcomeInput({ ...base, mobile_number: '4221922889' }).ok).toBe(false);
+    expect(validateOutcomeInput({ ...base, mobile_number: '+6591234567' }).ok).toBe(false);
+    vi.unstubAllEnvs();
   });
 });
