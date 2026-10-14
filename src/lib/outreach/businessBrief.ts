@@ -2,7 +2,7 @@ import { politeFetchText } from './discovery/http';
 
 // Reads a vertical lead's OWN website (no LLM, plain fetch + patterns) and picks the pain point most likely to be
 // real for that business, from a fixed menu of things Calldesk does today (see the landing page: live-calendar booking
-// through Cal.com, transfer or message-taking, outbound reminders, business-hours routing, 55 languages).
+// through Cal.com, transfer or message-taking, outbound reminders, business-hours routing, 40+ languages).
 //
 // Before this, every vertical draft asked the same question ("what happens to calls after hours?") because the only
 // facts we had about a lead were registry facts. Now a draft can say one thing that is true of THIS business, taken
@@ -119,7 +119,7 @@ const CAP = {
   booking: 'reads your live Google or Outlook calendar (connected through Cal.com), offers the caller open times and books one during the same call, then texts a confirmation',
   reminders: 'calls clients ahead of their appointment to confirm or reschedule, so empty slots are caught early',
   transfer: 'passes urgent calls to the number you choose and takes a message with name, number and reason for the rest',
-  spanish: 'answers in the caller\'s language, including Spanish (Calldesk supports 55 languages on live calls), and you get an English summary',
+  spanish: 'answers in the caller\'s language, including Spanish (Calldesk supports 40+ languages on live calls), and you get an English summary',
 };
 
 /** Pure: choose the angle for a vertical from the site's signals. Falls back to the default after-hours question. */

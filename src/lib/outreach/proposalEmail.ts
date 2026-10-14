@@ -45,7 +45,7 @@ function bullets(kind: ProposalKind): string[] {
     ];
   }
   return [
-    'Inbound and outbound phone agents, a knowledge base and call analytics. 55 languages on live calls (the Lite voice is English only).',
+    'Inbound and outbound phone agents, a knowledge base and call analytics. 40+ languages on live calls (Lite speaks English, German, Spanish, French, Italian and Portuguese; other languages need Standard or Pro).',
     'From 2 cents a minute, with the language model and voice included (Lite 2c, Standard 5c, Pro 9c). No per-booking or per-transfer fees.',
     'Partners get a free trial, direct access to us, and a 20% revenue share on usage from customers they refer. Other terms are still being finalized with the first partners.',
   ];

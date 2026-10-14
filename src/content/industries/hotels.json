@@ -80,7 +80,7 @@
     },
     {
       "feature": "Languages",
-      "howItHelps": "Handles callers in other languages on the Standard and Pro voices, which helps hotels with international visitors."
+      "howItHelps": "Handles callers in other languages (Lite covers English, German, Spanish, French, Italian and Portuguese; the rest are on the Standard and Pro voices), which helps hotels with international visitors."
     },
     {
       "feature": "Call summary",
@@ -100,7 +100,7 @@
     },
     {
       "q": "Which languages does it support?",
-      "a": "Calldesk supports 40+ languages, though Lite's voice speaks English. Standard or Pro is required for non-English speech."
+      "a": "Calldesk supports 40+ languages. Lite speaks English, German, Spanish, French, Italian and Portuguese; other languages need Standard or Pro."
     },
     {
       "q": "What happens when a guest calls from their room?",

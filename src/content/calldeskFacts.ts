@@ -1,4 +1,4 @@
-import { PRICING_TIERS, INCLUDED_ON_ALL, ratingsForStack, type TierId } from '@/lib/pricingTiers';
+import { PRICING_TIERS, INCLUDED_ON_ALL, ratingsForStack, tierVoiceLanguages, piperLanguageNames, type TierId } from '@/lib/pricingTiers';
 import { EXPERT_BACKUP, expertBackupAllowedTierNames, expertBackupPriceText } from '@/lib/expertBackup';
 import { NUMBER_ADDON_PRICES, NUMBER_CARRIERS, type NumberCarrier } from '@/lib/numberAddOn';
 import { AGENT_LANGUAGES } from '@/lib/languages';
@@ -42,7 +42,8 @@ export type TierFact = {
   voice: string;
   responseSpeed: string;
   reasoning: string;
-  englishOnlyVoice: boolean;
+  /** Names of the languages this tier's voice is limited to (English first), or null when the voice is not limited (Standard, Pro). */
+  voiceLanguageNames: string[] | null;
 };
 
 const dollars = (cents: number) => `$${(cents / 100).toFixed(2)}`;
@@ -61,7 +62,7 @@ export const TIERS: readonly TierFact[] = PRICING_TIERS.filter((t) => t.availabi
     voice: r.voice,
     responseSpeed: r.responseSpeed,
     reasoning: r.reasoning,
-    englishOnlyVoice: t.stack.ttsBackend === 'piper',
+    voiceLanguageNames: tierVoiceLanguages(t.id) ? piperLanguageNames() : null,
   };
 });
 
@@ -95,11 +96,12 @@ export const LANGUAGES = {
   /** The wording the pricing page uses ("40+ languages", INCLUDED_ON_ALL). Pages say this, not an exact count, so no one has to keep a number current. test/lib/seoLibrary checks totalCount stays above it. */
   headline: '40+ languages',
   headlineFloor: 40,
-  /** The English-only tier's voice cannot speak other languages; they need a tier in nonEnglishTierNames (INCLUDED_ON_ALL says so). */
-  nonEnglishNeedsStandardOrPro: true,
-  /** Plans whose voice speaks other languages, and plans whose voice speaks English only (from each tier's voice backend). */
-  nonEnglishTierNames: TIERS.filter((t) => !t.englishOnlyVoice).map((t) => t.name),
-  englishOnlyTierNames: TIERS.filter((t) => t.englishOnlyVoice).map((t) => t.name),
+  /** Plans whose voice covers every language (from each tier's voice backend); a language outside a limited plan's list needs one of these (INCLUDED_ON_ALL says so). */
+  allLanguageTierNames: TIERS.filter((t) => !t.voiceLanguageNames).map((t) => t.name),
+  /** Plans whose voice is limited to a short language list, with that list ("Lite": English, German, Spanish, French, Italian, Portuguese). */
+  limitedTiers: TIERS.filter((t) => t.voiceLanguageNames).map((t) => ({ name: t.name, languageNames: t.voiceLanguageNames as string[] })),
+  /** Lite's language list; Lite is the one limited plan today. */
+  liteLanguageNames: TIERS.find((t) => t.id === 'lite')?.voiceLanguageNames ?? [],
 } as const;
 
 export const BILLING = {
@@ -147,8 +149,8 @@ export const FEATURE_VOCABULARY: readonly { name: string; backedBy: string }[] =
   { name: 'Live Calls page', backedBy: 'src/app/dashboard/live-monitoring/page.tsx: calls in progress, duration, current flow step and a coarse sentiment label. It is call STATE, not audio: nobody can listen in. Pages must not say listen, watch or monitor audio' },
   { name: 'API and MCP server', backedBy: 'INCLUDED_ON_ALL' },
   { name: 'Multiple languages', backedBy: 'src/lib/languages.ts' },
-  { name: '40+ languages', backedBy: 'INCLUDED_ON_ALL and AGENT_LANGUAGES in src/lib/languages.ts (non-English needs Standard or Pro)' },
-  { name: 'Standard and Pro voices', backedBy: 'src/lib/pricingTiers.ts (Lite voice is English-only; LANGUAGES.nonEnglishTierNames)' },
+  { name: '40+ languages', backedBy: 'INCLUDED_ON_ALL and AGENT_LANGUAGES in src/lib/languages.ts (Lite covers English, German, Spanish, French, Italian and Portuguese; other languages need Standard or Pro)' },
+  { name: 'Standard and Pro voices', backedBy: 'src/lib/pricingTiers.ts (Lite voice languages: PIPER_LANGUAGE_VOICES; LANGUAGES.limitedTiers, LANGUAGES.allLanguageTierNames)' },
   { name: 'Webhooks', backedBy: 'src/lib/openapi.ts' },
   { name: 'Outbound calls', backedBy: 'src/lib/openapi.ts (place an outbound call)' },
   { name: 'Per-call variables', backedBy: 'src/lib/openapi.ts POST place call: optional variables object fills {{placeholders}} for that call (limits: 25 keys, 4000 bytes)' },

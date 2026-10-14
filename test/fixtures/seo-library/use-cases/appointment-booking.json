@@ -36,7 +36,7 @@
     { "q": "Can callers cancel or move a booking?", "a": "Yes, when the caller gives enough detail to find the booking. You decide what the agent should ask first." },
     { "q": "What if no time suits the caller?", "a": "The agent can offer other days, take a message or transfer the call to a person." },
     { "q": "Does it send reminders?", "a": "Reminders depend on how you set up your calendar and messages. Test the full path before you rely on it." },
-    { "q": "Can it book in other languages?", "a": "Calldesk supports 40+ languages. Languages other than English need the Standard or Pro plan." }
+    { "q": "Can it book in other languages?", "a": "Calldesk supports 40+ languages. Lite speaks English, German, Spanish, French, Italian and Portuguese; other languages need the Standard or Pro plan." }
   ],
   "relatedSlugs": ["dental-offices", "home-services", "after-hours-answering", "medical-clinics"]
 }

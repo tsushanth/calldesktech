@@ -2,12 +2,12 @@
   "slug": "multilingual-reception",
   "name": "Multilingual Reception",
   "h1": "Phone Reception in Spanish, French and 40+ Languages",
-  "metaDescription": "Serve callers in their own language. Calldesk agents run in 40+ languages with Standard or Pro voices; Lite voice is limited to English.",
-  "intro": "Callers who are more comfortable in another language often wait out an English greeting, struggle through it, or hang up. For clinics, property managers, schools and local services in mixed communities, that is a steady loss of people you were glad to serve. Hiring bilingual staff for every shift is difficult, and a staffed line in a third language is rarely realistic. Calldesk agents can run in a long list of languages, covering Spanish, French, Portuguese, German, Hindi, Japanese, Arabic and many more. The language is a setting on the agent: it governs speech recognition, the language of replies and the voice. Because it is set per agent version, the practical design for a mixed-language line is one agent per language. A first agent greets in the language you expect most, offers a switch, and passes the call to the matching agent using an agent-transfer step, while a caller who knows what they want can be sent directly. Non-English languages need the Standard or Pro voice, since the Lite voice is limited to English. The multilingual-agent template shows a bilingual English and Spanish pattern. Review each language with a native speaker before launch.",
+  "metaDescription": "Serve callers in their own language. Calldesk runs in 40+ languages; Lite speaks English, German, Spanish, French, Italian and Portuguese, Standard and Pro the rest.",
+  "intro": "Callers who are more comfortable in another language often wait out an English greeting, struggle through it, or hang up. For clinics, property managers, schools and local services in mixed communities, that is a steady loss of people you were glad to serve. Hiring bilingual staff for every shift is difficult, and a staffed line in a third language is rarely realistic. Calldesk agents can run in a long list of languages, covering Spanish, French, Portuguese, German, Hindi, Japanese, Arabic and many more. The language is a setting on the agent: it governs speech recognition, the language of replies and the voice. Because it is set per agent version, the practical design for a mixed-language line is one agent per language. A first agent greets in the language you expect most, offers a switch, and passes the call to the matching agent using an agent-transfer step, while a caller who knows what they want can be sent directly. The Lite voice speaks English, German, Spanish, French, Italian and Portuguese; other languages need the Standard or Pro voice. The multilingual-agent template shows a bilingual English and Spanish pattern. Review each language with a native speaker before launch.",
   "steps": [
     "List the languages your callers actually use, using call history or staff knowledge, and start with the one or two that matter most.",
     "Build the base agent in English first, with its knowledge base and flow, then publish a copy for each additional language with the language setting changed (for example es for Spanish).",
-    "Choose the Standard or Pro tier for every non-English agent, because the Lite voice speaks English alone.",
+    "Choose the Standard or Pro tier for any language outside the Lite list (English, German, Spanish, French, Italian and Portuguese), because the Lite voice covers only those.",
     "Translate the knowledge base entries and opening lines for each language, and have a native speaker review names, addresses and terms specific to your business.",
     "On the front agent, add a greeting that offers the other language, then an agent-transfer step that hands the live call to the agent for that language.",
     "Test each path with a speaker of that language and compare transcripts, then route the number to the front agent and monitor early calls."
@@ -27,7 +27,7 @@
     { "feature": "40+ languages", "howItHelps": "Each agent version can run in a supported language, which sets speech recognition, reply language and voice." },
     { "feature": "Agent transfer", "howItHelps": "A front agent can hand a live call to another agent in the workspace, such as one that works in Spanish." },
     { "feature": "Knowledge base", "howItHelps": "You maintain answers in each language so replies match your real policies." },
-    { "feature": "Standard and Pro voices", "howItHelps": "Non-English languages run on the Standard or Pro voice, because the Lite voice is limited to English." },
+    { "feature": "Standard and Pro voices", "howItHelps": "Languages beyond Lite's list run on the Standard or Pro voice, because the Lite voice covers only English, German, Spanish, French, Italian and Portuguese." },
     { "feature": "Structured field extraction", "howItHelps": "Names, unit numbers and issues are saved as fields that staff can read whatever language the call used." },
     { "feature": "Call summary and full transcript", "howItHelps": "Staff can review how the call went and see the transcript in the language it took place." }
   ],
@@ -39,7 +39,7 @@
   "faq": [
     { "q": "Which languages are supported?", "a": "Calldesk lists more than forty, including Spanish, French, Portuguese (Brazil), German, Italian, Dutch, Hindi, Japanese, Russian, Arabic and Mandarin. The builder shows the current list." },
     { "q": "Can one agent switch languages in the middle of a call?", "a": "Language is a setting on an agent version. The pattern we describe uses a front agent and a separate agent per language, joined by an agent-transfer step." },
-    { "q": "Why can't I use Lite for Spanish?", "a": "The Lite voice is limited to English. Non-English languages need the Standard or Pro voice, which are priced at 5 and 9 cents per minute of talk time." },
+    { "q": "Which languages does Lite speak?", "a": "The Lite voice speaks English, German, Spanish, French, Italian and Portuguese. Other languages need the Standard or Pro voice, which are priced at 5 and 9 cents per minute of talk time." },
     { "q": "Will staff understand the transcripts?", "a": "Transcripts are in the language spoken. Where your team does not read that language, ask for an English summary in your instructions and check the results." },
     { "q": "Is there a ready-made bilingual agent?", "a": "The multilingual-agent template is a bilingual English and Spanish support agent. Treat it as a starting flow to adapt, not a finished product." }
   ],

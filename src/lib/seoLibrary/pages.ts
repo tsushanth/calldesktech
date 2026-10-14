@@ -44,8 +44,8 @@ function costBlocks(): Block[] {
 }
 
 function languageSentence(): string {
-  const rule = LANGUAGES.nonEnglishNeedsStandardOrPro && LANGUAGES.englishOnlyTierNames.length
-    ? `; agents in a language other than English need the ${joinOr(LANGUAGES.nonEnglishTierNames)} voice, because the ${joinList(LANGUAGES.englishOnlyTierNames)} voice speaks English only`
+  const rule = LANGUAGES.limitedTiers.length
+    ? `; ${LANGUAGES.limitedTiers.map((t) => `the ${t.name} voice speaks ${joinList(t.languageNames)}`).join(' and ')}, and other languages need the ${joinOr(LANGUAGES.allLanguageTierNames)} voice`
     : '';
   return `Calldesk supports ${LANGUAGES.headline}, including English${rule}.`;
 }

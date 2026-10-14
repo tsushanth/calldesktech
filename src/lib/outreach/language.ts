@@ -6,7 +6,7 @@
 // business language is English) stays in English — that's the existing,
 // correct default, not a gap.
 //
-// Calldesk itself now supports 55 languages on real calls (STT+LLM+TTS+turn-
+// Calldesk itself now supports 40+ languages on real calls (STT+LLM+TTS+turn-
 // taking all verified) — this list is about which OUTREACH EMAIL language
 // reads as genuinely native to the recipient, a narrower, more conservative
 // set than the full call-language list.

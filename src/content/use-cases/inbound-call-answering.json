@@ -42,7 +42,7 @@
     { "q": "Does the agent replace my receptionist?", "a": "It covers the first touch on calls. You decide which situations go to a person, and transfers to staff are a built-in step, so most teams use it alongside people." },
     { "q": "Which phone numbers can it answer?", "a": "You can register a number you already own and forward calls to it, at no extra charge on every plan, or add a number from Calldesk as a priced extra. Inbound calls to the number are routed to the agent version you choose." },
     { "q": "How do I know what it said to callers?", "a": "Every call has a transcript and a summary in the dashboard and through the API, and the Live Calls page shows which calls are in progress right now." },
-    { "q": "Which plan should I start with?", "a": "The pricing page describes Standard as suited to reception and booking, and Lite as an English-language option for simple calls. Rates are per minute of talk time, with carrier charges billed separately." },
+    { "q": "Which plan should I start with?", "a": "The pricing page describes Standard as suited to reception and booking, and Lite as the lowest-cost option for simple calls. Rates are per minute of talk time, with carrier charges billed separately." },
     { "q": "Can one agency account serve several clients?", "a": "Yes. You can build a separate agent per client and route each client's number to its own agent, so scripts and call logs stay apart. Confirm the account setup that fits your billing arrangement with Calldesk." }
   ],
   "relatedSlugs": ["after-hours-answering", "call-transfer-to-staff", "faq-and-knowledge-base-calls", "overflow-call-handling"]

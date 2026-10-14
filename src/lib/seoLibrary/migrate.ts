@@ -1,7 +1,7 @@
 import { BILLING, CALLDESK_NAME, LANGUAGES, PHONE_NUMBERS, VERIFIED_STATEMENTS } from '@/content/calldeskFacts';
 import type { Competitor } from './schema';
 import type { Block } from './model';
-import { joinOr, lowerFirst, poss, sentence } from './helpers';
+import { joinList, joinOr, lowerFirst, poss, sentence } from './helpers';
 
 // Migration-specific sections. Everything about the competitor comes from its JSON (positioning, category, telephony, pricing,
 // migration, unknowns); everything about Calldesk comes from calldeskFacts.ts. No number or price is typed here.
@@ -88,7 +88,7 @@ export function calldeskSteps(c: Competitor, developerDocs: string, hasIntegrati
   const steps = [
     first,
     'Add what the agent should know to a knowledge base, and connect a Cal.com account if it books appointments.',
-    `Choose a plan; the costs section below lists them, and a language other than English needs the ${joinOr(LANGUAGES.nonEnglishTierNames)} voice.`,
+    `Choose a plan; the costs section below lists them. Languages beyond ${joinList(LANGUAGES.liteLanguageNames)} need the ${joinOr(LANGUAGES.allLanguageTierNames)} voice.`,
     `Connect your number by one of the routes above.`,
     'Run test calls and simulation test cases, then promote the tested version from staging to production. The Live Calls page shows calls in progress, not audio.',
   ];
