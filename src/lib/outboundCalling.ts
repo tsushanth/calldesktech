@@ -27,23 +27,6 @@ export function normalizeDialable(raw: string, allowed: Set<string> = intlCallCo
   return normalizeNanp(raw) ?? normalizeIntl(raw, allowed)?.e164 ?? null;
 }
 
-// Every way a dialed string can be read, most likely first. A 10-digit string can be a US number or an international
-// number whose country code was typed without the plus (a New Zealand landline +64 3 476 2111 is "6434762111" and passes
-// the US pattern). A leading "+" settles it: "+1..." is NANP, any other "+" is international. Without a plus the caller
-// gets both readings and the route picks the one that is in today's batch.
-export function dialCandidates(raw: string, allowed: Set<string> = intlCallCountries()): string[] {
-  const s = String(raw ?? '').trim();
-  const plus = s.startsWith('+');
-  const digits = s.replace(/\D/g, '');
-  const out: string[] = [];
-  const nanp = plus && !digits.startsWith('1') ? null : normalizeNanp(s);
-  const intl = normalizeIntl(`+${digits}`, allowed)?.e164 ?? null;
-  if (plus && intl) out.push(intl);
-  if (nanp) out.push(nanp);
-  if (!plus && intl) out.push(intl);
-  return [...new Set(out)];
-}
-
 // Numbers callers may dial for setup and test calls (the supervisor's own phone): they bypass the
 // lead-list and do-not-call checks, and the call is logged with outcome "test" so it never counts
 // as pilot data. Comma-separated, any common US format; invalid entries are ignored.
