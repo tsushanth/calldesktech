@@ -5,7 +5,7 @@ import { tierBillingConfigured } from '@/lib/tierBilling';
 import type { FlowNode, TtsBackend } from '@/types';
 import { authorizeResource } from '@/lib/authz';
 import { normalizeLanguage, LANGUAGE_VALUES, AGENT_LANGUAGES } from '@/lib/languages';
-import { tierVoiceIsEnglishOnly } from '@/lib/pricingTiers';
+import { tierVoiceSupportsLanguage, tierVoiceLanguages, piperSupportsLanguage, piperVoiceLanguage, piperLanguageSentence, LITE_LANGUAGE_VOICES } from '@/lib/pricingTiers';
 import { validateModelChoice } from '@/lib/modelCatalog';
 import { resolveTierForPublish } from '@/lib/pricingTiers';
 import { TIER_OVERRIDE_FIELDS } from '@/lib/versionCarryOver';
@@ -175,7 +175,9 @@ export async function POST(
   // Optional pricing tier (src/lib/pricingTiers.ts): validated here (an unknown tier, or a tier whose availability is not 'live', is a 400) and
   // turned into the models the engine should use. Anything the caller set explicitly wins and is recorded in tier_overrides.
   // With no tier this is a pass-through, so the request behaves exactly as it did before tiers existed.
-  const tierResult = resolveTierForPublish({ tier: requestedTier, voiceEngine, llmModel: requestedLlmModel, ttsModel: requestedTtsModel, ttsBackend: requestedTtsBackend, acceptLowerQuality });
+  // The agent's language, normalized (validated in the language block below), so a Lite version is stamped with that language's voice.
+  const requestedLanguage = globalSettings && 'language' in globalSettings ? normalizeLanguage(globalSettings.language) : 'en';
+  const tierResult = resolveTierForPublish({ tier: requestedTier, voiceEngine, llmModel: requestedLlmModel, ttsModel: requestedTtsModel, ttsBackend: requestedTtsBackend, acceptLowerQuality, language: requestedLanguage && requestedLanguage !== 'en' ? requestedLanguage : undefined });
   if (!tierResult.ok) return NextResponse.json({ error: tierResult.error }, { status: 400 });
   const { llmModel, ttsModel, ttsBackend, tier } = tierResult;
   // A version rebuilt from an older one (restore, Copilot accept) passes the original's tier_overrides, which replace the ones derived
@@ -205,10 +207,12 @@ export async function POST(
     );
   }
 
-  // Language (globalSettings.language): validate, and pin the voice backend a non-English language
-  // needs (the default voice is English-only) so the stored tts_backend, and the billing price synced
-  // from it below, match what the engine will really use. An explicit ttsBackend other than kokoro wins.
+  // Language (globalSettings.language): validate, and pin the voice backend a non-English language needs so the stored tts_backend, and the
+  // billing price synced from it below, match what the engine will really use. Piper (Lite, or Piper chosen directly) speaks English plus the
+  // languages in PIPER_LANGUAGE_VOICES; any other language on it is refused rather than silently moved to a pricier voice. An explicit
+  // ttsBackend other than kokoro wins.
   let effectiveTtsBackend = ttsBackend;
+  let agentLanguage = 'en';
   if (globalSettings && 'language' in globalSettings) {
     const lang = normalizeLanguage(globalSettings.language);
     if (!lang) {
@@ -217,17 +221,47 @@ export async function POST(
     if (lang === 'en') delete globalSettings.language;
     else {
       globalSettings.language = lang;
-      // An English-only voice (Lite's Piper voice, or Piper chosen directly) cannot speak another language: the agent would listen in that
-      // language and answer in an English voice. A multilingual voice costs more per minute than Lite sells for, so Lite does not switch
-      // voices silently; the caller is told to pick Standard or Pro instead.
-      if (voiceEngine === 'poc' && ((tier && tierVoiceIsEnglishOnly(tier)) || effectiveTtsBackend === 'piper')) {
+      agentLanguage = lang;
+      if (voiceEngine === 'poc' && ((tier && !tierVoiceSupportsLanguage(tier, lang)) || (effectiveTtsBackend === 'piper' && !piperSupportsLanguage(lang)))) {
         const label = AGENT_LANGUAGES.find((a) => a.code === lang)?.label ?? lang;
+        const lite = !!tier && !tierVoiceSupportsLanguage(tier, lang);
         return NextResponse.json(
-          { error: `${label} needs a multilingual voice. ${tier && tierVoiceIsEnglishOnly(tier) ? 'Lite uses an English-only voice, so choose Standard or Pro for this language.' : 'The Piper voice is English only, so choose another voice backend for this language.'}`, code: 'language_needs_multilingual_voice' },
+          {
+            error: `${label} is not available on ${lite ? 'Lite' : 'the Piper voice'}. ${lite ? 'Lite' : 'It'} speaks ${piperLanguageSentence()}. Choose Standard or Pro for other languages.`,
+            code: 'language_not_supported_on_tier',
+            // The code this refusal carried before Lite gained languages, kept so existing clients can still recognise it.
+            legacy_code: 'language_needs_multilingual_voice',
+          },
           { status: 400 }
         );
       }
       if (voiceEngine === 'poc' && (!effectiveTtsBackend || effectiveTtsBackend === 'kokoro')) effectiveTtsBackend = 'elevenlabs';
+    }
+  }
+
+  // Piper (Lite, or chosen directly): the voice must speak the agent's language, and the language-switch list may only name languages Piper covers
+  // (a mid-call switch to anything else would silently move the call to a pricier voice).
+  const onPiper = voiceEngine === 'poc' && effectiveTtsBackend === 'piper';
+  let storedVoiceId: string | null = voiceId || (tier ? tierResult.voiceId : undefined) || null;
+  if (onPiper) {
+    const voiceLang = piperVoiceLanguage(voiceId);
+    if (voiceId && voiceLang && voiceLang !== agentLanguage) {
+      const label = AGENT_LANGUAGES.find((a) => a.code === agentLanguage)?.label ?? 'English';
+      return NextResponse.json({ error: `The voice "${voiceId}" speaks a different language than this agent (${label}). Choose a voice for ${label}, or leave voiceId empty.`, code: 'voice_language_mismatch' }, { status: 400 });
+    }
+    // A caller voice that matches the language wins; otherwise a non-English agent gets the language's default voice (English is unchanged).
+    if (!(voiceId && voiceLang === agentLanguage) && agentLanguage !== 'en') storedVoiceId = LITE_LANGUAGE_VOICES[agentLanguage] ?? storedVoiceId;
+  }
+  if (voiceEngine === 'poc' && (onPiper || tierVoiceLanguages(tier)) && Array.isArray(globalSettings?.switchableLanguages)) {
+    const bad = (globalSettings!.switchableLanguages as unknown[]).filter((c) => {
+      const n = normalizeLanguage(c);
+      return typeof c !== 'string' || !n || !piperSupportsLanguage(n);
+    });
+    if (bad.length) {
+      return NextResponse.json(
+        { error: `${bad.map(String).join(', ')} cannot be used for language switching on ${tier && tierVoiceLanguages(tier) ? 'Lite' : 'the Piper voice'}. It speaks ${piperLanguageSentence()}. Choose Standard or Pro for other languages.`, code: 'language_not_supported_on_tier', legacy_code: 'language_needs_multilingual_voice' },
+        { status: 400 }
+      );
     }
   }
 
@@ -328,7 +362,7 @@ export async function POST(
       flow_id: flow.id,
       retell_agent_id: retellAgentId || null,
       retell_llm_id: retellLlmId || null,
-      voice_id: voiceId || (tier ? tierResult.voiceId : undefined) || null,
+      voice_id: storedVoiceId,
       tts_backend: effectiveTtsBackend || null,
       llm_model: llmModel || null,
       tts_model: ttsModel || null,

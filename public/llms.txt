@@ -26,10 +26,10 @@ Local service businesses that take phone calls for appointments and customer que
 
 ## Pricing
 
-- Lite: 2 cents per minute. An efficient engine with a clear, English-only voice. Voice: Clear and efficient. Response speed: Good. Reasoning: Good.
+- Lite: 2 cents per minute. An efficient engine with a clear voice in English, German, Spanish, French, Italian and Portuguese. Voice: Clear and efficient. Response speed: Good. Reasoning: Good.
 - Standard: 5 cents per minute. A fast, strong engine with a natural voice. Voice: Natural. Response speed: Fast. Reasoning: Strong.
 - Pro: 9 cents per minute. Our strongest engine with our most expressive voice. Voice: Most expressive. Response speed: Fast. Reasoning: Strongest.
-- Included on every plan: Call summary; Full transcript; Structured field extraction (name, reason for the call, and anything else you ask for); Call transfers; Keypad tones (DTMF); Knowledge base; Calendar booking; Call testing and live call monitoring; API and MCP server; 40+ languages (non-English languages need the Standard or Pro voice; Lite's voice is English only).
+- Included on every plan: Call summary; Full transcript; Structured field extraction (name, reason for the call, and anything else you ask for); Call transfers; Keypad tones (DTMF); Knowledge base; Calendar booking; Call testing and live call monitoring; API and MCP server; 40+ languages (Lite speaks English, German, Spanish, French, Italian and Portuguese; other languages need the Standard or Pro voice).
 - Phone agents from 2 cents a minute. Lite 2 cents, Standard 5 cents and Pro 9 cents per minute, all available now.
 - Every plan is bring-your-own carrier.
 - Phone numbers from us, on any plan: Telnyx number $1.00 per month plus 1 cent per inbound minute; Twilio number (premium carrier: supports payments and our existing SMS setup) $2.00 per month plus 1.5 cents per inbound minute. Bring your own number or carrier: free.

@@ -3,6 +3,8 @@
 // (mobile, admin, billing checkout and the like are not public API).
 // Served at /api/v1/openapi.json and rendered at /docs.
 
+import { LANGUAGE_VALUES } from '@/lib/languages';
+import { piperLanguageSentence } from '@/lib/pricingTiers';
 import { EXPERT_BACKUP, EXPERT_BACKUP_ROUTING_MODE, expertBackupPriceText } from '@/lib/expertBackup';
 
 type Method = 'get' | 'post' | 'patch' | 'put' | 'delete';
@@ -18,6 +20,9 @@ interface Op {
   public?: boolean;
 }
 
+/** Non-English agent language codes (every code `globalSettings.language` accepts besides the English default), from the same list the API validates against. */
+const NON_ENGLISH_CODES = LANGUAGE_VALUES.filter((c) => c !== 'en').join(', ');
+const LANGUAGE_VOICE_NOTE = `A Lite agent runs on the Piper voice, which speaks ${piperLanguageSentence()}; any other language on Lite is refused with HTTP 400 and code \`language_not_supported_on_tier\` (choose Standard or Pro). On Standard and Pro the language uses the ElevenLabs voice, and an agent published without a tier in another language is pinned to the ElevenLabs voice (billed at the ElevenLabs rate).`;
 const T = '{tenantId}';
 const ops: Record<string, Partial<Record<Method, Op>>> = {
   '/me': { get: { tag: 'Account', summary: 'Who am I?', description: 'For an API key, returns the tenant it is pinned to — use that id in the paths below.', returns: '{ auth, tenantId, tenantName }' } },
@@ -35,7 +40,7 @@ const ops: Record<string, Partial<Record<Method, Op>>> = {
     get: { tag: 'Agents', summary: 'List versions', returns: '{ versions: AgentVersion[] }' },
     post: {
       tag: 'Agents', summary: 'Publish a new version',
-      description: 'Versions are immutable. Set `globalSettings.language` (en default; es, fr, pt-BR, it, nl, hi, de, pl, id, ar) for a non-English agent: the engine switches speech recognition, the reply language and the voice, and a non-English poc agent is pinned to the ElevenLabs voice (billed at the ElevenLabs rate). `nodes` is the conversation-flow graph; `subflow_ref` nodes are embedded as snapshots at publish time. The response may include a non-blocking `warnings` array of { code, message }: `booking_without_calendar` means the flow collects appointments but the workspace has no calendar connected (or globalSettings.calendarTools is false), so the agent takes a request instead of booking. The version is still published. Set `requireBookingTools: true` to make that case an error instead: the request is refused with HTTP 422 and code `booking_requires_calendar` (plus `reasons` and `fix`) before anything is saved or billed. When the flow has no booking intent, or a calendar is connected, the flag changes nothing.',
+      description: 'Versions are immutable. Set `globalSettings.language` (en default; ' + NON_ENGLISH_CODES + ') for a non-English agent: the engine switches speech recognition, the reply language and the voice. ' + LANGUAGE_VOICE_NOTE + ' `nodes` is the conversation-flow graph; `subflow_ref` nodes are embedded as snapshots at publish time. The response may include a non-blocking `warnings` array of { code, message }: `booking_without_calendar` means the flow collects appointments but the workspace has no calendar connected (or globalSettings.calendarTools is false), so the agent takes a request instead of booking. The version is still published. Set `requireBookingTools: true` to make that case an error instead: the request is refused with HTTP 422 and code `booking_requires_calendar` (plus `reasons` and `fix`) before anything is saved or billed. When the flow has no booking intent, or a calendar is connected, the flag changes nothing.',
       body: { flowName: 'string', startNodeId: 'string', nodes: 'FlowNode[]', globalSettings: 'object', requireBookingTools: "boolean (optional, default false; true refuses the publish with 422 code booking_requires_calendar when the flow collects appointments but no calendar is connected or globalSettings.calendarTools is false; nothing is saved or billed)", voiceEngine: "'poc' | 'retell'", voiceId: 'string', tier: "'lite' | 'standard' | 'pro' (optional; poc engine only; see GET /pricing; 'lite' also needs acceptLowerQuality: true, to confirm you are choosing its efficient, lower-cost voice; the tier picks the language model and voice for you; omit to keep the flat per-minute price of the voice backend)", routingMode: `'${EXPERT_BACKUP_ROUTING_MODE}' (optional; ${EXPERT_BACKUP.label}: hands the hard turns to a stronger model for better accuracy on hard turns; ${expertBackupPriceText()} extra while on; poc engine with tier lite or standard only, not pro; needs acceptExpertBackup: true; omit for standard routing)`, acceptExpertBackup: `boolean (required true with routingMode ${EXPERT_BACKUP_ROUTING_MODE}; without it you get 400 code expert_backup_acceptance_required with the terms)`, ttsBackend: "'kokoro' | 'elevenlabs' | 'cartesia' | 'minimax' | 'piper' (advanced)", llmModel: "string (advanced, optional; poc engine only; overrides the tier; see GET /models; default claude-haiku-4-5-20251001)", ttsModel: "string (advanced, optional; elevenlabs or cartesia only; overrides the tier; see GET /models)" },
       bodyRequired: ['flowName', 'startNodeId', 'nodes', 'voiceEngine'], returns: '{ version, flow, warnings?: { code, message }[] }. 422 { error, code: "booking_requires_calendar", reasons: string[], fix } when requireBookingTools is true and the agent cannot book',
     },
@@ -47,7 +52,7 @@ const ops: Record<string, Partial<Record<Method, Op>>> = {
     post: {
       tag: 'Agents', summary: 'Create an agent from a template',
       description: 'Creates the agent, its subflows and knowledge base, and publishes version 1. `voiceEngine` "poc" runs on CallDesk; "retell" also creates the equivalent Retell conversation-flow agent (some node types are approximated; see `warnings`). `transferTo` and `functionUrl` fill empty transfer numbers and function webhooks. `variables` sets the template\'s {{placeholders}} (see GET /agent-templates); business_name defaults to the tenant name.',
-      body: { templateId: 'string (from GET /agent-templates)', name: 'string', voiceEngine: "'poc' | 'retell'", transferTo: 'E.164 string', functionUrl: 'https URL', calendarTools: 'false to turn off live calendar lookups and bookings', language: "agent language: 'en' (default), 'es', 'fr', 'pt-BR', 'it', 'nl', 'hi', 'de', 'pl', 'id' or 'ar'", variables: 'object, e.g. {"business_name": "Acme Dental", "agent_name": "Sam"}' },
+      body: { templateId: 'string (from GET /agent-templates)', name: 'string', voiceEngine: "'poc' | 'retell'", transferTo: 'E.164 string', functionUrl: 'https URL', calendarTools: 'false to turn off live calendar lookups and bookings', language: `agent language: 'en' (default) or one of ${NON_ENGLISH_CODES}`, variables: 'object, e.g. {"business_name": "Acme Dental", "agent_name": "Sam"}' },
       bodyRequired: ['templateId'], returns: '{ agentId, versionId, versionNumber, template, voiceEngine, retellAgentId?, warnings? (Retell conversion notes, string[]), publishWarnings?: { code, message }[] (e.g. booking_without_calendar) }',
     },
   },

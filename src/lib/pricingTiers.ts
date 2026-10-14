@@ -103,7 +103,7 @@ export const INCLUDED_ON_ALL = [
   'Calendar booking',
   'Call testing and live call monitoring',
   'API and MCP server',
-  "40+ languages (non-English languages need the Standard or Pro voice; Lite's voice is English only)",
+  '40+ languages (Lite speaks English, German, Spanish, French, Italian and Portuguese; other languages need the Standard or Pro voice)',
 ];
 
 export const PRICING_TIERS: PricingTier[] = [
@@ -111,7 +111,7 @@ export const PRICING_TIERS: PricingTier[] = [
     id: 'lite',
     name: 'Lite',
     pricePerMinuteCents: 2,
-    tagline: 'An efficient engine with a clear, English-only voice.',
+    tagline: 'An efficient engine with a clear voice in English, German, Spanish, French, Italian and Portuguese.',
     whoItsFor: 'Straightforward calls such as confirmations and quick questions, where cost matters most.',
     carrierMode: 'byo',
     availability: 'live',
@@ -157,10 +157,61 @@ export const ADD_ONS: AddOn[] = [
 // (not imported here to avoid a cycle).
 export const CARRIER_NOTE = 'Bring your own carrier on every plan, or add phone numbers from us.';
 
-/** True when the tier's voice speaks English only (Lite runs on Piper). Non-English agents need a multilingual voice, which costs more than Lite's price. */
-export function tierVoiceIsEnglishOnly(id: unknown): boolean {
+/**
+ * Piper voices per non-English language, default first, alternate second. SINGLE SOURCE on the web side: keep identical to the engine's
+ * PIPER_LANG_VOICES (call-loop-poc/piperVoices.js). Keys are the agent language codes of src/lib/languages.ts.
+ */
+export const PIPER_LANGUAGE_VOICES: Record<string, readonly string[]> = {
+  de: ['custom:de-de-mls-f', 'custom:de-de-mls-m'],
+  es: ['custom:es-pilot-f', 'custom:es-pilot-m'],
+  fr: ['custom:fr-fr-mls-f', 'custom:fr-fr-mls-m'],
+  it: ['custom:it-it-serena', 'custom:it-it-paola'],
+  'pt-BR': ['custom:pt-br-faber', 'custom:pt-br-cadu'],
+};
+
+/** Lite's default voice per non-English language (the first entry of PIPER_LANGUAGE_VOICES). English stays the tier stack's voice. */
+export const LITE_LANGUAGE_VOICES: Record<string, string> = Object.fromEntries(Object.entries(PIPER_LANGUAGE_VOICES).map(([code, v]) => [code, v[0]]));
+
+const PIPER_LANGUAGE_NAMES: Record<string, string> = { en: 'English', de: 'German', es: 'Spanish', fr: 'French', it: 'Italian', 'pt-BR': 'Portuguese' };
+
+/** "English, German, Spanish, French, Italian and Portuguese": the languages Piper (and so Lite) covers, for messages. */
+export function piperLanguageSentence(): string {
+  const names = ['en', ...Object.keys(PIPER_LANGUAGE_VOICES)].map((c) => PIPER_LANGUAGE_NAMES[c] ?? c);
+  return `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`;
+}
+
+function canonLanguage(code: unknown): string {
+  const c = typeof code === 'string' ? code.trim().replace('_', '-') : '';
+  const l = c.toLowerCase();
+  if (l === 'pt' || l === 'pt-br') return 'pt-BR';
+  if (/^en(-[a-z]+)?$/.test(l)) return 'en';
+  return Object.keys(PIPER_LANGUAGE_VOICES).find((k) => k.toLowerCase() === l) ?? l;
+}
+
+/** The language a Piper voice id speaks: 'en' for the English custom voices, the language code for the known non-English ones, null otherwise. */
+export function piperVoiceLanguage(voiceId: unknown): string | null {
+  if (typeof voiceId !== 'string') return null;
+  for (const [code, voices] of Object.entries(PIPER_LANGUAGE_VOICES)) if (voices.includes(voiceId)) return code;
+  if (/^custom:en-/.test(voiceId)) return 'en';
+  const m = /^custom:([a-z]{2}(?:-[a-z]{2})?)-/.exec(voiceId);
+  return m ? canonLanguage(m[1]) : null;
+}
+
+/** Languages the tier's voice can speak (agent language codes, 'en' included), or null when it is not limited (Standard, Pro, no tier). Lite runs on Piper. */
+export function tierVoiceLanguages(id: unknown): string[] | null {
   const t = tierById(id);
-  return !!t && t.stack.ttsBackend === 'piper';
+  return t && t.stack.ttsBackend === 'piper' ? ['en', ...Object.keys(PIPER_LANGUAGE_VOICES)] : null;
+}
+
+export function tierVoiceSupportsLanguage(id: unknown, code: unknown): boolean {
+  const langs = tierVoiceLanguages(id);
+  return !langs || langs.includes(canonLanguage(code));
+}
+
+/** True when the language (an agent language code, or 'en') is one Piper can speak. */
+export function piperSupportsLanguage(code: unknown): boolean {
+  const c = canonLanguage(code);
+  return c === 'en' || c in PIPER_LANGUAGE_VOICES;
 }
 
 export function tierById(id: unknown): PricingTier | undefined {
@@ -259,6 +310,8 @@ export type TierPublishInput = {
   ttsBackend?: TtsBackend | null;
   /** The customer has acknowledged the voice-quality tradeoff of a lowerQuality tier. */
   acceptLowerQuality?: boolean;
+  /** The agent's normalized language code (omit for English); a Lite version is stamped with that language's voice. */
+  language?: string;
 };
 
 export type TierPublishResult =
@@ -293,7 +346,9 @@ export function resolveTierForPublish(input: TierPublishInput): TierPublishResul
   const ttsModel = input.ttsModel || (ttsBackend === stack.ttsBackend ? stack.ttsModel || undefined : undefined);
   if (input.ttsModel && input.ttsModel !== stack.ttsModel) overrides.push('ttsModel');
   // The tier's voice only applies on the tier's own backend; an overridden backend picks its own voice.
-  const voiceId = ttsBackend === stack.ttsBackend ? stack.voiceId : undefined;
+  // On Piper (Lite) a non-English language gets that language's voice.
+  const languageVoice = ttsBackend === 'piper' && input.language ? LITE_LANGUAGE_VOICES[canonLanguage(input.language)] : undefined;
+  const voiceId = ttsBackend === stack.ttsBackend ? languageVoice ?? stack.voiceId : undefined;
   return { ok: true, tier: tier.id, llmModel, ttsModel, ttsBackend, voiceId, overrides };
 }
 

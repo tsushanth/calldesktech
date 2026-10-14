@@ -4,8 +4,10 @@ import { join } from 'node:path';
 import { PRICING } from '@/lib/constants';
 import { LITE_LLM_MODEL, STANDARD_LLM_MODEL, PRO_LLM_MODEL, validateModelChoice } from '@/lib/modelCatalog';
 import {
-  ADD_ONS, INCLUDED_ON_ALL, PRICING_TIERS, TIER_IDS, priceFor, ratingsForStack, publicPricing, resolveTierForPublish, stackErrors, stackForTier, tierById, tierForLegacyConfig,
+  ADD_ONS, INCLUDED_ON_ALL, LITE_LANGUAGE_VOICES, PIPER_LANGUAGE_VOICES, PRICING_TIERS, TIER_IDS, priceFor, ratingsForStack, publicPricing, resolveTierForPublish, stackErrors, stackForTier, tierById, tierForLegacyConfig,
+  piperVoiceLanguage, tierVoiceLanguages, tierVoiceSupportsLanguage, piperLanguageSentence,
 } from '@/lib/pricingTiers';
+import { AGENT_LANGUAGES, PIPER_LANGUAGES } from '@/lib/languages';
 
 describe('pricing tiers', () => {
   it('has exactly Lite, Standard and Pro at 2, 5 and 9 cents per minute', () => {
@@ -21,7 +23,8 @@ describe('pricing tiers', () => {
   it('the platform features are stated once for every plan, not per tier', () => {
     const all = INCLUDED_ON_ALL.join(' | ');
     for (const re of [/summary/i, /transcript/i, /extraction/i, /transfers/i, /DTMF/, /knowledge base/i, /calendar booking/i, /testing and live call monitoring/i, /API and MCP/i, /40\+ languages/i]) expect(all).toMatch(re);
-    expect(all).toMatch(/Lite's voice is English only/);
+    expect(all).toMatch(/Lite speaks English, German, Spanish, French, Italian and Portuguese/);
+    expect(all).not.toMatch(/English only/);
     expect(all).not.toMatch(/steer|proposed fix/i);
     for (const t of PRICING_TIERS) expect(t).not.toHaveProperty('includes');
   });
@@ -206,5 +209,67 @@ describe('tier voice', () => {
   });
   it('the tier voice is not applied when the backend is overridden', () => {
     expect(resolveTierForPublish({ tier: 'lite', voiceEngine: 'poc', acceptLowerQuality: true, ttsBackend: 'elevenlabs' })).toMatchObject({ ok: true, voiceId: undefined });
+  });
+});
+
+
+describe('Lite languages on Piper', () => {
+  it('Lite voice per language: default first, alternate second, exactly de/es/fr/it/pt-BR', () => {
+    expect(LITE_LANGUAGE_VOICES).toEqual({
+      de: 'custom:de-de-mls-f', es: 'custom:es-pilot-f', fr: 'custom:fr-fr-mls-f', it: 'custom:it-it-serena', 'pt-BR': 'custom:pt-br-faber',
+    });
+    expect(PIPER_LANGUAGE_VOICES).toEqual({
+      de: ['custom:de-de-mls-f', 'custom:de-de-mls-m'],
+      es: ['custom:es-pilot-f', 'custom:es-pilot-m'],
+      fr: ['custom:fr-fr-mls-f', 'custom:fr-fr-mls-m'],
+      it: ['custom:it-it-serena', 'custom:it-it-paola'],
+      'pt-BR': ['custom:pt-br-faber', 'custom:pt-br-cadu'],
+    });
+  });
+  it('every Lite voice is a custom: id and its language is a real agent language', () => {
+    const codes = AGENT_LANGUAGES.map((l) => l.code);
+    for (const [code, voice] of Object.entries(LITE_LANGUAGE_VOICES)) {
+      expect(voice.startsWith('custom:')).toBe(true);
+      expect(codes).toContain(code);
+    }
+  });
+  it('English voice stays custom:en-us-warm-f', () => {
+    expect(stackForTier('lite').voiceId).toBe('custom:en-us-warm-f');
+  });
+  it('tierVoiceLanguages: Lite lists English plus the five; Standard, Pro and unknown ids are unrestricted (null)', () => {
+    expect(tierVoiceLanguages('lite')).toEqual(['en', 'de', 'es', 'fr', 'it', 'pt-BR']);
+    expect(tierVoiceLanguages('standard')).toBeNull();
+    expect(tierVoiceLanguages('pro')).toBeNull();
+    expect(tierVoiceLanguages('storm')).toBeNull();
+    expect(tierVoiceLanguages(undefined)).toBeNull();
+  });
+  it('tierVoiceSupportsLanguage', () => {
+    for (const c of ['en', 'de', 'es', 'fr', 'it', 'pt-BR']) expect(tierVoiceSupportsLanguage('lite', c)).toBe(true);
+    for (const c of ['nl', 'hi', 'ja', 'pl', 'ar']) expect(tierVoiceSupportsLanguage('lite', c)).toBe(false);
+    expect(tierVoiceSupportsLanguage('standard', 'nl')).toBe(true);
+    expect(tierVoiceSupportsLanguage('pro', 'ja')).toBe(true);
+    expect(tierVoiceSupportsLanguage(undefined, 'nl')).toBe(true);
+    expect(tierVoiceSupportsLanguage('', 'nl')).toBe(true);
+  });
+  it('piperVoiceLanguage maps voice ids to languages, English voices to en, others to null', () => {
+    expect(piperVoiceLanguage('custom:de-de-mls-m')).toBe('de');
+    expect(piperVoiceLanguage('custom:pt-br-cadu')).toBe('pt-BR');
+    expect(piperVoiceLanguage('custom:en-us-warm-f')).toBe('en');
+    expect(piperVoiceLanguage('af_heart')).toBeNull();
+    expect(piperVoiceLanguage('')).toBeNull();
+  });
+  it('PIPER_LANGUAGES (languages.ts) lists the five non-English codes', () => {
+    expect([...PIPER_LANGUAGES].sort()).toEqual(['de', 'es', 'fr', 'it', 'pt-BR']);
+  });
+  it('the sentence of covered languages', () => {
+    expect(piperLanguageSentence()).toBe('English, German, Spanish, French, Italian and Portuguese');
+  });
+  it('resolveTierForPublish stamps the language voice for Lite and keeps English on warm-f', () => {
+    const base = { tier: 'lite', voiceEngine: 'poc', acceptLowerQuality: true } as const;
+    expect(resolveTierForPublish({ ...base, language: 'es' })).toMatchObject({ ok: true, voiceId: 'custom:es-pilot-f', ttsBackend: 'piper' });
+    expect(resolveTierForPublish({ ...base, language: 'pt-BR' })).toMatchObject({ ok: true, voiceId: 'custom:pt-br-faber' });
+    expect(resolveTierForPublish({ ...base, language: 'en' })).toMatchObject({ ok: true, voiceId: 'custom:en-us-warm-f' });
+    expect(resolveTierForPublish({ ...base })).toMatchObject({ ok: true, voiceId: 'custom:en-us-warm-f' });
+    expect(resolveTierForPublish({ tier: 'standard', voiceEngine: 'poc', language: 'es' })).toMatchObject({ ok: true, voiceId: undefined });
   });
 });
