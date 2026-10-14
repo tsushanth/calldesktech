@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   normalizeNanp,
+  dialCandidates,
   sipUser,
   buildDialTwiml,
   buildRejectTwiml,
@@ -173,5 +174,26 @@ describe('verifyTwilioSignature with an explicit token', () => {
     } finally {
       if (prev !== undefined) process.env.TWILIO_AUTH_TOKEN = prev;
     }
+  });
+});
+
+describe('dialCandidates', () => {
+  const NZ = new Set(['NZ']);
+  it('a New Zealand landline typed without the plus reads as both, US first', () => {
+    expect(dialCandidates('6434762111', NZ)).toEqual(['+16434762111', '+6434762111']);
+  });
+  it('with a plus, a non-US country code is only international', () => {
+    expect(dialCandidates('+6434762111', NZ)).toEqual(['+6434762111']);
+    expect(dialCandidates('+64 3 476 2111', NZ)).toEqual(['+6434762111']);
+  });
+  it('US numbers are unchanged', () => {
+    expect(dialCandidates('+15126086782', NZ)).toEqual(['+15126086782']);
+    expect(dialCandidates('(512) 608-6782', NZ)).toEqual(['+15126086782']);
+  });
+  it('a New Zealand mobile has no US reading', () => {
+    expect(dialCandidates('+642102345678', NZ)).toEqual(['+642102345678']);
+  });
+  it('international countries that are not switched on are never offered', () => {
+    expect(dialCandidates('+6434762111', new Set())).toEqual([]);
   });
 });

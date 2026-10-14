@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/supabase';
 import { verifyTwilioSignature } from '@/lib/webhookAuth';
-import { buildDialTwiml, buildRejectTwiml, decideDial, normalizeDialable, parseTestNumbers, sipUser } from '@/lib/outboundCalling';
+import { buildDialTwiml, buildRejectTwiml, decideDial, dialCandidates, parseTestNumbers, sipUser } from '@/lib/outboundCalling';
 import { batchDateEastern, checkCallingHours, startOfEasternDay } from '@/lib/callingHours';
 import { pickPoolNumber, type PoolNumber } from '@/lib/outboundNumbers';
 
@@ -43,7 +43,8 @@ export async function POST(request: NextRequest) {
   const callSid = params.CallSid || null;
   const username = sipUser(params.From || '');
   const dialed = sipUser(params.To || '') ?? params.To ?? null;
-  const toE164 = dialed ? normalizeDialable(dialed) : null;
+  const candidates = dialed ? dialCandidates(dialed) : [];
+  let toE164: string | null = candidates[0] ?? null;
 
   const supabase = getSupabaseAdmin();
   const caller = username
@@ -57,15 +58,20 @@ export async function POST(request: NextRequest) {
   let doNotCall = false;
   let dialsToday = 0;
   if (toE164 && username) {
-    const row = (
-      await supabase
-        .from('calldesk_call_batches')
-        .select('lead_id, state')
-        .eq('batch_date', batchDateEastern())
-        .eq('sip_username', username)
-        .eq('phone', toE164)
-        .maybeSingle()
-    ).data;
+    // A number can read two ways (see dialCandidates): use the reading that is in this caller's batch today.
+    let row: { lead_id: string | null; state: string | null } | null = null;
+    for (const c of candidates) {
+      row = (
+        await supabase
+          .from('calldesk_call_batches')
+          .select('lead_id, state')
+          .eq('batch_date', batchDateEastern())
+          .eq('sip_username', username)
+          .eq('phone', c)
+          .maybeSingle()
+      ).data;
+      if (row) { toE164 = c; break; }
+    }
     inBatch = !!row;
     leadId = row?.lead_id ?? null;
     batchState = row?.state ?? null;
