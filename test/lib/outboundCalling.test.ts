@@ -1,6 +1,8 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import {
   normalizeNanp,
+  normalizeDialable,
+  dialCandidates,
   sipUser,
   buildDialTwiml,
   buildRejectTwiml,
@@ -173,5 +175,51 @@ describe('verifyTwilioSignature with an explicit token', () => {
     } finally {
       if (prev !== undefined) process.env.TWILIO_AUTH_TOKEN = prev;
     }
+  });
+});
+
+describe('dialCandidates', () => {
+  const NZ = new Set(['NZ']);
+  it('a New Zealand landline typed without the plus reads as both, US first', () => {
+    expect(dialCandidates('6434762111', NZ)).toEqual(['+16434762111', '+6434762111']);
+  });
+  it('with a plus, a non-US country code is only international', () => {
+    expect(dialCandidates('+6434762111', NZ)).toEqual(['+6434762111']);
+    expect(dialCandidates('+64 3 476 2111', NZ)).toEqual(['+6434762111']);
+  });
+  it('US numbers are unchanged', () => {
+    expect(dialCandidates('+15126086782', NZ)).toEqual(['+15126086782']);
+    expect(dialCandidates('(512) 608-6782', NZ)).toEqual(['+15126086782']);
+  });
+  it('a New Zealand mobile has no US reading', () => {
+    expect(dialCandidates('+642102345678', NZ)).toEqual(['+642102345678']);
+  });
+  it('international countries that are not switched on are never offered', () => {
+    expect(dialCandidates('+6434762111', new Set())).toEqual([]);
+  });
+});
+
+describe('a plus other than +1 is never a US number', () => {
+  it('normalizeNanp rejects +64 3 476 2111 even though it has 10 digits', () => {
+    expect(normalizeNanp('+6434762111')).toBeNull();
+    expect(normalizeNanp('6434762111')).toBe('+16434762111');
+    expect(normalizeNanp('+16434762111')).toBe('+16434762111');
+  });
+  it('the resolved New Zealand number is what decideDial dials', () => {
+    const NZ = new Set(['NZ']);
+    expect(normalizeDialable('+6434762111', NZ)).toBe('+6434762111');
+  });
+});
+
+describe('decideDial dials the number it checked', () => {
+  it('a New Zealand landline passed as +64... is dialed as +64..., not as a US number', () => {
+    vi.stubEnv('INTL_CALL_COUNTRIES', 'NZ');
+    const d = decideDial({
+      sipUsername: 'mary', to: '+6434762111', caller: { caller_id: '+15106626957', enabled: true }, leadId: 'l1', inBatch: true,
+      hours: { ok: true } as never, doNotCall: false, isTestNumber: false, requireLead: true, dialsToday: 0, maxDialsPerDay: 400,
+    } as never);
+    expect(d.ok).toBe(true);
+    expect((d as { to: string }).to).toBe('+6434762111');
+    vi.unstubAllEnvs();
   });
 });
