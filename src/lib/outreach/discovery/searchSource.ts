@@ -18,7 +18,7 @@ const VERTICALS = [
   'chiropractors', 'veterinary clinics', 'contractors and trades', 'financial advisors', 'senior living and home care',
 ];
 const PHRASINGS = ['AI voice agent agency for', 'AI receptionist company for', 'AI phone answering service built for'];
-// Calldesk now supports 55 languages on real calls (STT+LLM+TTS+turn-taking
+// Calldesk now supports 40+ languages on real calls (STT+LLM+TTS+turn-taking
 // verified) — this list was widened accordingly to actually go after
 // international markets, not just the handful of English-speaking ones.
 // Germany/Austria/Switzerland are deliberately excluded: score.ts blocks

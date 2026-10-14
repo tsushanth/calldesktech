@@ -70,7 +70,7 @@ export function buildInvestorSlides(): string[] {
   s.push(section('product', true, `${h2('What Calldesk does', true)}
     ${row([
       card('Answers and places calls', 'Inbound and outbound phone agents on real phone numbers. The owner forwards overflow or after-hours calls; every call gets a summary and a transcript.', true),
-      card('Knows the business', 'A knowledge base per agent, call flows the owner can edit, and call analytics, in 55 languages on live calls.', true),
+      card('Knows the business', 'A knowledge base per agent, call flows the owner can edit, and call analytics, in 40+ languages on live calls.', true),
       card('Two voice engines, chosen per agent', 'A cascaded pipeline (speech recognition, language model, voice) for reliable transcripts and tool use, or a speech-to-speech engine for the most natural conversation. Per-call cost is tracked on every call.', true, 1.3),
     ])}
     ${note('Live today: inbound and outbound calls, knowledge base, analytics. Real Twilio phone numbers.', true)}`));

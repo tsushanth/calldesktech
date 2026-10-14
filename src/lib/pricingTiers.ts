@@ -174,9 +174,14 @@ export const LITE_LANGUAGE_VOICES: Record<string, string> = Object.fromEntries(O
 
 const PIPER_LANGUAGE_NAMES: Record<string, string> = { en: 'English', de: 'German', es: 'Spanish', fr: 'French', it: 'Italian', 'pt-BR': 'Portuguese' };
 
+/** ["English", "German", ...]: the languages Piper (and so Lite) covers, for messages and generated pages. */
+export function piperLanguageNames(): string[] {
+  return ['en', ...Object.keys(PIPER_LANGUAGE_VOICES)].map((c) => PIPER_LANGUAGE_NAMES[c] ?? c);
+}
+
 /** "English, German, Spanish, French, Italian and Portuguese": the languages Piper (and so Lite) covers, for messages. */
 export function piperLanguageSentence(): string {
-  const names = ['en', ...Object.keys(PIPER_LANGUAGE_VOICES)].map((c) => PIPER_LANGUAGE_NAMES[c] ?? c);
+  const names = piperLanguageNames();
   return `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`;
 }
 

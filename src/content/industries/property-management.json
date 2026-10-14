@@ -104,7 +104,7 @@
     },
     {
       "q": "Can it handle Spanish-speaking tenants?",
-      "a": "Many languages are supported on the Standard and Pro voices, while Lite speaks English. Decide per agent which language it should speak."
+      "a": "Many languages are supported on the Standard and Pro voices, while Lite speaks English, German, Spanish, French, Italian and Portuguese. Decide per agent which language it should speak."
     },
     {
       "q": "Does it create tickets in my property software?",

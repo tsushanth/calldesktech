@@ -19,7 +19,7 @@ the outcome logging are the same. The offer and the ask are different.
 - Pricing is public on calldesk.tech/pricing: phone agents from 2 cents a minute. Lite is 2 cents, Standard is 5 cents and
   Pro is 9 cents per minute. Each price covers the whole engine (the language model and the voice). They bring their own phone
   carrier or number, or buy a number from us. No per-booking or per-transfer fees.
-- It supports 55 languages on live calls. Lite's voice is English only; other languages need Standard or Pro.
+- It supports 40+ languages on live calls. Lite speaks English, German, Spanish, French, Italian and Portuguese; other languages need Standard or Pro.
 - We are looking for a small number of agencies to be design partners and try it with their clients.
 - Partners get a 20% revenue share on usage from customers they refer.
 - Partners get a free trial and direct access to the founders.
