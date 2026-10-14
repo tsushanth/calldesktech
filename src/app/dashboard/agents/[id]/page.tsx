@@ -4,7 +4,7 @@ import { Fragment, useEffect, useState, useCallback, useRef } from 'react';
 import { useParams, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { AGENT_LANGUAGES, languageForcesPremiumVoice } from '@/lib/languages';
-import { tierVoiceIsEnglishOnly } from '@/lib/pricingTiers';
+import { tierVoiceLanguages, tierVoiceSupportsLanguage, piperLanguageSentence, piperSupportsLanguage, piperVoiceLanguage } from '@/lib/pricingTiers';
 import { api } from '@/lib/api';
 import { track } from '@/components/Analytics';
 import { trackBuilder, errorProps } from '@/lib/builderTelemetry';
@@ -1472,7 +1472,7 @@ export default function AgentBuilderPage() {
                       {channel === 'voice' && voiceEngine === 'poc' && (
                         <TierPicker
                           value={tier}
-                          onChange={(next) => { setTier(next); if (tierVoiceIsEnglishOnly(next)) setLanguage(''); if (!next) clearStoredPlan(); setLowerQualityAccepted(false); if (!expertBackupEligible(voiceEngine, next)) { setExpertBackupOn(false); setExpertBackupAccepted(false); } setLlmModel(''); setTtsModel(''); setTtsBackend(''); }}
+                          onChange={(next) => { setTier(next); if (language && !tierVoiceSupportsLanguage(next, language)) setLanguage(''); if (!next) clearStoredPlan(); setLowerQualityAccepted(false); if (!expertBackupEligible(voiceEngine, next)) { setExpertBackupOn(false); setExpertBackupAccepted(false); } setLlmModel(''); setTtsModel(''); setTtsBackend(''); }}
                           lowerQualityAccepted={lowerQualityAccepted}
                           onLowerQualityAcceptedChange={setLowerQualityAccepted}
                           below={<ExpertBackupToggle voiceEngine={voiceEngine} tier={tier} enabled={expertBackupOn} accepted={expertBackupAccepted} onEnabledChange={setExpertBackupOn} onAcceptedChange={setExpertBackupAccepted} />}
@@ -1520,20 +1520,26 @@ export default function AgentBuilderPage() {
                           <label className="mb-1 block text-[12.5px] font-medium text-gray-500">Language</label>
                           <select
                             value={language}
-                            onChange={(e) => setLanguage(e.target.value)}
+                            onChange={(e) => {
+                              const next = e.target.value;
+                              setLanguage(next);
+                              // A Piper voice from another language would be refused on publish: drop it so the language's own voice is used.
+                              const vl = piperVoiceLanguage(voiceId);
+                              if (vl && vl !== (next || 'en')) setVoiceId('');
+                            }}
                             className="w-full rounded-lg border border-gray-200 bg-white px-3.5 py-2.5 text-[13.5px] focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100"
                           >
                             <option value="">English (default)</option>
                             {AGENT_LANGUAGES.map((l) => (
-                              <option key={l.code} value={l.code} disabled={tierVoiceIsEnglishOnly(tier)}>{l.label}</option>
+                              <option key={l.code} value={l.code} disabled={!tierVoiceSupportsLanguage(tier, l.code)}>{l.label}</option>
                             ))}
                           </select>
-                          {tierVoiceIsEnglishOnly(tier) && (
+                          {tierVoiceLanguages(tier) && (
                             <p className="mt-1 text-[12px] text-amber-700">
-                              Lite uses an English-only voice. Choose Standard or Pro to run this agent in another language.
+                              Lite speaks {piperLanguageSentence()}. Choose Standard or Pro for other languages.
                             </p>
                           )}
-                          {!tierVoiceIsEnglishOnly(tier) && languageForcesPremiumVoice(language) && (
+                          {!tierVoiceLanguages(tier) && languageForcesPremiumVoice(language) && !(ttsBackend === 'piper' && piperSupportsLanguage(language)) && (
                             <p className="mt-1 text-[12px] text-amber-700">
                               {AGENT_LANGUAGES.find((l) => l.code === language)?.label} uses a premium multilingual voice (ElevenLabs), billed at the ElevenLabs voice rate instead of the default voice rate.
                             </p>

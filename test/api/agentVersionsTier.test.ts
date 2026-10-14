@@ -181,15 +181,101 @@ it('tierOverrides are ignored without a tier', async () => {
   expect(inserted).not.toHaveProperty('tier_overrides');
 });
 
-it('lite cannot publish a non-English language: its voice is English only (400, nothing written)', async () => {
+const LITE = { tier: 'lite', acceptLowerQuality: true };
+
+it.each([
+  ['es', 'custom:es-pilot-f'], ['de', 'custom:de-de-mls-f'], ['fr', 'custom:fr-fr-mls-f'], ['it', 'custom:it-it-serena'], ['pt-BR', 'custom:pt-br-faber'],
+])('lite publishes %s on Piper with the language voice %s, billed as a tier (no voice price sync)', async (language, voice) => {
   process.env.STRIPE_TIER_LITE_PRICE = 'price_test_lite';
-  const res = await post({ tier: 'lite', acceptLowerQuality: true, globalSettings: { language: 'es' } });
+  const res = await post({ ...LITE, globalSettings: { language } });
+  expect(res.status).toBe(201);
+  expect(inserted).toMatchObject({ voice_id: voice, tts_backend: 'piper', tier: 'lite' });
+  expect(ensureTierItemForTenant).toHaveBeenCalled();
+  expect(syncVoicePriceForTenant).not.toHaveBeenCalled();
+});
+
+it('lite with the pt alias normalizes to pt-BR and its voice', async () => {
+  process.env.STRIPE_TIER_LITE_PRICE = 'price_test_lite';
+  for (const alias of ['pt', 'pt-br']) {
+    const res = await post({ ...LITE, globalSettings: { language: alias } });
+    expect(res.status).toBe(201);
+    expect(inserted).toMatchObject({ voice_id: 'custom:pt-br-faber' });
+  }
+});
+
+it.each(['nl', 'hi', 'ja', 'pl', 'ar'])('lite refuses %s (400, nothing written) and tells the caller which languages Lite covers', async (language) => {
+  process.env.STRIPE_TIER_LITE_PRICE = 'price_test_lite';
+  const res = await post({ ...LITE, globalSettings: { language } });
   expect(res.status).toBe(400);
   const body = await res.json();
-  expect(body.code).toBe('language_needs_multilingual_voice');
+  expect(body.code).toBe('language_not_supported_on_tier');
+  expect(body.error).toMatch(/English, German, Spanish, French, Italian and Portuguese/);
   expect(body.error).toMatch(/Standard or Pro/);
   expect(inserted).toBeNull();
   expect(ensureTierItemForTenant).not.toHaveBeenCalled();
+});
+
+it('the refusal keeps the old code for compatibility', async () => {
+  process.env.STRIPE_TIER_LITE_PRICE = 'price_test_lite';
+  const body = await (await post({ ...LITE, globalSettings: { language: 'nl' } })).json();
+  expect(body.code).toBe('language_not_supported_on_tier');
+  expect(body.legacy_code).toBe('language_needs_multilingual_voice');
+});
+
+it('lite in English keeps the English voice exactly as before', async () => {
+  process.env.STRIPE_TIER_LITE_PRICE = 'price_test_lite';
+  for (const gs of [undefined, { language: 'en' }, { language: 'en-US' }]) {
+    const res = await post({ ...LITE, ...(gs ? { globalSettings: gs } : {}) });
+    expect(res.status).toBe(201);
+    expect(inserted).toMatchObject({ voice_id: 'custom:en-us-warm-f', tts_backend: 'piper', tier: 'lite' });
+  }
+});
+
+it('lite keeps a caller voiceId that belongs to the language (the alternate voice)', async () => {
+  process.env.STRIPE_TIER_LITE_PRICE = 'price_test_lite';
+  const res = await post({ ...LITE, voiceId: 'custom:de-de-mls-m', globalSettings: { language: 'de' } });
+  expect(res.status).toBe(201);
+  expect(inserted).toMatchObject({ voice_id: 'custom:de-de-mls-m' });
+});
+
+it('a Piper voiceId from another language is refused with voice_language_mismatch (nothing written)', async () => {
+  process.env.STRIPE_TIER_LITE_PRICE = 'price_test_lite';
+  let res = await post({ ...LITE, voiceId: 'custom:en-us-warm-f', globalSettings: { language: 'es' } });
+  expect(res.status).toBe(400);
+  expect((await res.json()).code).toBe('voice_language_mismatch');
+  expect(inserted).toBeNull();
+  res = await post({ ...LITE, voiceId: 'custom:fr-fr-mls-f', globalSettings: { language: 'de' } });
+  expect(res.status).toBe(400);
+  expect((await res.json()).code).toBe('voice_language_mismatch');
+  res = await post({ ...LITE, voiceId: 'custom:es-pilot-f' });
+  expect(res.status).toBe(400);
+  expect((await res.json()).code).toBe('voice_language_mismatch');
+  expect(inserted).toBeNull();
+});
+
+it('lite stamps the language voice when the caller sent a voiceId that is not a Piper voice', async () => {
+  process.env.STRIPE_TIER_LITE_PRICE = 'price_test_lite';
+  const res = await post({ ...LITE, voiceId: 'some-elevenlabs-id', globalSettings: { language: 'it' } });
+  expect(res.status).toBe(201);
+  expect(inserted).toMatchObject({ voice_id: 'custom:it-it-serena' });
+});
+
+it('lite validates switchableLanguages: every code must be English or Piper-covered', async () => {
+  process.env.STRIPE_TIER_LITE_PRICE = 'price_test_lite';
+  let res = await post({ ...LITE, globalSettings: { allowLanguageSwitching: true, switchableLanguages: ['es', 'de', 'pt', 'en'] } });
+  expect(res.status).toBe(201);
+  res = await post({ ...LITE, globalSettings: { allowLanguageSwitching: true, switchableLanguages: ['es', 'nl'] } });
+  expect(res.status).toBe(400);
+  const body = await res.json();
+  expect(body.code).toBe('language_not_supported_on_tier');
+  expect(body.error).toMatch(/Dutch|nl/);
+  res = await post({ ...LITE, globalSettings: { language: 'es', switchableLanguages: ['xx'] } });
+  expect(res.status).toBe(400);
+});
+
+it('switchableLanguages stay unvalidated on Standard and Pro', async () => {
+  expect((await post({ tier: 'standard', globalSettings: { allowLanguageSwitching: true, switchableLanguages: ['nl', 'ja'] } })).status).toBe(201);
+  expect((await post({ tier: 'pro', globalSettings: { switchableLanguages: ['nl'] } })).status).toBe(201);
 });
 
 it('lite in English still publishes, and standard and pro keep accepting other languages', async () => {
@@ -199,8 +285,44 @@ it('lite in English still publishes, and standard and pro keep accepting other l
   expect((await post({ tier: 'pro', globalSettings: { language: 'de' } })).status).toBe(201);
 });
 
-it('choosing the Piper voice directly with a non-English language is also refused', async () => {
+it('choosing the Piper voice directly: a covered language is allowed with the language voice (legacy path still syncs the voice price)', async () => {
   const res = await post({ ttsBackend: 'piper', globalSettings: { language: 'es' } });
+  expect(res.status).toBe(201);
+  expect(inserted).toMatchObject({ tts_backend: 'piper', voice_id: 'custom:es-pilot-f' });
+  expect(syncVoicePriceForTenant).toHaveBeenCalled();
+});
+
+it('choosing the Piper voice directly with an uncovered language is refused', async () => {
+  const res = await post({ ttsBackend: 'piper', globalSettings: { language: 'nl' } });
   expect(res.status).toBe(400);
-  expect((await res.json()).code).toBe('language_needs_multilingual_voice');
+  const body = await res.json();
+  expect(body.code).toBe('language_not_supported_on_tier');
+  expect(body.legacy_code).toBe('language_needs_multilingual_voice');
+  expect(body.error).toMatch(/English, German, Spanish, French, Italian and Portuguese/);
+  expect(inserted).toBeNull();
+});
+
+it('Piper chosen directly rejects a voiceId from another language, and validates switchableLanguages', async () => {
+  let res = await post({ ttsBackend: 'piper', voiceId: 'custom:de-de-mls-f', globalSettings: { language: 'fr' } });
+  expect(res.status).toBe(400);
+  expect((await res.json()).code).toBe('voice_language_mismatch');
+  res = await post({ ttsBackend: 'piper', globalSettings: { switchableLanguages: ['nl'] } });
+  expect(res.status).toBe(400);
+});
+
+it('without a tier or Piper, non-English still pins elevenlabs exactly as before', async () => {
+  const res = await post({ globalSettings: { language: 'nl' } });
+  expect(res.status).toBe(201);
+  expect(inserted).toMatchObject({ tts_backend: 'elevenlabs' });
+});
+
+it('lite with a voice-backend override still refuses an uncovered language (the plan decides, as before), and keeps covered ones on that backend', async () => {
+  process.env.STRIPE_TIER_LITE_PRICE = 'price_test_lite';
+  const refused = await post({ ...LITE, ttsBackend: 'elevenlabs', ttsModel: 'eleven_flash_v2_5', globalSettings: { language: 'nl' } });
+  expect(refused.status).toBe(400);
+  expect((await refused.json()).code).toBe('language_not_supported_on_tier');
+  const ok = await post({ ...LITE, ttsBackend: 'elevenlabs', ttsModel: 'eleven_flash_v2_5', globalSettings: { language: 'es' } });
+  expect(ok.status).toBe(201);
+  expect(inserted).toMatchObject({ tts_backend: 'elevenlabs' });
+  expect(inserted?.voice_id ?? null).toBeNull();
 });

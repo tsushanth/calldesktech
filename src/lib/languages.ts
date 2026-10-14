@@ -1,3 +1,5 @@
+import { PIPER_LANGUAGE_VOICES } from '@/lib/pricingTiers';
+
 // Agent languages (globalSettings.language). English is the default and needs no setting.
 // The voice engine (call-loop-poc/languages.js) owns the real STT/TTS/prompt behavior; this
 // file is the web-side list: what the builder offers, what the API accepts, and which TTS
@@ -77,9 +79,15 @@ export function normalizeLanguage(input: unknown): string | null {
   return AGENT_LANGUAGES.find((a) => a.code.toLowerCase() === l || a.code.toLowerCase() === l.split('-')[0])?.code ?? null;
 }
 
-/** Non-English languages need a multilingual voice; the default (Kokoro) voice is English-only today. */
+/**
+ * Non-English languages need a multilingual voice (ElevenLabs) unless the agent runs on Piper, which covers PIPER_LANGUAGES.
+ * Only meaningful for the untiered path and UI copy; callers on Lite or Piper must check PIPER_LANGUAGES / tierVoiceSupportsLanguage first.
+ */
 export function languageForcesPremiumVoice(code: string | null | undefined): boolean {
   return !!code && code !== 'en';
 }
+
+/** The non-English languages Piper (Lite's voice) can speak; derived from the voice map in pricingTiers.ts. */
+export const PIPER_LANGUAGES: readonly string[] = Object.keys(PIPER_LANGUAGE_VOICES);
 
 export const LANGUAGE_VALUES = ['en', ...AGENT_LANGUAGES.map((l) => l.code)];

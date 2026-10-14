@@ -78,6 +78,50 @@ export const SCENARIOS = [
 
 const SPANISH_RE = /\b(hola|gracias|ayuda|puedo|puede|cómo|como puedo|buenos|buenas|por favor|qué|usted|cafe|café|con gusto|claro)\b/i;
 
+// Lite speaks English plus these five languages on Piper. These scenarios only make sense on Lite (`liteOnly`: run.mjs skips them unless
+// --tier lite) and cost one call each. They check the language heard and spoken; the voice and backend (no ElevenLabs fallback,
+// tier=lite, tts_backend=piper, voice_id = the language voice) are verified from the engine logs and the call log by hand.
+const wordRe = (words) => new RegExp(`(?<![\\p{L}])(?:${words.join('|')})(?![\\p{L}])`, 'iu');
+const LITE_LANGS = [
+  { id: 'lite-lang-de', code: 'de', shopper: 'de', name: 'German', re: wordRe(['guten tag', 'hallo', 'danke', 'vielen dank', 'bitte', 'wie kann ich', 'ihnen', 'geöffnet', 'uhr', 'auf wiedersehen']),
+    prompt: 'Du bist die Rezeption des Café Sonne. Antworte kurz und höflich.', persona: 'Du rufst bei einem Café an. Du sprichst nur Deutsch. Frage, bis wann sie geöffnet haben, und verabschiede dich.' },
+  { id: 'lite-lang-es', code: 'es', shopper: 'es', name: 'Spanish', re: SPANISH_RE,
+    prompt: 'Eres la recepcionista de Sol Cafe. Responde brevemente.', persona: 'Eres una persona que llama a una cafetería. Hablas solo en español. Pregunta a qué hora cierran y despídete.' },
+  { id: 'lite-lang-fr', code: 'fr', shopper: 'fr', name: 'French', re: wordRe(['bonjour', 'bonsoir', 'merci', "s'il vous pla[iî]t", 'comment puis-je', 'vous', 'nous', 'ouvert', 'heures', 'au revoir']),
+    prompt: 'Vous êtes le réceptionniste du Café Soleil. Répondez brièvement et poliment.', persona: 'Vous appelez un café. Vous ne parlez que français. Demandez jusqu\'à quelle heure ils sont ouverts, puis dites au revoir.' },
+  { id: 'lite-lang-it', code: 'it', shopper: 'it', name: 'Italian', re: wordRe(['buongiorno', 'buonasera', 'grazie', 'prego', 'come posso', 'siamo', 'aperto', 'aperti', 'chiudiamo', 'arrivederci', 'salve']),
+    prompt: 'Sei il receptionist del Caffè Sole. Rispondi brevemente e con cortesia.', persona: 'Stai telefonando a un bar. Parli solo italiano. Chiedi fino a che ora sono aperti e saluta.' },
+  { id: 'lite-lang-pt', code: 'pt-BR', shopper: 'pt', name: 'Portuguese', re: wordRe(['olá', 'ola', 'obrigado', 'obrigada', 'posso', 'ajudar', 'você', 'fechamos', 'abrimos', 'horas', 'tchau', 'por favor']),
+    prompt: 'Você é o recepcionista do Café Sol. Responda de forma breve e educada.', persona: 'Você está ligando para uma cafeteria. Você fala apenas português do Brasil. Pergunte até que horas eles abrem e se despeça.' },
+];
+
+function liteLanguageScenarios() {
+  const spoken = LITE_LANGS.map((l) => ({
+    id: l.id,
+    title: `A Lite agent set to ${l.name} hears and answers a ${l.name}-speaking caller on Piper`,
+    liteOnly: true,
+    version: single(l.prompt, { globalSettings: { language: l.code } }),
+    persona: l.persona,
+    shopperLanguage: l.shopper,
+    assert: (log) => {
+      const t = lines(log).filter((x) => x.speaker === 'agent').map((x) => x.text).join(' ');
+      return l.re.test(t) && lines(log).some((x) => x.speaker === 'caller' && !/^\[/.test(x.text)) ? [] : [`the agent did not hear a ${l.name} caller or did not answer in ${l.name}`];
+    },
+  }));
+  const control = {
+    id: 'lite-lang-en',
+    title: 'Control: a Lite agent in English still answers an English-speaking caller',
+    liteOnly: true,
+    version: single('You are the receptionist for Sun Cafe. Answer briefly and politely.'),
+    persona: 'You are a caller to a cafe. Ask what time they close, then say thanks and goodbye.' + KEEP_IT_SHORT,
+    assert: (log) => {
+      const t = agentText(log);
+      return /\b(the|you|we|help|open|close|hello|hi|thanks|thank)\b/i.test(t) ? [] : ['the agent did not answer in English'];
+    },
+  };
+  return [control, ...spoken];
+}
+
 SCENARIOS.push(
   {
     id: 'silence-checkin',
@@ -113,6 +157,7 @@ SCENARIOS.push(
       return SPANISH_RE.test(t) && lines(log).some((l) => l.speaker === 'caller' && !/^\[/.test(l.text)) ? [] : ['the agent did not hear a Spanish caller or did not answer in Spanish'];
     },
   },
+  ...liteLanguageScenarios(),
   {
     id: 'agent-transfer',
     title: 'Hand the call to another agent continues the call as that agent',

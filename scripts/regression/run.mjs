@@ -36,6 +36,11 @@ const scenarios = pick(wanted);
 const skipped = scenarios.filter((s) => s.skip);
 for (const s of skipped) console.log(`  skipped ${s.id}: ${s.skip}`);
 scenarios.splice(0, scenarios.length, ...scenarios.filter((s) => !s.skip));
+// liteOnly scenarios (the Lite language checks) are only meaningful when every version is published on the Lite tier.
+if (val('tier', '') !== 'lite') {
+  for (const s of scenarios.filter((x) => x.liteOnly)) console.log(`  skipped ${s.id}: runs only with --tier lite`);
+  scenarios.splice(0, scenarios.length, ...scenarios.filter((s) => !s.liteOnly));
+}
 const spend = checkSpend({ wanted: scenarios.length, maxCalls });
 
 console.log(`Scenarios (${scenarios.length}): ${scenarios.map((s) => s.id).join(', ')}`);
