@@ -93,7 +93,8 @@ export async function POST(request: NextRequest) {
 
   const decision = decideDial({
     sipUsername: username,
-    to: dialed,
+    // The reading that passed the batch gate, so the number dialed is the number checked.
+    to: toE164 ?? dialed,
     caller: caller ?? null,
     leadId,
     inBatch,

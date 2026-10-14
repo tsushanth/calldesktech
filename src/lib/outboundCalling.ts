@@ -12,6 +12,9 @@ const BLOCKED_AREA_CODES = new Set(['900']);
 
 export function normalizeNanp(raw: string): string | null {
   const digits = String(raw ?? '').replace(/\D/g, '');
+  // An explicit plus other than +1 is an international number, never a 10-digit US one (a New Zealand landline
+  // +64 3 476 2111 has the same 10 digits as a US number and was being dialed as +1 643 476 2111).
+  if (String(raw ?? '').trim().startsWith('+') && !digits.startsWith('1')) return null;
   let e164: string;
   if (digits.length === 10) e164 = `+1${digits}`;
   else if (digits.length === 11 && digits.startsWith('1')) e164 = `+${digits}`;
