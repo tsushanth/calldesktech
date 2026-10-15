@@ -28,3 +28,18 @@ export function isPocEngine(tenantSettings?: VoiceEngineTenantSettings | null): 
 export function getCallLoopWsUrl(): string {
   return process.env.NEXT_PUBLIC_CALL_LOOP_WS_URL || 'ws://localhost:8090/call';
 }
+
+/** What a visitor sees when their browser refuses to open the call connection (locked-down in-app browsers, extensions or network policies that block wss, very old browsers). */
+export const CANT_START_CALL_MESSAGE = "This browser couldn't start the call. Open this page in Chrome or Safari (not inside another app) and try again.";
+
+/**
+ * Opens the call WebSocket without ever throwing: some browsers throw a SyntaxError ("the provided URL is invalid") for a perfectly good wss URL, or have no
+ * WebSocket at all. Returns null when the socket could not be created, so the page can say so instead of leaving an uncaught error and a silent spinner.
+ */
+export function openCallSocket(url: string, create: (u: string) => WebSocket = (u) => new WebSocket(u)): WebSocket | null {
+  try {
+    return create(url);
+  } catch {
+    return null;
+  }
+}

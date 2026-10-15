@@ -11,7 +11,7 @@ import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { useOnboarding } from '@/context/OnboardingContext';
 import { CAPABILITY_DEMOS } from '@/lib/constants';
-import { getCallLoopWsUrl } from '@/lib/voiceEngine';
+import { getCallLoopWsUrl, openCallSocket, CANT_START_CALL_MESSAGE } from '@/lib/voiceEngine';
 import { api } from '@/lib/api';
 import { track } from '@/components/Analytics';
 import { buildIntroFlow } from '@/lib/introFlow';
@@ -89,6 +89,7 @@ export default function BrowserDemoCall({ intro = false }: { intro?: boolean }) 
 
   const [connected, setConnected] = useState(false);
   const [ended, setEnded] = useState(false);
+  const [cantStart, setCantStart] = useState(false);
   const [log, setLog] = useState<LogLine[]>([]);
   const wsRef = useRef<WebSocket | null>(null);
   const audioCtxRef = useRef<AudioContext | null>(null);
@@ -149,7 +150,15 @@ export default function BrowserDemoCall({ intro = false }: { intro?: boolean }) 
       gestureEvents.forEach((e) => window.addEventListener(e, resumeOnGesture, { passive: true }));
       removeGestureListeners = () => gestureEvents.forEach((e) => window.removeEventListener(e, resumeOnGesture));
 
-      const ws = new WebSocket(getCallLoopWsUrl());
+      const ws = openCallSocket(getCallLoopWsUrl());
+      if (!ws) {
+        // This browser refused to open the connection: say so instead of an uncaught error and a spinner that never ends.
+        track('demo_call_unsupported', { mode: 'browser', variant: intro ? 'intro' : 'demo' });
+        appendLog(CANT_START_CALL_MESSAGE, 'muted');
+        setCantStart(true);
+        setEnded(true);
+        return;
+      }
       ws.binaryType = 'arraybuffer';
       wsRef.current = ws;
 
@@ -253,7 +262,13 @@ export default function BrowserDemoCall({ intro = false }: { intro?: boolean }) 
       };
     }
 
-    start();
+    start().catch(() => {
+      // e.g. no AudioContext in this browser: same friendly message, no uncaught rejection
+      if (cancelled) return;
+      appendLog(CANT_START_CALL_MESSAGE, 'muted');
+      setCantStart(true);
+      setEnded(true);
+    });
 
     return () => {
       cancelled = true;
@@ -301,7 +316,9 @@ export default function BrowserDemoCall({ intro = false }: { intro?: boolean }) 
           <h2 className="text-xl font-semibold text-gray-900 mb-1">{businessName}</h2>
           <p className="text-gray-500 mb-4">
             {ended
-              ? 'Call ended'
+              ? cantStart
+                ? "Couldn't start the call"
+                : 'Call ended'
               : connected
                 ? intro
                   ? 'Talk now — say what kind of business you run'
