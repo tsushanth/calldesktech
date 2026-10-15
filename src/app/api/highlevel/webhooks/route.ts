@@ -18,6 +18,8 @@ export async function POST(req: NextRequest) {
   }
   try {
     const handled = await handleAppWebhook(payload);
+    // Only the event type and what we did with it: no ids, no body. Lets us see which HighLevel events actually arrive (INSTALL, UNINSTALL).
+    console.info('[highlevel] webhook', typeof payload.type === 'string' ? payload.type.slice(0, 40) : 'unknown', handled);
     return NextResponse.json({ ok: true, handled });
   } catch (e) {
     console.error('[highlevel] webhook failed:', e instanceof Error ? e.message : 'error');
