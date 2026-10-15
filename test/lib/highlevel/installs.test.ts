@@ -7,10 +7,10 @@ let rows: Row[] = [];
 let calls: Array<{ op: string; patch?: Row; eq: Record<string, unknown> }> = [];
 
 function table() {
-  const state = { op: 'select', patch: undefined as Row | undefined, eq: {} as Record<string, unknown> };
+  const state = { op: 'select', patch: undefined as Row | undefined, eq: {} as Record<string, unknown>, neq: {} as Record<string, unknown> };
   const run = () => {
     calls.push({ op: state.op, patch: state.patch, eq: { ...state.eq } });
-    const hit = rows.filter((r) => Object.entries(state.eq).every(([k, v]) => r[k] === v));
+    const hit = rows.filter((r) => Object.entries(state.eq).every(([k, v]) => r[k] === v) && Object.entries(state.neq).every(([k, v]) => r[k] !== v));
     if (state.op === 'update') { hit.forEach((r) => Object.assign(r, state.patch)); return hit; }
     return hit;
   };
@@ -19,13 +19,14 @@ function table() {
     upsert: async (row: Row) => { const i = rows.findIndex((r) => r.location_id === row.location_id); if (i >= 0) rows[i] = { ...rows[i], ...row }; else rows.push({ ...row }); return { error: null }; },
     update: (patch: Row) => { state.op = 'update'; state.patch = patch; return b; },
     eq: (k: string, v: unknown) => { state.eq[k] = v; return b; },
+    neq: (k: string, v: unknown) => { state.neq[k] = v; return b; },
     maybeSingle: async () => { const r = run()[0]; return { data: r ? { ...r } : null }; }, // a real database returns a copy
     then: (res: (v: unknown) => unknown) => res({ data: run().map((r) => ({ ...r })), error: null }),
   };
   return b;
 }
 vi.mock('@/lib/supabase', () => ({ getSupabaseAdmin: () => ({ from: () => table() }) }));
-import { saveInstall, getAccessToken, linkTenant } from '@/lib/highlevel/installs';
+import { saveInstall, getAccessToken, linkTenant, markCompanyUninstalled } from '@/lib/highlevel/installs';
 
 const NOW = 1_800_000_000_000;
 beforeEach(() => {
@@ -122,5 +123,20 @@ describe('getAccessToken', () => {
     await saveInstall(tokens, NOW);
     rows[0].status = 'uninstalled';
     await expect(getAccessToken('loc_1', { now: NOW })).rejects.toThrow(/uninstalled/);
+  });
+});
+
+describe('markCompanyUninstalled', () => {
+  it('marks every live install under the agency and returns those sub-accounts, leaving other agencies alone', async () => {
+    await saveInstall({ ...tokens, locationId: 'loc_a', companyId: 'co_1' }, NOW);
+    await saveInstall({ ...tokens, locationId: 'loc_b', companyId: 'co_1' }, NOW);
+    await saveInstall({ ...tokens, locationId: 'loc_c', companyId: 'co_1' }, NOW);
+    await saveInstall({ ...tokens, locationId: 'loc_d', companyId: 'co_2' }, NOW);
+    rows.find((r) => r.location_id === 'loc_c')!.status = 'uninstalled'; // already gone
+    expect((await markCompanyUninstalled('co_1', NOW)).sort()).toEqual(['loc_a', 'loc_b']);
+    expect(rows.map((r) => [r.location_id, r.status])).toEqual([['loc_a', 'uninstalled'], ['loc_b', 'uninstalled'], ['loc_c', 'uninstalled'], ['loc_d', 'active']]);
+  });
+  it('returns nothing for an agency with no installs', async () => {
+    expect(await markCompanyUninstalled('nobody', NOW)).toEqual([]);
   });
 });

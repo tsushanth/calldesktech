@@ -55,3 +55,9 @@ HighLevel stores whatever was typed. The action accepts E.164 (`+14155550123`) a
   ```
 - How it runs: when a workflow starts using the trigger, HighLevel calls the Subscription URL with the trigger's execute URL. Calldesk accepts only `https://services.leadconnectorhq.com/workflows-marketplace/triggers/execute/<this sub-account or its company>/<trigger id>` and creates a flat `call.completed` webhook for the linked workspace pointing at it. Deleting the workflow's trigger, or uninstalling the app, removes it. Delivery uses the same signed, time-limited sending as every Calldesk webhook.
 - Not verified yet (HighLevel does not document it): whether the execute URL needs an authorization header. Test with a real workflow in a sub-account.
+
+## Advanced Settings, Webhooks
+- Webhook URL: `https://calldesk.tech/api/highlevel/webhooks`
+- Events: `INSTALL` and `UNINSTALL`.
+- Calldesk verifies the `X-GHL-Signature` header (Ed25519, HighLevel's published public key) over the raw body and returns 401 otherwise. The retired `X-WH-Signature` header is not accepted.
+- UNINSTALL marks the install uninstalled and removes its trigger webhooks; an agency-level uninstall does this for every sub-account under that agency. INSTALL needs no action (the OAuth callback stores the install).
