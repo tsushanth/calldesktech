@@ -17,6 +17,8 @@ export interface ProposalInput {
   bookingUrl?: string | null;
   /** Partner emails only: show the speech-API cost comparison. Default true. */
   includeSpeechApi?: boolean;
+  /** Show our phone number in the contact line. Default true; pass false to leave it out (email address only). */
+  includePhone?: boolean;
   /** Replace the default intro line and bullets, e.g. a voice-only pitch for a prospect who already has a platform. */
   intro?: string;
   bullets?: string[];
@@ -31,7 +33,7 @@ export interface RenderedProposal { text: string; html: string }
 const FONT = "-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif";
 const DECK_URL = 'https://readaloudai.org/deck';
 const PRICING_URL = 'https://calldesk.tech/pricing';
-const PHONE = '425-628-4887';
+const PHONE = '+1 425-628-4887'; // US number: written with the country code, since prospects are often outside the US
 const REPLY = 'outreach@calldesk.tech';
 
 const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
@@ -59,6 +61,7 @@ export function renderProposal(input: ProposalInput, toEmail: string, postalAddr
   const cta = input.bookingUrl
     ? 'Book a 15-minute demo'
     : 'Reply with two or three times that suit you (and your time zone) and we will send an invite';
+  const contact = input.includePhone === false ? REPLY : `${REPLY} or ${PHONE}`;
   const unsub = unsubscribeUrl(toEmail);
   const sections = (input.sections ?? []).slice(0, 3).map((x) => ({ heading: x.heading.trim(), items: x.items.slice(0, 6).map((i) => i.trim()).filter(Boolean) })).filter((x) => x.heading && x.items.length);
   const offer = input.offer && input.offer.heading.trim() && input.offer.text.trim() ? { heading: input.offer.heading.trim(), text: input.offer.text.trim() } : null;
@@ -84,7 +87,7 @@ export function renderProposal(input: ProposalInput, toEmail: string, postalAddr
     input.bookingUrl ? `Next step: book a 15-minute demo here: ${input.bookingUrl}` : `Next step: ${cta}.`,
     `The deck, if you prefer to read: ${DECK_URL}`,
     '',
-    `You can also reach us at ${REPLY} or ${PHONE}.`, '',
+    `You can also reach us at ${contact}.`, '',
     'Thanks,', 'The Calldesk team', '',
     '--', 'Calldesk (https://calldesk.tech)', postalAddress,
     `You're receiving this because you spoke with our team or asked for details. Not interested? Unsubscribe: ${unsub}`,
@@ -111,7 +114,7 @@ export function renderProposal(input: ProposalInput, toEmail: string, postalAddr
     `<p style="margin:0 0 10px">${esc(hi)}</p><p style="margin:0 0 10px">${esc(input.context.trim())}</p>` +
     `<p style="margin:0 0 6px">${esc(introLine)}</p>` +
     `<ul style="margin:0 0 6px;padding-left:20px">${li}</ul>${extraHtml}${speechHtml}${button}` +
-    `<p style="margin:6px 0 14px;font-size:13px;color:#4b5563">Prefer to read? <a href="${DECK_URL}" style="color:#2563eb">See our short deck</a>${input.kind === 'direct' ? ` or <a href="${PRICING_URL}" style="color:#2563eb">the pricing page</a>` : ''}. You can also reach us at ${REPLY} or ${PHONE}.</p>` +
+    `<p style="margin:6px 0 14px;font-size:13px;color:#4b5563">Prefer to read? <a href="${DECK_URL}" style="color:#2563eb">See our short deck</a>${input.kind === 'direct' ? ` or <a href="${PRICING_URL}" style="color:#2563eb">the pricing page</a>` : ''}. You can also reach us at ${contact}.</p>` +
     `<p style="margin:0">Thanks,<br/>The Calldesk team</p>` +
     `<p style="color:#6b7280;font-size:12px;margin-top:22px">Calldesk (<a href="https://calldesk.tech" style="color:#2563eb">calldesk.tech</a>)<br/>${esc(postalAddress)}<br/>You're receiving this because you spoke with our team or asked for details. Not interested? <a href="${esc(unsub)}">Unsubscribe</a></p></div>`;
   return { text, html };
