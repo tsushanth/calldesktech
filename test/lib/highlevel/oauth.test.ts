@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { exchangeCode, refreshTokens, HighLevelAuthError, HIGHLEVEL_TOKEN_URL } from '@/lib/highlevel/oauth';
+import { exchangeCode, refreshTokens, describeTokens, HighLevelAuthError, HIGHLEVEL_TOKEN_URL } from '@/lib/highlevel/oauth';
 
 const ENV = { HIGHLEVEL_CLIENT_ID: 'cid', HIGHLEVEL_CLIENT_SECRET: 'csecret', HIGHLEVEL_REDIRECT_URI: 'https://calldesk.tech/api/highlevel/oauth/callback' };
 const ok = (body: unknown, status = 200) => vi.fn(async () => new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } })) as unknown as typeof fetch;
@@ -42,5 +42,14 @@ describe('refreshTokens', () => {
     const sent = new URLSearchParams(String(((f as unknown as ReturnType<typeof vi.fn>).mock.calls[0] as [string, RequestInit])[1].body));
     expect(sent.get('grant_type')).toBe('refresh_token');
     expect(sent.get('refresh_token')).toBe('rt');
+  });
+});
+
+describe('describeTokens', () => {
+  it('reports the shape of a response and never a token', () => {
+    const d = describeTokens({ access_token: 'SECRET-AT', refresh_token: 'SECRET-RT', expires_in: 86399, userType: 'Company', companyId: 'co_1', isBulkInstallation: true, approvedLocations: ['a', 'b'], scope: 'contacts.readonly contacts.write' });
+    expect(d).toMatchObject({ userType: 'Company', hasCompanyId: true, hasLocationId: false, isBulkInstallation: true, approvedLocationCount: 2, scope: 'contacts.readonly contacts.write' });
+    expect(d.fields).toContain('access_token');
+    expect(JSON.stringify(d)).not.toContain('SECRET');
   });
 });

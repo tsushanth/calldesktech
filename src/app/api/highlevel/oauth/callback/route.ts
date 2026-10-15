@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { signLinkToken } from '@/lib/highlevel/crypto';
 import { saveInstall } from '@/lib/highlevel/installs';
-import { exchangeCode, HighLevelAuthError } from '@/lib/highlevel/oauth';
+import { describeTokens, exchangeCode, HighLevelAuthError } from '@/lib/highlevel/oauth';
 
 // HighLevel sends the browser here after an agency or sub-account admin approves the Calldesk app.
 // We exchange the code, store the install, and send the browser on to the page where a Calldesk owner links a workspace.
@@ -28,6 +28,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.redirect(pageUrl({ error: 'install_failed' }), 303);
   }
   const saved = await saveInstall(tokens);
+  if (!saved.ok) console.warn('[highlevel] install not stored:', saved.error, JSON.stringify(describeTokens(tokens as never)));
   if (!saved.ok) return NextResponse.redirect(pageUrl({ error: tokens.locationId ? 'install_failed' : 'no_location' }), 303);
   return NextResponse.redirect(pageUrl({ token: signLinkToken(saved.locationId) }), 303);
 }

@@ -15,6 +15,22 @@ export interface HighLevelTokens {
   locationId?: string;
   userId?: string;
   scope?: string;
+  isBulkInstallation?: boolean;
+  approvedLocations?: string[];
+}
+
+/** The parts of a token response that are safe to log: which fields came back, who installed, and what was granted. Never a token. */
+export function describeTokens(t: Partial<HighLevelTokens> & Record<string, unknown>): Record<string, unknown> {
+  return {
+    fields: Object.keys(t).sort(),
+    userType: t.userType ?? null,
+    hasCompanyId: Boolean(t.companyId),
+    hasLocationId: Boolean(t.locationId),
+    isBulkInstallation: t.isBulkInstallation ?? null,
+    approvedLocationCount: Array.isArray(t.approvedLocations) ? t.approvedLocations.length : null,
+    scope: typeof t.scope === 'string' ? t.scope : null,
+    expiresIn: t.expires_in ?? null,
+  };
 }
 
 /** A failed token call. `message` is safe to log: it never contains the client secret, code or tokens. */
