@@ -21,6 +21,13 @@ describe('POST /api/highlevel/webhooks', () => {
     expect(verify).toHaveBeenCalledWith(BODY, 'sig');
     expect(handle).toHaveBeenCalledWith({ type: 'UNINSTALL', locationId: 'loc_1' });
   });
+  it('logs the event type and the outcome, and nothing from the body', async () => {
+    const info = vi.spyOn(console, 'info').mockImplementation(() => {});
+    await post(JSON.stringify({ type: 'UNINSTALL', locationId: 'loc_SECRET_ID', userId: 'u_1' }));
+    expect(info).toHaveBeenCalledWith('[highlevel] webhook', 'UNINSTALL', 'uninstalled_location');
+    expect(JSON.stringify(info.mock.calls)).not.toContain('loc_SECRET_ID');
+    info.mockRestore();
+  });
   it('401 and nothing handled when the signature is wrong or missing', async () => {
     verify.mockReturnValue(false);
     expect((await post(BODY)).status).toBe(401);
