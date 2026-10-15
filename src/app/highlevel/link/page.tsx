@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { getSupabaseAdmin } from '@/lib/supabase';
 import { verifyLinkToken } from '@/lib/highlevel/crypto';
+import { installUrl } from '@/lib/highlevel/oauth';
 
 export const dynamic = 'force-dynamic';
 export const metadata = { title: 'Connect HighLevel | CallDeskTech' };
@@ -12,7 +13,7 @@ type SP = Record<string, string | undefined>;
 const MESSAGES: Record<string, string> = {
   denied: 'The install was cancelled in HighLevel. Nothing was connected.',
   install_failed: 'We could not finish the install with HighLevel. Please try installing the app again.',
-  no_location: 'Install the app from a HighLevel sub-account, not from the agency view. Agency-level installs are not supported yet.',
+  no_location: 'The app was installed for your whole agency, but Calldesk connects one HighLevel sub-account at a time. Choose the specific sub-account to connect.',
 };
 
 function Shell({ title, children }: { title: string; children: React.ReactNode }) {
@@ -27,7 +28,20 @@ function Shell({ title, children }: { title: string; children: React.ReactNode }
 export default async function HighLevelLinkPage({ searchParams }: { searchParams: Promise<SP> }) {
   const sp = await searchParams;
   if (sp.done) return <Shell title="HighLevel is connected"><p className="mt-3 text-gray-600">Your HighLevel sub-account is linked to your Calldesk workspace. You can close this tab and return to HighLevel.</p></Shell>;
-  if (sp.error) return <Shell title="We could not connect HighLevel"><p className="mt-3 text-gray-600">{MESSAGES[sp.error] ?? MESSAGES.install_failed}</p></Shell>;
+  if (sp.error) {
+    const again = sp.error === 'no_location' ? installUrl() : null;
+    return (
+      <Shell title="We could not connect HighLevel">
+        <p className="mt-3 text-gray-600">{MESSAGES[sp.error] ?? MESSAGES.install_failed}</p>
+        {again && (
+          <>
+            <p className="mt-3 text-gray-600">On the next screen, pick one sub-account instead of the whole agency.</p>
+            <a href={again} className="mt-6 inline-block rounded-md bg-[#00122e] px-5 py-2.5 text-[14px] font-medium text-white hover:bg-[#0a2450]">Choose a sub-account</a>
+          </>
+        )}
+      </Shell>
+    );
+  }
   if (!sp.token || !verifyLinkToken(sp.token)) return <Shell title="This link has expired"><p className="mt-3 text-gray-600">Install the Calldesk app again from HighLevel to get a new link.</p></Shell>;
 
   const session = await getServerSession(authOptions);

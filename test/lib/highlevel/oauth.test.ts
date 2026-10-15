@@ -53,3 +53,26 @@ describe('describeTokens', () => {
     expect(JSON.stringify(d)).not.toContain('SECRET');
   });
 });
+
+import { installUrl } from '@/lib/highlevel/oauth';
+
+describe('installUrl', () => {
+  const E = { HIGHLEVEL_CLIENT_ID: '6ad125dffee3063416b87588-mv9xcrh1', HIGHLEVEL_REDIRECT_URI: 'https://calldesk.tech/api/highlevel/oauth/callback' };
+  it('is HighLevel\'s choose-location page with our client, redirect URL and scopes', () => {
+    const u = new URL(installUrl(E)!);
+    expect(u.origin + u.pathname).toBe('https://marketplace.gohighlevel.com/oauth/chooselocation');
+    expect(u.searchParams.get('response_type')).toBe('code');
+    expect(u.searchParams.get('client_id')).toBe(E.HIGHLEVEL_CLIENT_ID);
+    expect(u.searchParams.get('redirect_uri')).toBe(E.HIGHLEVEL_REDIRECT_URI);
+    expect(u.searchParams.get('scope')).toBe('contacts.readonly contacts.write workflows.readonly');
+    expect(installUrl(E)).toContain('scope=contacts.readonly%20contacts.write%20workflows.readonly');
+  });
+  it('adds the draft version id until the app is published', () => {
+    expect(new URL(installUrl(E)!).searchParams.get('version_id')).toBe('6ad125dffee3063416b87588');
+    expect(new URL(installUrl({ ...E, HIGHLEVEL_APP_PUBLISHED: 'true' })!).searchParams.has('version_id')).toBe(false);
+  });
+  it('is null when the app is not configured', () => {
+    expect(installUrl({})).toBeNull();
+    expect(installUrl({ HIGHLEVEL_CLIENT_ID: 'x' })).toBeNull();
+  });
+});

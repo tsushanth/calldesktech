@@ -74,3 +74,18 @@ export function exchangeCode(code: string, env: Env = process.env, fetchImpl: ty
 export function refreshTokens(refreshToken: string, env: Env = process.env, fetchImpl: typeof fetch = fetch): Promise<HighLevelTokens> {
   return tokenRequest({ grant_type: 'refresh_token', refresh_token: refreshToken }, env, fetchImpl);
 }
+
+export const HIGHLEVEL_SCOPES = ['contacts.readonly', 'contacts.write', 'workflows.readonly'] as const;
+
+/**
+ * The link an agency admin opens to install the app: HighLevel's "choose a location" page, which returns to our redirect URL with a code.
+ * version_id (the app id, the part of the client id before the dash) is only needed while the app is a draft or private test version;
+ * set HIGHLEVEL_APP_PUBLISHED=true once it is public to leave it out. Null when the app is not configured.
+ */
+export function installUrl(env: Env = process.env): string | null {
+  const clientId = env.HIGHLEVEL_CLIENT_ID, redirectUri = env.HIGHLEVEL_REDIRECT_URI;
+  if (!clientId || !redirectUri) return null;
+  const q = new URLSearchParams({ response_type: 'code', redirect_uri: redirectUri, client_id: clientId, scope: HIGHLEVEL_SCOPES.join(' ') });
+  if (env.HIGHLEVEL_APP_PUBLISHED !== 'true') q.set('version_id', clientId.split('-')[0]);
+  return `https://marketplace.gohighlevel.com/oauth/chooselocation?${q.toString().replace(/\+/g, '%20')}`;
+}
