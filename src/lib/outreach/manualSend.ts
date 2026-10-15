@@ -90,6 +90,7 @@ export async function sendManualReply(
     if ((p.intro !== undefined && (typeof p.intro !== 'string' || p.intro.length > 200)) || (p.bullets !== undefined && (!Array.isArray(p.bullets) || p.bullets.length > 5 || p.bullets.some((b) => typeof b !== 'string' || b.length > 400)))) return { ok: false, error: 'proposal.intro: 200 characters at most; proposal.bullets: at most 5 items of 400 characters' };
     if (p.sections !== undefined && (!Array.isArray(p.sections) || p.sections.length > 3 || p.sections.some((x) => !x || typeof x.heading !== 'string' || x.heading.length > 80 || !Array.isArray(x.items) || x.items.length > 6 || x.items.some((i) => typeof i !== 'string' || i.length > 400)))) return { ok: false, error: 'proposal.sections: at most 3 sections, 6 items each, items 400 characters at most' };
     if (p.offer !== undefined && (typeof p.offer?.heading !== 'string' || typeof p.offer?.text !== 'string' || p.offer.heading.length > 60 || p.offer.text.length > 400)) return { ok: false, error: 'proposal.offer: heading 60 and text 400 characters at most' };
+    if (p.includePhone !== undefined && typeof p.includePhone !== 'boolean') return { ok: false, error: 'proposal.includePhone must be true or false' };
     if (p.bookingUrl && !/^https:\/\/[^\s"<>]+$/.test(p.bookingUrl)) return { ok: false, error: 'proposal.bookingUrl must be an https URL' };
     const postal = env.OUTREACH_POSTAL_ADDRESS;
     if (!postal) return { ok: false, error: 'OUTREACH_POSTAL_ADDRESS is not configured' };

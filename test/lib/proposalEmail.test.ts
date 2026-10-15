@@ -83,6 +83,22 @@ describe('sendManualReply with a proposal', () => {
     expect((await sendManualReply(db, { to: 'a@b.com', subject: 's', proposal: base }, { env: { ...ENV, OUTREACH_POSTAL_ADDRESS: '' }, send })).ok).toBe(false);
     expect((await sendManualReply(db, { to: 'a@b.com', subject: 's', brand: 'readaloud', proposal: base }, { env: ENV, send })).ok).toBe(false);
     expect((await sendManualReply(db, { to: 'a@b.com', subject: 's', proposal: { ...base, bookingUrl: 'javascript:alert(1)' } }, { env: ENV, send })).ok).toBe(false);
+    expect((await sendManualReply(db, { to: 'a@b.com', subject: 's', proposal: { ...base, includePhone: 'no' as unknown as boolean } }, { env: ENV, send })).ok).toBe(false);
     expect(send).not.toHaveBeenCalled();
+  });
+});
+
+describe('contact line', () => {
+  it('writes our US phone number with the country code by default', () => {
+    const r = renderProposal(base, 'a@b.com', ADDR);
+    expect(r.text).toContain('outreach@calldesk.tech or +1 425-628-4887.');
+    expect(r.html).toContain('outreach@calldesk.tech or +1 425-628-4887.');
+  });
+  it('includePhone: false leaves the phone number out of both versions', () => {
+    const r = renderProposal({ ...base, includePhone: false }, 'a@b.com', ADDR);
+    expect(r.text).toContain('You can also reach us at outreach@calldesk.tech.');
+    expect(r.html).toContain('You can also reach us at outreach@calldesk.tech.');
+    expect(r.text).not.toContain('425');
+    expect(r.html).not.toContain('425');
   });
 });
