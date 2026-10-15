@@ -6,6 +6,8 @@ import { HighLevelAuthError } from '@/lib/highlevel/oauth';
 const exchangeCode = vi.fn();
 const saveInstall = vi.fn();
 const linkTenant = vi.fn();
+const moveSubscriptionsToTenant = vi.fn();
+vi.mock('@/lib/highlevel/triggers', () => ({ moveSubscriptionsToTenant: (...a: unknown[]) => moveSubscriptionsToTenant(...a) }));
 vi.mock('@/lib/highlevel/oauth', async (orig) => ({ ...(await orig<typeof import('@/lib/highlevel/oauth')>()), exchangeCode: (...a: unknown[]) => exchangeCode(...a) }));
 vi.mock('@/lib/highlevel/installs', () => ({ saveInstall: (...a: unknown[]) => saveInstall(...a), linkTenant: (...a: unknown[]) => linkTenant(...a) }));
 
@@ -32,7 +34,7 @@ import { GET as callback } from '@/app/api/highlevel/oauth/callback/route';
 import { POST as link } from '@/app/api/highlevel/link/route';
 
 beforeEach(() => {
-  vi.clearAllMocks(); session = null; tenantLookup = null; tenantQueries.length = 0;
+  vi.clearAllMocks(); moveSubscriptionsToTenant.mockResolvedValue(undefined); session = null; tenantLookup = null; tenantQueries.length = 0;
   vi.stubEnv('HIGHLEVEL_TOKEN_KEY', Buffer.alloc(32, 5).toString('base64'));
   vi.stubEnv('HIGHLEVEL_LINK_SECRET', 'a-long-test-secret-value');
   vi.stubEnv('HIGHLEVEL_REDIRECT_URI', 'https://calldesk.tech/api/highlevel/oauth/callback');
@@ -85,6 +87,7 @@ describe('POST /api/highlevel/link', () => {
   it('requires a signed-in user', async () => {
     expect((await post({ token: signLinkToken('loc_1'), tenant_id: 't1' })).status).toBe(401);
     expect(linkTenant).not.toHaveBeenCalled();
+    expect(moveSubscriptionsToTenant).not.toHaveBeenCalled();
   });
   it('rejects a missing, tampered or expired token', async () => {
     session = { user: { id: 'u1' } };
@@ -109,6 +112,7 @@ describe('POST /api/highlevel/link', () => {
     const r = await post({ token: signLinkToken('loc_1'), tenant_id: 't1' });
     expect(r.status).toBe(303);
     expect(linkTenant).toHaveBeenCalledWith('loc_1', 't1');
+    expect(moveSubscriptionsToTenant).toHaveBeenCalledWith('loc_1', 't1');
     expect(loc(r).pathname).toBe('/highlevel/link');
     expect(loc(r).searchParams.get('done')).toBe('1');
   });
