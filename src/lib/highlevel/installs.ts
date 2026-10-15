@@ -66,6 +66,17 @@ export async function markStatus(locationId: string, status: 'needs_reauth' | 'u
     .eq('location_id', locationId);
 }
 
+/** Mark every install under an agency (company) as uninstalled. Returns the sub-accounts that were active, so their trigger webhooks can be removed. */
+export async function markCompanyUninstalled(companyId: string, now: number = Date.now()): Promise<string[]> {
+  const db = getSupabaseAdmin();
+  const { data } = await db.from(TABLE).select('location_id').eq('company_id', companyId).neq('status', 'uninstalled');
+  const locations = ((data ?? []) as Array<{ location_id: string }>).map((r) => r.location_id);
+  if (locations.length) {
+    await db.from(TABLE).update({ status: 'uninstalled', uninstalled_at: new Date(now).toISOString(), updated_at: new Date(now).toISOString() }).eq('company_id', companyId).neq('status', 'uninstalled');
+  }
+  return locations;
+}
+
 /**
  * A valid access token for a location, refreshing it when it is within five minutes of expiry.
  * The refresh token rotates on every use, so the update is guarded by the old refresh token: if another request
