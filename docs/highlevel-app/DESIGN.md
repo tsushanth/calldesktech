@@ -2,6 +2,18 @@
 
 Status: draft, 2026-10-15. Replaces the webhook recipe (docs/highlevel, "Tier 0") as the main way HighLevel agencies use Calldesk. The recipe stays as the no-install fallback.
 
+## Status (2026-10-15)
+| Piece | State |
+|---|---|
+| Install, workspace link, token storage and refresh (PR #41, #42, #46) | Live. Proven with a real install into a sub-account. |
+| Workflow action "Place a Calldesk call" (PR #43) | Live. Static fields only: HighLevel's Dynamic field response shape is not documented, so there is no dropdown of numbers. Define it in the portal with PORTAL_SETUP.md. |
+| Workflow trigger "Calldesk call completed" (PR #44) | Live. Reuses the signed webhook delivery. Filters are ignored. Needs a real workflow test (the execute URL's auth is undocumented). |
+| Signed webhook receiver and uninstall (PR #45) | Live. Ed25519 with HighLevel's published key. UNINSTALL payload field names to be confirmed with a real uninstall. |
+| Agency-level (bulk) installs | Not built. An agency-view install now shows a "Choose a sub-account" button. Needs a real agency token response (logged by the diagnostic) and extra scopes. |
+| Public listing, assets, review | Not started. Private apps are limited to 5 external agencies. |
+
+Billing: own billing (Calldesk workspace and Stripe). Nothing is billed through HighLevel.
+
 ## Why an app
 The recipe needs an agency to paste two workflows and an API key. An app is: install from the Marketplace, link a Calldesk workspace once, then "Place a Calldesk call" shows up as a normal workflow action and "Calldesk call completed" as a normal trigger. Agencies can also resell it to their sub-accounts.
 
