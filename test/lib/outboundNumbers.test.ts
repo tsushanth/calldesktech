@@ -47,12 +47,13 @@ describe('pickPoolNumber', () => {
 });
 
 describe('startOfEasternDay', () => {
-  it('is 04:00 UTC during daylight time and 05:00 UTC in winter', () => {
-    expect(startOfEasternDay(new Date('2026-10-05T18:00:00Z')).toISOString()).toBe('2026-10-05T04:00:00.000Z');
-    expect(startOfEasternDay(new Date('2026-12-15T18:00:00Z')).toISOString()).toBe('2026-12-15T05:00:00.000Z');
+  it('is 10:00 UTC during daylight time and 11:00 UTC in winter (6:00 AM Eastern)', () => {
+    expect(startOfEasternDay(new Date('2026-10-05T18:00:00Z')).toISOString()).toBe('2026-10-05T10:00:00.000Z');
+    expect(startOfEasternDay(new Date('2026-12-15T18:00:00Z')).toISOString()).toBe('2026-12-15T11:00:00.000Z');
   });
-  it('belongs to the Eastern date, not the UTC date', () => {
-    // 02:00 UTC on Oct 6 is still the evening of Oct 5 in New York
-    expect(startOfEasternDay(new Date('2026-10-06T02:00:00Z')).toISOString()).toBe('2026-10-05T04:00:00.000Z');
+  it('the hours before 6:00 AM Eastern belong to the previous day', () => {
+    // 02:00 UTC on Oct 6 is 10 PM on Oct 5 in New York; 08:00 UTC is 4 AM, still Oct 5's batch day
+    expect(startOfEasternDay(new Date('2026-10-06T02:00:00Z')).toISOString()).toBe('2026-10-05T10:00:00.000Z');
+    expect(startOfEasternDay(new Date('2026-10-06T08:00:00Z')).toISOString()).toBe('2026-10-05T10:00:00.000Z');
   });
 });

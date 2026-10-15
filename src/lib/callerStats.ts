@@ -1,3 +1,4 @@
+import { batchDateEastern } from '@/lib/callingHours';
 import { OUTCOMES_ASKING_DECISION_MAKER, WIN_OUTCOMES, decisionMakerOf } from '@/lib/callerPortal';
 
 // Supervisor statistics for the cold-calling line: per day, per segment (what kind of company was called) and per hour of the
@@ -39,10 +40,7 @@ function empty(label: string): Stat {
   return { label, numbers: 0, dials: 0, connected: 0, voicemail: 0, no_answer: 0, gatekeeper: 0, not_interested: 0, wrong_number: 0, people_reached: 0, decision_maker: 0, wins: 0, avg_talk_seconds: 0, logged: 0 };
 }
 
-const easternDate = (iso: string) => {
-  const p = Object.fromEntries(new Intl.DateTimeFormat('en-US', { timeZone: 'America/New_York', year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(new Date(iso)).map((x) => [x.type, x.value]));
-  return `${p.year}-${p.month}-${p.day}`;
-};
+const easternDate = (iso: string) => batchDateEastern(new Date(iso));
 const easternHour = (iso: string) => Number(new Intl.DateTimeFormat('en-US', { timeZone: 'America/New_York', hour: '2-digit', hourCycle: 'h23' }).format(new Date(iso)));
 
 /** Adds one batch row's outcome to a stat. */

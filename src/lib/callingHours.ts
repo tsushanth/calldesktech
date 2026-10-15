@@ -83,26 +83,37 @@ export function localTimeLabel(state: string | null | undefined, now: Date = new
   return new Intl.DateTimeFormat('en-US', { timeZone: zone, hour: 'numeric', minute: '2-digit' }).format(now);
 }
 
-// The batch date a call belongs to: the calendar date in US Eastern (callers work Eastern business hours,
-// so one batch is one Eastern day), as YYYY-MM-DD.
-export function batchDateEastern(now: Date = new Date()): string {
+// A batch day starts at 6:00 AM US Eastern (3:00 AM Pacific), not at midnight. Callers on Manila hours work 5 to 11 PM
+// Pacific, which is 8 PM to 2 AM Eastern, so a midnight Eastern rollover swapped their list in the middle of a shift.
+// Nobody works between 3 and 6 AM Pacific, so one shift now stays on one list from start to finish.
+export const BATCH_DAY_START_HOUR_ET = 6;
+
+function easternParts(now: Date): { y: number; m: number; d: number; hour: number } {
   const p = Object.fromEntries(
-    new Intl.DateTimeFormat('en-US', { timeZone: 'America/New_York', year: 'numeric', month: '2-digit', day: '2-digit' })
+    new Intl.DateTimeFormat('en-US', { timeZone: 'America/New_York', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', hourCycle: 'h23' })
       .formatToParts(now)
       .map((x) => [x.type, x.value]),
   );
-  return `${p.year}-${p.month}-${p.day}`;
+  return { y: Number(p.year), m: Number(p.month), d: Number(p.day), hour: Number(p.hour) };
 }
 
-// The instant a US Eastern calendar day began (00:00 Eastern), as a Date, for "dials today" counts. Eastern
-// switches between UTC-5 and UTC-4, so the offset is read from Intl for that exact day, not hard-coded.
+// The batch date a call belongs to, as YYYY-MM-DD: the Eastern calendar date, except that the hours before 6:00 AM
+// Eastern still belong to the previous day. Read from the Eastern wall clock, so the March and November clock changes
+// cannot move it by an hour.
+export function batchDateEastern(now: Date = new Date()): string {
+  const { y, m, d, hour } = easternParts(now);
+  const day = new Date(Date.UTC(y, m - 1, d - (hour < BATCH_DAY_START_HOUR_ET ? 1 : 0)));
+  return day.toISOString().slice(0, 10);
+}
+
+// The instant the current batch day began (6:00 AM Eastern), as a Date, for "dials today" counts. Eastern switches
+// between UTC-5 and UTC-4, so both are tried and the one that is 6:00 AM in New York on that day is kept.
 export function startOfEasternDay(now: Date = new Date()): Date {
   const [y, m, d] = batchDateEastern(now).split('-').map(Number);
-  // Midnight Eastern is 04:00 or 05:00 UTC: try both and keep the one that is midnight in New York.
-  for (const hour of [4, 5]) {
-    const t = new Date(Date.UTC(y, m - 1, d, hour, 0, 0));
-    const hh = new Intl.DateTimeFormat('en-US', { timeZone: 'America/New_York', hour: '2-digit', hourCycle: 'h23' }).format(t);
-    if (Number(hh) === 0 && batchDateEastern(t) === batchDateEastern(now)) return t;
+  for (const utcHour of [BATCH_DAY_START_HOUR_ET + 4, BATCH_DAY_START_HOUR_ET + 5]) {
+    const t = new Date(Date.UTC(y, m - 1, d, utcHour, 0, 0));
+    const e = easternParts(t);
+    if (e.hour === BATCH_DAY_START_HOUR_ET && e.y === y && e.m === m && e.d === d) return t;
   }
-  return new Date(Date.UTC(y, m - 1, d, 5, 0, 0));
+  return new Date(Date.UTC(y, m - 1, d, BATCH_DAY_START_HOUR_ET + 5, 0, 0));
 }
