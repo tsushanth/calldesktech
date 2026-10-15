@@ -28,3 +28,30 @@ Values for the Calldesk Marketplace app. Secrets are never written here; they li
 
 ## Phone numbers
 HighLevel stores whatever was typed. The action accepts E.164 (`+14155550123`) and US shapes (`(415) 555-0123`). A number with no `+` that is not a valid US number (for example an Australian `0412 345 678`) is refused with a clear error instead of being guessed.
+
+## Modules, Workflow Triggers: "Calldesk call completed"
+- Name: Calldesk call completed. Key: `call_completed` (immutable). Short description: Starts a workflow when a Calldesk call ends.
+- Subscription URL: `https://calldesk.tech/api/highlevel/triggers/subscription?k=<HIGHLEVEL_APP_SECRET>` (the secret goes in the URL because HighLevel may not send custom headers to this URL; if the portal offers a header field, `x-calldesk-secret` works too).
+- Filters: none. Calldesk sends every completed call for the linked workspace; filter inside the workflow with an If/Else on `outcome`, `direction` or `agent_name`.
+- Sample payload (defines the variables available in the workflow):
+  ```json
+  {
+    "event": "call.completed",
+    "created_at": "2026-10-09T18:01:00.000Z",
+    "call_id": "CA0123456789abcdef",
+    "phone": "+14155550123",
+    "name": "Dana Lee",
+    "email": "dana@example.com",
+    "summary": "Dana asked to move her appointment to Friday at 3pm. Confirmed.",
+    "outcome": "answered",
+    "duration_seconds": 42,
+    "direction": "outbound",
+    "transcript_url": "https://calldesk.tech/dashboard/calls/<call-log-id>",
+    "started_at": "2026-10-09T18:00:00.000Z",
+    "ended_at": "2026-10-09T18:00:42.000Z",
+    "agent_name": "Reminder agent",
+    "var_first_name": "Dana"
+  }
+  ```
+- How it runs: when a workflow starts using the trigger, HighLevel calls the Subscription URL with the trigger's execute URL. Calldesk accepts only `https://services.leadconnectorhq.com/workflows-marketplace/triggers/execute/<this sub-account or its company>/<trigger id>` and creates a flat `call.completed` webhook for the linked workspace pointing at it. Deleting the workflow's trigger, or uninstalling the app, removes it. Delivery uses the same signed, time-limited sending as every Calldesk webhook.
+- Not verified yet (HighLevel does not document it): whether the execute URL needs an authorization header. Test with a real workflow in a sub-account.
