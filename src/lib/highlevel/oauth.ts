@@ -75,7 +75,56 @@ export function refreshTokens(refreshToken: string, env: Env = process.env, fetc
   return tokenRequest({ grant_type: 'refresh_token', refresh_token: refreshToken }, env, fetchImpl);
 }
 
-export const HIGHLEVEL_SCOPES = ['contacts.readonly', 'contacts.write', 'workflows.readonly'] as const;
+// oauth.readonly and oauth.write are for agency installs: HighLevel hands the app one agency-wide token, and these let it list the
+// sub-accounts that were approved and turn the agency token into a token for each one.
+export const HIGHLEVEL_SCOPES = ['contacts.readonly', 'contacts.write', 'workflows.readonly', 'oauth.readonly', 'oauth.write'] as const;
+
+const API = 'https://services.leadconnectorhq.com';
+const API_VERSION = '2021-07-28';
+const MAX_LOCATIONS = 25;
+
+export interface InstalledLocation { id: string; name: string }
+
+async function agencyCall(path: string, companyToken: string, init: RequestInit, fetchImpl: typeof fetch): Promise<Record<string, unknown>> {
+  const res = await fetchImpl(`${API}${path}`, {
+    ...init,
+    headers: { Authorization: `Bearer ${companyToken}`, Version: API_VERSION, Accept: 'application/json', ...(init.headers as Record<string, string> | undefined) },
+  });
+  let json: Record<string, unknown> = {};
+  try { json = (await res.json()) as Record<string, unknown>; } catch { /* non-JSON error body */ }
+  if (!res.ok) {
+    const why = typeof json.message === 'string' ? json.message : typeof json.error === 'string' ? json.error : 'request failed';
+    throw new HighLevelAuthError(res.status, `HighLevel agency request failed (${res.status}): ${why.slice(0, 160)}`);
+  }
+  return json;
+}
+
+/** The sub-accounts an agency approved the app for, at most 25. Needs the oauth.readonly scope. */
+export async function listInstalledLocations(companyToken: string, companyId: string, env: Env = process.env, fetchImpl: typeof fetch = fetch): Promise<InstalledLocation[]> {
+  const appId = (env.HIGHLEVEL_CLIENT_ID ?? '').split('-')[0];
+  if (!appId) throw new Error('HIGHLEVEL_CLIENT_ID must be set');
+  const q = new URLSearchParams({ companyId, appId, isInstalled: 'true', limit: String(MAX_LOCATIONS) });
+  const json = await agencyCall(`/oauth/installedLocations?${q.toString()}`, companyToken, { method: 'GET' }, fetchImpl);
+  const raw = Array.isArray(json.locations) ? json.locations : [];
+  return raw
+    .map((l) => l as Record<string, unknown>)
+    .filter((l) => typeof l._id === 'string' && l._id)
+    .slice(0, MAX_LOCATIONS)
+    .map((l) => ({ id: l._id as string, name: typeof l.name === 'string' && l.name ? l.name : 'Unnamed sub-account' }));
+}
+
+/** A token for one sub-account, minted from the agency token. Needs the oauth.write scope. */
+export async function locationTokenFor(companyToken: string, companyId: string, locationId: string, fetchImpl: typeof fetch = fetch): Promise<HighLevelTokens> {
+  const json = await agencyCall('/oauth/locationToken', companyToken, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({ companyId, locationId }).toString(),
+  }, fetchImpl);
+  if (typeof json.access_token !== 'string' || typeof json.refresh_token !== 'string' || typeof json.expires_in !== 'number') {
+    throw new HighLevelAuthError(502, 'HighLevel location token response was missing access_token, refresh_token or expires_in');
+  }
+  return { ...(json as unknown as HighLevelTokens), locationId: typeof json.locationId === 'string' && json.locationId ? json.locationId : locationId, companyId };
+}
 
 /**
  * The link an agency admin opens to install the app: HighLevel's "choose a location" page, which returns to our redirect URL with a code.

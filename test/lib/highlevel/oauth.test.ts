@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { exchangeCode, refreshTokens, describeTokens, HighLevelAuthError, HIGHLEVEL_TOKEN_URL } from '@/lib/highlevel/oauth';
+import { exchangeCode, refreshTokens, describeTokens, HighLevelAuthError, HIGHLEVEL_TOKEN_URL, listInstalledLocations, locationTokenFor } from '@/lib/highlevel/oauth';
 
 const ENV = { HIGHLEVEL_CLIENT_ID: 'cid', HIGHLEVEL_CLIENT_SECRET: 'csecret', HIGHLEVEL_REDIRECT_URI: 'https://calldesk.tech/api/highlevel/oauth/callback' };
 const ok = (body: unknown, status = 200) => vi.fn(async () => new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } })) as unknown as typeof fetch;
@@ -64,8 +64,8 @@ describe('installUrl', () => {
     expect(u.searchParams.get('response_type')).toBe('code');
     expect(u.searchParams.get('client_id')).toBe(E.HIGHLEVEL_CLIENT_ID);
     expect(u.searchParams.get('redirect_uri')).toBe(E.HIGHLEVEL_REDIRECT_URI);
-    expect(u.searchParams.get('scope')).toBe('contacts.readonly contacts.write workflows.readonly');
-    expect(installUrl(E)).toContain('scope=contacts.readonly%20contacts.write%20workflows.readonly');
+    expect(u.searchParams.get('scope')).toBe('contacts.readonly contacts.write workflows.readonly oauth.readonly oauth.write');
+    expect(installUrl(E)).toContain('scope=contacts.readonly%20contacts.write%20workflows.readonly%20oauth.readonly%20oauth.write');
   });
   it('adds the draft version id until the app is published', () => {
     expect(new URL(installUrl(E)!).searchParams.get('version_id')).toBe('6ad125dffee3063416b87588');
@@ -74,5 +74,43 @@ describe('installUrl', () => {
   it('is null when the app is not configured', () => {
     expect(installUrl({})).toBeNull();
     expect(installUrl({ HIGHLEVEL_CLIENT_ID: 'x' })).toBeNull();
+  });
+});
+
+describe('agency installs', () => {
+  const ENV2 = { ...ENV, HIGHLEVEL_CLIENT_ID: 'app123-mv9xcrh1' };
+  it('lists the approved sub-accounts with the agency token, asking only for installed ones', async () => {
+    const f = ok({ locations: [{ _id: 'l1', name: 'Acme' }, { _id: 'l2' }, { name: 'no id' }] });
+    expect(await listInstalledLocations('co-token', 'co_1', ENV2, f)).toEqual([{ id: 'l1', name: 'Acme' }, { id: 'l2', name: 'Unnamed sub-account' }]);
+    const [url, init] = (f as unknown as ReturnType<typeof vi.fn>).mock.calls[0] as [string, RequestInit];
+    const u = new URL(url);
+    expect(u.pathname).toBe('/oauth/installedLocations');
+    expect(u.searchParams.get('companyId')).toBe('co_1');
+    expect(u.searchParams.get('appId')).toBe('app123');
+    expect(u.searchParams.get('isInstalled')).toBe('true');
+    expect((init.headers as Record<string, string>).Authorization).toBe('Bearer co-token');
+  });
+  it('turns a refusal into an error without the token in it', async () => {
+    const err = await listInstalledLocations('co-token', 'co_1', ENV2, ok({ message: 'This route is not yet supported for Marketplace Apps' }, 401)).catch((e) => e);
+    expect(err).toBeInstanceOf(HighLevelAuthError);
+    expect(err.status).toBe(401);
+    expect(err.message).not.toContain('co-token');
+  });
+  it('mints a sub-account token and fills in the ids', async () => {
+    const f = ok({ access_token: 'lat', refresh_token: 'lrt', expires_in: 86399, locationId: 'l1' });
+    expect(await locationTokenFor('co-token', 'co_1', 'l1', f)).toMatchObject({ access_token: 'lat', locationId: 'l1', companyId: 'co_1' });
+    const [url, init] = (f as unknown as ReturnType<typeof vi.fn>).mock.calls[0] as [string, RequestInit];
+    expect(url).toBe('https://services.leadconnectorhq.com/oauth/locationToken');
+    const sent = new URLSearchParams(String(init.body));
+    expect(sent.get('companyId')).toBe('co_1');
+    expect(sent.get('locationId')).toBe('l1');
+  });
+  it('falls back to the requested location id and rejects a response without tokens', async () => {
+    expect(await locationTokenFor('t', 'co_1', 'l9', ok({ access_token: 'a', refresh_token: 'r', expires_in: 1 }))).toMatchObject({ locationId: 'l9' });
+    await expect(locationTokenFor('t', 'co_1', 'l9', ok({ access_token: 'a' }))).rejects.toThrow(/missing/);
+  });
+  it('asks for the agency scopes on the install link', () => {
+    const u = installUrl({ ...ENV2 });
+    expect(decodeURIComponent(u!)).toContain('oauth.readonly oauth.write');
   });
 });

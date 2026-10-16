@@ -47,3 +47,19 @@ describe('link token', () => {
     expect(verifyLinkToken('not-a-token', 2_000, ENV)).toBeNull();
   });
 });
+
+describe('pick token', () => {
+  const ENV = { HIGHLEVEL_LINK_SECRET: 'a-long-test-secret-value' };
+  it('round-trips the list of sub-accounts', async () => {
+    const { signPickToken, verifyPickToken } = await import('@/lib/highlevel/crypto');
+    const t = signPickToken([{ id: 'l1', name: 'Acme' }], 1000, ENV);
+    expect(verifyPickToken(t, 2000, ENV)).toEqual([{ id: 'l1', name: 'Acme' }]);
+  });
+  it('rejects an expired, tampered or link token', async () => {
+    const { signPickToken, verifyPickToken, signLinkToken } = await import('@/lib/highlevel/crypto');
+    const t = signPickToken([{ id: 'l1', name: 'Acme' }], 1000, ENV);
+    expect(verifyPickToken(t, 1000 + 61 * 60_000, ENV)).toBeNull();
+    expect(verifyPickToken(t.replace(/.$/, (c) => (c === 'A' ? 'B' : 'A')), 2000, ENV)).toBeNull();
+    expect(verifyPickToken(signLinkToken('l1', 1000, ENV), 2000, ENV)).toBeNull();
+  });
+});

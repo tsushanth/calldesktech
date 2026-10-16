@@ -1,14 +1,16 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { NextRequest } from 'next/server';
-import { signLinkToken, verifyLinkToken } from '@/lib/highlevel/crypto';
+import { signLinkToken, verifyLinkToken, verifyPickToken } from '@/lib/highlevel/crypto';
 import { HighLevelAuthError } from '@/lib/highlevel/oauth';
 
 const exchangeCode = vi.fn();
+const listInstalledLocations = vi.fn();
+const locationTokenFor = vi.fn();
 const saveInstall = vi.fn();
 const linkTenant = vi.fn();
 const moveSubscriptionsToTenant = vi.fn();
 vi.mock('@/lib/highlevel/triggers', () => ({ moveSubscriptionsToTenant: (...a: unknown[]) => moveSubscriptionsToTenant(...a) }));
-vi.mock('@/lib/highlevel/oauth', async (orig) => ({ ...(await orig<typeof import('@/lib/highlevel/oauth')>()), exchangeCode: (...a: unknown[]) => exchangeCode(...a) }));
+vi.mock('@/lib/highlevel/oauth', async (orig) => ({ ...(await orig<typeof import('@/lib/highlevel/oauth')>()), exchangeCode: (...a: unknown[]) => exchangeCode(...a), listInstalledLocations: (...a: unknown[]) => listInstalledLocations(...a), locationTokenFor: (...a: unknown[]) => locationTokenFor(...a) }));
 vi.mock('@/lib/highlevel/installs', () => ({ saveInstall: (...a: unknown[]) => saveInstall(...a), linkTenant: (...a: unknown[]) => linkTenant(...a) }));
 
 let session: { user?: { id?: string; email?: string } } | null = null;
@@ -73,10 +75,52 @@ describe('GET /api/highlevel/oauth/callback', () => {
     expect(loc(r).searchParams.get('token')).toBeNull();
     expect(saveInstall).not.toHaveBeenCalled();
   });
-  it('explains an agency-level install that has no location', async () => {
-    exchangeCode.mockResolvedValue({ access_token: 'at', refresh_token: 'rt', expires_in: 86400, companyId: 'co_1' });
-    saveInstall.mockResolvedValue({ ok: false, error: 'No sub-account' });
-    expect(loc(await cb('?code=abc')).searchParams.get('error')).toBe('no_location');
+  describe('agency-wide install (a Company token with no sub-account)', () => {
+    const COMPANY = { access_token: 'co-at', refresh_token: 'co-rt', expires_in: 86400, userType: 'Company', companyId: 'co_1' };
+    it('stores a token for the one approved sub-account and links it', async () => {
+      exchangeCode.mockResolvedValue(COMPANY);
+      listInstalledLocations.mockResolvedValue([{ id: 'loc_1', name: 'Acme' }]);
+      locationTokenFor.mockResolvedValue({ access_token: 'lat', refresh_token: 'lrt', expires_in: 86400, locationId: 'loc_1', companyId: 'co_1' });
+      saveInstall.mockResolvedValue({ ok: true, locationId: 'loc_1' });
+      const u = loc(await cb('?code=abc'));
+      expect(verifyLinkToken(u.searchParams.get('token')!)).toBe('loc_1');
+      expect(locationTokenFor).toHaveBeenCalledWith('co-at', 'co_1', 'loc_1');
+      expect(saveInstall).toHaveBeenCalledTimes(1);
+      expect(saveInstall.mock.calls[0][0]).toMatchObject({ locationId: 'loc_1', access_token: 'lat' });
+      expect(u.toString()).not.toContain('co-at');
+    });
+    it('stores every approved sub-account and asks which to connect', async () => {
+      exchangeCode.mockResolvedValue(COMPANY);
+      listInstalledLocations.mockResolvedValue([{ id: 'loc_1', name: 'Acme' }, { id: 'loc_2', name: 'Beta' }]);
+      locationTokenFor.mockImplementation(async (_t: string, _c: string, id: string) => ({ access_token: 'x', refresh_token: 'y', expires_in: 1, locationId: id }));
+      saveInstall.mockImplementation(async (t: { locationId: string }) => ({ ok: true, locationId: t.locationId }));
+      const u = loc(await cb('?code=abc'));
+      expect(u.searchParams.get('token')).toBeNull();
+      expect(verifyPickToken(u.searchParams.get('pick')!)).toEqual([{ id: 'loc_1', name: 'Acme' }, { id: 'loc_2', name: 'Beta' }]);
+      expect(saveInstall).toHaveBeenCalledTimes(2);
+    });
+    it('skips a sub-account whose token cannot be minted and keeps the rest', async () => {
+      exchangeCode.mockResolvedValue(COMPANY);
+      listInstalledLocations.mockResolvedValue([{ id: 'loc_1', name: 'Acme' }, { id: 'loc_2', name: 'Beta' }]);
+      locationTokenFor.mockImplementation(async (_t: string, _c: string, id: string) => {
+        if (id === 'loc_1') throw new HighLevelAuthError(403, 'HighLevel agency request failed (403): nope');
+        return { access_token: 'x', refresh_token: 'y', expires_in: 1, locationId: id };
+      });
+      saveInstall.mockImplementation(async (t: { locationId: string }) => ({ ok: true, locationId: t.locationId }));
+      expect(verifyLinkToken(loc(await cb('?code=abc')).searchParams.get('token')!)).toBe('loc_2');
+    });
+    it('reports install_failed when the agency calls are refused (scopes not granted)', async () => {
+      exchangeCode.mockResolvedValue(COMPANY);
+      listInstalledLocations.mockRejectedValue(new HighLevelAuthError(401, 'HighLevel agency request failed (401): not authorized'));
+      expect(loc(await cb('?code=abc')).searchParams.get('error')).toBe('install_failed');
+      expect(saveInstall).not.toHaveBeenCalled();
+    });
+    it('explains when no sub-account was approved', async () => {
+      exchangeCode.mockResolvedValue(COMPANY);
+      listInstalledLocations.mockResolvedValue([]);
+      saveInstall.mockResolvedValue({ ok: false, error: 'No sub-account' });
+      expect(loc(await cb('?code=abc')).searchParams.get('error')).toBe('no_location');
+    });
   });
 });
 

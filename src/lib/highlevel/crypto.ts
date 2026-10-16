@@ -59,3 +59,26 @@ export function verifyLinkToken(token: string, now: number = Date.now(), env: En
     return null;
   }
 }
+
+/** A short-lived signed list of the sub-accounts an agency install covered, for the page where the owner picks which one to connect. */
+export function signPickToken(items: Array<{ id: string; name: string }>, now: number = Date.now(), env: Env = process.env): string {
+  const body = Buffer.from(JSON.stringify({ p: items, e: now + LINK_TTL_MS })).toString('base64url');
+  const sig = createHmac('sha256', linkSecret(env)).update(body).digest('base64url');
+  return `${body}.${sig}`;
+}
+
+export function verifyPickToken(token: string, now: number = Date.now(), env: Env = process.env): Array<{ id: string; name: string }> | null {
+  try {
+    const [body, sig] = String(token).split('.');
+    if (!body || !sig) return null;
+    const expected = createHmac('sha256', linkSecret(env)).update(body).digest();
+    const given = Buffer.from(sig, 'base64url');
+    if (given.length !== expected.length || !timingSafeEqual(given, expected)) return null;
+    const { p, e } = JSON.parse(Buffer.from(body, 'base64url').toString('utf8')) as { p?: unknown; e?: unknown };
+    if (!Array.isArray(p) || typeof e !== 'number' || e < now) return null;
+    const items = p.filter((x): x is { id: string; name: string } => !!x && typeof (x as { id?: unknown }).id === 'string' && typeof (x as { name?: unknown }).name === 'string');
+    return items.length ? items : null;
+  } catch {
+    return null;
+  }
+}
