@@ -195,6 +195,8 @@ export const VERIFIED_STATEMENTS = {
   otherAddOnsComingSoon: ['advanced analytics', 'premium voice'],
   allThreeTiersLive: true,
   freeOffer: 'a free demo call, with no trial credit',
+  /** src/lib/vapiImport.ts and "Import from Vapi" in the agent builder: a pasted Vapi assistant becomes a draft flow. Only Vapi, and only these parts come across; voice, model and knowledge base do not. */
+  vapiImport: { exists: true, carriesOver: 'the prompt, opening line, transfers, function tools, end-of-call message, language and call limits', leavesBehind: 'the voice, model and knowledge base' },
 } as const;
 
 /** Never state any of these on a page: Calldesk has not published them. */
