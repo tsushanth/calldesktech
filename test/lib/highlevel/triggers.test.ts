@@ -105,6 +105,7 @@ describe('applySubscription', () => {
   });
   it('accepts the prefixed trigger key as the same trigger (HighLevel trigger keys are unique across apps)', async () => {
     expect(await applySubscription(evt({ key: 'calldesk_call_completed' }), 'tenant_1', LOC)).toMatchObject({ ok: true });
+    expect(await applySubscription(evt({ key: 'calldesk_call_ended' }), 'tenant_1', LOC)).toMatchObject({ ok: true });
   });
   it('rejects a URL that is not for this account, an unknown key or event, and a missing id', async () => {
     expect(await applySubscription(evt({ targetUrl: 'https://evil.example.com/x' }), 'tenant_1', LOC)).toMatchObject({ ok: false, status: 400 });
