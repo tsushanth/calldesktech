@@ -9,7 +9,7 @@ import { generateWebhookSecret } from '@/lib/webhooks';
 
 export const CALL_COMPLETED_KEY = 'call_completed';
 // HighLevel keeps trigger keys unique across marketplace apps, so the portal may refuse the short key; the prefixed key is the same trigger.
-export const CALL_COMPLETED_KEYS: readonly string[] = [CALL_COMPLETED_KEY, 'calldesk_call_completed'];
+export const CALL_COMPLETED_KEYS: readonly string[] = [CALL_COMPLETED_KEY, 'calldesk_call_completed', 'calldesk_call_ended'];
 const SUBS = 'calldesk_highlevel_trigger_subscriptions';
 const HL_HOST = 'services.leadconnectorhq.com';
 const EXECUTE_PREFIX = '/workflows-marketplace/triggers/execute/';
