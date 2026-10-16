@@ -51,10 +51,16 @@ describe('POST /api/highlevel/actions/place-call', () => {
     expect(resolveFromNumber).toHaveBeenCalledWith('tenant_1', undefined);
     expect(placePhoneNumberCall.mock.calls[0][3]).toEqual({ tenantId: 'tenant_1' });
   });
-  it('400 for a body that is not JSON or has no location', async () => {
+  it('400 for a body that is not JSON; a request with no location is a readable failed action (the portal Test button sends none)', async () => {
     expect((await call('not json')).status).toBe(400);
-    expect((await call(payload({}, ''))).status).toBe(400);
-    expect((await call({ data: { phone: '4155550123' } })).status).toBe(400);
+    for (const body of [payload({}, ''), { data: { phone: '4155550123' } }]) {
+      const res = await call(body);
+      expect(res.status).toBe(200);
+      const j = await res.json();
+      expect(j.success).toBe(false);
+      expect(j.error).toMatch(/Test button/);
+      expect(placePhoneNumberCall).not.toHaveBeenCalled();
+    }
   });
   it('explains an uninstalled, needs_reauth or unlinked sub-account as a failed action, not a crash', async () => {
     getInstall.mockResolvedValue(null);
