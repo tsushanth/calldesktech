@@ -50,6 +50,33 @@ describe('validateReply', () => {
   });
 });
 
+describe('cc', () => {
+  beforeAll(() => { process.env.UNSUBSCRIBE_SECRET = 'test-secret'; });
+  it('lowercases cc, defaults to none, and rejects bad, duplicate-of-to or too many', () => {
+    const none = validateReply(GOOD, ENV);
+    expect(none.ok && none.value.cc).toEqual([]);
+    const v = validateReply({ ...GOOD, cc: ['John@Futurocorp.com'] }, ENV);
+    expect(v.ok && v.value.cc).toEqual(['john@futurocorp.com']);
+    expect(validateReply({ ...GOOD, cc: ['not-an-email'] }, ENV).ok).toBe(false);
+    expect(validateReply({ ...GOOD, cc: [GOOD.to] }, ENV).ok).toBe(false);
+    expect(validateReply({ ...GOOD, cc: ['a@b.com', 'c@d.com', 'e@f.com', 'g@h.com'] }, ENV).ok).toBe(false);
+  });
+  it('passes cc to the sender and logs it', async () => {
+    const { db, inserts } = fakeDb();
+    const send = vi.fn(async () => ({ ok: true, id: 'resend-cc' }));
+    await sendManualReply(db, { ...GOOD, cc: ['colleague@example.com'] }, { env: ENV, send });
+    expect((send.mock.calls as unknown as Array<[{ cc?: string[] }]>)[0][0].cc).toEqual(['colleague@example.com']);
+    expect(inserts[0].cc).toEqual(['colleague@example.com']);
+  });
+  it('refuses to send when a cc recipient is suppressed', async () => {
+    const { db } = fakeDb(true);
+    const send = vi.fn(async () => ({ ok: true, id: 'x' }));
+    const r = await sendManualReply(db, { ...GOOD, cc: ['colleague@example.com'] }, { env: ENV, send });
+    expect(r.ok).toBe(false);
+    expect(send).not.toHaveBeenCalled();
+  });
+});
+
 describe('sendManualReply', () => {
   beforeAll(() => { process.env.UNSUBSCRIBE_SECRET = 'test-secret'; });
   it('sends from the outreach sender with reply-to, bcc and unsubscribe headers, then logs it', async () => {
