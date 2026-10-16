@@ -3,8 +3,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Container, Eyebrow } from '@/components/landing/primitives';
 import { useLiveDemo, type LiveDemoConfig } from '@/lib/useLiveDemo';
+import { applyVoice, type DemoVoiceOption } from '@/lib/demoLinks';
 
-type Loaded = { label: string; maxSeconds: number; flow: unknown; context: Record<string, unknown> };
+type Loaded = { label: string; maxSeconds: number; flow: unknown; context: Record<string, unknown>; voices?: DemoVoiceOption[]; defaultVoiceKey?: string };
 
 const clock = (total: number) => `${Math.floor(total / 60)}:${String(total % 60).padStart(2, '0')}`;
 
@@ -43,7 +44,9 @@ const PRIMARY = `${BTN} bg-[#00122e] text-white hover:bg-[#0a2450]`;
 const SECONDARY = `${BTN} border border-transparent bg-[#f0f0f8] text-[#00122e] hover:bg-[#e6e6f2]`;
 
 function Call({ cfg }: { cfg: Loaded }) {
-  const config = useMemo<LiveDemoConfig>(() => ({ flow: cfg.flow, context: cfg.context, maxSeconds: cfg.maxSeconds, eventPrefix: 'demo_link', noDailyLimit: true }), [cfg]);
+  const [voiceKey, setVoiceKey] = useState<string | undefined>(cfg.defaultVoiceKey);
+  const context = useMemo(() => applyVoice(cfg.context, cfg.voices, voiceKey), [cfg, voiceKey]);
+  const config = useMemo<LiveDemoConfig>(() => ({ flow: cfg.flow, context, maxSeconds: cfg.maxSeconds, eventPrefix: 'demo_link', noDailyLimit: true }), [cfg, context]);
   const live = useLiveDemo(config);
   const [text, setText] = useState('');
   const logRef = useRef<HTMLDivElement>(null);
@@ -66,6 +69,28 @@ function Call({ cfg }: { cfg: Loaded }) {
 
       {!active && (
         <>
+          {cfg.voices && cfg.voices.length > 1 && (
+            <div className="mt-6" role="group" aria-label="Choose a voice">
+              <p className="text-[13px] font-medium text-[#00122e]">Choose a voice</p>
+              <div className="mt-2 flex flex-wrap gap-2">
+                {cfg.voices.map((v) => {
+                  const on = v.key === voiceKey;
+                  return (
+                    <button
+                      key={v.key}
+                      type="button"
+                      aria-pressed={on}
+                      onClick={() => setVoiceKey(v.key)}
+                      className={`rounded-md px-4 py-2.5 text-left text-[14px] transition-colors ${on ? 'bg-[#00122e] text-white' : 'bg-[#f0f0f8] text-[#00122e] hover:bg-[#e6e6f2]'}`}
+                    >
+                      <span className="font-medium">{v.label}</span>
+                      {v.detail && <span className={`ml-1.5 ${on ? 'text-white/70' : 'text-[#6b7894]'}`}>{v.detail}</span>}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
           <ol className="mt-6 space-y-2.5 text-[15px] text-gray-600">
             <li><span className="mr-2 inline-block h-6 w-6 rounded-full bg-[#eaf0ff] text-center text-[13px] font-semibold leading-6 text-[#1e40af]">1</span>Press <b className="text-[#00122e]">Start the call</b></li>
             <li><span className="mr-2 inline-block h-6 w-6 rounded-full bg-[#eaf0ff] text-center text-[13px] font-semibold leading-6 text-[#1e40af]">2</span>Allow your microphone when asked</li>
