@@ -15,6 +15,16 @@ export type DemoStatus = 'idle' | 'connecting' | 'live' | 'ended';
 export type MicState = 'off' | 'asking' | 'on' | 'blocked';
 
 const INTRO_FLOW = buildIntroFlow();
+
+/** A demo other than the landing-page intro agent: its own flow and engine settings, sent as the context message. */
+export interface LiveDemoConfig {
+  flow: unknown;
+  /** Extra context fields (voiceId, ttsBackend, ttsModel, model). Sent as given: no jingle or chime. */
+  context: Record<string, unknown>;
+  maxSeconds: number;
+  /** Analytics event prefix. */
+  eventPrefix: string;
+}
 const DAILY_LIMIT_KEY = 'calldesk_hero_demo_uses';
 // A soft, per-browser limit. It only deters casual repeat use; real protection
 // has to live on the server.
@@ -59,12 +69,16 @@ function overDailyLimit(): boolean {
   return false;
 }
 
-export function useLiveDemo() {
+export function useLiveDemo(config?: LiveDemoConfig) {
+  // Read through a ref so a config object created on each render does not recreate the callbacks.
+  const configRef = useRef(config);
+  configRef.current = config;
+  const maxSeconds = config?.maxSeconds ?? INTRO_MAX_SECONDS;
   const [status, setStatus] = useState<DemoStatus>('idle');
   const [messages, setMessages] = useState<DemoMessage[]>([]);
   const [micState, setMicState] = useState<MicState>('off');
   const [agentSpeaking, setAgentSpeaking] = useState(false);
-  const [secondsLeft, setSecondsLeft] = useState(INTRO_MAX_SECONDS);
+  const [secondsLeft, setSecondsLeft] = useState(maxSeconds);
   const [error, setError] = useState<string | null>(null);
 
   const wsRef = useRef<WebSocket | null>(null);
@@ -184,7 +198,7 @@ export function useLiveDemo() {
       return;
     }
     if (startedAtRef.current !== null) {
-      track('hero_demo_ended', {
+      track(`${configRef.current?.eventPrefix ?? 'hero_demo'}_ended`, {
         duration_seconds: Math.round((Date.now() - startedAtRef.current) / 1000),
         turns: turnsRef.current,
       });
@@ -204,10 +218,10 @@ export function useLiveDemo() {
       setError(null);
       blockedRef.current = false;
       setMessages([]);
-      setSecondsLeft(INTRO_MAX_SECONDS);
+      setSecondsLeft(configRef.current?.maxSeconds ?? INTRO_MAX_SECONDS);
       turnsRef.current = 0;
       updateStatus('connecting');
-      track('hero_demo_started', { input: opts.mic ? 'voice' : 'text' });
+      track(`${configRef.current?.eventPrefix ?? 'hero_demo'}_started`, { input: opts.mic ? 'voice' : 'text' });
 
       const AudioCtx =
         window.AudioContext ||
@@ -223,14 +237,19 @@ export function useLiveDemo() {
 
       ws.onopen = () => {
         startedAtRef.current = Date.now();
+        const cfg = configRef.current;
         ws.send(
-          JSON.stringify({
-            type: 'context',
-            flow: INTRO_FLOW,
-            ...demoTtsFields(),
-            // Intro jingle + confirmation chime, attached server-side by call-loop (anonymous demos only).
-            ...demoAudioFields({ intro: true }),
-          })
+          JSON.stringify(
+            cfg
+              ? { type: 'context', flow: cfg.flow, ...cfg.context }
+              : {
+                  type: 'context',
+                  flow: INTRO_FLOW,
+                  ...demoTtsFields(),
+                  // Intro jingle + confirmation chime, attached server-side by call-loop (anonymous demos only).
+                  ...demoAudioFields({ intro: true }),
+                }
+          )
         );
         updateStatus('live');
         pendingRef.current.splice(0).forEach((t) => ws.send(JSON.stringify({ type: 'user_text', text: t })));
