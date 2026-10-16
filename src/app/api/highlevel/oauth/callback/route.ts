@@ -20,7 +20,10 @@ function pageUrl(query: Record<string, string>): string {
  */
 async function storeAgencyInstall(tokens: HighLevelTokens): Promise<Array<{ id: string; name: string }>> {
   const companyId = tokens.companyId!;
-  const locations = await listInstalledLocations(tokens.access_token, companyId);
+  let locations = await listInstalledLocations(tokens.access_token, companyId);
+  const installedCount = locations.length;
+  if (!locations.length && tokens.approveAllLocations) locations = await listInstalledLocations(tokens.access_token, companyId, process.env, fetch, false);
+  console.info('[highlevel] agency install: sub-accounts found', { installedOnly: installedCount, used: locations.length, approveAll: tokens.approveAllLocations ?? null });
   const stored: Array<{ id: string; name: string }> = [];
   for (const l of locations) {
     try {

@@ -16,6 +16,7 @@ export interface HighLevelTokens {
   userId?: string;
   scope?: string;
   isBulkInstallation?: boolean;
+  approveAllLocations?: boolean;
   approvedLocations?: string[];
 }
 
@@ -99,11 +100,15 @@ async function agencyCall(path: string, companyToken: string, init: RequestInit,
   return json;
 }
 
-/** The sub-accounts an agency approved the app for, at most 25. Needs the oauth.readonly scope. */
-export async function listInstalledLocations(companyToken: string, companyId: string, env: Env = process.env, fetchImpl: typeof fetch = fetch): Promise<InstalledLocation[]> {
+/**
+ * The agency's sub-accounts, at most 25: only those the app is installed on by default, or every one with installedOnly false (an agency that
+ * approved all locations is installed on all of them, but HighLevel can take a moment to report that). Needs the oauth.readonly scope.
+ */
+export async function listInstalledLocations(companyToken: string, companyId: string, env: Env = process.env, fetchImpl: typeof fetch = fetch, installedOnly = true): Promise<InstalledLocation[]> {
   const appId = (env.HIGHLEVEL_CLIENT_ID ?? '').split('-')[0];
   if (!appId) throw new Error('HIGHLEVEL_CLIENT_ID must be set');
-  const q = new URLSearchParams({ companyId, appId, isInstalled: 'true', limit: String(MAX_LOCATIONS) });
+  const q = new URLSearchParams({ companyId, appId, limit: String(MAX_LOCATIONS) });
+  if (installedOnly) q.set('isInstalled', 'true');
   const json = await agencyCall(`/oauth/installedLocations?${q.toString()}`, companyToken, { method: 'GET' }, fetchImpl);
   const raw = Array.isArray(json.locations) ? json.locations : [];
   return raw
