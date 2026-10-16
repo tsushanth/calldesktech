@@ -115,6 +115,21 @@ describe('GET /api/highlevel/oauth/callback', () => {
       expect(loc(await cb('?code=abc')).searchParams.get('error')).toBe('install_failed');
       expect(saveInstall).not.toHaveBeenCalled();
     });
+    it('falls back to every sub-account when the agency approved all and none is reported installed yet', async () => {
+      exchangeCode.mockResolvedValue({ ...COMPANY, approveAllLocations: true });
+      listInstalledLocations.mockImplementation(async (_t: string, _c: string, _e: unknown, _f: unknown, installedOnly?: boolean) => (installedOnly === false ? [{ id: 'loc_1', name: 'Acme' }] : []));
+      locationTokenFor.mockResolvedValue({ access_token: 'x', refresh_token: 'y', expires_in: 1, locationId: 'loc_1' });
+      saveInstall.mockResolvedValue({ ok: true, locationId: 'loc_1' });
+      expect(verifyLinkToken(loc(await cb('?code=abc')).searchParams.get('token')!)).toBe('loc_1');
+      expect(listInstalledLocations).toHaveBeenCalledTimes(2);
+    });
+    it('does not list everything when the agency did not approve all sub-accounts', async () => {
+      exchangeCode.mockResolvedValue({ ...COMPANY, approveAllLocations: false });
+      listInstalledLocations.mockResolvedValue([]);
+      saveInstall.mockResolvedValue({ ok: false, error: 'No sub-account' });
+      expect(loc(await cb('?code=abc')).searchParams.get('error')).toBe('no_location');
+      expect(listInstalledLocations).toHaveBeenCalledTimes(1);
+    });
     it('explains when no sub-account was approved', async () => {
       exchangeCode.mockResolvedValue(COMPANY);
       listInstalledLocations.mockResolvedValue([]);

@@ -90,6 +90,12 @@ describe('agency installs', () => {
     expect(u.searchParams.get('isInstalled')).toBe('true');
     expect((init.headers as Record<string, string>).Authorization).toBe('Bearer co-token');
   });
+  it('lists every sub-account, not only installed ones, when asked', async () => {
+    const f = ok({ locations: [{ _id: 'l1', name: 'Acme' }] });
+    await listInstalledLocations('co-token', 'co_1', ENV2, f, false);
+    const u = new URL((f as unknown as ReturnType<typeof vi.fn>).mock.calls[0][0] as string);
+    expect(u.searchParams.has('isInstalled')).toBe(false);
+  });
   it('turns a refusal into an error without the token in it', async () => {
     const err = await listInstalledLocations('co-token', 'co_1', ENV2, ok({ message: 'This route is not yet supported for Marketplace Apps' }, 401)).catch((e) => e);
     expect(err).toBeInstanceOf(HighLevelAuthError);
