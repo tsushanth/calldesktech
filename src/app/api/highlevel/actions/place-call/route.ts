@@ -28,7 +28,9 @@ export async function POST(req: NextRequest) {
   }
   const data = body?.data ?? {};
   const locationId = body?.extras?.locationId;
-  if (typeof locationId !== 'string' || !locationId) return NextResponse.json({ error: 'extras.locationId is missing' }, { status: 400 });
+  // HighLevel's Test button in the developer portal sends no real sub-account, and a bare 400 shows up there as an unexplained "Request failed".
+  // A missing location is a workflow-authoring situation like the others below: answer 200 with success false and say what it means.
+  if (typeof locationId !== 'string' || !locationId) return fail('No HighLevel sub-account came with this request (normal for the portal Test button). The secret and URL are working; run the action from a real workflow to place a call.');
 
   const install = await getInstall(locationId);
   if (!install || install.status !== 'active') return fail('The Calldesk app is not installed on this HighLevel sub-account. Install it from the HighLevel Marketplace.');
