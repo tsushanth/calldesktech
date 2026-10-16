@@ -29,6 +29,8 @@ export interface LiveDemoConfig {
   maxSeconds: number;
   /** Analytics event prefix. */
   eventPrefix: string;
+  /** Skip the soft per-browser daily limit. For demo links built for one prospect, who must be able to try it freely; the link's own expiry, time cap and server limits still apply. */
+  noDailyLimit?: boolean;
 }
 const DAILY_LIMIT_KEY = 'calldesk_hero_demo_uses';
 // A soft, per-browser limit. It only deters casual repeat use; real protection
@@ -220,7 +222,7 @@ export function useLiveDemo(config?: LiveDemoConfig) {
   const start = useCallback(
     (opts: { mic: boolean }) => {
       if (statusRef.current === 'connecting' || statusRef.current === 'live') return;
-      if (overDailyLimit()) {
+      if (!configRef.current?.noDailyLimit && overDailyLimit()) {
         setError("You've used today's demos in this browser. Try the full setup demo to keep exploring.");
         return;
       }
