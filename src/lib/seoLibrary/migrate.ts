@@ -17,8 +17,15 @@ export function usesSip(c: Competitor): boolean {
 /** One paragraph on how the move differs by kind of product. Plain statements about how that kind of product usually works, not claims about a named vendor. */
 export function categoryParagraph(c: Competitor): string {
   switch (c.category) {
-    case 'platform':
-      return `Platforms like ${c.name} are driven by code or API calls, so your agent probably exists as configuration you can read back plus tools and webhooks you wrote. ${CALLDESK_NAME} flows use their own steps, so expect to translate each prompt and tool into a step rather than import a file.`;
+    case 'platform': {
+      const lead = `Platforms like ${c.name} are driven by code or API calls, so your agent probably exists as configuration you can read back plus tools and webhooks you wrote.`;
+      const imp = VERIFIED_STATEMENTS.vapiImport;
+      // The importer reads Vapi assistants only; every other platform keeps the by-hand wording.
+      if (c.slug === 'vapi' && imp.exists) {
+        return `${lead} ${CALLDESK_NAME} can read a Vapi assistant: paste its JSON into Import from Vapi in the agent builder and you get a draft flow with ${imp.carriesOver}. It does not carry over ${imp.leavesBehind}, and the import lists everything it left behind so you can check it before you publish.`;
+      }
+      return `${lead} ${CALLDESK_NAME} flows use their own steps, so expect to translate each prompt and tool into a step rather than import a file.`;
+    }
     case 'no-code-builder':
       return `${c.name} is edited in its own builder, so the agent may exist just inside the product and the move is a rebuild by hand. In ${CALLDESK_NAME}, start from an agent template and use test calls to check each branch.`;
     case 'enterprise':

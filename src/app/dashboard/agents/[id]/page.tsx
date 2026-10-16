@@ -32,6 +32,7 @@ import { detectBookingIntent, BOOKING_WITHOUT_CALENDAR_MESSAGE } from '@/lib/boo
 
 import { FixedGreetingField } from '@/components/builder/FixedGreetingField';
 import { DEFAULT_FIXED_GREETING, hasFixedGreeting, withFixedGreeting } from '@/lib/fixedGreeting';
+import type { VapiImportOk } from '@/lib/vapiImport';
 type DraftNode = FlowNode & { _key: string };
 
 let keySeq = 0;
@@ -286,6 +287,11 @@ export default function AgentBuilderPage() {
   const [generatePrompt, setGeneratePrompt] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
   const [generateError, setGenerateError] = useState<string | null>(null);
+  const [showImportModal, setShowImportModal] = useState(false);
+  const [importText, setImportText] = useState('');
+  const [isImporting, setIsImporting] = useState(false);
+  const [importError, setImportError] = useState<string | null>(null);
+  const [importReport, setImportReport] = useState<VapiImportOk['report'] | null>(null);
   const [isCheckingExisting, setIsCheckingExisting] = useState(true);
   const [basedOnVersionNumber, setBasedOnVersionNumber] = useState<number | null>(null);
 
@@ -505,6 +511,45 @@ export default function AgentBuilderPage() {
       setGenerateError(err instanceof Error ? err.message : 'Failed to generate a flow');
     } finally {
       setIsGenerating(false);
+    }
+  };
+
+  // "Import from Vapi": the pasted assistant becomes a draft flow in the editor, like Generate from prompt. Nothing is saved here;
+  // the report banner says what was carried over, what needs a look and what was left behind.
+  const handleImportVapi = async () => {
+    if (!importText.trim()) return;
+    setIsImporting(true);
+    setImportError(null);
+    try {
+      const res = await fetch('/api/agents/import-vapi', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ assistant: importText }),
+      });
+      const body = await res.json();
+      if (!res.ok) throw new Error(body.error || 'Could not import that assistant');
+      const r = body as VapiImportOk;
+      const entry = r.nodes.find((n) => n.id === r.startNodeId);
+      setAgentType('conversational_flow');
+      setNodes(draftNodesFromTemplate(r.nodes));
+      setStartNodeId(r.startNodeId);
+      setAppliedTemplateId(null);
+      setFlowName('vapi-import');
+      const greeting = hasFixedGreeting(entry?.params);
+      setFixedGreetingOn(greeting);
+      setFixedGreetingText(greeting ? String(entry?.params?.spokenMessage) : DEFAULT_FIXED_GREETING);
+      if (r.settings.language) setLanguage(r.settings.language);
+      if (r.settings.maxCallDurationSec) setMaxCallDurationSec(String(r.settings.maxCallDurationSec));
+      if (r.settings.endCallAfterSilenceSec) setEndCallAfterSilenceSec(String(r.settings.endCallAfterSilenceSec));
+      if (r.variables.length > 0) setVariables((prev) => ({ ...Object.fromEntries(r.variables.map((v) => [v, ''])), ...prev }));
+      setImportReport(r.report);
+      setShowImportModal(false);
+      setImportText('');
+      setShowEditor(true);
+    } catch (err) {
+      setImportError(err instanceof Error ? err.message : 'Could not import that assistant');
+    } finally {
+      setIsImporting(false);
     }
   };
 
@@ -1159,6 +1204,29 @@ export default function AgentBuilderPage() {
           <div className="flex-none border-b border-red-100 bg-red-50 px-5 py-2.5 text-[13px] text-red-700">{error}</div>
         )}
 
+        {importReport && (
+          <div className="flex-none border-b border-blue-200 bg-blue-50 px-5 py-3 text-[13px] text-blue-900">
+            <div className="flex items-start justify-between gap-3">
+              <p className="font-medium">Imported from Vapi. This is a draft: review it before you publish.</p>
+              <button onClick={() => setImportReport(null)} className="flex-none text-blue-700 hover:text-blue-900" aria-label="Dismiss">&times;</button>
+            </div>
+            <div className="mt-2 max-h-[40vh] space-y-2 overflow-y-auto">
+              {([
+                ['Needs a look', importReport.review, true],
+                ['Not imported', importReport.skipped, false],
+                ['Imported', importReport.imported, false],
+              ] as const).map(([title, items, open]) => items.length > 0 && (
+                <details key={title} open={open}>
+                  <summary className="cursor-pointer font-medium">{title} ({items.length})</summary>
+                  <ul className="mt-1 list-disc space-y-1 pl-5 text-blue-900/90">
+                    {items.map((n, i) => <li key={i}><b>{n.area}:</b> {n.text}</li>)}
+                  </ul>
+                </details>
+              ))}
+            </div>
+          </div>
+        )}
+
         {publishWarnings.map((w) => (
           <div key={w.code} className="flex flex-none items-start justify-between gap-3 border-b border-amber-200 bg-amber-50 px-5 py-2.5 text-[13px] text-amber-800">
             <span>Published. {w.message} <Link href="/dashboard/integrations" className="font-medium underline">Integrations</Link></span>
@@ -1189,7 +1257,7 @@ export default function AgentBuilderPage() {
 
           {activeTab === 'agent' && !showEditor && (
             <div className="h-full overflow-y-auto p-6">
-              <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
                 <button type="button" onClick={() => startFromScratch('conversational_flow')} className="rounded-xl border border-dashed border-gray-300 bg-white px-5 py-5 text-left transition hover:border-gray-400">
                   <p className="text-[13.5px] font-medium text-[#1a1d29]">Build from scratch</p>
                   <p className="mt-0.5 text-[12px] text-gray-500">Start with a blank flow</p>
@@ -1201,6 +1269,10 @@ export default function AgentBuilderPage() {
                 <button type="button" onClick={() => { setGenerateError(null); setShowGenerateModal(true); }} className="rounded-xl border border-dashed border-blue-300 bg-blue-50/40 px-5 py-5 text-left transition hover:border-blue-400 hover:bg-blue-50">
                   <p className="text-[13.5px] font-medium text-[#1a1d29]">Generate from prompt</p>
                   <p className="mt-0.5 text-[12px] text-gray-500">Describe it, AI drafts a flow</p>
+                </button>
+                <button type="button" onClick={() => { setImportError(null); setShowImportModal(true); }} className="rounded-xl border border-dashed border-gray-300 bg-white px-5 py-5 text-left transition hover:border-gray-400">
+                  <p className="text-[13.5px] font-medium text-[#1a1d29]">Import from Vapi</p>
+                  <p className="mt-0.5 text-[12px] text-gray-500">Paste an assistant, get a draft flow</p>
                 </button>
               </div>
 
@@ -1852,6 +1924,39 @@ export default function AgentBuilderPage() {
               <button onClick={() => setShowGenerateModal(false)} className="rounded-lg px-4 py-2 text-[13.5px] font-medium text-gray-600 hover:bg-gray-50">Cancel</button>
               <button onClick={handleGenerateFromPrompt} disabled={isGenerating || !generatePrompt.trim()} className="rounded-lg bg-[#1a1d29] px-4 py-2 text-[13.5px] font-medium text-white transition hover:bg-[#2a2e3d] disabled:opacity-40">
                 {isGenerating ? 'Generating…' : 'Generate'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {showImportModal && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/30 p-4" onClick={() => setShowImportModal(false)}>
+          <div className="w-full max-w-xl rounded-2xl bg-white p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            <div className="mb-4 flex items-center justify-between">
+              <h2 className="text-[17px] font-semibold text-[#1a1d29]">Import from Vapi</h2>
+              <button type="button" onClick={() => setShowImportModal(false)} className="text-gray-400 hover:text-gray-600" aria-label="Close">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M18 6 6 18" /><path d="m6 6 12 12" /></svg>
+              </button>
+            </div>
+            <p className="mb-2 text-[13px] text-gray-500">
+              Paste the assistant JSON from Vapi (the response of <code className="rounded bg-gray-100 px-1">GET /assistant/&lt;id&gt;</code>). It opens in the editor as a draft you can review and edit before saving. Nothing is saved yet.
+            </p>
+            <p className="mb-3 text-[13px] text-gray-500">
+              If it uses saved tools, paste <code className="rounded bg-gray-100 px-1">{'{"assistant": …, "tools": […]}'}</code> with the tools from <code className="rounded bg-gray-100 px-1">GET /tool</code>. The prompt, opening line, transfers, function tools, end-of-call message, language and limits come across; voice, model and knowledge base do not.
+            </p>
+            <textarea
+              value={importText}
+              onChange={(e) => setImportText(e.target.value)}
+              rows={10}
+              spellCheck={false}
+              placeholder='{"name": "Front desk", "firstMessage": "Hi, thanks for calling…", "model": { … }}'
+              className="mb-3 w-full resize-y rounded-lg border border-gray-200 px-3.5 py-2.5 font-mono text-[12.5px] focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100"
+            />
+            {importError && <div className="mb-3 rounded-lg border border-red-200 bg-red-50 px-3.5 py-2.5 text-[13px] text-red-700">{importError}</div>}
+            <div className="flex justify-end gap-2">
+              <button onClick={() => setShowImportModal(false)} className="rounded-lg px-4 py-2 text-[13.5px] font-medium text-gray-600 hover:bg-gray-50">Cancel</button>
+              <button onClick={handleImportVapi} disabled={isImporting || !importText.trim()} className="rounded-lg bg-[#1a1d29] px-4 py-2 text-[13.5px] font-medium text-white transition hover:bg-[#2a2e3d] disabled:opacity-40">
+                {isImporting ? 'Importing…' : 'Import'}
               </button>
             </div>
           </div>
