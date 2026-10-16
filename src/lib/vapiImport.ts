@@ -169,7 +169,18 @@ export function vapiAssistantToFlow(raw: unknown): VapiImportResult {
       const server = isObj(t.server) ? t.server : {};
       const url = str(server.url);
       const desc = str(fn.description);
-      const props = isObj(fn.parameters) && isObj((fn.parameters as Obj).properties) ? Object.keys((fn.parameters as Obj).properties as Obj) : [];
+      const paramSchema = isObj(fn.parameters) && isObj((fn.parameters as Obj).properties) ? ((fn.parameters as Obj).properties as Obj) : {};
+      const props = Object.keys(paramSchema);
+      const requiredList = isObj(fn.parameters) && Array.isArray((fn.parameters as Obj).required) ? ((fn.parameters as Obj).required as unknown[]).map(str) : [];
+      // The extraction schema only holds strings, so Vapi's type, enum, description and "required" flag go into the step prompt instead.
+      const fieldLine = (k: string): string => {
+        const def = isObj(paramSchema[k]) ? (paramSchema[k] as Obj) : {};
+        const enumVals = Array.isArray(def.enum) ? def.enum.map(str).filter(Boolean) : [];
+        const kind = enumVals.length > 0 ? `one of: ${enumVals.slice(0, 12).join(', ')}` : str(def.type);
+        const d = str(def.description).replace(/\s+/g, ' ').slice(0, 160);
+        const tags = [kind, requiredList.includes(k) ? 'required' : requiredList.length > 0 ? 'optional' : ''].filter(Boolean).join(', ');
+        return `${k}${tags ? ` (${tags})` : ''}${d ? `: ${d}` : ''}`;
+      };
       const callId = uid(`${name}_call`);
       const callNode: FlowNode = { id: callId, type: 'function', function: str(fn.name) || name, params: { webhookUrl: url }, edges: [{ id: `e_${callId}_done`, condition: 'always', target: 'main' }] };
       let entry = callId;
@@ -179,7 +190,7 @@ export function vapiAssistantToFlow(raw: unknown): VapiImportResult {
         for (const p of props) extract[p] = 'string';
         functionNodes.push({
           id: collectId, type: 'extraction',
-          prompt: `Ask the caller for what is needed to ${desc ? desc.charAt(0).toLowerCase() + desc.slice(1).replace(/\.$/, '') : `run ${name}`}: ${props.join(', ')}.`,
+          prompt: `Ask the caller for what is needed to ${desc ? desc.charAt(0).toLowerCase() + desc.slice(1).replace(/\.$/, '') : `run ${name}`}. Fields:\n${props.map((k) => `- ${fieldLine(k)}`).join('\n')}`,
           extract,
           edges: [{ id: `e_${collectId}_done`, condition: `${props.join(', ')} ${props.length === 1 ? 'has' : 'have all'} been collected`, target: callId }],
         });
@@ -192,7 +203,7 @@ export function vapiAssistantToFlow(raw: unknown): VapiImportResult {
       if (server.credentialId || (isObj(server.headers) && Object.keys(server.headers as Obj).length > 0) || server.secret) {
         review.push({ area: 'Tools', text: `Function "${str(fn.name) || name}" used authentication (credential or headers). It was not carried over: set it up for the "${callId}" step.` });
       }
-      if (props.length > 0) review.push({ area: 'Tools', text: `Function "${str(fn.name) || name}" arguments were all imported as text fields; Vapi's types and "required" flags were not carried over.` });
+      if (props.length > 0) review.push({ area: 'Tools', text: `Function "${str(fn.name) || name}" arguments are stored as text fields. Their types, allowed values and required flags are written into the collect step's prompt, not enforced.` });
       continue;
     }
 
