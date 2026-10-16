@@ -38,6 +38,33 @@ const REPLY = 'outreach@calldesk.tech';
 
 const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 
+// Mail apps only make text clickable when it starts with http(s)://, so a bare "calldesk.tech/docs" stayed plain text.
+// A full URL, or a bare address on one of our own two domains followed by a path, is a link. An email address is not (the lookbehind
+// skips "@" and word characters), and punctuation that ends a sentence stays outside the link.
+const URL_RE = /(https?:\/\/[^\s<>"]+|(?<![\w@./-])(?:calldesk\.tech|readaloudai\.org)\/[^\s<>"]*)/g;
+const TRAILING_PUNCT = /[.,;:!?)\]]+$/;
+const hrefOf = (core: string) => (/^https?:\/\//i.test(core) ? core : `https://${core}`);
+function splitTrail(u: string): [string, string] {
+  const m = u.match(TRAILING_PUNCT);
+  return m ? [u.slice(0, -m[0].length), m[0]] : [u, ''];
+}
+/** Plain-text version: a bare "calldesk.tech/docs" becomes "https://calldesk.tech/docs" so it is clickable there too. */
+export function withScheme(s: string): string {
+  return s.replace(URL_RE, (u) => { const [core, trail] = splitTrail(u); return hrefOf(core) + trail; });
+}
+/** HTML version: escaped text with every URL as a real link. The visible text of a link is what the writer typed. */
+export function rich(s: string): string {
+  let out = '';
+  let last = 0;
+  for (const m of s.matchAll(URL_RE)) {
+    const idx = m.index ?? 0;
+    const [core, trail] = splitTrail(m[0]);
+    out += esc(s.slice(last, idx)) + `<a href="${esc(hrefOf(core))}" style="color:#2563eb">${esc(core)}</a>` + esc(trail);
+    last = idx + m[0].length;
+  }
+  return out + esc(s.slice(last));
+}
+
 function bullets(kind: ProposalKind): string[] {
   if (kind === 'direct') {
     return [
@@ -66,17 +93,17 @@ export function renderProposal(input: ProposalInput, toEmail: string, postalAddr
   const sections = (input.sections ?? []).slice(0, 3).map((x) => ({ heading: x.heading.trim(), items: x.items.slice(0, 6).map((i) => i.trim()).filter(Boolean) })).filter((x) => x.heading && x.items.length);
   const offer = input.offer && input.offer.heading.trim() && input.offer.text.trim() ? { heading: input.offer.heading.trim(), text: input.offer.text.trim() } : null;
   const extraText = [
-    ...sections.flatMap((x) => ['', `${x.heading}:`, ...x.items.map((i) => `- ${i}`)]),
-    ...(offer ? ['', `${offer.heading}: ${offer.text}`] : []),
+    ...sections.flatMap((x) => ['', `${x.heading}:`, ...x.items.map((i) => `- ${withScheme(i)}`)]),
+    ...(offer ? ['', `${offer.heading}: ${withScheme(offer.text)}`] : []),
   ];
   const extraHtml =
-    sections.map((x) => `<p style="margin:16px 0 6px;font-size:14px;line-height:1.5;color:#1a1d29"><b>${esc(x.heading)}</b></p><ul style="margin:0 0 6px;padding-left:20px">${x.items.map((i) => `<li style="margin:0 0 8px">${esc(i)}</li>`).join('')}</ul>`).join('') +
-    (offer ? `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:520px;margin:16px 0 4px;background-color:#eef6ff;border:1px solid #bfdbfe;border-radius:8px"><tr><td style="padding:12px 14px"><p style="margin:0 0 4px;font-size:13px;font-weight:bold;color:#1e40af">${esc(offer.heading)}</p><p style="margin:0;font-size:14px;line-height:1.5;color:#1a1d29">${esc(offer.text)}</p></td></tr></table>` : '');
+    sections.map((x) => `<p style="margin:16px 0 6px;font-size:14px;line-height:1.5;color:#1a1d29"><b>${esc(x.heading)}</b></p><ul style="margin:0 0 6px;padding-left:20px">${x.items.map((i) => `<li style="margin:0 0 8px">${rich(i)}</li>`).join('')}</ul>`).join('') +
+    (offer ? `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:520px;margin:16px 0 4px;background-color:#eef6ff;border:1px solid #bfdbfe;border-radius:8px"><tr><td style="padding:12px 14px"><p style="margin:0 0 4px;font-size:13px;font-weight:bold;color:#1e40af">${esc(offer.heading)}</p><p style="margin:0;font-size:14px;line-height:1.5;color:#1a1d29">${rich(offer.text)}</p></td></tr></table>` : '');
 
   const text = [
-    hi, '', input.context.trim(), '',
-    input.intro?.trim() ? input.intro.trim() : (input.kind === 'direct' ? 'Here is the short version of what Calldesk does for a business like yours:' : 'Here is the short version of Calldesk:'),
-    ...items.map((i) => `- ${i}`),
+    hi, '', withScheme(input.context.trim()), '',
+    input.intro?.trim() ? withScheme(input.intro.trim()) : (input.kind === 'direct' ? 'Here is the short version of what Calldesk does for a business like yours:' : 'Here is the short version of Calldesk:'),
+    ...items.map((i) => `- ${withScheme(i)}`),
     ...extraText,
     ...(speech ? [
       '',
@@ -93,7 +120,7 @@ export function renderProposal(input: ProposalInput, toEmail: string, postalAddr
     `You're receiving this because you spoke with our team or asked for details. Not interested? Unsubscribe: ${unsub}`,
   ].join('\n');
 
-  const li = items.map((i) => `<li style="margin:0 0 8px">${esc(i)}</li>`).join('');
+  const li = items.map((i) => `<li style="margin:0 0 8px">${rich(i)}</li>`).join('');
   const bar = (label: string, value: string, pct: number, color: string) =>
     `<tr><td style="padding:2px 0 2px;font-size:13px;color:#374151">${esc(label)}</td><td align="right" style="padding:2px 0;font-size:13px;color:#111827;font-weight:bold">${esc(value)}</td></tr>` +
     `<tr><td colspan="2" style="padding:0 0 8px"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>` +
@@ -111,8 +138,8 @@ export function renderProposal(input: ProposalInput, toEmail: string, postalAddr
     : `<p style="margin:18px 0 6px;font-size:14px;line-height:1.5;color:#1a1d29"><b>Next step:</b> ${esc(cta)}.</p>`;
   const html =
     `<div style="font-family:${FONT};font-size:14px;line-height:1.5;color:#1a1d29;max-width:560px">` +
-    `<p style="margin:0 0 10px">${esc(hi)}</p><p style="margin:0 0 10px">${esc(input.context.trim())}</p>` +
-    `<p style="margin:0 0 6px">${esc(introLine)}</p>` +
+    `<p style="margin:0 0 10px">${esc(hi)}</p><p style="margin:0 0 10px">${rich(input.context.trim())}</p>` +
+    `<p style="margin:0 0 6px">${rich(introLine)}</p>` +
     `<ul style="margin:0 0 6px;padding-left:20px">${li}</ul>${extraHtml}${speechHtml}${button}` +
     `<p style="margin:6px 0 14px;font-size:13px;color:#4b5563">Prefer to read? <a href="${DECK_URL}" style="color:#2563eb">See our short deck</a>${input.kind === 'direct' ? ` or <a href="${PRICING_URL}" style="color:#2563eb">the pricing page</a>` : ''}. You can also reach us at ${contact}.</p>` +
     `<p style="margin:0">Thanks,<br/>The Calldesk team</p>` +
