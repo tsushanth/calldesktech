@@ -24,7 +24,8 @@ export async function POST(req: NextRequest) {
   if (!(await linkTenant(locationId, tenant.id))) return NextResponse.json({ error: 'No active HighLevel install for this link. Install the app again from HighLevel.' }, { status: 409 });
   // If this sub-account was linked to another workspace before, its trigger webhooks follow the link.
   await moveSubscriptionsToTenant(locationId, tenant.id).catch((e) => console.error('[highlevel] could not move trigger subscriptions:', e instanceof Error ? e.message : 'error'));
-  const done = new URL('/highlevel/link', req.nextUrl.origin);
+  // The public origin, not req.nextUrl.origin: behind the Fly proxy the request URL says http://0.0.0.0:3000.
+  const done = new URL('/highlevel/link', new URL(process.env.HIGHLEVEL_REDIRECT_URI || 'https://calldesk.tech/').origin);
   done.searchParams.set('done', '1');
   return NextResponse.redirect(done.toString(), 303);
 }

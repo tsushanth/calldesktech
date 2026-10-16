@@ -172,6 +172,7 @@ describe('POST /api/highlevel/link', () => {
     expect(r.status).toBe(303);
     expect(linkTenant).toHaveBeenCalledWith('loc_1', 't1');
     expect(moveSubscriptionsToTenant).toHaveBeenCalledWith('loc_1', 't1');
+    expect(loc(r).origin).toBe('https://calldesk.tech'); // never the internal address the request arrived on
     expect(loc(r).pathname).toBe('/highlevel/link');
     expect(loc(r).searchParams.get('done')).toBe('1');
   });
