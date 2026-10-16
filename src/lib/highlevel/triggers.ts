@@ -8,6 +8,8 @@ import { generateWebhookSecret } from '@/lib/webhooks';
 // Trigger filters are not applied here: a workflow filters on the delivered fields with its own If/Else step.
 
 export const CALL_COMPLETED_KEY = 'call_completed';
+// HighLevel keeps trigger keys unique across marketplace apps, so the portal may refuse the short key; the prefixed key is the same trigger.
+export const CALL_COMPLETED_KEYS: readonly string[] = [CALL_COMPLETED_KEY, 'calldesk_call_completed'];
 const SUBS = 'calldesk_highlevel_trigger_subscriptions';
 const HL_HOST = 'services.leadconnectorhq.com';
 const EXECUTE_PREFIX = '/workflows-marketplace/triggers/execute/';
@@ -40,7 +42,7 @@ export async function applySubscription(evt: SubscriptionEvent, tenantId: string
   const t = evt.triggerData ?? {};
   const triggerId = typeof t.id === 'string' ? t.id : '';
   if (!triggerId) return { ok: false, status: 400, error: 'triggerData.id is missing' };
-  if (t.key !== CALL_COMPLETED_KEY) return { ok: false, status: 400, error: `Unknown trigger key (expected ${CALL_COMPLETED_KEY})` };
+  if (typeof t.key !== 'string' || !CALL_COMPLETED_KEYS.includes(t.key)) return { ok: false, status: 400, error: `Unknown trigger key (expected ${CALL_COMPLETED_KEYS.join(' or ')})` };
   const db = getSupabaseAdmin();
 
   if (t.eventType === 'DELETED') {
