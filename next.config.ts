@@ -1,5 +1,6 @@
 import type { NextConfig } from "next";
 import { compareRedirectsFromDisk } from "./src/lib/seoLibrary/redirects";
+import { SITE_REDIRECTS } from "./src/lib/siteRedirects";
 
 const nextConfig: NextConfig = {
   output: 'standalone', // Required for Docker deployment
@@ -28,7 +29,7 @@ const nextConfig: NextConfig = {
   // Old hand-written /compare/<slug> pages 308-redirect to the sourced /compare/calldesk-vs-<slug> page, but only while that page is
   // published in src/content/publish.json (read at build time). Unpublished: the old page is served as before.
   async redirects() {
-    return compareRedirectsFromDisk();
+    return [...compareRedirectsFromDisk(), ...SITE_REDIRECTS];
   },
   async rewrites() {
     return [{ source: '/api/v1/:path*', destination: '/api/:path*' }];
