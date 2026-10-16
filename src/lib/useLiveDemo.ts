@@ -10,6 +10,11 @@ import { getCallLoopWsUrl } from '@/lib/voiceEngine';
 import { demoTtsFields, demoAudioFields } from '@/lib/demoVoice';
 import { track } from '@/components/Analytics';
 
+/** Milliseconds of already-received audio still waiting to play, given the scheduled end of playback and the audio clock. */
+export function playbackRemainingMs(playHead: number, currentTime: number): number {
+  return Math.max(0, Math.ceil((playHead - currentTime) * 1000));
+}
+
 export type DemoMessage = { id: number; role: 'caller' | 'agent'; text: string };
 export type DemoStatus = 'idle' | 'connecting' | 'live' | 'ended';
 export type MicState = 'off' | 'asking' | 'on' | 'blocked';
@@ -96,6 +101,8 @@ export function useLiveDemo(config?: LiveDemoConfig) {
   // the examples with the message instead of showing a finished call.
   const blockedRef = useRef(false);
   const statusRef = useRef<DemoStatus>('idle');
+  // Set while the call has ended on the server but its last audio is still playing out.
+  const drainTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   // Kept in step with `status` so callbacks can read the current value.
   const updateStatus = useCallback((next: DemoStatus) => {
     statusRef.current = next;
@@ -174,6 +181,7 @@ export function useLiveDemo(config?: LiveDemoConfig) {
   }, []);
 
   const teardown = useCallback(() => {
+    if (drainTimerRef.current) { clearTimeout(drainTimerRef.current); drainTimerRef.current = null; }
     stopMic();
     stopPlayback();
     const ws = wsRef.current;
@@ -278,9 +286,20 @@ export function useLiveDemo(config?: LiveDemoConfig) {
       };
 
       ws.onerror = () => setError("Couldn't reach the demo. Check your connection and try again.");
-      ws.onclose = () => finish();
+      ws.onclose = () => {
+        // The server closes the socket as soon as the agent has finished, but its audio arrives faster than it plays, so the last
+        // seconds are still queued here. Tearing down the audio now would cut the final sentence off: let it play out first.
+        const ctx = ctxRef.current;
+        const remaining = ctx ? playbackRemainingMs(playHeadRef.current, ctx.currentTime) : 0;
+        if (remaining > 250 && statusRef.current === 'live' && !blockedRef.current) {
+          stopMic();
+          drainTimerRef.current = setTimeout(() => { drainTimerRef.current = null; finish(); }, Math.min(remaining + 400, 20_000));
+          return;
+        }
+        finish();
+      };
     },
-    [addMessage, finish, playPCM16, startMic, stopPlayback, updateStatus]
+    [addMessage, finish, playPCM16, startMic, stopMic, stopPlayback, updateStatus]
   );
 
   const sendText = useCallback(
