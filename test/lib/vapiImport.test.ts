@@ -85,6 +85,24 @@ describe('vapiAssistantToFlow: a full assistant', () => {
     expect(call.edges[0]).toMatchObject({ condition: 'always', target: 'main' });
     expect(r.nodes.find((n) => n.id === 'main')!.edges.some((e) => e.target === 'check_availability_collect' && e.condition === 'Check open appointment slots.')).toBe(true);
   });
+  it('writes argument types, allowed values and required flags into the collect prompt', () => {
+    const r2 = ok({
+      model: { messages: [sys('Book visits.')], tools: [{
+        type: 'function', server: { url: 'https://example.com/h' },
+        function: { name: 'book', description: 'Book a visit.', parameters: { type: 'object', required: ['party_size', 'room'], properties: {
+          party_size: { type: 'integer', description: 'How many people' },
+          room: { type: 'string', enum: ['a', 'b'] },
+          note: { type: 'string' },
+        } } },
+      }] },
+    });
+    const collect = r2.nodes.find((n) => n.id === 'book_collect')!;
+    expect(collect.extract).toEqual({ party_size: 'string', room: 'string', note: 'string' });
+    expect(collect.prompt).toContain('- party_size (integer, required): How many people');
+    expect(collect.prompt).toContain('- room (one of: a, b, required)');
+    expect(collect.prompt).toContain('- note (string, optional)');
+    assertWellFormed(r2);
+  });
   it('carries over language and limits', () => {
     expect(r.settings).toEqual({ language: 'es', maxCallDurationSec: 420, endCallAfterSilenceSec: 30 });
   });
