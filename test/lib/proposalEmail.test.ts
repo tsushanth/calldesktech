@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeAll } from 'vitest';
-import { renderProposal } from '@/lib/outreach/proposalEmail';
+import { renderProposal, withScheme, rich } from '@/lib/outreach/proposalEmail';
 import { sendManualReply } from '@/lib/outreach/manualSend';
 
 beforeAll(() => { vi.stubEnv('UNSUBSCRIBE_SECRET', 'test-secret'); });
@@ -100,5 +100,43 @@ describe('contact line', () => {
     expect(r.html).toContain('You can also reach us at outreach@calldesk.tech.');
     expect(r.text).not.toContain('425');
     expect(r.html).not.toContain('425');
+  });
+});
+
+
+describe('links in the message text', () => {
+  it('withScheme gives a bare address on our domains with a path an https:// prefix, and leaves everything else alone', () => {
+    expect(withScheme('Details at calldesk.tech/pricing.')).toBe('Details at https://calldesk.tech/pricing.');
+    expect(withScheme('docs: readaloudai.org/integrations/vapi, then')).toBe('docs: https://readaloudai.org/integrations/vapi, then');
+    expect(withScheme('already https://calldesk.tech/docs fine')).toBe('already https://calldesk.tech/docs fine');
+    expect(withScheme('write to outreach@calldesk.tech')).toBe('write to outreach@calldesk.tech');
+    expect(withScheme('we are Calldesk (calldesk.tech), hello')).toBe('we are Calldesk (calldesk.tech), hello');
+    expect(withScheme('notcalldesk.tech/x and mycalldesk.tech/x')).toBe('notcalldesk.tech/x and mycalldesk.tech/x');
+  });
+  it('rich turns full and bare URLs into links, keeps sentence punctuation outside, and escapes the rest', () => {
+    expect(rich('Docs at calldesk.tech/docs.')).toBe('Docs at <a href="https://calldesk.tech/docs" style="color:#2563eb">calldesk.tech/docs</a>.');
+    expect(rich('See https://calldesk.tech/talk/abc_DEF-1 (try it)')).toBe('See <a href="https://calldesk.tech/talk/abc_DEF-1" style="color:#2563eb">https://calldesk.tech/talk/abc_DEF-1</a> (try it)');
+    expect(rich('mail outreach@calldesk.tech')).toBe('mail outreach@calldesk.tech');
+    expect(rich('R&D <b> "x"')).toBe('R&amp;D &lt;b&gt; &quot;x&quot;');
+    expect(rich('no links here')).toBe('no links here');
+  });
+  it('a URL with a query string keeps it, escaped in the attribute', () => {
+    expect(rich('go https://calldesk.tech/a?x=1&y=2.')).toBe('go <a href="https://calldesk.tech/a?x=1&amp;y=2" style="color:#2563eb">https://calldesk.tech/a?x=1&amp;y=2</a>.');
+  });
+  it('a rendered proposal links the docs bullet, the offer link and the context, in html and text', () => {
+    const r = renderProposal({
+      ...base, context: 'More at calldesk.tech/docs.', bullets: ['API docs at calldesk.tech/docs.', 'Partners: https://calldesk.tech/partners'],
+      offer: { heading: 'Try it', text: 'In your browser: https://calldesk.tech/talk/xyz .' }, bookingUrl: 'https://cal.com/x/y',
+    }, 'a@b.com', ADDR);
+    expect(r.html).toContain('<a href="https://calldesk.tech/docs" style="color:#2563eb">calldesk.tech/docs</a>');
+    expect(r.html).toContain('<a href="https://calldesk.tech/partners"');
+    expect(r.html).toContain('<a href="https://calldesk.tech/talk/xyz"');
+    expect(r.text).toContain('- API docs at https://calldesk.tech/docs.');
+    expect(r.text).toContain('More at https://calldesk.tech/docs.');
+    expect(r.text).not.toMatch(/[^\x09\x0A\x20-\x7E]/);
+  });
+  it('the default direct bullets link their pricing address too', () => {
+    const r = renderProposal({ kind: 'direct', context: 'Thanks for the call.' }, 'a@b.com', ADDR);
+    expect(r.html).toContain('<a href="https://calldesk.tech/pricing" style="color:#2563eb">calldesk.tech/pricing</a>');
   });
 });
