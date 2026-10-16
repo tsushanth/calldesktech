@@ -22,7 +22,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   if (!DEMO_SLUG.test(slug)) return notFound();
 
   const db = getSupabaseAdmin();
-  const { data: link } = await db.from('calldesk_demo_links').select('slug, label, max_seconds, expires_at, enabled, agent_version_id').eq('slug', slug).maybeSingle();
+  const { data: link } = await db.from('calldesk_demo_links').select('slug, label, max_seconds, expires_at, enabled, agent_version_id, voice_options').eq('slug', slug).maybeSingle();
   if (!link || !isLinkLive(link as DemoLinkRow)) return notFound();
 
   const { data: version } = await db.from('calldesk_agent_versions').select('tts_backend, tts_model, voice_id, llm_model, flow_id').eq('id', (link as { agent_version_id: string }).agent_version_id).maybeSingle();

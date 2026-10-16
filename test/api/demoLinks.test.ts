@@ -23,6 +23,23 @@ beforeEach(() => {
   rows.calldesk_conversation_flows = { nodes: [{ id: 'opening', type: 'greeting', prompt: 'hi' }], global_settings: { startNodeId: 'opening' } };
 });
 
+describe('GET /api/demo-links/[slug] voice options', () => {
+  it('returns the voices and a default when the link offers two or more', async () => {
+    rows.calldesk_demo_links = { ...(rows.calldesk_demo_links as Record<string, unknown>), voice_options: [
+      { key: 'nz', label: 'New Zealand', voice_id: '7R9vnLAE0ZSpY0xWp0mv' },
+      { key: 'au', label: 'Australian', voice_id: 'voice1abcdefgh' },
+    ] };
+    rows.calldesk_agent_versions = { ...(rows.calldesk_agent_versions as Record<string, unknown>), voice_id: 'voice1abcdefgh' };
+    const j = await (await get(SLUG)).json();
+    expect(j.voices.map((v: { key: string }) => v.key)).toEqual(['nz', 'au']);
+    expect(j.defaultVoiceKey).toBe('au');
+  });
+  it('returns no voices field for a link without options', async () => {
+    const j = await (await get(SLUG)).json();
+    expect(j.voices).toBeUndefined();
+  });
+});
+
 describe('GET /api/demo-links/[slug]', () => {
   it('returns the flow, voice and time cap, uncached, with nothing that identifies a workspace', async () => {
     const r = await get(SLUG);
