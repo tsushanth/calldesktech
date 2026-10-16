@@ -18,7 +18,7 @@ const MESSAGES: Record<string, string> = {
 
 function Shell({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <main className="mx-auto max-w-md px-6 py-24">
+    <main className="mx-auto max-w-md px-6 py-16">
       <h1 className="text-2xl font-semibold tracking-tight text-[#00122e]">{title}</h1>
       {children}
     </main>
