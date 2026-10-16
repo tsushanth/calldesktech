@@ -24,6 +24,8 @@ export interface ManualReplyInput {
   inReplyTo?: string;
   leadId?: string;
   bcc?: string[];
+  /** Visible copies, up to 3 (for replying to a thread that already copied someone). */
+  cc?: string[];
   allowNonAscii?: boolean;
   /** Send a formatted proposal (calldesk brand only) instead of a plain body; `body` is then ignored. */
   proposal?: ProposalInput;
@@ -37,6 +39,7 @@ export interface ValidReply {
   inReplyTo?: string;
   leadId?: string;
   bcc: string[];
+  cc: string[];
   html?: string;
 }
 
@@ -65,7 +68,9 @@ export function validateReply(
   const bccRaw = input?.bcc ?? (env.OUTREACH_REPLY_BCC ? env.OUTREACH_REPLY_BCC.split(',') : adminEmails().slice(0, 1));
   const bcc = bccRaw.map((e) => e.trim().toLowerCase()).filter(Boolean);
   if (bcc.length > 3 || bcc.some((e) => !EMAIL_RE.test(e))) return { ok: false, error: 'bcc must be up to 3 valid email addresses' };
-  return { ok: true, value: { to, subject, body, brand, inReplyTo: input?.inReplyTo, leadId: input?.leadId, bcc } };
+  const cc = (input?.cc ?? []).map((e) => String(e).trim().toLowerCase()).filter(Boolean);
+  if (cc.length > 3 || cc.some((e) => !EMAIL_RE.test(e) || e === to)) return { ok: false, error: 'cc must be up to 3 valid email addresses, none the same as to' };
+  return { ok: true, value: { to, subject, body, brand, inReplyTo: input?.inReplyTo, leadId: input?.leadId, bcc, cc } };
 }
 
 const escapeHtml = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
@@ -107,19 +112,22 @@ export async function sendManualReply(
   if (!from) return { ok: false, error: `${cfg.from} is not configured` };
   const replyTo = env[cfg.replyTo] || from.match(/<(.+)>/)?.[1] || from;
 
-  const { data: suppressed } = await db.from('calldesk_outreach_suppressions').select('email').eq('email', r.to).maybeSingle();
-  if (suppressed) return { ok: false, error: 'Recipient has unsubscribed or is suppressed' };
+  for (const addr of [r.to, ...r.cc]) {
+    const { data: suppressed } = await db.from('calldesk_outreach_suppressions').select('email').eq('email', addr).maybeSingle();
+    if (suppressed) return { ok: false, error: 'Recipient has unsubscribed or is suppressed' };
+  }
 
   const headers: Record<string, string> = { 'List-Unsubscribe': `<${oneClickUnsubscribeUrl(r.to)}>`, 'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click' };
   if (r.inReplyTo) { headers['In-Reply-To'] = r.inReplyTo; headers['References'] = r.inReplyTo; }
   const result = await send({
     to: r.to, subject: r.subject, html: proposalHtml ?? replyHtml(r.body), text: r.body, from, replyTo, headers,
     ...(r.bcc.length ? { bcc: r.bcc } : {}),
+    ...(r.cc.length ? { cc: r.cc } : {}),
     apiKey: (cfg.apiKey && env[cfg.apiKey]) || undefined,
   });
 
   const { error: logError } = await db.from('calldesk_outreach_manual_sends').insert({
-    brand: r.brand, to_email: r.to, subject: r.subject, body_text: r.body, from_email: from, reply_to: replyTo, bcc: r.bcc,
+    brand: r.brand, to_email: r.to, subject: r.subject, body_text: r.body, from_email: from, reply_to: replyTo, bcc: r.bcc, cc: r.cc,
     in_reply_to: r.inReplyTo ?? null, lead_id: r.leadId ?? null, status: result.ok ? 'sent' : 'failed',
     resend_id: result.id ?? null, error: result.ok ? null : result.error ?? 'send failed', sent_by: opts.sentBy ?? null,
   });
