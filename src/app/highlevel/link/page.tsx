@@ -2,7 +2,7 @@ import { redirect } from 'next/navigation';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { getSupabaseAdmin } from '@/lib/supabase';
-import { verifyLinkToken } from '@/lib/highlevel/crypto';
+import { signLinkToken, verifyLinkToken, verifyPickToken } from '@/lib/highlevel/crypto';
 import { installUrl } from '@/lib/highlevel/oauth';
 
 export const dynamic = 'force-dynamic';
@@ -39,6 +39,21 @@ export default async function HighLevelLinkPage({ searchParams }: { searchParams
             <a href={again} className="mt-6 inline-block rounded-md bg-[#00122e] px-5 py-2.5 text-[14px] font-medium text-white hover:bg-[#0a2450]">Choose a sub-account</a>
           </>
         )}
+      </Shell>
+    );
+  }
+  const pick = sp.pick ? verifyPickToken(sp.pick) : null;
+  if (pick) {
+    return (
+      <Shell title="Choose a sub-account">
+        <p className="mt-3 text-gray-600">The app was installed for several HighLevel sub-accounts. Choose the one to connect to Calldesk now; come back to this page for the others.</p>
+        <ul className="mt-6 space-y-3">
+          {pick.map((l) => (
+            <li key={l.id}>
+              <a href={`/highlevel/link?token=${encodeURIComponent(signLinkToken(l.id))}`} className="block rounded-md border border-gray-300 px-4 py-3 text-[15px] text-[#00122e] hover:bg-gray-50">{l.name}</a>
+            </li>
+          ))}
+        </ul>
       </Shell>
     );
   }
