@@ -70,9 +70,10 @@ function overDailyLimit(): boolean {
 }
 
 export function useLiveDemo(config?: LiveDemoConfig) {
-  // Read through a ref so a config object created on each render does not recreate the callbacks.
+  // Read through a ref so a config object created on each render does not recreate the callbacks. Updated after render
+  // (start() only runs from a user action, long after the effect has run).
   const configRef = useRef(config);
-  configRef.current = config;
+  useEffect(() => { configRef.current = config; }, [config]);
   const maxSeconds = config?.maxSeconds ?? INTRO_MAX_SECONDS;
   const [status, setStatus] = useState<DemoStatus>('idle');
   const [messages, setMessages] = useState<DemoMessage[]>([]);
