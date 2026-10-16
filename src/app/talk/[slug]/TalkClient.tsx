@@ -43,7 +43,7 @@ const PRIMARY = `${BTN} bg-[#00122e] text-white hover:bg-[#0a2450]`;
 const SECONDARY = `${BTN} border border-transparent bg-[#f0f0f8] text-[#00122e] hover:bg-[#e6e6f2]`;
 
 function Call({ cfg }: { cfg: Loaded }) {
-  const config = useMemo<LiveDemoConfig>(() => ({ flow: cfg.flow, context: cfg.context, maxSeconds: cfg.maxSeconds, eventPrefix: 'demo_link' }), [cfg]);
+  const config = useMemo<LiveDemoConfig>(() => ({ flow: cfg.flow, context: cfg.context, maxSeconds: cfg.maxSeconds, eventPrefix: 'demo_link', noDailyLimit: true }), [cfg]);
   const live = useLiveDemo(config);
   const [text, setText] = useState('');
   const logRef = useRef<HTMLDivElement>(null);
