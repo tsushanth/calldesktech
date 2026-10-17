@@ -64,8 +64,8 @@ describe('installUrl', () => {
     expect(u.searchParams.get('response_type')).toBe('code');
     expect(u.searchParams.get('client_id')).toBe(E.HIGHLEVEL_CLIENT_ID);
     expect(u.searchParams.get('redirect_uri')).toBe(E.HIGHLEVEL_REDIRECT_URI);
-    expect(u.searchParams.get('scope')).toBe('contacts.readonly contacts.write workflows.readonly oauth.readonly oauth.write');
-    expect(installUrl(E)).toContain('scope=contacts.readonly%20contacts.write%20workflows.readonly%20oauth.readonly%20oauth.write');
+    expect(u.searchParams.get('scope')).toBe('oauth.readonly oauth.write');
+    expect(installUrl(E)).toContain('scope=oauth.readonly%20oauth.write');
   });
   it('adds the draft version id until the app is published', () => {
     expect(new URL(installUrl(E)!).searchParams.get('version_id')).toBe('6ad125dffee3063416b87588');

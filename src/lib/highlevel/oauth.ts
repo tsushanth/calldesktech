@@ -76,9 +76,10 @@ export function refreshTokens(refreshToken: string, env: Env = process.env, fetc
   return tokenRequest({ grant_type: 'refresh_token', refresh_token: refreshToken }, env, fetchImpl);
 }
 
-// oauth.readonly and oauth.write are for agency installs: HighLevel hands the app one agency-wide token, and these let it list the
-// sub-accounts that were approved and turn the agency token into a token for each one.
-export const HIGHLEVEL_SCOPES = ['contacts.readonly', 'contacts.write', 'workflows.readonly', 'oauth.readonly', 'oauth.write'] as const;
+// Only what the app uses. oauth.readonly and oauth.write are for agency installs: HighLevel hands the app one agency-wide token, and these let it
+// list the sub-accounts that were approved and turn the agency token into a token for each one. The workflow action gets the contact's phone and
+// name in the request body, so no contact or workflow scope is needed; add one only together with code that calls the API with it.
+export const HIGHLEVEL_SCOPES = ['oauth.readonly', 'oauth.write'] as const;
 
 const API = 'https://services.leadconnectorhq.com';
 const API_VERSION = '2021-07-28';
