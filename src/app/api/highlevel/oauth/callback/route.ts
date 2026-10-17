@@ -18,11 +18,20 @@ function pageUrl(query: Record<string, string>): string {
  * An agency install arrives as one Company token with no sub-account. List the sub-accounts the agency approved and store a token for each,
  * using the agency token (which is not kept). Returns the sub-accounts that were stored.
  */
+const RETRY_WAITS_MS = process.env.NODE_ENV === 'test' ? [0, 0] : [1500, 3000];
+
 async function storeAgencyInstall(tokens: HighLevelTokens): Promise<Array<{ id: string; name: string }>> {
   const companyId = tokens.companyId!;
+  // HighLevel can take a few seconds to report a fresh install, so the installed-only list may be empty right after the redirect: ask again.
   let locations = await listInstalledLocations(tokens.access_token, companyId);
   const installedCount = locations.length;
-  if (!locations.length && tokens.approveAllLocations) locations = await listInstalledLocations(tokens.access_token, companyId, process.env, fetch, false);
+  for (const wait of RETRY_WAITS_MS) {
+    if (locations.length) break;
+    await new Promise((r) => setTimeout(r, wait));
+    locations = await listInstalledLocations(tokens.access_token, companyId);
+  }
+  // Still nothing: list every sub-account and try each. A location token is only issued where the app is installed, so a failure just skips it.
+  if (!locations.length) locations = await listInstalledLocations(tokens.access_token, companyId, process.env, fetch, false);
   console.info('[highlevel] agency install: sub-accounts found', { installedOnly: installedCount, used: locations.length, approveAll: tokens.approveAllLocations ?? null });
   const stored: Array<{ id: string; name: string }> = [];
   for (const l of locations) {
