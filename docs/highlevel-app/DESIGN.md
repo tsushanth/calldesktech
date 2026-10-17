@@ -63,4 +63,4 @@ The recipe needs an agency to paste two workflows and an API key. An app is: ins
 Total: about a week of focused work for a working private app. Public listing adds HighLevel's review time.
 
 ## Owner steps in the HighLevel developer portal
-Create a developer account and an app (start as a private app), set the redirect URL, scopes (contacts.readonly, contacts.write, workflows.readonly), and a shared secret header for actions and triggers. Share the client id and secret through a secrets channel, never in chat or the repo.
+Create a developer account and an app (start as a private app), set the redirect URL, scopes (oauth.readonly and oauth.write only; the action needs no contact or workflow scope), and a shared secret header for actions and triggers. Share the client id and secret through a secrets channel, never in chat or the repo.
